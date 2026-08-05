@@ -7,7 +7,7 @@
 
 - `VisualEffects` autoload 只加载、索引 `visual_effects.json` / `presentation_profiles.json` 并发布闪屏 / 震屏许可策略；它不持有当前战斗世界。
 - 每局 `VfxHost` 管理地面、世界和屏幕层，负责实例化、附着、取消、完成与回池；`GameplayFeedbackController` 把业务 cue 解析成视觉、音频和相机反馈。
-- 角色表现由 `ActorPresentationController + AnimationPlayer` 承接；带 Shader Visual 的正式玩家优先通过可选 `set_presentation_state(tint, alpha, scale)` 接口接收表现状态，无该接口的敌人继续走 Body / Outline 回退。玩家 / 敌人业务脚本不再维护受击颜色计时、死亡缩放插值或直接生成命中反馈。
+- 角色表现由 `ActorPresentationController + AnimationPlayer` 承接；所有正式角色的 `Visual` 必须实现 `set_presentation_state(tint, alpha, scale)` 并自行完整应用表现状态。控制器不直接修改 `Body` / `Outline`，也不保留旧角色回退。玩家 / 敌人业务脚本不再维护受击颜色计时、死亡缩放插值或直接生成命中反馈。
 - 正式效果是可继承、可编辑的 `PackedScene` 或受控 target-animation preset。程序几何只能作为 Ring、Arc、Wedge、RectTelegraph、RayBurst、ShockRing、RibbonTrail、ShardBurst、SegmentedShell、FocusTicks 等组合模板内部骨架，不能作为 catalog 裸资源。
 - 当前不引入离线 3D、AI / DCC 预渲染或节点式 VFX Graph；命中停顿字段只保留数据接口，不驱动 `GameClock`。
 
@@ -21,6 +21,7 @@
 | `client/scripts/vfx/` | request、handle、ref、preset、实例生命周期与精选几何骨架 |
 | `client/scripts/gameplay/presentation/` | `VfxHost`、语义反馈路由、角色表现控制器 |
 | `client/scripts/gameplay/presentation/player_slime_visual.gd` | 正式玩家双涡旋 Shader、20/100 有界软体边界、主色轮廓 / 湿润边 / 朝向短束与表现接口 |
+| `client/scripts/gameplay/presentation/enemy_presentation_visual.gd` | 正式敌人共享表现接口；更新 Body tint、完整 Visual alpha 与 scale |
 | `client/scenes/vfx/composites/` | 正式组合效果场景 |
 | `client/resources/vfx/presets/` | target-animation preset |
 | `client/resources/vfx/curves/` | 飘字位移、透明度与缩放等可复用节奏 Curve；业务只采样，不手写插值曲线 |
@@ -99,9 +100,9 @@ VfxAnchors
 
 ADR #183 后正式 Player 的挂点固定为 `Ground=(0,25)`、`Overhead=(0,-36)`、`Forward/Muzzle=(38,0)`，角色世界文字为 `(0,-58)`。基础玩家武器与朝向短束终点同为 38 px；敌人挂点与 24 px 枪口规则不随本条改变。
 
-### Shader Visual 表现接口
+### 角色 Visual 表现接口
 
-`ActorPresentationController` 在每次刷新受击、退场 tint / alpha / scale 时，若 `Visual` 实现 `set_presentation_state(Color, float, Vector2)`，只调用该接口并停止默认 Body / Outline 路径。接口实现必须一次性更新其全部 Shader / Line2D 子表现，并在恢复时接受 `Color.WHITE`、`1.0`、`Vector2.ONE`；不得重复乘透明度、重配角色 palette 或创建节点 / 材质。没有该接口的现有 Polygon 敌人继续使用原回退行为。
+`ActorPresentationController` 在每次刷新受击、退场 tint / alpha / scale 时，只调用 `Visual.set_presentation_state(Color, float, Vector2)`。接口是所有正式 Player / Enemy 场景的强制契约；缺失时控制器报错并停止刷新，不猜测子节点路径、不直接改 `Body` / `Outline`，也不提供旧角色兼容回退。实现必须一次性更新其全部 Shader / Polygon2D / Line2D 子表现，并在恢复时接受基础 tint、`1.0` alpha 与基础 scale；不得重复乘透明度、重配角色 palette 或创建节点 / 材质。正式玩家由 `PlayerSlimeVisual` 实现，五种继承敌人由 `enemy_base.tscn` 上的 `EnemyPresentationVisual` 统一实现。
 
 ## 技术边界
 

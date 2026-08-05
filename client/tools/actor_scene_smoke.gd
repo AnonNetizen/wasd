@@ -258,7 +258,7 @@ func _validate_player_visual(
 		actor.get_node_or_null("Presentation") as ActorPresentationController
 	)
 	if presentation != null and material != null:
-		presentation.configure_visual(Color.WHITE, Color("ff574f"), Color("7d4cff"), 1.0)
+		presentation.configure_visual(Color.WHITE, Color("ff574f"), Color("7d4cff"))
 		presentation.set("hit_progress", 0.5)
 		_expect(
 			(material.get_shader_parameter("presentation_tint") as Color).is_equal_approx(Color("ff574f")),
@@ -416,13 +416,55 @@ func _validate_enemy_configuration(enemy_row: Dictionary) -> void:
 	var presentation: ActorPresentationController = (
 		enemy.get_node_or_null("Presentation") as ActorPresentationController
 	)
-	if presentation != null and body != null:
-		var fallback_hit := Color("ff574f")
-		presentation.configure_visual(original_color, fallback_hit, fallback_hit, 1.0)
+	var visual: Node2D = enemy.get_node_or_null("Visual") as Node2D
+	_expect(
+		not _has_property(enemy, &"outline_alpha"),
+		"%s Enemy should not expose the removed outline_alpha fallback property"
+		% enemy_row.get("id", "")
+	)
+	if presentation != null:
+		for legacy_property: StringName in [
+			&"body_path",
+			&"outline_path",
+			&"eye_outline_path",
+		]:
+			_expect(
+				not _has_property(presentation, legacy_property),
+				"%s Presentation should not expose removed fallback property %s"
+				% [enemy_row.get("id", ""), legacy_property]
+			)
+	_expect(
+		visual != null and visual.has_method("set_presentation_state"),
+		"%s Visual should implement the mandatory presentation interface"
+		% enemy_row.get("id", "")
+	)
+	if presentation != null and body != null and visual != null:
+		var interface_hit := Color("ff574f")
+		var base_visual_scale: Vector2 = visual.scale
+		presentation.configure_visual(
+			original_color,
+			interface_hit,
+			interface_hit,
+			base_visual_scale
+		)
 		presentation.set("hit_progress", 0.5)
 		_expect(
-			body.color.is_equal_approx(fallback_hit),
-			"%s non-Shader presentation fallback should remain intact" % enemy_row.get("id", "")
+			body.color.is_equal_approx(interface_hit),
+			"%s presentation interface should apply hit tint"
+			% enemy_row.get("id", "")
+		)
+		presentation.set("hit_progress", -1.0)
+		presentation.set("defeat_progress", 0.5)
+		_expect(
+			visual.modulate.a < 1.0,
+			"%s presentation interface should fade the complete Visual"
+			% enemy_row.get("id", "")
+		)
+		_expect(
+			absf(visual.scale.x) > absf(base_visual_scale.x)
+			and absf(visual.scale.y) > absf(base_visual_scale.y),
+			"%s presentation interface should apply defeat scale"
+			% enemy_row.get("id", "")
 		)
 		presentation.reset_presentation()
 	enemy.free()
@@ -559,6 +601,13 @@ func _dictionary_array(raw_value: Variant) -> Array[Dictionary]:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _has_property(target: Object, property_name: StringName) -> bool:
+	for property_data: Dictionary in target.get_property_list():
+		if StringName(property_data.get("name", "")) == property_name:
+			return true
+	return false
 
 
 func _color_rgb_close(left: Color, right: Color) -> bool:

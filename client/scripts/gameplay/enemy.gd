@@ -61,7 +61,6 @@ const TARGET_MODE_PLAYER: String = "player"
 @export var fill_color: Color = Color(1.0, 0.38, 0.32)
 @export var defeat_feedback_color: Color = Color(1.0, 0.62, 0.22)
 @export var hit_flash_color: Color = Color(1.0, 0.96, 0.74)
-@export_range(0.0, 1.0, 0.01) var outline_alpha: float = 0.88
 
 var _actions: Array[Dictionary] = []
 var _action_state: String = ""
@@ -1971,7 +1970,6 @@ func _refresh_visuals() -> void:
 		fill_color,
 		hit_flash_color,
 		defeat_feedback_color,
-		outline_alpha,
 		Vector2(radius * _facing_sign, radius)
 	)
 	_refresh_attack_visuals()

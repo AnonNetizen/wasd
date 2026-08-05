@@ -2,15 +2,16 @@
   "schema_version": 1,
   "updated_at": "2026-08-05",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #184 已完全删除正式游戏枪口闪光：visual_effects catalog 由 19 项降至 18 项，玩家武器与突击枪手 profile 不再绑定枪口视觉，专用 VFX 池从词表和生成契约删除；玩家 weapon_fire 只保留 weapon_recoil_shake，突击枪手仍按 0.32 秒静默前摇与固定四发点射运行。ADR #183 的 25 px 双涡旋 Player、38 px Muzzle / FacingBeam、主副 primary Shader、连续五点开火形变和 HUD 配色继续有效，均不属于枪口闪光。Run v11、Replay v3、Meta v2 与游戏 v1.10 不变；data fingerprint 更新为 d95cd1ec…8caa，四条 Replay v3 除该指纹外与变更前语义完全相等并全部重跑通过。正式游戏内无枪口闪光、双涡旋辨识度、玩家与 12px 子弹区分和形变手感仍待用户人工验收；AI 不代验。",
-  "latest_adr": 184,
+  "current_status": "ADR #185 已完整删除旧角色表现回退：正式 Player / Enemy 的 Visual 必须实现 set_presentation_state(tint, alpha, scale)，ActorPresentationController 只计算并转发受击 / 退场 tint、alpha、scale，缺接口直接报错，不再查找或修改 Body / Outline / EyeOutline。PlayerSlimeVisual 保持现有 Shader 实现；enemy_base.tscn 挂载共享 EnemyPresentationVisual，五种继承敌人统一更新 Body tint、完整 Visual alpha 与 scale。configure_visual 的 outline_alpha 参数和 Enemy 同名导出属性已删除，不提供兼容层。ADR #184 无枪口闪光与 ADR #183 的 25 px 双涡旋 / primary-only / 38 px Muzzle / FacingBeam 继续有效。Run v11、Replay v3、Meta v2、游戏 v1.10、数据 schema 与 data fingerprint d95cd1ec…8caa 不变；正式视觉仍待用户人工验收，AI 不代验。",
+  "latest_adr": 185,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #185 / 删除旧角色表现回退：ActorPresentationController 只调用正式 Visual 的强制 set_presentation_state(Color, float, Vector2)，缺接口报错停止；删除 Body / Outline / EyeOutline 节点路径、直写逻辑、configure_visual.outline_alpha 和 Enemy.outline_alpha。PlayerSlimeVisual 继续处理玩家 Shader；enemy_base.tscn 的 EnemyPresentationVisual 覆盖五种继承敌人的 Body tint、完整 Visual alpha 与 scale。Run v11、Replay v3、Meta v2、游戏 v1.10、数据 schema 与 data fingerprint 不变。",
     "ADR #184 / 完全删除正式枪口闪光：删除 weapon muzzle flash catalog 条目、玩家武器与突击枪手前摇 / 逐发 profile 绑定、专用 VFX pool id、生成常量和运行时清理引用；玩家 weapon_fire 只保留 weapon_recoil_shake，突击枪手 0.32 秒静默前摇、四发点射与 Run 恢复语义不变。PlayerSlimeVisual 连续五点开火形变和 38px 常驻 FacingBeam 继续作为角色视觉存在。catalog/pool 数量分别为 18/18，Replay v3 基线只更新 data fingerprint 至 d95cd1ec…8caa，四条 gameplay 语义保持。",
-    "ADR #183 / 正式双涡旋史莱姆与 primary-only 碎片配色：player.json 升 schema v4 并以 body.radius=25 统一视觉、碰撞、命中、地图边界和玩家中心分离；玩家 weapon / VFX Muzzle / FacingBeam 统一 38px。PlayerSlimeVisual 复用已验收的 20/100 有界软体，主副 primary 形成反向涡旋，3px Outline 与短束使用主色，1px WetRim 使用主色提亮；ActorPresentationController 优先调用 Shader visual hook，旧敌人回退不变。characters.json 升 schema v4 且 palette 精确只含 primary，冷静 #68BCDD、愤怒 #ED2F72；Resolver 精确输出 main_primary/sub_primary，HUD 名称和槽1/2走主色、槽3/4走副色、能量白色。Run v11、Replay v3、Meta v2、游戏 v1.10 与视觉状态不序列化边界保持。",
+    "ADR #183 / 正式双涡旋史莱姆与 primary-only 碎片配色：player.json 升 schema v4 并以 body.radius=25 统一视觉、碰撞、命中、地图边界和玩家中心分离；玩家 weapon / VFX Muzzle / FacingBeam 统一 38px。PlayerSlimeVisual 复用已验收的 20/100 有界软体，主副 primary 形成反向涡旋，3px Outline 与短束使用主色，1px WetRim 使用主色提亮；characters.json 升 schema v4 且 palette 精确只含 primary，冷静 #68BCDD、愤怒 #ED2F72；Resolver 精确输出 main_primary/sub_primary，HUD 名称和槽1/2走主色、槽3/4走副色、能量白色。其可选 visual hook / 旧敌人回退条款已由 ADR #185 取代。Run v11、Replay v3、Meta v2、游戏 v1.10 与视觉状态不序列化边界保持。",
     "Test Lab 双涡旋史莱姆玩家人工门禁：新增实战 r=25、两份 4.35× 主副交换预览和 r=12 史莱姆子弹参照；每个视觉固定 20 控制点 / 100 点有界二次边界，3px 主色边叠 1px 主色提亮湿润边，速度、径向 / 切向位移、邻点连续性、面积和 25px 最终轮缘受限，开火 / 受击只作用连续 5 点。每个碎片只贡献一个 primary；角色本地 Shader 使用冷静 #68BCDD 与愤怒 #ED2F72 的 50/50 反向涡旋，当前主 primary 同时控制内部轮缘、外部 Outline 与 38px 渐隐短束；专项 smoke、确定性捕获、索引、README 与人工 checklist 已同步，正式 client 未修改。",
     "ADR #182 / 取消二进制资产全局 LFS：删除图片、音频和字体常见扩展名的 filter=lfs 规则，保留 binary 防文本 diff；按变更前精确清单把当前 199 个、54.44 MiB LFS 文件迁回普通 Git blob。历史提交与远端旧 LFS 对象不改写，未来仅可对经单独决策的明确大型资产路径启用 LFS；黄金回放继续作为普通 Git 文本提交。",
     "ADR #181 / 正式四节点史莱姆子弹：共享 bullet_basic 只保留一个 BulletSlimeVisual，东南西北四个持久节点一次生成 64 点 Body + Rim；敌我同形 12 px、350 px/s，只切换 #DCEAF2/#F6FBFF 与 #E62935/#FF5963，不含 Shader、高光、黑边、外发光、拖尾或敌方副本。玩家 650 px/1.9 秒、敌人 720 px/2.1 秒、枪口均 24 px；零弹 175 px/s/3.8 秒。对象池多轮换色无串色/节点增长，VFX baker 不再补回拖尾并忽略纯 Godot 资源 ID 改写；Run v11、Replay v3、schema 和版本不变。",
@@ -213,6 +214,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-05",
+      "command": "sync-contracts/check; validate_data; DataLoader schema regressions; three-tier lint and lint regressions; export-tree; VFX/UI/actor/settings/loading/ammo/runtime/L1 smoke; full and technical module-world; save/replay/replay-input; Godot 4.7.1 headless editor/boot; four checked-in golden replay-runner runtime reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; pre-commit run --all-files",
+      "result": "passed for ADR #185 mandatory actor Visual presentation interface and complete legacy fallback removal. ActorPresentationController no longer exposes or resolves body_path, outline_path or eye_outline_path, accepts no outline_alpha compatibility argument and performs no direct Polygon mutation; a missing Visual or set_presentation_state method reports a contract error and stops. PlayerSlimeVisual retains its Shader implementation, while enemy_base.tscn supplies EnemyPresentationVisual to all five inherited enemies; actor smoke verifies the mandatory method, hit tint, whole-Visual defeat alpha and defeat scale, and confirms the removed controller/Enemy properties are absent. All runtime, scene, save and replay gates pass; the four Replay v3 goldens rerun without recapture, retaining data fingerprint d95cd1ece6e4f5344f054d577dd619e27ec10c7c81630c7ea4a641c07ba08caa and unchanged gameplay summaries/map hash. Semantic advisory main has no warnings; regression warnings are expected fixtures. Factual review found no unresolved P0/P1/P2 issue and strengthened enemy defeat-scale coverage. Existing negative-fixture diagnostics and headless shutdown RID/ObjectDB/resource warnings remain expected. Performance/startup probes did not run. Per ADR #174, formal in-game visuals remain pending user manual acceptance."
+    },
     {
       "date": "2026-08-05",
       "command": "sync-contracts/check; validate_data; DataLoader schema regressions; three-tier lint and lint regressions; export-tree; VFX/UI/actor/settings/loading/ammo/runtime/L1 smoke; Godot 4.7.1 headless editor/boot; four golden captures, semantic field audit and replay-runner runtime reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; pre-commit run --all-files",
@@ -796,6 +802,7 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #185 取代 ADR #183 的可选 Visual hook 与旧 Polygon 敌人回退条款：正式 Player / Enemy Visual 必须实现 set_presentation_state(Color, float, Vector2)，ActorPresentationController 不再直写 Body / Outline / EyeOutline，也不接受 outline_alpha 兼容参数。",
     "ADR #181 取代 ADR #172 的敌弹速度、半径、寿命和枪口距离当前口径；ADR #184 进一步取代其局部枪口蓄光及任何默认枪口闪光口径。无提前弹道线和其余点射玩法继续有效。",
     "ADR #179 已授权并完成玩家文案迁移与标题副标隐藏；locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、素材、schema、Meta v2、Run v11、Replay v3 和游戏 v1.10 保持原状。",
     "current_state.json 是接手导航牌：只保留当前阶段、候选下一步和最近热验证；详细历史写入 docs/AI记忆/会话日志/，长期索引写入 docs/AI记忆/项目记忆.md。",

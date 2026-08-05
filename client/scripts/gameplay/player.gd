@@ -1214,7 +1214,6 @@ func _refresh_visuals() -> void:
 		Color.WHITE,
 		hurt_flash_color,
 		hurt_flash_color,
-		1.0,
 		Vector2.ONE
 	)
 	_presentation.set_direction(aim_direction)

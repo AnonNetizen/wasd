@@ -1,5 +1,5 @@
 # Doc: docs/代码/visual_effects.md
-# Authority: docs/游戏设计文档.md §9
+# Authority: docs/游戏设计文档.md §9.24, docs/决策记录.md ADR #185
 class_name ActorPresentationController
 extends Node
 
@@ -15,9 +15,6 @@ const ANIMATION_RESET: StringName = &"RESET"
 @export_group("Scene Bindings")
 @export var presentation_profile: PresentationProfileRef = null
 @export var visual_root_path: NodePath = ^"../Visual"
-@export var body_path: NodePath = ^"../Visual/Body"
-@export var outline_path: NodePath = ^"../Visual/Outline"
-@export var eye_outline_path: NodePath = ^"../Visual/EyeOutline"
 @export var direction_path: NodePath = ^"../Visual/Direction"
 @export var forward_anchor_path: NodePath = ^"../VfxAnchors/Forward"
 
@@ -37,12 +34,9 @@ var _defeat_end_alpha: float = 0.0
 var _defeat_end_scale: Vector2 = Vector2(1.35, 1.35)
 var _defeat_finished_emitted: bool = false
 var _hit_color: Color = Color.WHITE
-var _outline_alpha: float = 1.0
+var _visual_contract_error_reported: bool = false
 var _profile_id_override: String = ""
 var _visual_root: Node2D = null
-var _body_visual: Polygon2D = null
-var _outline_visual: Polygon2D = null
-var _eye_outline_visual: Polygon2D = null
 var _direction_visual: Node2D = null
 var _forward_anchor: Node2D = null
 
@@ -68,13 +62,11 @@ func configure_visual(
 	base_color: Color,
 	hit_color: Color,
 	defeat_color: Color,
-	outline_alpha: float,
 	base_scale: Vector2 = Vector2.ONE
 ) -> void:
 	_base_color = base_color
 	_hit_color = hit_color
 	_defeat_color = defeat_color
-	_outline_alpha = clampf(outline_alpha, 0.0, 1.0)
 	_base_scale = base_scale
 	_resolve_scene_nodes()
 	if _forward_anchor != null:
@@ -195,12 +187,6 @@ func _on_animation_finished(animation_name: StringName) -> void:
 func _resolve_scene_nodes() -> void:
 	if _visual_root == null:
 		_visual_root = get_node_or_null(visual_root_path) as Node2D
-	if _body_visual == null:
-		_body_visual = get_node_or_null(body_path) as Polygon2D
-	if _outline_visual == null:
-		_outline_visual = get_node_or_null(outline_path) as Polygon2D
-	if _eye_outline_visual == null:
-		_eye_outline_visual = get_node_or_null(eye_outline_path) as Polygon2D
 	if _direction_visual == null:
 		_direction_visual = get_node_or_null(direction_path) as Node2D
 	if _forward_anchor == null:
@@ -209,7 +195,20 @@ func _resolve_scene_nodes() -> void:
 
 func _refresh_visuals() -> void:
 	_resolve_scene_nodes()
-	if _visual_root == null or _body_visual == null:
+	if _visual_root == null:
+		if not _visual_contract_error_reported:
+			_visual_contract_error_reported = true
+			push_error(
+				"[ActorPresentationController] missing scene-authored Visual"
+			)
+		return
+	if not _visual_root.has_method("set_presentation_state"):
+		if not _visual_contract_error_reported:
+			_visual_contract_error_reported = true
+			push_error(
+				"[ActorPresentationController] Visual must implement "
+				+ "set_presentation_state(Color, float, Vector2)"
+			)
 		return
 
 	var color: Color = _base_color
@@ -227,28 +226,12 @@ func _refresh_visuals() -> void:
 	elif hit_progress >= 0.0:
 		color = _hit_color
 
-	if _visual_root.has_method("set_presentation_state"):
-		_visual_root.call(
-			"set_presentation_state",
-			Color(color.r, color.g, color.b, 1.0),
-			color.a * alpha_scale,
-			visual_scale
-		)
-		return
-
-	color.a *= alpha_scale
-	_body_visual.color = color
-	_visual_root.scale = visual_scale
-	_set_outline_alpha(_outline_visual, _outline_alpha * alpha_scale)
-	_set_outline_alpha(_eye_outline_visual, _outline_alpha * alpha_scale)
-
-
-func _set_outline_alpha(polygon: Polygon2D, alpha: float) -> void:
-	if polygon == null:
-		return
-	var color: Color = polygon.color
-	color.a = clampf(alpha, 0.0, 1.0)
-	polygon.color = color
+	_visual_root.call(
+		"set_presentation_state",
+		Color(color.r, color.g, color.b, 1.0),
+		color.a * alpha_scale,
+		visual_scale
+	)
 
 
 func _set_current_animation_duration(duration: float) -> void:

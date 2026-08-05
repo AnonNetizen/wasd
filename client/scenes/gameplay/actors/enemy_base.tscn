@@ -1,6 +1,7 @@
-[gd_scene load_steps=9 format=3 uid="uid://baayqrp1ujp06"]
+[gd_scene load_steps=10 format=3 uid="uid://baayqrp1ujp06"]
 
 [ext_resource type="Script" uid="uid://74a5uolltqoq" path="res://scripts/gameplay/enemy.gd" id="1_icmfh"]
+[ext_resource type="Script" path="res://scripts/gameplay/presentation/enemy_presentation_visual.gd" id="2_go0rb"]
 [ext_resource type="Script" path="res://scripts/gameplay/presentation/actor_presentation_controller.gd" id="2_presentation"]
 [ext_resource type="Script" uid="uid://b8t5v1sfogtt1" path="res://scripts/combat/status_effect_component.gd" id="2_xi12d"]
 
@@ -84,6 +85,7 @@ shape = SubResource("CircleShape2D_xi12d")
 
 [node name="Visual" type="Node2D" parent="." unique_id=1367850400]
 scale = Vector2(14, 14)
+script = ExtResource("2_go0rb")
 
 [node name="Outline" type="Polygon2D" parent="Visual" unique_id=1683623494]
 scale = Vector2(1.14, 1.14)
