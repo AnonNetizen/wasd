@@ -107,6 +107,12 @@ const EXTRA_TEST_SCENES := [
 		"featured": true,
 	},
 	{
+		"button_name": "PlayerSlimeFusionButton",
+		"label": "Dual-Vortex Player Slime Gate",
+		"scene_path": "res://scenes/player_slime_fusion_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "MyceliumGrowthButton",
 		"label": "Mycelium Growth Test",
 		"scene_path": "res://scenes/mycelium_growth_test.tscn",

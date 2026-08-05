@@ -25,6 +25,7 @@
 
 ## 当前实验
 
+- `player_slime_fusion_test.tscn`：正式玩家改造前的独立人工门禁原型，不修改 `client/`。实战样本固定 `r=25`，旁边同时显示 `r=12` 的正式史莱姆子弹尺寸参考；两份 4.35× 放大样本常驻展示“冷静主 / 愤怒副”和“愤怒主 / 冷静副”。每个玩家史莱姆只有 20 个环形控制点，每角固定 5 次有界二次曲线采样，最终共享 100 点边界给 `Body / Outline / WetRim`；单点速度、径向 / 切向位移、邻点速度与位移差、面积压力及最终轮缘都受限，开火和受击冲击只分散到连续 5 点，包含最宽暗轮缘的最终 extent 不得超过 25 px。`player_slime_dual_vortex.gdshader` 从角色本地 `VERTEX` 坐标生成 50/50 双涡旋：主 / 副智能碎片各用自身 `palette.primary`，主色流顺时针、副色流逆时针；主碎片 secondary 控制暗轮缘，副碎片 accent 控制从中心到 38 px 枪口的常驻双端渐隐短束，不使用 `SCREEN_UV`、眼睛、箭头或长瞄准线。场景默认自动移动、开火、受击和交换实际样本；WASD / 方向键移动，左键或 `F` 开火，`H` 受击，`X` 交换实际样本主副，`Space` 暂停，`T` 切换自动演示，`R` 复位，`Esc` 返回索引。`player_slime_fusion_smoke.gd` 检查 20 / 100 点契约、25 px 轮缘上限、面积 / 转角 / 邻点连续性、连续移动 / 开火 / 受击、暂停冻结、双方 primary uniform、五点冲击、38 px 光束、节点 / 材质稳定与固定步进确定性；`capture_player_slime_fusion.gd` 以固定步进和离开常驻光束的体内像素探针生成预览。双涡旋是否明确读成两股气、交换是否可辨、光束方向、动态尖点和与 12 px 子弹的实战区分均保持“待用户人工验收”；用户明确确认前不得接入正式 `client/`。
 - `anchored_star_enemies_test.tscn`：三个自动移动的圆形敌人共享同一个 `ShaderMaterial`，内部程序化星点和星云只从 `SCREEN_UV` 采样；敌人的圆形 Polygon 只充当移动遮罩，因此敌人位移不会拖动星空，而是像三个窗口滑过同一片固定空间。三种半径和敌对轮缘色用于区分个体，运动轨迹与背景坐标标记用于观察位移，星点只做亮度闪烁而不平移 / 旋转。`Space` 暂停 / 继续，`R` 复位，`Esc` 返回索引。`anchored_star_enemies_smoke.gd` 自动检查三个敌人、共享材质、`SCREEN_UV` 锚定、实际位移和暂停冻结；`capture_anchored_star_enemies.gd` 在确定性时间点生成预览图。圆形敌人辨识度、透视感和星空密度仍待用户人工验收。
 - `slime_cross_2d_test.tscn`：把史莱姆软体方法迁移到 2D 十字架凹形轮廓的独立实验。十字架由 20 个顺序轮廓点直接组成长竖干、宽横臂与四个内凹角；静止轮廓与动态轮廓都使用有界二次圆角，曲线只在相邻边构成的局部范围内弯曲，不再因 Catmull-Rom 动态过冲生成尖刺。运行时除弹簧、阻尼、邻点相对形状保持和面积压力外，还对速度与“相对静止轮廓的位移”分别做邻点扩散，让局部冲击以宽波方式传播而不是由单点领先；点击冲击也统一朝物体内部施力。绘制层以暗色反边、薄荷胶体、深青内馅、湿润高光与内部气泡建立 2D 史莱姆材质。调试骨架默认开启：紫线 / 紫圈表示静止轮廓与静止点，黄色连线 / 黄点表示动态弹簧与普通控制点，粉点表示四个内凹控制点，青色辐条表示中心骨架，静止点到动态点的青线表示当前位移；`D` 或底部按钮可隐藏 / 显示。左键点击任意边缘施加局部冲击，`Space` 压扁，`R` 复原，`A` 切换自动脉冲，`Esc` 返回索引。`slime_cross_2d_smoke.gd` 自动检查调试层开关、20 点 / 4 凹角契约、横臂与竖干比例、凹角净距、局部形变、面积保持、动态最大转角、相邻位移连续性、连续多次冲击、回弹和整体压扁；`capture_slime_cross_2d.gd` 生成开启骨架的左横臂受击阶段预览。首版“静止好、运动出现尖尖”的人工反馈已用于本次修正，最终十字辨识度、果冻质感和动态观感仍待用户复验。
 - `slime_cross_perspective_test.tscn`：保留 `slime_cross_2d_test` 的 20 点凹形十字轮廓、四个内凹角、有界二次圆角、弹簧 / 阻尼 / 邻点保形、位移扩散与面积压力，只把薄荷胶体、内馅、高光和气泡替换为 `anchored_star_enemies_test` 原样复用的 `anchored_star_window.gdshader`。动态圆角边界每帧同步到一个固定 `Polygon2D + ShaderMaterial`，十字仅作为会移动、会形变的窗口；内容只从 `SCREEN_UV` 采样，因此星空不跟随十字平移或局部形变。十字沿小幅轨迹移动以暴露固定空间读法，局部冲击和整体压扁继续验证轮廓动态；`Space` 暂停移动，`F` 压扁，`R` 复原，`A` 切换自动脉冲，`D` 切换原调试骨架，左键冲击边缘，`Esc` 返回索引。`slime_cross_perspective_smoke.gd` 检查原始 20 点 / 4 凹角与比例、100 点动态圆角 Shader 遮罩、填充跟随形变、同一 Shader 资源、`SCREEN_UV` 锚定、整体位移、局部响应和面积保持；`capture_slime_cross_perspective.gd` 以固定步进生成确定性受击预览，并扫描远离轮缘的横臂内部亮像素，空白 / 透明 Shader 输出会直接失败。十字轮廓辨识度、深空间透视感、星空密度、移动时的窗口读法和边缘颜色仍待用户人工验收。
@@ -169,6 +170,27 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 # 1280×760 局部受击阶段预览
 & $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_slime_tombstone_test.gd
 ```
+
+## Dual-Vortex Player Slime Gate 验证
+
+以下命令均从仓库根目录运行；`$godot` 指向 Godot 4.7.1 stable 的 console 可执行文件。该实验是正式玩家接入前的独立门禁，自动验证通过后仍必须等待用户人工确认。
+
+```powershell
+# 生成 / 更新轻量场景并显式加载
+& $godot --headless --path output/test_lab --script res://scripts/create_player_slime_fusion_scene.gd
+& $godot --headless --path output/test_lab --quit-after 2 res://scenes/player_slime_fusion_test.tscn
+
+# 20 / 100 点拓扑、25 px extent、面积 / 曲率 / 邻点连续性、双色 Shader、五点冲击、暂停与稳定资源
+& $godot --headless --path output/test_lab --script res://tools/player_slime_fusion_smoke.gd
+
+# 1280×760 固定步进预览；工具会在常驻光束之外探测两份放大样本体内，空渲染直接失败
+& $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_player_slime_fusion.gd
+
+# 连续运行两次捕获后用 Get-FileHash 对比 SHA-256，哈希必须一致
+Get-FileHash -LiteralPath 'output/test_lab/screenshots/player_slime_fusion_test.png' -Algorithm SHA256
+```
+
+人工门禁只由用户执行：检查双涡旋是否明确读成两股气、两份放大样本的主 / 副交换是否可辨、38 px 短束是否清楚指向枪口、连续移动 / 开火 / 受击时是否出现突出节点，以及 1× 玩家是否会与 `r=12` 史莱姆子弹混淆。该结论当前为“待人工验收”；未经用户明确确认，不创建 ADR #183，也不修改正式 Player、正式数据、正式场景或黄金回放。
 
 ## 2D Slime Cross 验证
 
