@@ -17,8 +17,8 @@ signal replay_load_failed(path: String, error: String)
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 3
-const REPLAY_FILE_SCHEMA_VERSION: int = 3
+const REPLAY_SCHEMA_VERSION: int = 4
+const REPLAY_FILE_SCHEMA_VERSION: int = 4
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"

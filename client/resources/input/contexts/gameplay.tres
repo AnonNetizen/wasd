@@ -26,7 +26,6 @@
 [ext_resource type="Resource" path="res://resources/input/actions/show_stats_panel.tres" id="24_w8gtt"]
 [ext_resource type="Resource" path="res://resources/input/actions/pause.tres" id="25_ie3vd"]
 [ext_resource type="Script" path="res://addons/guide/guide_mapping_context.gd" id="26_ebogi"]
-[ext_resource type="Resource" path="res://resources/input/actions/reload.tres" id="27_reload"]
 
 [sub_resource type="Resource" id="Resource_7xr6d"]
 script = ExtResource("4_xpdot")
@@ -388,31 +387,6 @@ script = ExtResource("1_ls4rx")
 action = ExtResource("22_acg1s")
 input_mappings = Array[ExtResource("3_cdid1")]([SubResource("Resource_bwk8o"), SubResource("Resource_evb5p")])
 
-[sub_resource type="Resource" id="Resource_reload_key"]
-script = ExtResource("4_xpdot")
-key = 82
-
-[sub_resource type="Resource" id="Resource_reload_key_mapping"]
-script = ExtResource("3_cdid1")
-override_action_settings = true
-is_remappable = true
-input = SubResource("Resource_reload_key")
-
-[sub_resource type="Resource" id="Resource_reload_button"]
-script = ExtResource("12_emtnk")
-button = 1
-
-[sub_resource type="Resource" id="Resource_reload_button_mapping"]
-script = ExtResource("3_cdid1")
-override_action_settings = true
-is_remappable = true
-input = SubResource("Resource_reload_button")
-
-[sub_resource type="Resource" id="Resource_reload_action_mapping"]
-script = ExtResource("1_ls4rx")
-action = ExtResource("27_reload")
-input_mappings = Array[ExtResource("3_cdid1")]([SubResource("Resource_reload_key_mapping"), SubResource("Resource_reload_button_mapping")])
-
 [sub_resource type="Resource" id="Resource_krrrs"]
 script = ExtResource("4_xpdot")
 key = 69
@@ -509,4 +483,4 @@ input_mappings = Array[ExtResource("3_cdid1")]([SubResource("Resource_0oy7j"), S
 [resource]
 script = ExtResource("26_ebogi")
 display_name = "gameplay"
-mappings = Array[ExtResource("1_ls4rx")]([SubResource("Resource_wbe4u"), SubResource("Resource_jrxu4"), SubResource("Resource_73ltv"), SubResource("Resource_4yfjs"), SubResource("Resource_praxw"), SubResource("Resource_0p1v3"), SubResource("Resource_6s5ws"), SubResource("Resource_vton3"), SubResource("Resource_i37vt"), SubResource("Resource_reload_action_mapping"), SubResource("Resource_j03dd"), SubResource("Resource_d5v2u"), SubResource("Resource_cnuos")])
+mappings = Array[ExtResource("1_ls4rx")]([SubResource("Resource_wbe4u"), SubResource("Resource_jrxu4"), SubResource("Resource_73ltv"), SubResource("Resource_4yfjs"), SubResource("Resource_praxw"), SubResource("Resource_0p1v3"), SubResource("Resource_6s5ws"), SubResource("Resource_vton3"), SubResource("Resource_i37vt"), SubResource("Resource_j03dd"), SubResource("Resource_d5v2u"), SubResource("Resource_cnuos")])

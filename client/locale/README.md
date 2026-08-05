@@ -28,7 +28,6 @@ Godot 中央主界面的“数据配表”把 `strings.csv` 作为完整可编�
 | 加标题 / 暂停 / 失败 / 结果面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title`、`ui_result_*` 等 key；结果清单行格式使用 `ui_result_resource_line` / `ui_result_gear_mod_line`，UI 代码使用 `tr()` |
 | 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；无障碍、输入绑定选项也必须独立建 key |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
-| 加弹药 HUD / 换弹 / 降级射击 / 弹匣拾取反馈 | 常驻弹药使用 `ui_hud_ammo*`，详细面板使用 `ui_stats_ammo_*` / `ui_stats_reload_duration`，换弹绑定标签使用 `ui_settings_input_reload`；弹数、容量、按键和秒数都用命名占位符 |
 | 加智能碎片名 / 描述 | 在 `strings.csv` 加遗留稳定 key `character_*_name` / `character_*_desc`；清理智能组合名使用 `character_composition_name_format` 的 `{main}` / `{sub}` 占位符；数据填 `name_key` / `desc_key` |
 | 加元素 / 智能碎片被动文案 | 在 `strings.csv` 加 `element_*_name` 与遗留稳定 key `passive_*_name` / `passive_*_desc`；数据只引用 key；被动数值使用 `{param_<字段>...}` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
@@ -78,7 +77,7 @@ ui_resume,继续,Resume
 | `ui_` | UI、菜单、按钮、HUD | `ui_settings` / `ui_pause` |
 | `ui_settings_` | 设置面板标题、分组、控件标签和选项 | `ui_settings_master_volume` / `ui_settings_aim_mode_auto` |
 | `ui_settings_input_` | 设置面板输入绑定动作标签 | `ui_settings_input_move_up` / `ui_settings_input_pause` |
-| `ui_hud_` | 局内常驻 HUD 标签与短时状态 / 拾取反馈 | `ui_hud_life` / `ui_hud_ammo` / `ui_hud_ammo_reloading` |
+| `ui_hud_` | 局内常驻 HUD 标签与短时状态 / 拾取反馈 | `ui_hud_life` / `ui_hud_kills` / `ui_hud_level` |
 | `ui_difficulty_` | 难度 profile 名称、局内威胁等级、阶段与暂停状态 | `ui_difficulty_standard_name` / `ui_difficulty_level` / `ui_difficulty_stage_dormant` |
 | `ui_stats_` | 局内详细数值面板标签 | `ui_stats_damage` / `ui_stats_skill_resource` |
 | `ui_gear_mod_` | 装备 Mod 面板、标题入口和操作反馈 | `ui_gear_mod_title` / `ui_gear_mod_upgrade_cost` |
@@ -192,13 +191,6 @@ label.text = tr("ui_damage") + str(value)
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
 3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、清理数、难度时间、威胁阶段、等级、金币余额 / 进度、详细数值、等级 / 奖励反馈和交互提示重画。
 
-### 加弹药、换弹与弹匣拾取文案
-
-1. 常驻弹药只使用 `ui_hud_ammo` 的 `{magazine}` / `{reserve}`，分别显示弹匣内剩余子弹和弹匣外备弹；不显示两者合计或总容量。
-2. 换弹进度使用 `ui_hud_ammo_reloading` 的 `{seconds}`；空弹匣提示改为角色头顶短时世界文字：有备弹时使用 `ui_player_ammo_reload_prompt` 的 `{binding}`，总弹药耗尽时使用 `ui_player_ammo_depleted_prompt`。按键名来自 `InputService`，不在译文中写死物理按键。
-3. 弹匣拾取反馈使用 `ui_hud_ammo_magazine_collected` 的 `{count}`。倍率、弹匣容量和掉落概率继续以 `weapons.json` / `ammo_rules.json` 为数值权威，不重复写进译文。
-4. 详细面板只显示 `ui_stats_ammo_magazine`、`ui_stats_ammo_reserve` 与 `ui_stats_reload_duration`；不显示总弹药合计或容量。
-
 ### 加一个设置面板控件文案
 
 1. 在 `strings.csv` 新增 `ui_settings_*` key，例如：
@@ -224,7 +216,7 @@ ui_settings_input_pause,暂停,Pause
 ```
 
 2. `SettingsPanel` 的绑定动作名称使用该 key；键名选项（如 `W` / `Escape`）来自 `Settings.input_binding_options()`，不作为普通 UI 句子翻译。
-3. 四技能槽、冲刺与换弹固定使用 `ui_settings_input_skill_1`～`ui_settings_input_skill_4`、`ui_settings_input_dash`、`ui_settings_input_reload`；旧主动道具 action 不再占用输入绑定。
+3. 四技能槽与冲刺固定使用 `ui_settings_input_skill_1`～`ui_settings_input_skill_4`、`ui_settings_input_dash`；旧主动道具 action 不再占用输入绑定。
 4. 输入绑定反馈、共用键位提示和恢复默认按钮使用 `ui_settings_input_feedback_*` / `ui_settings_input_restore_defaults`。
 5. 同步 `docs/词表与契约.md` 的 `input.*` key / action 后运行 `python tools/sync_contracts.py --check`、`python tools/validate_data.py` 与 `python tools/godot_bridge.py --project client settings-smoke`。
 

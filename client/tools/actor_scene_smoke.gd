@@ -164,8 +164,8 @@ func _validate_player_visual(
 		"%s Muzzle anchor should be 38 px" % actor_id
 	)
 	_expect(
-		(actor.get_node("WorldPrompt") as Node2D).position.is_equal_approx(Vector2(0.0, -58.0)),
-		"%s world prompt should be -58 px" % actor_id
+		not actor.has_node("WorldPrompt"),
+		"%s should not retain the retired ammunition prompt" % actor_id
 	)
 	if visual == null:
 		return

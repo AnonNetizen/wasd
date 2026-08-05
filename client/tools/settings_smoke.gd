@@ -6,9 +6,6 @@ const INPUT_BINDING_IDS := preload("res://scripts/contracts/input_binding_ids.gd
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
-const PLAYER_SCENE := preload(
-	"res://scenes/gameplay/actors/characters/character_default.tscn"
-)
 const REWARD_CHOICE_PANEL_SCENE := preload(
 	"res://scenes/ui/reward_choice_panel.tscn"
 )
@@ -46,7 +43,7 @@ func _run() -> void:
 	_expect_v2_drops_removed_reduced_motion()
 	_expect_v3_drops_removed_vfx_quality()
 	_expect_input_bindings_use_independent_resource()
-	_expect_v1_input_bindings_reset_to_v2()
+	_expect_v2_input_bindings_reset_to_v3()
 	_expect_invalid_saved_values_recover_to_defaults()
 	_expect_broken_config_recovers_to_defaults()
 	await _expect_settings_panel_controls()
@@ -189,22 +186,22 @@ func _expect_input_bindings_use_independent_resource() -> void:
 	var remapping_config: GUIDERemappingConfig = loaded as GUIDERemappingConfig
 	_expect(remapping_config != null, "input binding resource should load as GUIDERemappingConfig")
 	if remapping_config != null:
-		_expect(int(remapping_config.custom_data.get("schema_version", 0)) == 2, "input binding resource should declare project schema v2")
+		_expect(int(remapping_config.custom_data.get("schema_version", 0)) == 3, "input binding resource should declare project schema v3")
 	var settings_config: ConfigFile = ConfigFile.new()
 	_expect(settings_config.load(Settings.settings_path()) == OK, "settings.cfg should remain readable after GUIDE binding save")
 	_expect(not settings_config.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "GUIDE binding save should not write binding IDs into settings.cfg")
 
 
-func _expect_v1_input_bindings_reset_to_v2() -> void:
+func _expect_v2_input_bindings_reset_to_v3() -> void:
 	for path: String in _binding_fixture_paths():
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 
 	var legacy_config: GUIDERemappingConfig = GUIDERemappingConfig.new()
-	legacy_config.custom_data = {"schema_version": 1}
+	legacy_config.custom_data = {"schema_version": 2}
 	_expect(
 		ResourceSaver.save(legacy_config, InputService.bindings_path()) == OK,
-		"smoke should write a legacy input binding schema v1 fixture"
+		"smoke should write a legacy input binding schema v2 fixture"
 	)
 
 	InputService.call("_load_remapping_config")
@@ -212,11 +209,11 @@ func _expect_v1_input_bindings_reset_to_v2() -> void:
 	InputService.call("_apply_remapping_config")
 	_expect(
 		FileAccess.file_exists("user://input_bindings.invalid.tres"),
-		"input binding schema v1 should be quarantined instead of partially applied"
+		"input binding schema v2 should be quarantined instead of partially applied"
 	)
 	_expect(
 		FileAccess.file_exists(InputService.bindings_path()),
-		"input binding schema v1 should be replaced with current defaults"
+		"input binding schema v2 should be replaced with current defaults"
 	)
 	var loaded: Resource = ResourceLoader.load(
 		InputService.bindings_path(),
@@ -227,15 +224,12 @@ func _expect_v1_input_bindings_reset_to_v2() -> void:
 	_expect(reset_config != null, "reset input binding resource should remain loadable")
 	if reset_config != null:
 		_expect(
-			int(reset_config.custom_data.get("schema_version", 0)) == 2,
-			"legacy input bindings should reset to schema v2"
+			int(reset_config.custom_data.get("schema_version", 0)) == 3,
+			"legacy input bindings should reset to schema v3"
 		)
 	_expect(
-		InputService.binding_text(
-			InputService.BINDING_RELOAD,
-			InputService.DEVICE_KEYBOARD_MOUSE
-		).contains("R"),
-		"legacy input binding reset should restore reload to R"
+		InputService.action_resource("reload") == null,
+		"legacy input binding reset should not restore the retired reload action"
 	)
 	_expect(
 		InputService.binding_text(
@@ -360,7 +354,7 @@ func _expect_settings_panel_controls() -> void:
 		await get_tree().process_frame
 		_expect(FileAccess.file_exists(InputService.bindings_path()), "reset input defaults should persist GUIDE remapping config")
 		_expect(InputService.binding_text(InputService.BINDING_PAUSE, InputService.DEVICE_KEYBOARD_MOUSE).contains("Escape"), "reset input defaults should restore pause fallback")
-		_expect(InputService.binding_text(InputService.BINDING_RELOAD, InputService.DEVICE_KEYBOARD_MOUSE).contains("R"), "reset input defaults should restore reload binding")
+		_expect(InputService.action_resource("reload") == null, "reset input defaults should not restore reload")
 		_expect(InputService.binding_text(InputService.BINDING_INTERACT, InputService.DEVICE_KEYBOARD_MOUSE).contains("E"), "reset input defaults should restore interact binding")
 		_expect(input_feedback_label != null and String(input_feedback_label.text) == "Input bindings restored to defaults.", "reset input defaults should show feedback")
 
@@ -449,12 +443,6 @@ func _expect_hud_locale_refresh() -> void:
 	hud.call("set_kills", 2)
 	hud.call("set_level", 4)
 	hud.call("set_gold_progress", 120, 20, 130)
-	hud.call("set_ammo_state", {
-		"magazine": 18,
-		"reserve": 150,
-		"is_reloading": false,
-		"is_depleted": false,
-	})
 	hud.call("show_upgrade_feedback", "ui_reward_damage_small_name")
 	await get_tree().process_frame
 
@@ -466,11 +454,10 @@ func _expect_hud_locale_refresh() -> void:
 		"GoldProgressLabel"
 	) as Label
 	var feedback_label: Label = _find_node_by_name(hud, "UpgradeFeedbackLabel") as Label
-	var ammo_label: Label = _find_node_by_name(hud, "AmmoLabel") as Label
 	_expect(
-		_find_node_by_name(hud, "AmmoTotalRow") == null
-		and _find_node_by_name(hud, "AmmoCapacityRow") == null,
-		"HUD stats panel should not display total ammo or ammo capacity rows"
+		_find_node_by_name(hud, "Ammo") == null
+		and _find_node_by_name(hud, "AmmoLabel") == null,
+		"HUD should not contain ammunition nodes"
 	)
 	_expect(life_label != null and String(life_label.text).begins_with(tr("ui_hud_life")), "HUD life should start in zh_CN")
 	_expect(kills_label != null and String(kills_label.text).begins_with(tr("ui_hud_kills")), "HUD kills should start in zh_CN")
@@ -481,87 +468,6 @@ func _expect_hud_locale_refresh() -> void:
 		"HUD gold progress should start in zh_CN"
 	)
 	_expect(feedback_label != null and String(feedback_label.text).contains(tr("ui_reward_damage_small_name")), "HUD reward feedback should start in zh_CN")
-	var expected_ammo_text: String = tr("ui_hud_ammo").format({
-		"magazine": 18,
-		"reserve": 150,
-	})
-	_expect(
-		ammo_label != null
-		and String(ammo_label.text) == expected_ammo_text,
-		"HUD ammo should show magazine and reserve without total capacity"
-	)
-	_expect(
-		ammo_label != null
-		and not String(ammo_label.text).contains("{magazine_size}"),
-		"HUD ammo should not leak unresolved magazine_size placeholders"
-	)
-	hud.call("set_ammo_state", {
-		"magazine": 0,
-		"reserve": 42,
-		"is_reloading": false,
-		"is_depleted": false,
-	})
-	var empty_magazine_text: String = tr("ui_hud_ammo").format({
-		"magazine": 0,
-		"reserve": 42,
-	})
-	_expect(
-		ammo_label != null
-		and String(ammo_label.text) == empty_magazine_text,
-		"HUD should keep empty-magazine guidance out of the ammo card"
-	)
-	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
-	add_child(player)
-	await get_tree().process_frame
-	var world_prompt: Node2D = _find_node_by_name(
-		player,
-		"WorldPrompt"
-	) as Node2D
-	var world_prompt_label: Label = _find_node_by_name(
-		world_prompt,
-		"Label"
-	) as Label
-	var reload_prompt: String = tr("ui_player_ammo_reload_prompt").format({
-		"binding": InputService.prompt_text(ACTIONS.RELOAD),
-	})
-	player.call("show_world_prompt", reload_prompt)
-	_expect(
-		world_prompt != null
-		and world_prompt.get_parent() == player
-		and world_prompt.visible
-		and world_prompt_label != null
-		and String(world_prompt_label.text) == reload_prompt,
-		"empty-magazine guidance should appear as a player-attached world prompt"
-	)
-	hud.call("set_ammo_state", {
-		"magazine": 0,
-		"reserve": 0,
-		"is_reloading": false,
-		"is_depleted": true,
-	})
-	var depleted_ammo_text: String = tr("ui_hud_ammo").format({
-		"magazine": 0,
-		"reserve": 0,
-	})
-	player.call(
-		"show_world_prompt",
-		tr("ui_player_ammo_depleted_prompt")
-	)
-	_expect(
-		ammo_label != null
-		and String(ammo_label.text) == depleted_ammo_text
-		and world_prompt_label != null
-		and String(world_prompt_label.text) == tr(
-			"ui_player_ammo_depleted_prompt"
-		),
-		"depleted guidance should use the player world prompt instead of the HUD card"
-	)
-	world_prompt.call("_process", 1.3)
-	_expect(
-		not world_prompt.visible,
-		"player ammo world prompt should dismiss after its short display window"
-	)
-
 	Localization.set_locale("en")
 	await get_tree().process_frame
 	_expect(life_label != null and String(life_label.text).begins_with("Life"), "HUD life should refresh to en")
@@ -573,23 +479,6 @@ func _expect_hud_locale_refresh() -> void:
 		"HUD gold progress should refresh to en"
 	)
 	_expect(feedback_label != null and String(feedback_label.text).contains("Upgrade"), "HUD upgrade feedback should refresh to en")
-	_expect(
-		ammo_label != null
-		and String(ammo_label.text) == "Magazine 0 · Reserve 0",
-		"HUD ammo should refresh to en without an inline warning"
-	)
-	player.call(
-		"show_world_prompt",
-		tr("ui_player_ammo_depleted_prompt")
-	)
-	_expect(
-		world_prompt_label != null
-		and String(world_prompt_label.text).contains("Out of Ammo"),
-		"player ammo world prompt should use the active locale"
-	)
-
-	remove_child(player)
-	player.queue_free()
 	remove_child(hud)
 	hud.queue_free()
 

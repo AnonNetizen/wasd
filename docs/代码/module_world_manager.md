@@ -1,7 +1,7 @@
 # ModuleWorldManager 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 F13 模块世界运行时、坐标、流式状态、限量事件模板、后台固定、F14 静态导航查询与 Run v11 模块子快照边界的权威模块契约。
+> 本文档是 F13 模块世界运行时、坐标、流式状态、限量事件模板、后台固定、F14 静态导航查询与 Run v12 模块子快照边界的权威模块契约。
 
 ## 1. 职责
 
@@ -15,7 +15,7 @@
 - 从旋转 / 封边后的完整 81 槽地形构建 99×99 walkability mask；玩家跨格时只更新感知范围驱动的局部共享流场，并提供全图 AStar、视线和敌人半径走廊查询。导航不依赖当前激活 chunk。
 - 按世界槽位返回稳定行列顺序的有效空 floor 格心：使用旋转、邻接与外圈封边后的真实地形，并排除全部 gameplay placement footprint；只提供几何查询，不消耗 RNG、不读取动态实体、不生成敌人。
 
-`GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 弹药 / 奖励 / 目标 / 撤离 / 世界事件 primitive 的实体生成、首次进入遭遇计划、预警、`DifficultyProgression`、敌人生成时金币锁定、`Combat`、`PoolManager` 和 Run v11 总快照。`ModuleWorldManager` 不直接生成玩法实体，只组合事件模块并维护 pin。玩家实际位于 `module_role_start` 时，RunLoop 暂停威胁时间并锁定武器 / 四技能；Manager 只提供当前位置 / role 数据，不冻结底层 `GameClock`。
+`GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 奖励 / 目标 / 撤离 / 世界事件 primitive 的实体生成、首次进入遭遇计划、预警、`DifficultyProgression`、敌人生成时金币锁定、`Combat`、`PoolManager` 和 Run v12 总快照。`ModuleWorldManager` 不直接生成玩法实体，只组合事件模块并维护 pin。玩家实际位于 `module_role_start` 时，RunLoop 暂停威胁时间并锁定武器 / 四技能；Manager 只提供当前位置 / role 数据，不冻结底层 `GameClock`。
 
 ## 2. 数据边界
 
@@ -48,7 +48,7 @@
 | `placements_at(module_coord)` | 返回已旋转、含 `world_position` 的内容摆放 |
 | `set_slot_pinned(module_coord, pinned)` / `pinned_module_coords()` | 固定最多三个事件模块，并把固定集合并入流式 desired set |
 | `set_slot_state()` / `slot_state()` | 保存按世界槽位隔离的动态状态 |
-| `snapshot()` / `restore_state()` | Run v11 中的 assignment、内容敏感 map hash、迷雾、固定模块和槽位状态 roundtrip；恢复时事务式重建场景缓存，hash / assignment / 生成场景不一致时返回失败，不继续恢复旧实体 |
+| `snapshot()` / `restore_state()` | Run v12 中的 assignment、内容敏感 map hash、迷雾、固定模块和槽位状态 roundtrip；恢复时事务式重建场景缓存，hash / assignment / 生成场景不一致时返回失败，不继续恢复旧实体 |
 | `debug_summary()` | 输出几何、assignment/hash、访问 / 活跃数、预加载场景数及导航目标格、局部半径 / 边界 / 本次访问格数、流场重建次数和可达格数 |
 
 ## 4. ModuleNavigationField
@@ -60,7 +60,7 @@
 - 路径距离使用世界像素，并加上敌人 / 玩家精确位置到各自格心的端点距离。
 - 非玩家目标复用 `AStarGrid2D`，`DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES` 禁止斜穿墙角。
 - assignment 生成、技术首片构建和 run 恢复成功后重建 mask；越界或封锁目标统一返回 `reachable=false`。
-- 流场、AStar 和感知查询都是派生临时状态，不改变 map hash，也不写入 Run v11。
+- 流场、AStar 和感知查询都是派生临时状态，不改变 map hash，也不写入 Run v12。
 
 ## 5. ModuleChunk
 
@@ -82,4 +82,4 @@ python tools/godot_bridge.py --project client save-smoke
 
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
-`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、五选三不同事件与平地填充、fallback / technical slice 固定三事件、121 格全 floor、边缘开放格交集、中心坐标、确定性导航、正式 manager / 12 chunk、三个 pin 容量、生成 TileMap / 合并碰撞、首次进入遭遇、起点门禁、流式恢复、迷雾、目标撤离、Run v11 世界事件与模块子快照和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、五选三不同事件与平地填充、fallback / technical slice 固定三事件、121 格全 floor、边缘开放格交集、中心坐标、确定性导航、正式 manager / 12 chunk、三个 pin 容量、生成 TileMap / 合并碰撞、首次进入遭遇、起点门禁、流式恢复、迷雾、目标撤离、Run v12 世界事件与模块子快照和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

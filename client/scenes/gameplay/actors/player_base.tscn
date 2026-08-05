@@ -6,7 +6,6 @@
 [ext_resource type="Shader" path="res://shaders/player_slime_dual_vortex.gdshader" id="3_mer27"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/weapon_system.tscn" id="3_nby7g"]
 [ext_resource type="Script" path="res://scripts/combat/status_effect_component.gd" id="4_4016b"]
-[ext_resource type="Script" path="res://scripts/gameplay/player_world_prompt.gd" id="5_world_prompt"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 resource_local_to_scene = true
@@ -145,23 +144,6 @@ position = Vector2(0, -36)
 
 [node name="Muzzle" type="Marker2D" parent="VfxAnchors/Forward" unique_id=997491405]
 position = Vector2(38, 0)
-
-[node name="WorldPrompt" type="Node2D" parent="." unique_id=607531]
-z_index = 80
-position = Vector2(0, -58)
-script = ExtResource("5_world_prompt")
-
-[node name="Label" type="Label" parent="WorldPrompt" unique_id=827717406]
-offset_left = -170.0
-offset_top = -18.0
-offset_right = 170.0
-offset_bottom = 18.0
-theme_override_colors/font_color = Color(1, 0.86, 0.36, 1)
-theme_override_colors/font_outline_color = Color(0.04, 0.035, 0.03, 0.94)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="WeaponSystem" parent="." unique_id=240850889 instance=ExtResource("3_nby7g")]
 

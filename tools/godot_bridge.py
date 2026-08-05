@@ -44,10 +44,6 @@ def main() -> int:
         help="Scan the project in a headless editor, then run a headless project boot.",
     )
     subparsers.add_parser("l1-smoke", help="Run the F8 temporary L1 infrastructure smoke in headless Godot.")
-    subparsers.add_parser(
-        "ammo-weapon-smoke",
-        help="Run focused ammunition, reload, fallback-fire, and ammo-pickup coverage.",
-    )
     subparsers.add_parser("replay-smoke", help="Run the F8 replay file roundtrip smoke in headless Godot.")
     subparsers.add_parser("replay-input-smoke", help="Run the F8 replay gameplay input recording smoke in headless Godot.")
     subparsers.add_parser("input-smoke", help="Run the G.U.I.D.E and InputService integration smoke in headless Godot.")
@@ -285,25 +281,6 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--l1-smoke"],
-            cwd=project,
-        )
-    if args.command == "ammo-weapon-smoke":
-        if not (project / "project.godot").exists():
-            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
-            return 1
-        smoke_script = project / "tools" / "ammo_weapon_smoke.gd"
-        if not smoke_script.exists():
-            print(f"[godot-bridge] missing ammo weapon smoke script: {_rel(smoke_script)}")
-            return 1
-        return _run_command(
-            [
-                str(godot),
-                "--headless",
-                "--path",
-                str(project),
-                "--",
-                "--ammo-weapon-smoke",
-            ],
             cwd=project,
         )
     if args.command == "replay-smoke":

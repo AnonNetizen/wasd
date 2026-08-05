@@ -62,8 +62,8 @@ func _run() -> void:
 
 	var envelope: Dictionary = Replay.load_replay_file(path)
 	_expect(String(envelope.get("data_fingerprint", "")) == Replay.current_data_fingerprint(), "Replay envelope should include the current data fingerprint")
-	_expect(int(envelope.get("file_schema_version", 0)) == 3, "Replay envelope should use file schema v3")
-	_expect(int(loaded.get("schema_version", 0)) == 3, "Replay recording should use schema v3")
+	_expect(int(envelope.get("file_schema_version", 0)) == 4, "Replay envelope should use file schema v4")
+	_expect(int(loaded.get("schema_version", 0)) == 4, "Replay recording should use schema v4")
 	_expect(_has_typed_event(loaded, ACTIONS.MOVE, "vector2"), "Replay should persist typed Vector2 events")
 	_expect(_has_typed_event(loaded, ACTIONS.FIRE, "bool"), "Replay should persist typed bool events")
 	_expect_unsupported_schemas_are_rejected(envelope)
@@ -89,7 +89,7 @@ func _has_typed_event(recording: Dictionary, action_name: String, value_type: St
 
 func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> void:
 	var path: String = Replay.replay_root().path_join(UNSUPPORTED_REPLAY_FILE_NAME)
-	for unsupported_version: int in [1, 2, 4]:
+	for unsupported_version: int in [1, 2, 3, 5]:
 		var unsupported: Dictionary = current_envelope.duplicate(true)
 		unsupported["file_schema_version"] = unsupported_version
 		var source_text: String = JSON.stringify(unsupported, "\t")
@@ -97,11 +97,11 @@ func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> v
 		var loaded: Dictionary = Replay.load_replay_file(path)
 		_expect(loaded.is_empty(), "replay schema %d should be rejected" % unsupported_version)
 		_expect(
-			Replay.last_error() == "[Replay] unsupported replay file schema: %d; expected 3" % unsupported_version,
+			Replay.last_error() == "[Replay] unsupported replay file schema: %d; expected 4" % unsupported_version,
 			"unsupported replay schema should report the exact version mismatch"
 		)
 		_expect(_read_replay_text(path) == source_text, "rejected replay schema should not rewrite the source file")
-	for unsupported_version: int in [1, 2, 4]:
+	for unsupported_version: int in [1, 2, 3, 5]:
 		var unsupported: Dictionary = current_envelope.duplicate(true)
 		var recording: Dictionary = (unsupported.get("recording", {}) as Dictionary).duplicate(true)
 		recording["schema_version"] = unsupported_version
@@ -111,7 +111,7 @@ func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> v
 		var loaded: Dictionary = Replay.load_replay_file(path)
 		_expect(loaded.is_empty(), "recording schema %d should be rejected" % unsupported_version)
 		_expect(
-			Replay.last_error() == "[Replay] unsupported replay recording schema: %d; expected 3" % unsupported_version,
+			Replay.last_error() == "[Replay] unsupported replay recording schema: %d; expected 4" % unsupported_version,
 			"unsupported recording schema should report the exact version mismatch"
 		)
 		_expect(_read_replay_text(path) == source_text, "rejected recording schema should not rewrite the source file")

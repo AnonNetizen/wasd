@@ -93,7 +93,6 @@
       "aim",
       "pointer_position",
       "fire",
-      "reload",
       "skill_1",
       "skill_2",
       "skill_3",
@@ -125,7 +124,6 @@
       "input.aim_right",
       "input.aim_stick",
       "input.fire",
-      "input.reload",
       "input.skill_1",
       "input.skill_2",
       "input.skill_3",
@@ -150,7 +148,6 @@
       "hit_spark",
       "gold_orb",
       "energy_orb",
-      "ammo_magazine",
       "projectile_barrier",
       "vfx_enemy_explosion_telegraph",
       "vfx_enemy_melee_telegraph",
@@ -221,7 +218,6 @@
       "world",
       "world_event",
       "economy",
-      "ammo",
       "meta"
     ],
     "character_ids": [

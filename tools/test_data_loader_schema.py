@@ -836,135 +836,25 @@ def main() -> int:
             ],
         ),
         (
-            "weapon schema v3 is rejected",
+            "weapon schema v4 is rejected",
             _mutate_json(
                 "client/data/weapons.json",
-                _set_schema_version(3),
+                _set_schema_version(4),
             ),
             [
                 "client/data/weapons.json:schema_version",
-                "must be >= 4",
+                "must be >= 5",
             ],
         ),
         (
-            "weapon ammo fields are required",
+            "weapon legacy ammo object is rejected",
             _mutate_json(
                 "client/data/weapons.json",
-                _remove_weapon_ammo_field("magazine_size"),
+                _add_legacy_weapon_ammo,
             ),
             [
-                "client/data/weapons.json:weapons[0].ammo.magazine_size",
-                "is required",
-            ],
-        ),
-        (
-            "weapon ammo rejects extra fields",
-            _mutate_json(
-                "client/data/weapons.json",
-                _set_weapon_ammo_field("surplus", 1),
-            ),
-            [
-                "client/data/weapons.json:weapons[0].ammo.surplus",
+                "client/data/weapons.json:weapons[0].ammo",
                 "is not allowed",
-            ],
-        ),
-        (
-            "weapon magazine size must be positive",
-            _mutate_json(
-                "client/data/weapons.json",
-                _set_weapon_ammo_field("magazine_size", 0),
-            ),
-            [
-                "client/data/weapons.json:weapons[0].ammo.magazine_size",
-                "must be >= 1",
-            ],
-        ),
-        (
-            "weapon starting ammo must fit total capacity",
-            _mutate_json(
-                "client/data/weapons.json",
-                _set_weapon_ammo_field("total_capacity", 179),
-            ),
-            [
-                "client/data/weapons.json:weapons[0].ammo.total_capacity",
-                "must be >= magazine_size + starting_reserve",
-            ],
-        ),
-        (
-            "weapon reload duration must be positive",
-            _mutate_json(
-                "client/data/weapons.json",
-                _set_weapon_ammo_field("reload_duration", 0.0),
-            ),
-            [
-                "client/data/weapons.json:weapons[0].ammo.reload_duration",
-                "must be > 0",
-            ],
-        ),
-        (
-            "weapon depleted multipliers stay in range",
-            _mutate_json(
-                "client/data/weapons.json",
-                _set_weapon_ammo_field("depleted_bullet_speed_multiplier", 1.1),
-            ),
-            [
-                "client/data/weapons.json:weapons[0].ammo.depleted_bullet_speed_multiplier",
-                "must be <= 1",
-            ],
-        ),
-        (
-            "ammo rules fields are required",
-            _mutate_json(
-                "client/data/ammo_rules.json",
-                _remove_ammo_rule_field("initial_drop_chance"),
-            ),
-            [
-                "client/data/ammo_rules.json:root.initial_drop_chance",
-                "is required",
-            ],
-        ),
-        (
-            "ammo rules reject extra fields",
-            _mutate_json(
-                "client/data/ammo_rules.json",
-                _set_ammo_rule_field("surplus", True),
-            ),
-            [
-                "client/data/ammo_rules.json:root.surplus",
-                "is not allowed",
-            ],
-        ),
-        (
-            "ammo drop chance stays in range",
-            _mutate_json(
-                "client/data/ammo_rules.json",
-                _set_ammo_rule_field("initial_drop_chance", 1.1),
-            ),
-            [
-                "client/data/ammo_rules.json:initial_drop_chance",
-                "must be <= 1",
-            ],
-        ),
-        (
-            "ammo pickup speed must be positive",
-            _mutate_json(
-                "client/data/ammo_rules.json",
-                _set_ammo_rule_field("pickup_speed", 0.0),
-            ),
-            [
-                "client/data/ammo_rules.json:pickup_speed",
-                "must be > 0",
-            ],
-        ),
-        (
-            "ammo rules require the ammo RNG stream",
-            _mutate_json(
-                "client/data/ammo_rules.json",
-                _set_ammo_rule_field("rng_stream", "drop"),
-            ),
-            [
-                "client/data/ammo_rules.json:rng_stream",
-                "must equal ammo",
             ],
         ),
         (
@@ -2497,32 +2387,15 @@ def _set_reward_entry_name_key(value: str) -> JsonMutator:
     return mutate
 
 
-def _set_weapon_ammo_field(field: str, value: object) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["weapons"][0]["ammo"][field] = value
-
-    return mutate
-
-
-def _remove_weapon_ammo_field(field: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["weapons"][0]["ammo"].pop(field, None)
-
-    return mutate
-
-
-def _set_ammo_rule_field(field: str, value: object) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload[field] = value
-
-    return mutate
-
-
-def _remove_ammo_rule_field(field: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload.pop(field, None)
-
-    return mutate
+def _add_legacy_weapon_ammo(payload: dict[str, Any]) -> None:
+    payload["weapons"][0]["ammo"] = {
+        "magazine_size": 30,
+        "starting_reserve": 150,
+        "total_capacity": 240,
+        "reload_duration": 1.2,
+        "depleted_fire_rate_multiplier": 0.5,
+        "depleted_bullet_speed_multiplier": 0.5,
+    }
 
 
 def _set_weapon_element(value: str) -> JsonMutator:

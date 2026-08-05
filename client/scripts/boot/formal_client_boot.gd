@@ -6,9 +6,6 @@ extends Node
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const ACTOR_SCENE_SMOKE_RUNNER := preload("res://tools/actor_scene_smoke.gd")
-const AMMO_WEAPON_SMOKE_RUNNER := preload(
-	"res://tools/ammo_weapon_smoke.gd"
-)
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
@@ -124,10 +121,6 @@ func _ready() -> void:
 		var actor_scene_smoke_runner: Node = ACTOR_SCENE_SMOKE_RUNNER.new()
 		actor_scene_smoke_runner.name = "ActorSceneSmoke"
 		add_child(actor_scene_smoke_runner)
-	elif _is_ammo_weapon_smoke_enabled():
-		var ammo_weapon_smoke_runner: Node = AMMO_WEAPON_SMOKE_RUNNER.new()
-		ammo_weapon_smoke_runner.name = "AmmoWeaponSmoke"
-		add_child(ammo_weapon_smoke_runner)
 	elif _is_l1_smoke_enabled():
 		var l1_smoke_runner: Node = L1_SMOKE_RUNNER.new()
 		l1_smoke_runner.name = "L1Smoke"
@@ -252,10 +245,6 @@ func _is_runtime_smoke_enabled() -> bool:
 
 func _is_actor_scene_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--actor-scene-smoke")
-
-
-func _is_ammo_weapon_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--ammo-weapon-smoke")
 
 
 func _is_module_world_smoke_enabled() -> bool:

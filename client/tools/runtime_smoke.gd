@@ -22,6 +22,9 @@ const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const RETIRED_AMMO_POOL_ID: String = "ammo_magazine"
+const RETIRED_AMMO_RNG_STREAM: String = "ammo"
+const RETIRED_RELOAD_ACTION: String = "reload"
 const AIM_FRAMES: int = 4
 const BOOT_FRAMES: int = 8
 const CAMERA_LOOK_SETTLE_FRAMES: int = 120
@@ -81,11 +84,9 @@ func _run() -> void:
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_BULWARK), "bulwark enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SPITTER), "spitter enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.HAZARD_SPIKE), "hazard pool should be registered")
-	_expect(PoolManager.has_pool(POOL_IDS.AMMO_MAGAZINE), "ammo magazine pool should be registered")
 	_expect(InputService.action_resource(ACTIONS.MOVE) != null, "InputService should expose the Vector2 move action")
 	_expect(InputService.action_resource(ACTIONS.AIM) != null, "InputService should expose the Vector2 aim action")
 	_expect(InputService.action_resource(ACTIONS.SHOW_STATS_PANEL) != null, "InputService should expose show_stats_panel")
-	_expect(InputService.action_resource(ACTIONS.RELOAD) != null, "InputService should expose reload")
 	_expect_gold_progression_curve_and_transactions()
 	_expect_reward_choice_controller_contract()
 
@@ -98,14 +99,13 @@ func _run() -> void:
 		player.scene_file_path == PLAYER_SCENE.resource_path,
 		"default character should instantiate its data-bound dedicated scene"
 	)
-	_expect_ammo_drop_contract(run_loop, player)
-	_expect_player_ammo_world_prompt(player)
+	_expect_ammunition_removed(run_loop, player)
 	var initial_run_snapshot: Dictionary = (
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 11,
-		"new runs should use Run schema v11"
+		int(initial_run_snapshot.get("schema_version", 0)) == 12,
+		"new runs should use Run schema v12"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -5219,189 +5219,78 @@ func _dictionary_or_empty(value: Variant) -> Dictionary:
 	return {}
 
 
-func _expect_ammo_drop_contract(
+func _expect_ammunition_removed(
 	run_loop: Node,
 	player: Node2D
 ) -> void:
-	var expected_chances: Array[float] = [
-		0.08,
-		0.23,
-		0.38,
-		0.53,
-		0.68,
-		0.83,
-		0.98,
-		1.0,
-	]
-	var expected_attempts: float = 0.0
-	var survival_probability: float = 1.0
-	for miss_count: int in range(expected_chances.size()):
-		var chance: float = float(
-			run_loop.call(
-				"_ammo_drop_chance_for_misses",
-				miss_count
-			)
-		)
-		_expect(
-			is_equal_approx(chance, expected_chances[miss_count]),
-			"ammo drop chance should follow the configured escalating curve"
-		)
-		expected_attempts += survival_probability
-		survival_probability *= 1.0 - chance
-	_expect(
-		is_equal_approx(1.0 / expected_attempts, 0.2983697),
-		"ammo drop curve should keep the expected 29.84 percent long-run rate"
-	)
-	_expect(
-		bool(
-			run_loop.call(
-				"_is_ammo_drop_eligible",
-				true,
-				ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE
-			)
-		),
-		"player-attributed reward kills should qualify for ammo drops"
-	)
-	for rejected_case: Dictionary in [
-		{
-			"drops_rewards": false,
-			"cause_id": ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE,
-		},
-		{
-			"drops_rewards": true,
-			"cause_id": ENEMY_DEFEAT_CAUSES.ENEMY_EXPLOSION,
-		},
-		{
-			"drops_rewards": true,
-			"cause_id": ENEMY_DEFEAT_CAUSES.OTHER_CAUSE,
-		},
-	]:
-		_expect(
-			not bool(
-				run_loop.call(
-					"_is_ammo_drop_eligible",
-					bool(rejected_case["drops_rewards"]),
-					String(rejected_case["cause_id"])
-				)
-			),
-			"environment, enemy, and Burst Hunter explosion defeats should not qualify"
-		)
-
 	var weapon: Node = player.get_node_or_null("WeaponSystem")
-	_expect(weapon != null, "ammo drop smoke requires WeaponSystem")
+	_expect(weapon != null, "ammunition removal smoke requires WeaponSystem")
 	if weapon == null:
 		return
-	var original_weapon_snapshot: Dictionary = weapon.call("snapshot")
-	var original_drop_config: Dictionary = (
-		run_loop.get("_ammo_drop_config") as Dictionary
-	).duplicate(true)
-	var original_misses: int = int(run_loop.get("_ammo_drop_misses"))
-	var original_ammo_rng: Dictionary = RNG.ammo.snapshot()
-	weapon.call("restore_snapshot", {
-		"magazine_ammo": 30,
-		"reserve_ammo": 210,
-	})
-	run_loop.set("_ammo_drop_misses", 4)
-	var full_rng_before: Dictionary = RNG.ammo.snapshot()
-	var active_before: int = PoolManager.active_count(
-		POOL_IDS.AMMO_MAGAZINE
+	_expect(
+		not DataLoader.has_contract_value("pool_ids", RETIRED_AMMO_POOL_ID)
+		and not PoolManager.has_pool(RETIRED_AMMO_POOL_ID),
+		"ammunition pickup pool should be absent from contracts and runtime"
 	)
 	_expect(
-		not bool(
-			run_loop.call(
-				"_try_spawn_ammo_magazine",
-				player.global_position
-			)
+		not DataLoader.has_contract_value(
+			"rng_streams",
+			RETIRED_AMMO_RNG_STREAM
+		)
+		and not (RNG.snapshot().get("streams", {}) as Dictionary).has(
+			RETIRED_AMMO_RNG_STREAM
 		),
-		"full ammo should skip the ammo drop roll"
+		"ammunition RNG stream should be absent from contracts and snapshots"
 	)
 	_expect(
-		RNG.ammo.snapshot() == full_rng_before
-		and int(run_loop.get("_ammo_drop_misses")) == 4
-		and PoolManager.active_count(POOL_IDS.AMMO_MAGAZINE)
-		== active_before,
-		"full ammo should preserve RNG, miss count, and pickup count"
+		InputService.action_resource(RETIRED_RELOAD_ACTION) == null,
+		"reload action should be absent from InputService"
 	)
+	_expect(
+		not player.has_node("WorldPrompt"),
+		"player scene should not retain the ammunition world prompt"
+	)
+	var run_snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	var weapon_snapshot: Dictionary = _dictionary_or_empty(
+		run_snapshot.get("weapon", {})
+	)
+	_expect(
+		not run_snapshot.has("ammo_drop_misses")
+		and not run_snapshot.has("ammo_magazines")
+		and not weapon_snapshot.has("magazine_ammo")
+		and not weapon_snapshot.has("reserve_ammo")
+		and not weapon_snapshot.has("is_reloading")
+		and not weapon_snapshot.has("reload_remaining"),
+		"Run v12 snapshots should not contain ammunition or reload fields"
+	)
+	for retired_method: String in [
+		"ammo_state",
+		"can_accept_ammo",
+		"add_ammo",
+		"request_reload",
+	]:
+		_expect(
+			not weapon.has_method(retired_method),
+			"WeaponSystem should not retain %s" % retired_method
+		)
 
-	weapon.call("restore_snapshot", {
-		"magazine_ammo": 29,
-		"reserve_ammo": 150,
-	})
-	var forced_config: Dictionary = original_drop_config.duplicate(true)
-	forced_config["guaranteed_after_misses"] = 0
-	run_loop.set("_ammo_drop_config", forced_config)
-	run_loop.set("_ammo_drop_misses", 7)
-	var drop_rng_before: Dictionary = RNG.drop.snapshot()
-	var economy_rng_before: Dictionary = RNG.economy.snapshot()
+	var existing_bullet_ids: Dictionary = {}
+	for bullet: Node in get_tree().get_nodes_in_group("active_bullets"):
+		existing_bullet_ids[bullet.get_instance_id()] = true
+	var combat_rng_snapshot: Dictionary = RNG.combat.snapshot()
+	var stats: Dictionary = weapon.call("_effective_runtime_stats")
+	var fired_count: int = 0
+	for _shot_index: int in range(31):
+		if bool(weapon.call("_fire_once", stats)):
+			fired_count += 1
 	_expect(
-		bool(
-			run_loop.call(
-				"_try_spawn_ammo_magazine",
-				player.global_position
-			)
-		),
-		"guaranteed ammo roll should create one pooled pickup"
+		fired_count == 31,
+		"WeaponSystem should fire beyond the retired 30-round boundary"
 	)
-	var pickups: Array[Node] = get_tree().get_nodes_in_group(
-		"active_ammo_magazines"
-	)
-	_expect(
-		pickups.size() == active_before + 1
-		and int(
-			(
-				pickups[pickups.size() - 1].call("snapshot")
-				as Dictionary
-			).get("amount", 0)
-		) == 30,
-		"ammo drop should contain exactly one current weapon magazine"
-	)
-	_expect(
-		int(run_loop.get("_ammo_drop_misses")) == 0,
-		"successful ammo drop should reset the miss counter"
-	)
-	_expect(
-		RNG.drop.snapshot() == drop_rng_before
-		and RNG.economy.snapshot() == economy_rng_before
-		and RNG.ammo.snapshot() != full_rng_before,
-		"ammo drops should consume only the independent RNG.ammo stream"
-	)
-	for pickup: Node in pickups:
-		PoolManager.release(pickup)
-	run_loop.set("_ammo_drop_config", original_drop_config)
-	run_loop.set("_ammo_drop_misses", original_misses)
-	RNG.ammo.restore_snapshot(original_ammo_rng)
-	weapon.call("restore_snapshot", original_weapon_snapshot)
-
-
-func _expect_player_ammo_world_prompt(player: Node2D) -> void:
-	var weapon: Node = player.get_node_or_null("WeaponSystem")
-	var prompt: Node2D = player.get_node_or_null("WorldPrompt") as Node2D
-	var prompt_label: Label = (
-		prompt.get_node_or_null("Label") as Label
-		if prompt != null
-		else null
-	)
-	_expect(
-		weapon != null and prompt != null and prompt_label != null,
-		"player ammo world prompt should be scene-authored beside WeaponSystem"
-	)
-	if weapon == null or prompt == null or prompt_label == null:
-		return
-	weapon.emit_signal("ammo_attention_requested", 0)
-	_expect(
-		prompt.visible
-		and prompt_label.text == tr("ui_player_ammo_depleted_prompt"),
-		"depleted ammo attention should route to the player world prompt"
-	)
-	weapon.emit_signal("ammo_attention_requested", 1)
-	var reload_prompt: String = tr("ui_player_ammo_reload_prompt").format({
-		"binding": InputService.prompt_text(ACTIONS.RELOAD),
-	})
-	_expect(
-		prompt.visible and prompt_label.text == reload_prompt,
-		"reserve ammo attention should show the current reload binding near the player"
-	)
-	prompt.call("dismiss")
+	for bullet: Node in get_tree().get_nodes_in_group("active_bullets"):
+		if not existing_bullet_ids.has(bullet.get_instance_id()):
+			PoolManager.release(bullet)
+	RNG.combat.restore_snapshot(combat_rng_snapshot)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -16,12 +16,12 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.10"
+const GAME_VERSION: String = "v1.11"
 const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 2,
-	SAVE_KINDS.RUN: 11,
+	SAVE_KINDS.RUN: 12,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -41,6 +41,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 8, 9, Callable(self, "_migrate_run_v8_to_v9"))
 	register_migration(SAVE_KINDS.RUN, 9, 10, Callable(self, "_migrate_run_v9_to_v10"))
 	register_migration(SAVE_KINDS.RUN, 10, 11, Callable(self, "_migrate_run_v10_to_v11"))
+	register_migration(SAVE_KINDS.RUN, 11, 12, Callable(self, "_migrate_run_v11_to_v12"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -443,14 +444,48 @@ func _migrate_run_v9_to_v10(payload: Dictionary) -> Dictionary:
 
 
 func _migrate_run_v10_to_v11(payload: Dictionary) -> Dictionary:
-	# v10 has no magazine/reserve/reload state, independent ammo RNG stream,
-	# escalating drop counter, or world pickup snapshots. Inferring any of these
-	# would change future shots and drops, so preserve Meta v2 and reset only Run.
 	var result: Dictionary = payload.duplicate(true)
 	result["schema_version"] = 11
 	result["legacy_run_incompatible"] = true
-	result["ammo_drop_misses"] = 0
-	result["ammo_magazines"] = []
+	return result
+
+
+func _migrate_run_v11_to_v12(payload: Dictionary) -> Dictionary:
+	# v11 weapon and world snapshots encode ammunition state that no longer has
+	# runtime meaning. Preserve Meta v2 and discard only the incompatible Run.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 12
+	result["legacy_run_incompatible"] = true
+	result.erase("ammo_drop_misses")
+	result.erase("ammo_magazines")
+	var rng_snapshot: Dictionary = (
+		(result.get("rng", {}) as Dictionary).duplicate(true)
+		if result.get("rng", {}) is Dictionary
+		else {}
+	)
+	var rng_streams: Dictionary = (
+		(rng_snapshot.get("streams", {}) as Dictionary).duplicate(true)
+		if rng_snapshot.get("streams", {}) is Dictionary
+		else {}
+	)
+	rng_streams.erase("ammo")
+	rng_snapshot["streams"] = rng_streams
+	result["rng"] = rng_snapshot
+	var weapon: Dictionary = (
+		(result.get("weapon", {}) as Dictionary).duplicate(true)
+		if result.get("weapon", {}) is Dictionary
+		else {}
+	)
+	for retired_field: String in [
+		"magazine",
+		"magazine_ammo",
+		"reserve",
+		"reserve_ammo",
+		"is_reloading",
+		"reload_remaining",
+	]:
+		weapon.erase(retired_field)
+	result["weapon"] = weapon
 	return result
 
 

@@ -190,10 +190,6 @@ func _expect_default_combat_bindings() -> void:
 		"skill 4 should default to keyboard top-row 4"
 	)
 	_expect(
-		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.RELOAD), KEY_R),
-		"reload should default to keyboard R"
-	)
-	_expect(
 		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.INTERACT), KEY_E),
 		"interact should default to keyboard E"
 	)
@@ -232,39 +228,34 @@ func _expect_default_combat_bindings() -> void:
 	_expect(
 		_has_remappable_joy_button(
 			gameplay,
-			InputService.action_resource(ACTIONS.RELOAD),
-			JOY_BUTTON_B
-		),
-		"reload should default to gamepad East"
-	)
-	_expect(
-		_has_remappable_joy_button(
-			gameplay,
 			InputService.action_resource(ACTIONS.INTERACT),
 			JOY_BUTTON_X
 		),
 		"interact should keep gamepad West"
 	)
 
-	var reload_row: Dictionary = {}
+	var has_reload_row: bool = false
 	for row: Dictionary in InputService.binding_rows():
-		if row.get("id") == InputService.BINDING_RELOAD:
-			reload_row = row
+		if String(row.get("label_key", "")) == "ui_settings_input_reload":
+			has_reload_row = true
 			break
 	_expect(
-		not reload_row.is_empty()
-		and String(reload_row.get("label_key", "")) == "ui_settings_input_reload"
-		and bool(reload_row.get("keyboard_available", false))
-		and bool(reload_row.get("gamepad_available", false)),
-		"settings binding rows should expose remappable reload slots"
+		not has_reload_row,
+		"settings binding rows should not expose a reload slot"
+	)
+	_expect(
+		InputService.action_resource("reload") == null,
+		"InputService should not expose a reload action"
 	)
 
+	_action_presses.clear()
+	_action_releases.clear()
 	await _inject_key(KEY_R, true)
-	_expect(InputService.is_pressed(ACTIONS.RELOAD), "keyboard R should drive reload intent")
 	await _inject_key(KEY_R, false)
-	await _inject_joy_button(JOY_BUTTON_B, true)
-	_expect(InputService.is_pressed(ACTIONS.RELOAD), "gamepad East should drive reload intent")
-	await _inject_joy_button(JOY_BUTTON_B, false)
+	_expect(
+		_action_presses.is_empty() and _action_releases.is_empty(),
+		"keyboard R should not produce gameplay intent"
+	)
 
 
 func _expect_focus_and_disconnect_clear_state() -> void:

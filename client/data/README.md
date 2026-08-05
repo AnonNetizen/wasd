@@ -29,8 +29,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改瞄准方向引导镜头或玩家受伤 / 武器后坐力震屏 | `camera_feedback.json` 的 `aim_look` / `player_damage_shake` / `weapon_recoil_shake` | 引导偏移按输入源计算并独立于震屏；噪声随机走 `RNG.camera_fx` |
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
 | 改智能碎片主属性 / 被动 / 两个技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；palette 必须且只能含一个 `primary`。主碎片提供属性、被动、主色和技能 1/2，副碎片提供副色和技能 3/4 |
-| 改武器射速 / 后坐力 / 弹道扩散 / 弹匣 / 换弹 / 空弹降级 | `weapons.json` | 武器 id 文件内唯一；后坐力与基础扩散受根级 `recoil_model` 限制，弹匣、备用弹药、总容量、换弹时间和空弹倍率均为每武器必填；子弹池、元素和音频前缀必须来自词表 |
-| 改弹匣拾取速度 / 敌人掉落概率 / 递增保底 | `ammo_rules.json` | schema v1；拾取物走 `ammo_magazine` 对象池，掉落判定只使用 `RNG.ammo`，满弹时不消费或推进该子流 |
+| 改武器射速 / 后坐力 / 弹道扩散 | `weapons.json` | schema v5；武器 id 文件内唯一，后坐力与基础扩散受根级 `recoil_model` 限制；玩家武器无限射击且禁止遗留 `ammo` 字段，子弹池、元素和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 怪物金币价值 / 中心间距 | `enemies.csv` | `gold_value_multiplier` 只表达怪物相对价值；全局金币公式改 `enemy_rewards.json`；显式攻击参数统一在 `enemy_ai_profiles.json.actions[].attack` |
 | 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
@@ -63,8 +62,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `enemy_rewards.json` | 已建立 | schema v1：敌人金币基础系数、每阶段增长与 `RNG.economy` 随机倍率范围 |
 | `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
-| `weapons.json` | 已建立 | schema v4：武器、后坐力 / 弹道扩散、弹匣 / 备用弹药 / 换弹 / 空弹降级与子弹基础配置 |
-| `ammo_rules.json` | 已建立 | schema v1：弹匣拾取对象池、吸附速度、单次补给、敌人掉落概率递增与 `RNG.ammo` 子流 |
+| `weapons.json` | 已建立 | schema v5：武器、后坐力 / 弹道扩散与子弹基础配置；玩家武器无限射击，精确拒绝遗留 `ammo` |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
@@ -208,7 +206,7 @@ user://mods/my_first_mod/
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`weapons.json`、`ammo_rules.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`level_progression.json`、`reward_choice_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`weapons.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`level_progression.json`、`reward_choice_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -492,7 +490,7 @@ round(
 )
 ```
 
-所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v11 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件固定金币奖励不读本文件。
+所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v12 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件固定金币奖励不读本文件。
 
 ## `game_modes.json`
 
@@ -1205,6 +1203,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       "default_unlocked": true,
       "fire_mode": "hold_mouse",
       "fire_audio_id": "sfx_player_shoot",
+      "presentation_profile_id": "presentation_weapon_default",
       "base_stats": {
         "damage": 3.5,
         "fire_rate": 2.5,
@@ -1217,14 +1216,6 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
         "crit_mult": 1.5,
         "recoil": 20.0,
         "spread_angle_max": 60.0
-      },
-      "ammo": {
-        "magazine_size": 30,
-        "starting_reserve": 150,
-        "total_capacity": 240,
-        "reload_duration": 1.2,
-        "depleted_fire_rate_multiplier": 0.5,
-        "depleted_bullet_speed_multiplier": 0.5
       },
       "projectile": {
         "pool_id": "bullet_basic",
@@ -1242,7 +1233,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `4` | 数据结构版本；v4 为每个武器增加必填 `ammo` 配置 |
+| `schema_version` | int | 必须为 `5` | 数据结构版本；v5 完全删除玩家弹药配置并精确拒绝遗留 `ammo` 或额外字段 |
 | `recoil_model.recoil_max` | number | `> 0`；当前 `100` | 武器基础 `recoil` 的校验上限，也是后坐力强度归一化分母 |
 | `recoil_model.spread_exponent` | number | `> 0`；当前 `1.5` | 归一化后坐力映射为实际弹道扩散比例时使用的指数；大于 `1` 会压低低后坐力区间的扩散 |
 | `recoil_model.base_spread_cap` | number | 度，`> 0`；当前 `60` | 武器基础 `spread_angle_max` 的数据校验上限 |
@@ -1254,7 +1245,8 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `weapons[].name_key` / `desc_key` | string | `weapon_*_name` / `weapon_*_desc` | 武器名称和描述译文 key |
 | `weapons[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
 | `weapons[].fire_mode` | string | 非空 | 开火模式标识；当前只做数据边界，不实现开火策略 |
-| `weapons[].fire_audio_id` | string | 可选；已声明时必须符合词表 §10 audio prefix | 开火音效 id；当前只校验前缀，不要求资源已存在 |
+| `weapons[].fire_audio_id` | string | 必填；必须符合词表 §10 audio prefix | 开火音效 id；当前只校验前缀，不要求资源已存在 |
+| `weapons[].presentation_profile_id` | string | 必填，非空 | 武器表现 profile；开火反馈仍可驱动后坐与非枪口闪光表现 |
 | `base_stats.damage` | number | `>= 0` | 单发基础伤害 |
 | `base_stats.fire_rate` | number | `> 0` | 每秒发射次数 |
 | `base_stats.bullet_speed` | number | `> 0` | 子弹速度，px/s |
@@ -1266,51 +1258,13 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `base_stats.crit_mult` | number | `> 0` | 暴击倍率 |
 | `base_stats.recoil` | number | `0..recoil_model.recoil_max` | 武器后坐力强度；共同驱动震屏、玩家反向冲量与弹道扩散 |
 | `base_stats.spread_angle_max` | number | 度，`0..recoil_model.base_spread_cap` | 武器在满后坐力下的基础完整扩散锥角上限；运行时仍受 `runtime_spread_cap` 约束 |
-| `ammo.magazine_size` | int | 发，`>= 1`；基础枪为 `30` | 满弹匣可容纳的弹数；每次成功正常开火消耗一发 |
-| `ammo.starting_reserve` | int | 发，`>= 0` 且 `<= total_capacity - magazine_size`；基础枪为 `150` | 新局在满弹匣之外携带的备用弹药 |
-| `ammo.total_capacity` | int | 发，`>= magazine_size + starting_reserve`；基础枪为 `240` | 当前弹匣与备用弹药合计的携带上限 |
-| `ammo.reload_duration` | number | 秒，`> 0`；基础枪为 `1.2` | 主动换弹从开始到提交的持续时间 |
-| `ammo.depleted_fire_rate_multiplier` | number | 倍率，`> 0` 且 `<= 1`；基础枪为 `0.5` | 弹匣与备用弹药都为空时，降级射击对基础射速应用的倍率 |
-| `ammo.depleted_bullet_speed_multiplier` | number | 倍率，`> 0` 且 `<= 1`；基础枪为 `0.5` | 弹匣与备用弹药都为空时，降级射击对子弹速度应用的倍率 |
 | `projectile.pool_id` | string | 词表 §8 pool id | 使用的子弹对象池 |
 | `projectile.element_id` | string | 词表 §9 element id | 默认战斗元素；旧 `damage_type` 已删除 |
 | `projectile.hit_radius` | number | `> 0` | 命中半径，px |
 | `projectile.muzzle_distance` | number | `> 0` | 发射点相对角色中心距离，px；基础玩家武器当前为 38（25 px 玩家半径 + 12 px 子弹半径 + 1 px 间隙），敌人攻击配置仍独立保持 24 |
 | `projectile.lifetime` | number | `> 0` | 子弹存活秒数；业务系统可结合射程裁剪 |
 
-`weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。角色通过 `characters[].starting_loadout.weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。
-
-## `ammo_rules.json`
-
-当前结构：
-
-```json
-{
-  "schema_version": 1,
-  "pool_id": "ammo_magazine",
-  "pickup_speed": 360.0,
-  "pickup_magazine_count": 1,
-  "initial_drop_chance": 0.08,
-  "chance_increment_per_miss": 0.15,
-  "guaranteed_after_misses": 7,
-  "rng_stream": "ammo"
-}
-```
-
-字段说明：
-
-| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
-|----------|------|---------------|------|
-| `schema_version` | int | 必须为 `1` | 弹匣掉落与拾取规则的数据结构版本 |
-| `pool_id` | string | 必须为词表 §8 的 `ammo_magazine` | 弹匣拾取物使用的统一对象池 |
-| `pickup_speed` | number | px/s，`> 0`；当前 `360` | 弹匣进入玩家拾取范围后向玩家吸附的移动速度 |
-| `pickup_magazine_count` | int | 个，`>= 1`；当前 `1` | 每次拾取补充的完整弹匣数量；实际弹数按当前武器 `ammo.magazine_size` 换算并受总容量限制 |
-| `initial_drop_chance` | number | `0.0..1.0`；当前 `0.08` | 满足掉落资格的玩家归因击杀在零次连续未掉落时的初始概率 |
-| `chance_increment_per_miss` | number | `0.0..1.0`；当前 `0.15` | 每次满足资格但未掉落后，为下一次判定增加的概率；有效概率最高按 `1.0` 处理 |
-| `guaranteed_after_misses` | int | `>= 1`；当前 `7` | 连续未掉落达到该次数后，下一次满足资格的击杀必定掉落 |
-| `rng_stream` | string | 必须为词表 §11 的 `ammo` | 弹匣掉落专用确定性 RNG 子流；满弹时不抽取、不推进连续未掉落计数 |
-
-弹匣掉落成功后连续未掉落计数归零。`ammo_rules.json` 只声明全局弹匣掉落与拾取数值，不覆盖各武器的弹匣容量、起始备用弹药、总容量、换弹时间或空弹降级倍率。
+`weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。玩家 WeaponSystem 按 `base_stats.fire_rate` 无限射击；不得重新加入弹量、换弹或空弹倍率字段。角色通过 `characters[].starting_loadout.weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。
 
 ## `relics.json`
 

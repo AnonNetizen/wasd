@@ -39,7 +39,6 @@ const LEVEL_PROGRESSION_PATH: String = "res://data/level_progression.json"
 const REWARD_CHOICE_POOLS_PATH: String = "res://data/reward_choice_pools.json"
 const DIFFICULTY_PROFILES_PATH: String = "res://data/difficulty_profiles.json"
 const ENEMY_REWARDS_PATH: String = "res://data/enemy_rewards.json"
-const AMMO_RULES_PATH: String = "res://data/ammo_rules.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
@@ -183,7 +182,6 @@ func validate_project_data() -> bool:
 	is_valid = _validate_enemy_ai_profiles_json() and is_valid
 	var enemy_ai_profile_ids: Dictionary = _collect_enemy_ai_profile_ids()
 	is_valid = _validate_enemy_rewards_json() and is_valid
-	is_valid = _validate_ammo_rules_json() and is_valid
 	is_valid = _validate_enemies_csv(locale_keys, enemy_ai_profile_ids) and is_valid
 	var enemy_ids: Dictionary = _collect_enemy_ids()
 	is_valid = _validate_gear_mods_json(locale_keys) and is_valid
@@ -1613,8 +1611,8 @@ func _validate_weapons_json(locale_keys: Dictionary) -> bool:
 		WEAPONS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		4,
-		4
+		5,
+		5
 	) and is_valid
 	var recoil_model: Dictionary = {}
 	var raw_recoil_model: Variant = payload.get("recoil_model", {})
@@ -1633,6 +1631,22 @@ func _validate_weapons_json(locale_keys: Dictionary) -> bool:
 			is_valid = _schema_fail(WEAPONS_PATH, field, "Dictionary") and is_valid
 			continue
 		var weapon_dict: Dictionary = weapon as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			WEAPONS_PATH,
+			field,
+			weapon_dict,
+			[
+				"id",
+				"name_key",
+				"desc_key",
+				"default_unlocked",
+				"fire_mode",
+				"fire_audio_id",
+				"presentation_profile_id",
+				"base_stats",
+				"projectile",
+			]
+		) and is_valid
 		is_valid = _require_non_empty_string(WEAPONS_PATH, "%s.id" % field, weapon_dict.get("id")) and is_valid
 		var weapon_id: String = String(weapon_dict.get("id", ""))
 		if not weapon_id.is_empty():
@@ -1651,7 +1665,6 @@ func _validate_weapons_json(locale_keys: Dictionary) -> bool:
 			recoil_model
 		) and is_valid
 		is_valid = _validate_weapon_projectile("%s.projectile" % field, weapon_dict.get("projectile")) and is_valid
-		is_valid = _validate_weapon_ammo("%s.ammo" % field, weapon_dict.get("ammo")) and is_valid
 	return is_valid
 
 
@@ -1731,79 +1744,6 @@ func _validate_weapon_projectile(field: String, data: Variant) -> bool:
 	is_valid = _require_number(WEAPONS_PATH, "%s.hit_radius" % field, projectile.get("hit_radius"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.muzzle_distance" % field, projectile.get("muzzle_distance"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.lifetime" % field, projectile.get("lifetime"), 0.0, null, true) and is_valid
-	return is_valid
-
-
-func _validate_weapon_ammo(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(WEAPONS_PATH, field, "Dictionary")
-	var ammo: Dictionary = data as Dictionary
-	var is_valid: bool = _validate_exact_dictionary_keys(
-		WEAPONS_PATH,
-		field,
-		ammo,
-		[
-			"magazine_size",
-			"starting_reserve",
-			"total_capacity",
-			"reload_duration",
-			"depleted_fire_rate_multiplier",
-			"depleted_bullet_speed_multiplier",
-		]
-	)
-	is_valid = _require_int(
-		WEAPONS_PATH,
-		"%s.magazine_size" % field,
-		ammo.get("magazine_size"),
-		1
-	) and is_valid
-	is_valid = _require_int(
-		WEAPONS_PATH,
-		"%s.starting_reserve" % field,
-		ammo.get("starting_reserve"),
-		0
-	) and is_valid
-	is_valid = _require_int(
-		WEAPONS_PATH,
-		"%s.total_capacity" % field,
-		ammo.get("total_capacity"),
-		1
-	) and is_valid
-	is_valid = _require_number(
-		WEAPONS_PATH,
-		"%s.reload_duration" % field,
-		ammo.get("reload_duration"),
-		0.0,
-		null,
-		true
-	) and is_valid
-	for multiplier_field: String in [
-		"depleted_fire_rate_multiplier",
-		"depleted_bullet_speed_multiplier",
-	]:
-		is_valid = _require_number(
-			WEAPONS_PATH,
-			"%s.%s" % [field, multiplier_field],
-			ammo.get(multiplier_field),
-			0.0,
-			1.0,
-			true
-		) and is_valid
-	if (
-		_is_int_like(ammo.get("magazine_size"))
-		and _is_int_like(ammo.get("starting_reserve"))
-		and _is_int_like(ammo.get("total_capacity"))
-		and (
-			_variant_to_int(ammo.get("magazine_size"))
-			+ _variant_to_int(ammo.get("starting_reserve"))
-			> _variant_to_int(ammo.get("total_capacity"))
-		)
-	):
-		is_valid = _schema_fail(
-			WEAPONS_PATH,
-			"%s.total_capacity" % field,
-			"int >= magazine_size + starting_reserve"
-		) and is_valid
 	return is_valid
 
 
@@ -3157,90 +3097,6 @@ func _validate_enemy_rewards_json() -> bool:
 			"number <= random_multiplier_max"
 		) and is_valid
 	_last_schema_counts["enemy_reward_models"] = 1
-	return is_valid
-
-
-func _validate_ammo_rules_json() -> bool:
-	var data: Variant = load_json(AMMO_RULES_PATH)
-	if not data is Dictionary:
-		return _schema_fail(AMMO_RULES_PATH, "root", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = _validate_exact_dictionary_keys(
-		AMMO_RULES_PATH,
-		"root",
-		payload,
-		[
-			"schema_version",
-			"pool_id",
-			"pickup_speed",
-			"pickup_magazine_count",
-			"initial_drop_chance",
-			"chance_increment_per_miss",
-			"guaranteed_after_misses",
-			"rng_stream",
-		]
-	)
-	is_valid = _require_exact_int(
-		AMMO_RULES_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		1
-	) and is_valid
-	is_valid = (
-		_require_registered(
-			AMMO_RULES_PATH,
-			"pool_id",
-			payload.get("pool_id"),
-			"pool_ids"
-		)
-		!= ""
-	) and is_valid
-	is_valid = _require_number(
-		AMMO_RULES_PATH,
-		"pickup_speed",
-		payload.get("pickup_speed"),
-		0.0,
-		null,
-		true
-	) and is_valid
-	is_valid = _require_int(
-		AMMO_RULES_PATH,
-		"pickup_magazine_count",
-		payload.get("pickup_magazine_count"),
-		1
-	) and is_valid
-	is_valid = _require_number(
-		AMMO_RULES_PATH,
-		"initial_drop_chance",
-		payload.get("initial_drop_chance"),
-		0.0,
-		1.0,
-		true
-	) and is_valid
-	is_valid = _require_number(
-		AMMO_RULES_PATH,
-		"chance_increment_per_miss",
-		payload.get("chance_increment_per_miss"),
-		0.0,
-		1.0,
-		true
-	) and is_valid
-	is_valid = _require_int(
-		AMMO_RULES_PATH,
-		"guaranteed_after_misses",
-		payload.get("guaranteed_after_misses"),
-		0
-	) and is_valid
-	is_valid = (
-		_require_registered(
-			AMMO_RULES_PATH,
-			"rng_stream",
-			payload.get("rng_stream"),
-			"rng_streams"
-		)
-		== "ammo"
-	) and is_valid
-	_last_schema_counts["ammo_rule_models"] = 1
 	return is_valid
 
 

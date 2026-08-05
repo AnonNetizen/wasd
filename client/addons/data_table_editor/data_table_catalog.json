@@ -7,7 +7,6 @@
   },
   "datasets": [
     {"id":"active_items","label":"主动道具","group":"内容","path":"res://data/active_items.json","format":"json","sections":[{"path":"active_items","primary_keys":["id"]}]},
-    {"id":"ammo_rules","label":"弹药规则","group":"战斗","path":"res://data/ammo_rules.json","format":"json"},
     {"id":"camera_feedback","label":"相机反馈","group":"表现","path":"res://data/camera_feedback.json","format":"json"},
     {"id":"characters","label":"智能碎片","group":"内容","path":"res://data/characters.json","format":"json","sections":[{"path":"characters","primary_keys":["id"],"contract_key":"character_ids"}],"locale_fields":["name_key","desc_key"]},
     {"id":"consumables","label":"消耗品","group":"内容","path":"res://data/consumables.json","format":"json","sections":[{"path":"consumables","primary_keys":["id"]}],"locale_fields":["name_key","desc_key"]},

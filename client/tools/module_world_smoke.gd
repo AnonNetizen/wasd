@@ -96,9 +96,9 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 11
+		int(fresh_run_snapshot.get("schema_version", 0)) == 12
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v11 should save registered world-event state"
+		"Run v12 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
@@ -968,8 +968,8 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 11, "module run snapshot should use schema v11")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v11 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 12, "module run snapshot should use schema v12")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v12 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
 	_expect(not loaded.is_empty(), "module run v10 should load")
 	if loaded.is_empty():

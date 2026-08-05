@@ -147,7 +147,6 @@ func _runtime_summary(run_loop: Node, frame_samples: Array[Dictionary]) -> Dicti
 	var gold_progression: Dictionary = _dictionary_or_empty(
 		snapshot.get("gold_progression", {})
 	)
-	var weapon: Dictionary = _dictionary_or_empty(snapshot.get("weapon", {}))
 	_expect(module_map_hash.length() == 64, "GoldenReplayCapture requires a module world map hash")
 	var summary: Dictionary = {
 		"schema_version": 1,
@@ -175,14 +174,6 @@ func _runtime_summary(run_loop: Node, frame_samples: Array[Dictionary]) -> Dicti
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
 		"module_map_hash": module_map_hash,
 		"active_gold_orbs": _array_size(snapshot.get("gold_orbs", [])),
-		"active_ammo_magazines": _array_size(
-			snapshot.get("ammo_magazines", [])
-		),
-		"ammo_magazine": int(weapon.get("magazine_ammo", 0)),
-		"ammo_reserve": int(weapon.get("reserve_ammo", 0)),
-		"weapon_reloading": bool(weapon.get("is_reloading", false)),
-		"reload_remaining": float(weapon.get("reload_remaining", 0.0)),
-		"ammo_drop_misses": int(snapshot.get("ammo_drop_misses", 0)),
 	}
 	if _uses_exact_runtime_counts(_scenario):
 		summary["active_enemies"] = _array_size(snapshot.get("enemies", []))
@@ -195,9 +186,6 @@ func _runtime_summary(run_loop: Node, frame_samples: Array[Dictionary]) -> Dicti
 			POOL_IDS.ENEMY_BULWARK: PoolManager.stats(POOL_IDS.ENEMY_BULWARK),
 			POOL_IDS.ENEMY_SPITTER: PoolManager.stats(POOL_IDS.ENEMY_SPITTER),
 			POOL_IDS.GOLD_ORB: PoolManager.stats(POOL_IDS.GOLD_ORB),
-			POOL_IDS.AMMO_MAGAZINE: PoolManager.stats(
-				POOL_IDS.AMMO_MAGAZINE
-			),
 		}
 	else:
 		summary["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
@@ -223,7 +211,6 @@ func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
 	var gold_progression: Dictionary = _dictionary_or_empty(
 		snapshot.get("gold_progression", {})
 	)
-	var weapon: Dictionary = _dictionary_or_empty(snapshot.get("weapon", {}))
 	var sample: Dictionary = {
 		"frame": frame_number,
 		"state": String(GameState.current()),
@@ -237,13 +224,6 @@ func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
 		"module_map_hash": String(_dictionary_or_empty(snapshot.get("module_world", {})).get("map_hash", "")),
 		"weapon_cooldown_ready": _weapon_cooldown_remaining(snapshot) <= 0.0,
-		"ammo_magazine": int(weapon.get("magazine_ammo", 0)),
-		"ammo_reserve": int(weapon.get("reserve_ammo", 0)),
-		"weapon_reloading": bool(weapon.get("is_reloading", false)),
-		"reload_remaining": float(weapon.get("reload_remaining", 0.0)),
-		"active_ammo_magazines": _array_size(
-			snapshot.get("ammo_magazines", [])
-		),
 		"active_gold_orbs": _array_size(snapshot.get("gold_orbs", [])),
 		"gold_orbs_present": _array_size(snapshot.get("gold_orbs", [])) > 0,
 		"enemy_types": _enemy_types(snapshot),

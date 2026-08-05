@@ -9,7 +9,6 @@ const EXPECTED_ACTIONS: Array[String] = [
 	ACTIONS.MOVE,
 	ACTIONS.AIM,
 	ACTIONS.FIRE,
-	ACTIONS.RELOAD,
 	ACTIONS.SKILL_1,
 	ACTIONS.SKILL_2,
 	ACTIONS.SKILL_3,
@@ -71,8 +70,18 @@ func _run() -> void:
 	await _inject_key(KEY_4, false)
 	await _inject_key(KEY_E, true)
 	await _inject_key(KEY_E, false)
+	var events_before_unbound_r: int = (
+		Replay.snapshot().get("input_events", []) as Array
+	).size()
 	await _inject_key(KEY_R, true)
 	await _inject_key(KEY_R, false)
+	var events_after_unbound_r: int = (
+		Replay.snapshot().get("input_events", []) as Array
+	).size()
+	_expect(
+		events_after_unbound_r == events_before_unbound_r,
+		"ReplayInputSmoke should not record gameplay intent for unbound R"
+	)
 	await _inject_key(KEY_SPACE, true)
 	await _inject_key(KEY_SPACE, false)
 
@@ -102,7 +111,7 @@ func _run() -> void:
 	var completed: Dictionary = Replay.snapshot()
 	var input_events: Array = completed.get("input_events", []) as Array
 	var decision_events: Array = completed.get("decision_events", []) as Array
-	_expect(input_events.size() >= 20, "ReplayInputSmoke should record reload, interact, four skills, dash, and existing gameplay intents")
+	_expect(input_events.size() >= 18, "ReplayInputSmoke should record interact, four skills, dash, and existing gameplay intents")
 	for action_name: String in EXPECTED_ACTIONS:
 		_expect(_has_input_action(input_events, action_name), "ReplayInputSmoke should record %s" % action_name)
 	_expect(_all_events_are_v2(input_events), "ReplayInputSmoke should record only typed v2 input events")

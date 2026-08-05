@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_reward_choice",
-	"data_fingerprint": "d95cd1ece6e4f5344f054d577dd619e27ec10c7c81630c7ea4a641c07ba08caa",
-	"file_schema_version": 3,
-	"game_version": "v1.10",
+	"data_fingerprint": "e774ed3a86b7ef747c34105af52da9c21153e157debe3eed304f51b95a7359dc",
+	"file_schema_version": 4,
+	"game_version": "v1.11",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -35,7 +35,7 @@
 					"trigger_id": "debug_command"
 				},
 				"tick": 29,
-				"time": 0.493163015873016
+				"time": 0.496666666666666
 			}
 		],
 		"dropped_decision_events": 0,
@@ -138,11 +138,7 @@
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
-			"active_ammo_magazines": 0,
 			"active_gold_orbs": 0,
-			"ammo_drop_misses": 0,
-			"ammo_magazine": 30,
-			"ammo_reserve": 150,
 			"bullets_present": false,
 			"capture_frames": 180,
 			"difficulty_level": 1,
@@ -153,10 +149,7 @@
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -173,17 +166,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"reload_remaining": 0.0,
 					"state": "reward_choice",
 					"ui_stack": 1,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -200,17 +188,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -227,17 +210,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -254,17 +232,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": true,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -281,17 +254,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": true,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -308,11 +276,9 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": true,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				}
 			],
 			"gold_balance": 0,
@@ -325,7 +291,6 @@
 				"y": 0.0
 			},
 			"player_moved_right": true,
-			"reload_remaining": 0.0,
 			"reward_choice_applied": true,
 			"reward_choice_decisions": [
 				{
@@ -343,8 +308,7 @@
 			"scenario": "golden_reward_choice",
 			"schema_version": 1,
 			"state": "playing",
-			"ui_stack": 0,
-			"weapon_reloading": false
+			"ui_stack": 0
 		},
 		"runtime_events": [
 			{
@@ -364,11 +328,11 @@
 				"time": 0.75
 			}
 		],
-		"schema_version": 3,
+		"schema_version": 4,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "28d9a0fae1755f8a253710560332c14d7f0f79c2c4efa11bf6f0c0fd02ed18f9",
+	"recording_hash": "3b07ce52944e1065527d9a570b5c4db338155ae8e5fbd4ebac6f60ae326f7f2e",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -379,11 +343,7 @@
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
-			"active_ammo_magazines": 0,
 			"active_gold_orbs": 0,
-			"ammo_drop_misses": 0,
-			"ammo_magazine": 30,
-			"ammo_reserve": 150,
 			"bullets_present": false,
 			"capture_frames": 180,
 			"difficulty_level": 1,
@@ -394,10 +354,7 @@
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -414,17 +371,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"reload_remaining": 0.0,
 					"state": "reward_choice",
 					"ui_stack": 1,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -441,17 +393,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -468,17 +415,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -495,17 +437,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": true,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -522,17 +459,12 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": true,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_ammo_magazines": 0,
 					"active_gold_orbs": 0,
-					"ammo_magazine": 30,
-					"ammo_reserve": 150,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
@@ -549,11 +481,9 @@
 					},
 					"player_life": 600.0,
 					"player_moved_right": true,
-					"reload_remaining": 0.0,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"weapon_reloading": false
+					"weapon_cooldown_ready": true
 				}
 			],
 			"gold_balance": 0,
@@ -566,7 +496,6 @@
 				"y": 0.0
 			},
 			"player_moved_right": true,
-			"reload_remaining": 0.0,
 			"reward_choice_applied": true,
 			"reward_choice_decisions": [
 				{
@@ -584,10 +513,9 @@
 			"scenario": "golden_reward_choice",
 			"schema_version": 1,
 			"state": "playing",
-			"ui_stack": 0,
-			"weapon_reloading": false
+			"ui_stack": 0
 		},
-		"schema_version": 3,
+		"schema_version": 4,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

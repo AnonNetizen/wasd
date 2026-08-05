@@ -13,7 +13,6 @@ const VALUES: Array[String] = [
 	"input.aim_right",
 	"input.aim_stick",
 	"input.fire",
-	"input.reload",
 	"input.skill_1",
 	"input.skill_2",
 	"input.skill_3",
@@ -37,7 +36,6 @@ const INPUT_AIM_LEFT: String = "input.aim_left"
 const INPUT_AIM_RIGHT: String = "input.aim_right"
 const INPUT_AIM_STICK: String = "input.aim_stick"
 const INPUT_FIRE: String = "input.fire"
-const INPUT_RELOAD: String = "input.reload"
 const INPUT_SKILL_1: String = "input.skill_1"
 const INPUT_SKILL_2: String = "input.skill_2"
 const INPUT_SKILL_3: String = "input.skill_3"

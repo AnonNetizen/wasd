@@ -9,10 +9,6 @@ signal temporary_modifier_refreshed(snapshot: Dictionary)
 signal temporary_modifier_expired(snapshot: Dictionary)
 signal temporary_modifiers_restored(active: Array[Dictionary])
 signal weapon_fired(context: Dictionary)
-signal ammo_changed(state: Dictionary)
-signal ammo_attention_requested(reserve_remaining: int)
-signal reload_started(state: Dictionary)
-signal reload_completed(state: Dictionary)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
@@ -29,33 +25,10 @@ var _temporary_modifiers: Array[Dictionary] = []
 var _weapon_data: Dictionary = {}
 var _recoil_model: Dictionary = {}
 var _cooldown_remaining: float = 0.0
-var _magazine_size: int = 0
-var _magazine_ammo: int = 0
-var _reserve_ammo: int = 0
-var _starting_reserve: int = 0
-var _total_capacity: int = 0
-var _reload_duration: float = 0.0
-var _reload_remaining: float = 0.0
-var _is_reloading: bool = false
-var _depleted_mode: bool = false
-var _depleted_fire_rate_multiplier: float = 1.0
-var _depleted_bullet_speed_multiplier: float = 1.0
-var _fire_was_pressed: bool = false
-var _reload_was_pressed: bool = false
-var _empty_trigger_latched: bool = false
 
 
 func _process(delta: float) -> void:
 	var fire_pressed: bool = _is_fire_action_pressed()
-	var reload_pressed: bool = _is_reload_action_pressed()
-	var fire_pressed_fresh: bool = fire_pressed and not _fire_was_pressed
-	var fire_released: bool = not fire_pressed and _fire_was_pressed
-	var reload_pressed_fresh: bool = reload_pressed and not _reload_was_pressed
-	_fire_was_pressed = fire_pressed
-	_reload_was_pressed = reload_pressed
-	if fire_released:
-		_empty_trigger_latched = false
-
 	if _player == null or _weapon_data.is_empty():
 		return
 	if not GameState.is_state(GameState.PLAYING):
@@ -67,36 +40,11 @@ func _process(delta: float) -> void:
 
 	_update_temporary_modifiers(scaled_delta)
 	_cooldown_remaining = maxf(_cooldown_remaining - scaled_delta, 0.0)
-	if _is_reloading:
-		_advance_reload(scaled_delta)
-		return
-
-	if reload_pressed_fresh:
-		if request_reload():
-			_empty_trigger_latched = false
-		if _is_reloading:
-			return
-
-	if fire_pressed_fresh:
-		_empty_trigger_latched = false
-		if _magazine_ammo <= 0:
-			if _reserve_ammo > 0:
-				request_reload()
-				return
-			if _magazine_ammo + _reserve_ammo <= 0:
-				ammo_attention_requested.emit(0)
-				if _set_depleted_mode(true):
-					ammo_changed.emit(ammo_state())
-
 	if not fire_pressed:
 		return
 	if not _is_combat_allowed():
 		return
 	if _cooldown_remaining > 0.0:
-		return
-	if _empty_trigger_latched:
-		return
-	if _magazine_ammo <= 0 and not _depleted_mode:
 		return
 
 	var effective_stats: Dictionary = _effective_runtime_stats()
@@ -117,36 +65,11 @@ func configure(
 	_weapon_data = weapon_data.duplicate(true)
 	_recoil_model = recoil_model.duplicate(true)
 	_base_stats = _weapon_data.get("base_stats", {}).duplicate(true)
-	var ammo_data: Dictionary = _dictionary_or_empty(_weapon_data.get("ammo", {}))
-	_magazine_size = maxi(int(ammo_data.get("magazine_size", 0)), 0)
-	_starting_reserve = maxi(int(ammo_data.get("starting_reserve", 0)), 0)
-	_total_capacity = maxi(int(ammo_data.get("total_capacity", 0)), 0)
-	_reload_duration = maxf(float(ammo_data.get("reload_duration", 0.0)), 0.0)
-	_depleted_fire_rate_multiplier = maxf(
-		float(ammo_data.get("depleted_fire_rate_multiplier", 0.0)),
-		0.0
-	)
-	_depleted_bullet_speed_multiplier = maxf(
-		float(ammo_data.get("depleted_bullet_speed_multiplier", 0.0)),
-		0.0
-	)
-	_magazine_ammo = mini(_magazine_size, _total_capacity)
-	_reserve_ammo = mini(
-		_starting_reserve,
-		maxi(_total_capacity - _magazine_ammo, 0)
-	)
-	_reload_remaining = 0.0
-	_is_reloading = false
-	_depleted_mode = false
-	_empty_trigger_latched = false
 	_stat_additions.clear()
 	_stat_multipliers.clear()
 	_temporary_modifiers.clear()
 	_rebuild_runtime_stats()
 	_cooldown_remaining = 0.0
-	_fire_was_pressed = _is_fire_action_pressed()
-	_reload_was_pressed = _is_reload_action_pressed()
-	ammo_changed.emit(ammo_state())
 
 
 func configure_combat_gate(combat_gate: Callable) -> void:
@@ -193,62 +116,6 @@ func stat_value(stat: String) -> float:
 	return float(_effective_runtime_stats().get(stat, 0.0))
 
 
-func ammo_state() -> Dictionary:
-	return {
-		"magazine": _magazine_ammo,
-		"reserve": _reserve_ammo,
-		"magazine_size": _magazine_size,
-		"total": _magazine_ammo + _reserve_ammo,
-		"total_capacity": _total_capacity,
-		"is_reloading": _is_reloading,
-		"reload_remaining": _reload_remaining,
-		"reload_duration": _reload_duration,
-		"is_depleted": _magazine_ammo + _reserve_ammo <= 0,
-		"depleted_fire_armed": _depleted_mode,
-	}
-
-
-func can_accept_ammo() -> bool:
-	return _magazine_ammo + _reserve_ammo < _total_capacity
-
-
-func add_ammo(amount: int) -> int:
-	var available_capacity: int = maxi(
-		_total_capacity - _magazine_ammo - _reserve_ammo,
-		0
-	)
-	var applied_amount: int = mini(maxi(amount, 0), available_capacity)
-	if applied_amount <= 0:
-		return 0
-
-	if _magazine_ammo <= 0:
-		var loaded_amount: int = mini(applied_amount, _magazine_size)
-		_magazine_ammo = loaded_amount
-		_reserve_ammo += applied_amount - loaded_amount
-	else:
-		_reserve_ammo += applied_amount
-	_set_depleted_mode(false)
-	ammo_changed.emit(ammo_state())
-	return applied_amount
-
-
-func request_reload() -> bool:
-	if _is_reloading:
-		return false
-	if not GameState.is_state(GameState.PLAYING):
-		return false
-	if _magazine_ammo >= _magazine_size or _reserve_ammo <= 0:
-		return false
-	if _reload_duration <= 0.0:
-		_complete_reload()
-		return true
-	_is_reloading = true
-	_reload_remaining = _reload_duration
-	reload_started.emit(ammo_state())
-	ammo_changed.emit(ammo_state())
-	return true
-
-
 func active_temporary_modifiers() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in _temporary_modifiers:
@@ -268,10 +135,6 @@ func snapshot() -> Dictionary:
 		"stat_additions": _stat_additions.duplicate(true),
 		"stat_multipliers": _stat_multipliers.duplicate(true),
 		"temporary_modifiers": _temporary_modifiers.duplicate(true),
-		"magazine_ammo": _magazine_ammo,
-		"reserve_ammo": _reserve_ammo,
-		"is_reloading": _is_reloading,
-		"reload_remaining": _reload_remaining,
 	}
 
 
@@ -288,35 +151,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 			_temporary_modifiers[index] = entry
 	_rebuild_runtime_stats()
 	_cooldown_remaining = maxf(float(snapshot_data.get("cooldown_remaining", 0.0)), 0.0)
-	_magazine_ammo = clampi(
-		int(snapshot_data.get("magazine_ammo", _magazine_ammo)),
-		0,
-		mini(_magazine_size, _total_capacity)
-	)
-	_reserve_ammo = clampi(
-		int(snapshot_data.get("reserve_ammo", _reserve_ammo)),
-		0,
-		maxi(_total_capacity - _magazine_ammo, 0)
-	)
-	_reload_remaining = clampf(
-		float(snapshot_data.get("reload_remaining", 0.0)),
-		0.0,
-		_reload_duration
-	)
-	_is_reloading = (
-		bool(snapshot_data.get("is_reloading", false))
-		and _reload_remaining > 0.0
-		and _magazine_ammo < _magazine_size
-		and _reserve_ammo > 0
-	)
-	if not _is_reloading:
-		_reload_remaining = 0.0
-	_depleted_mode = false
-	_empty_trigger_latched = false
-	_fire_was_pressed = _is_fire_action_pressed()
-	_reload_was_pressed = _is_reload_action_pressed()
 	temporary_modifiers_restored.emit(active_temporary_modifiers())
-	ammo_changed.emit(ammo_state())
 
 
 func _fire_once(effective_stats: Dictionary) -> bool:
@@ -340,7 +175,7 @@ func _fire_once(effective_stats: Dictionary) -> bool:
 	var half_spread_degrees: float = (
 		float(recoil_snapshot.get("spread_angle_degrees", 0.0)) * 0.5
 	)
-	var effective_projectile: Dictionary = _effective_projectile(projectile)
+	var effective_projectile: Dictionary = projectile.duplicate(true)
 	for bullet: Node2D in bullets:
 		var spread_roll: float = RNG.combat.randf()
 		var spread_offset_degrees: float = lerpf(
@@ -358,12 +193,6 @@ func _fire_once(effective_stats: Dictionary) -> bool:
 			center_direction,
 			bullet_direction
 		)
-	if not _depleted_mode:
-		_magazine_ammo = maxi(_magazine_ammo - 1, 0)
-		if _magazine_ammo <= 0:
-			_empty_trigger_latched = true
-			ammo_attention_requested.emit(_reserve_ammo)
-		ammo_changed.emit(ammo_state())
 	var context: Dictionary = {
 		"owner": _player,
 		"world_position": _player.global_position if _player != null else Vector2.ZERO,
@@ -416,60 +245,7 @@ func _configure_bullet(
 
 
 func _effective_runtime_stats() -> Dictionary:
-	var result: Dictionary = _runtime_stats.duplicate(true)
-	if not _depleted_mode:
-		return result
-	result[STATS.FIRE_RATE] = (
-		float(result.get(STATS.FIRE_RATE, 0.0))
-		* _depleted_fire_rate_multiplier
-	)
-	result[STATS.BULLET_SPEED] = (
-		float(result.get(STATS.BULLET_SPEED, 0.0))
-		* _depleted_bullet_speed_multiplier
-	)
-	return result
-
-
-func _effective_projectile(projectile: Dictionary) -> Dictionary:
-	var result: Dictionary = projectile.duplicate(true)
-	if not _depleted_mode:
-		return result
-	if _depleted_bullet_speed_multiplier <= 0.0:
-		return result
-	result["lifetime"] = (
-		float(result.get("lifetime", 0.0))
-		/ _depleted_bullet_speed_multiplier
-	)
-	return result
-
-
-func _advance_reload(delta: float) -> void:
-	_reload_remaining = maxf(_reload_remaining - delta, 0.0)
-	if _reload_remaining > 0.0:
-		return
-	_complete_reload()
-
-
-func _complete_reload() -> void:
-	var loaded_amount: int = mini(
-		maxi(_magazine_size - _magazine_ammo, 0),
-		_reserve_ammo
-	)
-	_magazine_ammo += loaded_amount
-	_reserve_ammo -= loaded_amount
-	_is_reloading = false
-	_reload_remaining = 0.0
-	_set_depleted_mode(false)
-	reload_completed.emit(ammo_state())
-	ammo_changed.emit(ammo_state())
-
-
-func _set_depleted_mode(enabled: bool) -> bool:
-	var next_mode: bool = enabled and _magazine_ammo + _reserve_ammo <= 0
-	if _depleted_mode == next_mode:
-		return false
-	_depleted_mode = next_mode
-	return true
+	return _runtime_stats.duplicate(true)
 
 
 func _center_aim_direction() -> Vector2:
@@ -572,10 +348,6 @@ func _temporary_modifier_index(source_id: String) -> int:
 
 func _is_fire_action_pressed() -> bool:
 	return InputService.is_pressed(ACTIONS.FIRE)
-
-
-func _is_reload_action_pressed() -> bool:
-	return InputService.is_pressed(ACTIONS.RELOAD)
 
 
 func _is_combat_allowed() -> bool:

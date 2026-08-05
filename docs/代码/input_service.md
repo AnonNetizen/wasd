@@ -1,7 +1,7 @@
 # InputService 模块
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 权威范围：项目输入门面、规范 action 与归一化 intent、GUIDE context 生命周期、重绑定持久化、设备提示、Godot UI 兼容桥及 Replay v3 输入接管。插件内部架构见 [`guide.md`](guide.md)，action / binding id 白名单见 [`../词表与契约.md`](../词表与契约.md) §7，架构决策见 [`../决策记录.md`](../决策记录.md) ADR #151 / #152 / #161。
+> 权威范围：项目输入门面、规范 action 与归一化 intent、GUIDE context 生命周期、重绑定持久化、设备提示、Godot UI 兼容桥及 Replay v4 输入接管。插件内部架构见 [`guide.md`](guide.md)，action / binding id 白名单见 [`../词表与契约.md`](../词表与契约.md) §7，架构决策见 [`../决策记录.md`](../决策记录.md) ADR #151 / #152 / #161 / #186。
 
 ## 1. 一句话职责
 
@@ -16,11 +16,11 @@
 | `client/scripts/autoload/input_service.gd` | 项目门面；采样、边沿锁存、context、重绑定、提示、UI 桥和回放覆盖 |
 | `client/scripts/contracts/actions.gd` | 从词表生成的规范 action 常量；业务代码引用 `Actions.*` |
 | `client/resources/input/actions/*.tres` | GUIDE action 资源；`move`、`aim`、`pointer_position` 是 `Vector2`，其余为布尔 |
-| `client/resources/input/contexts/gameplay.tres` | 移动、瞄准、开火、换弹、技能、交互、暂停与数值面板映射 |
+| `client/resources/input/contexts/gameplay.tres` | 移动、瞄准、开火、技能、交互、暂停与数值面板映射；R / 手柄 East 不产生 gameplay intent |
 | `client/resources/input/contexts/ui.tres` | UI 方向、确认、返回与暂停映射 |
 | `client/resources/input/contexts/debug.tres` | 仅 `dev_tools` 生效的调试输入 |
 | `client/tools/generate_guide_input_resources.gd` | 生成 / 更新项目 GUIDE `.tres` 资源的维护工具；不是运行时路径 |
-| `user://input_bindings.tres` | `GUIDERemappingConfig` 当前绑定权威，`custom_data.schema_version = 2` |
+| `user://input_bindings.tres` | `GUIDERemappingConfig` 当前绑定权威，`custom_data.schema_version = 3` |
 
 autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Replay`：Settings 先提供普通偏好，GUIDE 初始化运行时，`InputService` 独立加载绑定资源，`Replay` 最后连接和接管 intent；三者不再交换旧键位迁移数据。
 
@@ -33,7 +33,7 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 - `Actions.MOVE`：长度不超过 1 的 `Vector2` 移动 intent。
 - `Actions.AIM`：最终归一化的 `Vector2` 瞄准 intent；方向键 / 右摇杆与鼠标 pointer 由玩家适配层按最近有效来源选择。
 - `Actions.POINTER_POSITION`：viewport 坐标，只用于项目鼠标瞄准适配，不直接成为玩法方向。
-- `Actions.FIRE`、`RELOAD`、`SKILL_1`～`SKILL_4`、`DASH`、`INTERACT`、`SHOW_STATS_PANEL`、`PAUSE`：gameplay 布尔 intent。旧 `use_active_item` 已删除。
+- `Actions.FIRE`、`SKILL_1`～`SKILL_4`、`DASH`、`INTERACT`、`SHOW_STATS_PANEL`、`PAUSE`：gameplay 布尔 intent。旧 `use_active_item` 与 `reload` 已删除。
 - `UI_UP / DOWN / LEFT / RIGHT / CONFIRM / BACK`：UI 布尔 intent。
 - `DEBUG_TOGGLE_CONSOLE` / `DEBUG_CLOSE_CONSOLE`：当前 `debug` context 的开发构建调试 intent。`debug_submit_command` 由聚焦的 LineEdit 原生确认事件处理，`debug_toggle_replay` 仍是已登记但尚未映射的预留 id。
 
@@ -45,7 +45,6 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 |--------|------|------|
 | 开火 | 鼠标左键 | RT |
 | 技能 1 / 2 / 3 / 4 | 键盘顶排 1 / 2 / 3 / 4 | LT / LB / RB / Y(North) |
-| 换弹 | R | B(East) |
 | 冲刺 | 空格 | A(South) |
 | 交互 | E | X(West) |
 | 暂停 | Esc | Start |
@@ -72,7 +71,7 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 | `resolve_pending_remap(replace_conflicts) -> bool` | 冲突弹窗选择替换或取消 |
 | `reset_bindings_to_defaults() -> bool` | 清空 remapping config、恢复发布默认并原子保存 |
 | `set_playback_active(enabled)` / `playback_active()` | 开关 Replay 输入覆盖；切换时清空残留值 |
-| `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v3 注入 bool / Vector2 intent；仅 playback 模式接受 |
+| `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v4 注入 bool / Vector2 intent；仅 playback 模式接受 |
 | `clear_playback_values()` | 清空当前回放值 |
 | `bindings_path() -> String` | 返回当前绑定文件路径 |
 | `debug_inject_input(event)` | 测试边界注入 GUIDE 原始事件；正式业务禁用 |
@@ -126,7 +125,6 @@ binding id 是设置 UI 的绑定槽，不等于 action。完整白名单在词�
 - `input.aim_stick` → `aim` 手柄二维轴，默认右摇杆。
 - `input.move_*` / `input.aim_*` → 键鼠四方向子绑定。
 - `input.fire` → `fire` 的键鼠 / 手柄槽。
-- `input.reload` → `reload` 的键鼠 / 手柄槽，默认 R / East。
 
 普通 action 只有一组键鼠和一组手柄槽；首版不支持任意解绑、主副多槽或按手柄分别保存 profile。鼠标位置与 D-pad 兜底固定。
 
@@ -136,7 +134,7 @@ binding id 是设置 UI 的绑定槽，不等于 action。完整白名单在词�
 - 冲突只在同设备组、同有效 context 内判断；`remap_conflict` 交给 UI 显示“替换 / 取消”。
 - 替换会清空冲突槽并写入新输入；取消不改变配置。
 - 保存顺序为临时文件 → 旧文件备份 → 原子替换。无效、未来 schema 或损坏资源隔离到 invalid 文件并回退发布默认。
-- `GUIDERemappingConfig.custom_data.schema_version` 当前为 `2`；旧 v1 自定义绑定因技能 R / E 与新换弹 / 交互默认产生语义冲突而整体隔离并恢复发布默认，不能部分沿用。未知 action、context、slot 或输入类型不得部分应用。
+- `GUIDERemappingConfig.custom_data.schema_version` 当前为 `3`；旧 v1 / v2 自定义绑定可能包含已删除的换弹语义，整体隔离并恢复不含换弹的新发布默认，不能部分沿用。未知 action、context、slot 或输入类型不得部分应用。
 
 `settings.cfg` 当前 schema 为 v4，旧 `input.*` 不再登记或迁移；旧设置中的普通偏好可按 Settings 迁移链保留，但绑定只来自 `user://input_bindings.tres` 或当前 GUIDE 默认资源。绑定文件与 SaveManager 的 meta / run schema 相互独立。
 
@@ -146,9 +144,9 @@ binding id 是设置 UI 的绑定槽，不等于 action。完整白名单在词�
 
 热插拔 / 断开时清理手柄残留状态并切换到仍有效设备提示。新增 prompt 展示时先复用 `prompt_text()` / `prompt_richtext_async()`，不要在 UI 中维护独立的“按键名映射表”。
 
-## 9. Replay v3 边界
+## 9. Replay v4 边界
 
-Replay v3 记录最终 intent；换弹继续复用既有 bool wire，四技能、冲刺和组合选择都纳入录制：
+Replay v4 记录最终 intent；四技能、冲刺和组合选择都纳入录制，已删除的 `reload` 不再是合法输入语义：
 
 ```json
 {
@@ -161,7 +159,7 @@ Replay v3 记录最终 intent；换弹继续复用既有 bool wire，四技能�
 }
 ```
 
-布尔 action 使用 `value_type: "bool"` 与布尔 `value`。播放时 `Replay` 先启用 playback，再调用 `inject_playback_value()`；此时本地 GUIDE 采样不污染业务值。Replay v3 只接受当前规范 action，旧回放不迁移并明确拒绝。详见 [`replay.md`](replay.md)。
+布尔 action 使用 `value_type: "bool"` 与布尔 `value`。播放时 `Replay` 先启用 playback，再调用 `inject_playback_value()`；此时本地 GUIDE 采样不污染业务值。Replay v4 只接受当前规范 action，旧回放不迁移并明确拒绝。详见 [`replay.md`](replay.md)。
 
 ## 10. 修改入口与禁止事项
 
@@ -169,7 +167,7 @@ Replay v3 记录最终 intent；换弹继续复用既有 bool wire，四技能�
 |------|----------|
 | 新增业务 action | 词表 §7 → 契约同步 → GUIDE action / context 资源 → InputService → 测试与文档 |
 | 改默认键位 / 摇杆 | `client/resources/input/contexts/*.tres` 与 binding spec；同步设置文案 / smoke |
-| 改玩家移动 / 瞄准 / 技能 / 冲刺语义 | InputService + Player / SkillSystem 适配层 + Replay v3；不要改 GUIDE 设备底层 |
+| 改玩家移动 / 瞄准 / 技能 / 冲刺语义 | InputService + Player / SkillSystem 适配层 + Replay v4；不要改 GUIDE 设备底层 |
 | 改重绑定规则 | InputService remap API、binding schema 与设置页；同步 `settings.md` |
 | 改 prompt | InputService formatter 门面；插件 formatter 内部变化再读 `guide.md` |
 | 升级 GUIDE | 先按 `client/addons/README.md` 人工比较发布包并重放本地补丁 |
@@ -192,7 +190,7 @@ Replay v3 记录最终 intent；换弹继续复用既有 bool wire，四技能�
 
 - `input-smoke`：键鼠 / 手柄移动瞄准、按钮边沿、context 隔离、失焦、设备切换、提示刷新、捕获取消、负轴轴组、冲突替换 / 取消和防锁死键。
 - `settings-smoke`：v1 普通偏好保留、旧输入 key 忽略、binding roundtrip、重启保持、恢复默认、损坏与未来版本回退。
-- `replay-smoke` / `replay-input-smoke`：v3 bool / Vector2、换弹、四技能、冲刺、组合决策、鼠标最终 aim、不支持 schema 拒绝及物理输入隔离。
+- `replay-smoke` / `replay-input-smoke`：v4 bool / Vector2、四技能、冲刺、组合决策、鼠标最终 aim、`reload` 拒绝、不支持 schema 拒绝及物理输入隔离。
 - 修改输入消费方后运行相应 runtime、module-world、technical-slice、L1 与 debug tools smoke。
 - GUIDE 资源或插件变化后运行 Godot 4.7.1 headless editor 和正式 headless boot；真实重绑定、热插拔、图标切换仍需人工键鼠 / 手柄验收。
 
