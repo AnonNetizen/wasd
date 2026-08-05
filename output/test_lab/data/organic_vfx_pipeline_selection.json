@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "effect_id": "organic_mind_pulse",
+  "timing": {
+    "charge_end": 0.48,
+    "contact_end": 0.64,
+    "aftermath_end": 1.2,
+    "cycle_end": 1.44,
+    "checkpoints": {
+      "charge": 0.34,
+      "contact": 0.56,
+      "aftermath": 0.92
+    }
+  },
+  "core_radius": 48.0,
+  "max_decorative_radius": 72.0,
+  "palette": {
+    "calm": "#68bcdd",
+    "angry": "#ed2f72",
+    "hot": "#ffffff"
+  },
+  "assets": {
+    "flipbook": "res://assets/vfx_pipeline_selection/organic_mind_pulse_flipbook.png",
+    "particles": "res://assets/vfx_pipeline_selection/organic_mind_particle_atlas.png",
+    "flow_mask": "res://assets/vfx_pipeline_selection/organic_mind_flow_mask.png",
+    "style_pack": "res://assets/vfx_pipeline_selection/style_pack.json",
+    "atlas_columns": 4,
+    "atlas_rows": 4
+  },
+  "candidates": [
+    {
+      "id": "flipbook",
+      "label": "A · AI FLIPBOOK ATLAS",
+      "method": "Painted frames",
+      "production_cost": "HIGH",
+      "memory_pressure": "MED",
+      "recolor_capability": "HIGH",
+      "reuse_capability": "LOW"
+    },
+    {
+      "id": "particles",
+      "label": "B · TEXTURED PARTICLES",
+      "method": "Painted particle sprites",
+      "production_cost": "MED",
+      "memory_pressure": "LOW",
+      "recolor_capability": "HIGH",
+      "reuse_capability": "HIGH"
+    },
+    {
+      "id": "shader",
+      "label": "C · FLOW-MASK SHADER",
+      "method": "Painted mask + dissolve",
+      "production_cost": "MED",
+      "memory_pressure": "LOW",
+      "recolor_capability": "HIGH",
+      "reuse_capability": "HIGH"
+    },
+    {
+      "id": "hybrid",
+      "label": "D · HYBRID COMPOSITE",
+      "method": "Flipbook + particles + flow",
+      "production_cost": "HIGH",
+      "memory_pressure": "MED",
+      "recolor_capability": "HIGH",
+      "reuse_capability": "MED"
+    }
+  ]
+}

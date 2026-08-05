@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "style_id": "organic_mind_vfx_selection_v1",
+  "generated_at": "2026-08-05",
+  "generation_mode": "openai_builtin_imagegen",
+  "purpose": "Test Lab pipeline comparison only; not a release-ready asset pack.",
+  "runtime_treatment": "Source PNGs remain grayscale on black. Godot maps luminance to alpha and the calm/angry/hot palette at runtime.",
+  "assets": [
+    {
+      "file": "organic_mind_pulse_flipbook.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "0a281f91cdb82d497d8d119c2a07685209a5606c24c25210ecd96106a6b9ec39",
+      "layout": "4x4 chronological frames, left-to-right then top-to-bottom",
+      "prompt": "Use case: stylized-concept. Asset type: 2D top-down game VFX flipbook atlas for a Godot selection experiment. Create exactly 16 chronological frames of one organic psychic mind pulse in a 4x4 atlas: six fibrous contraction frames, two wet rupture frames, then eight torn-fiber and vapor dissipation frames. Premium hand-painted organic consciousness, mycelium, liquid membrane and smoky ink; orthographic top-down; one centered frame per cell with pure-black padding. Luminance-only grayscale on #000000. No text, labels, borders, separators, grid lines, watermark, colored pixels, circles, rings, arcs, wedges, triangles, polygons, runes, glyphs, symmetry, neon geometry, lens flares, scene background or floor plane."
+    },
+    {
+      "file": "organic_mind_particle_atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "7a44ad372becbd75658341601ba5d8c434ccff28f4bbabcdfd2fa493bfad18a1",
+      "layout": "4x4 isolated particle sprites",
+      "prompt": "Use case: stylized-concept. Asset type: 2D top-down game VFX particle sprite atlas for a Godot selection experiment. Create exactly 16 coherent but distinct organic particles in a 4x4 atlas: curled fiber wisps, torn membrane flakes, tapering ink filaments, wet micro-splashes, vapor knots and consciousness fragments. Premium hand-painted soft edges with bright cores and detailed decay; one centered sprite per cell with pure-black padding. Luminance-only grayscale on #000000. No text, labels, borders, separators, grid lines, watermark, colored pixels, circles, rings, arcs, wedges, triangles, polygons, runes, glyphs, symmetry, geometric sparks, stars, lens flares, scene background or floor plane."
+    },
+    {
+      "file": "organic_mind_flow_mask.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "7574005f3cc95b0a1c4f69fd78f4434d8d20e26bc9d4deb27b218ec54babe886",
+      "layout": "full-frame flow mask",
+      "prompt": "Use case: stylized-concept. Asset type: grayscale organic flow-mask texture for a 2D Godot VFX shader. Fill the frame with branching mycelium fibers, semi-liquid membrane folds, smoky ink currents, torn capillaries and turbulent voids at several scales, with natural directional curl and no single centered object. Premium hand-painted biological abstraction, full-frame density, luminance-only grayscale. No scene, horizon, text, watermark, color, borders, framing, circles, rings, arcs, wedges, triangles, polygons, runes, glyphs, symmetry, repeated tiles, UI diagrams or lens flares."
+    }
+  ]
+}

@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-05",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #186 已完全删除玩家弹匣、备弹、换弹、空弹降级、敌人弹匣掉落及全部相关 UI / 提示 / 旧框架。WeaponSystem 按基础射速无限射击；weapons.json 升 schema v5 并拒绝遗留 ammo，删除 ammo_rules.json、reload / input.reload、ammo_magazine、RNG.ammo 和 ammo-weapon-smoke。GUIDE binding 升 v3，R / 手柄 East 无 gameplay intent；Run 升 v12、Replay 升 v4、游戏升 v1.11，旧 Run v11 / Replay v3 / binding v2 明确不兼容，Meta v2 保留。ADR #186 完整取代 #177；完整自动门禁与四条 Replay v4 重录 / 逐字段审计已通过，人工连续射击 / 无弹药 UI / R 无动作 / 无掉落验收待用户执行。",
+  "current_status": "ADR #186 正式客户端基线保持不变。Test Lab 已新增独立‘有机心象脉冲’非几何 VFX 管线选型墙，以统一配色、48 px 核心、72 px 外延和 CHARGE / CONTACT / AFTERMATH 时间轴并排比较 A AI 序列帧、B 绘制纹理粒子、C 流场遮罩 Shader、D 混合合成；三张 ImageGen 灰度源、manifest、专项 smoke 与四阶段截图已落地，正式 client / VFX catalog / GDD / ADR 均未修改。下一步等待用户人工选择 A / B / C / D 或组合路线。",
   "latest_adr": 186,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "Test Lab 有机心象 VFX 非几何管线选型实验：新增 A AI 灰度序列帧、B 绘制纹理粒子、C 有机流场遮罩 + 流动 / 溶解 Shader、D 混合合成四候选；共享 #68BCDD / #ED2F72 / 白热、48 px 核心、72 px 外延和 0.48 / 0.64 / 1.20 / 1.44 秒阶段边界。三张 1254×1254 ImageGen 黑底灰度源通过 Image.load 外部加载，manifest 保存提示词 / 尺寸 / SHA-256；2×2 选择墙、2.5× 裁切特写、1× 实战尺寸、三背景、阶段 / 配色 / 聚焦控制、专项 smoke 和四张 1280×760 截图已完成，正式 client 未修改。",
     "ADR #186 / 完全删除弹药与换弹系统：WeaponSystem 只保留战斗门禁、冷却、对象池提交与武器属性；删除弹量 / 换弹 API、ammo_rules、弹匣实体 / 池 / 敌人掉落、RNG.ammo、reload action / binding、HUD / 详细面板 / 世界提示 / locale、专项 runner 和旧框架。weapons v5、binding v3、Run v12、Replay v4、游戏 v1.11；旧 Run v11 / Replay v3 / binding v2 隔离，Meta v2 保留。",
     "ADR #185 / 删除旧角色表现回退：ActorPresentationController 只调用正式 Visual 的强制 set_presentation_state(Color, float, Vector2)，缺接口报错停止；删除 Body / Outline / EyeOutline 节点路径、直写逻辑、configure_visual.outline_alpha 和 Enemy.outline_alpha。PlayerSlimeVisual 继续处理玩家 Shader；enemy_base.tscn 的 EnemyPresentationVisual 覆盖五种继承敌人的 Body tint、完整 Visual alpha 与 scale。Run v11、Replay v3、Meta v2、游戏 v1.10、数据 schema 与 data fingerprint 不变。",
     "ADR #184 / 完全删除正式枪口闪光：删除 weapon muzzle flash catalog 条目、玩家武器与突击枪手前摇 / 逐发 profile 绑定、专用 VFX pool id、生成常量和运行时清理引用；玩家 weapon_fire 只保留 weapon_recoil_shake，突击枪手 0.32 秒静默前摇、四发点射与 Run 恢复语义不变。PlayerSlimeVisual 连续五点开火形变和 38px 常驻 FacingBeam 继续作为角色视觉存在。catalog/pool 数量分别为 18/18，Replay v3 基线只更新 data fingerprint 至 d95cd1ec…8caa，四条 gameplay 语义保持。",
@@ -173,6 +174,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
+    "有机心象 VFX 管线待用户人工选型：运行 output/test_lab/scenes/organic_vfx_pipeline_selection_test.tscn 或查看 organic_vfx_pipeline_selection_overview / charge / contact / aftermath 四张截图；用 C 固定三阶段、P 切主配色、B 切三背景、1–4 聚焦、0 回总览、D 显示诊断圈。人工检查 1× 可读性、聚合 / 接触 / 余韵语义、是否摆脱圆环 / 扇形 / 线段堆叠廉价感、有机质感、动态自然度和拥挤战斗背景表现，并选择 A / B / C / D 或两个方案组合。用户明确选择前不得修改正式 visual_effects.json、VFX catalog、GDD 或既有视觉资源。",
     "正式游戏双涡旋史莱姆待用户人工验收：从正式标题进入对局，分别检查冷静主 / 愤怒副与愤怒主 / 冷静副；确认两股气可辨、交换后内部两色与 HUD 槽位同步、38px 主色短束方向清楚、移动 / 冲刺 / 连续开火 / 受击无突出节点、50px 玩家不会与 12px 史莱姆子弹混淆、形变手感可接受。该视觉 / 手感结论只由用户给出；AI 不用 GUI、截图或模拟输入代验。",
     "SVG 单曲线梨控制点待人工确认：打开 output/test_lab/scenes/svg_curve_pear_test.tscn 或查看 output/test_lab/screenshots/svg_curve_pear_test.png；D 隐藏 / 显示黄色锚点、青色入柄、粉色出柄和辅助线，Q / E 调边宽，Space 暂停，R 复原。人工检查 30 个唯一锚点和 58 个控制柄是否清楚但不过度遮挡梨、三类颜色是否容易区分、控制柄归属是否能从辅助线读出，并继续确认单轮廓、内部透视、默认 12px 边宽和固定空间运动；用户确认后再决定是否基于这些锚点实现曲线动画，当前不要恢复双轮廓或史莱姆软体，也不要接入正式 client。",
     "史莱姆苹果透视窗待人工确认：打开 output/test_lab/scenes/slime_apple_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_apple_perspective_test.png；左键冲击边缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲。人工检查不依赖内部线时能否直接读成苹果、果柄与单叶是否清晰但不形成尖刺、运动 / 形变时星空是否读成固定深空间、绿色 / 金色外轮缘是否合适；用户确认后再决定调轮廓或 Shader，当前不要增加内部线或接入正式 client。",
@@ -215,6 +217,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-05",
+      "command": "Test Lab scene generation and Godot 4.7.1 headless boot; explicit organic selection scene and Test Lab index loads; organic_vfx_pipeline_selection_smoke; four 1280x760 captures; three-tier lint; JSON/docs health; embedded-image and forbidden-geometry source scans; git diff check; factual code review; pre-commit run --all-files",
+      "result": "passed for the isolated organic-mind non-geometric VFX pipeline experiment. Three external 1254x1254 generated PNGs match manifest SHA-256 values and decode without relying on .godot/imported; the 4x4 logical atlases slice into 16 cells. Eight previews preserve A/B/C/D order, shared palette, 48px core, 72px decorative extent and phase timing; absolute seeks, pause/checkpoints, palette/background/focus controls, REST particle cleanup and repeated-reset node stability pass. Candidate implementation contains no _draw, Polygon2D, Line2D or formal Ring/Wedge/Ray primitive use, and the lightweight scene embeds no Image/PackedByteArray. Four captures were generated only as machine implementation evidence; visual quality and final pipeline choice remain pending user manual acceptance. No performance probe ran, and formal client data/code/resources were not changed."
+    },
     {
       "date": "2026-08-05",
       "command": "sync-contracts/check; validate_data; DataLoader schema regressions; three-tier lint and lint regressions; input/settings/runtime/L1/world-event; full and technical module-world; module bake check; save/loading/replay/replay-input; actor/VFX/UI/Gear Mod; export-tree; Godot 4.7.1 headless editor/boot; four Replay v4 golden captures, field audit and runtime reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; pre-commit run --all-files",

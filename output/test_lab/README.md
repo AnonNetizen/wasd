@@ -25,6 +25,7 @@
 
 ## 当前实验
 
+- `organic_vfx_pipeline_selection_test.tscn`：独立的“有机心象脉冲”非几何 VFX 管线选型墙，不修改正式 `client/`、`visual_effects.json` 或 VFX catalog。A / B / C / D 依次比较 AI 灰度序列帧、绘制纹理粒子、灰度有机流场 + 流动 / 溶解 Shader，以及三者混合合成；四套候选共享冷静青 `#68BCDD`、愤怒粉 `#ED2F72`、白热高光、48 px 核心半径、72 px 最大装饰外延和 `CHARGE 0–0.48s / CONTACT 0.48–0.64s / AFTERMATH 0.64–1.20s / REST 1.20–1.44s` 时间轴。每张卡同时提供裁切的 2.5× 细节视窗和完整 1× 实战尺寸；`A / Space / R` 控制自动、暂停和复位，`C` 固定三阶段，`P` 切换主配色，`B` 切换暗底 / 低对比意识层 / 拥挤战斗背景，`1–4 / 0` 聚焦候选或回到总览，`D` 只显示不计入效果画面的 48 px 诊断圈。三张 1254×1254 黑底灰度源 PNG 由内置 ImageGen 生成并通过 `Image.load()` 外部加载；`style_pack.json` 保存精确提示词、尺寸和 SHA-256，4×4 图集按归一化 UV 与四舍五入单元边界运行时使用，不依赖 `.godot/imported`。候选主体不使用 `_draw()`、`Polygon2D`、`Line2D` 或正式库 Ring / Wedge / Ray 原语；`organic_vfx_pipeline_selection_smoke.gd` 覆盖资产 / manifest、统一接口与时间轴、绝对时间定位、粒子清理、节点稳定、交互状态和非几何源码门禁，截图脚本生成总览及三阶段共四张 1280×760 预览。1× 可读性、三阶段语义、有机质感、动态自然度、战斗背景表现，以及最终选择 A / B / C / D 或两种组合均保持“待用户人工验收”。
 - `player_slime_fusion_test.tscn`：正式玩家改造前的独立人工门禁原型，不修改 `client/`。实战样本固定 `r=25`，旁边同时显示 `r=12` 的正式史莱姆子弹尺寸参考；两份 4.35× 放大样本常驻展示“冷静主 / 愤怒副”和“愤怒主 / 冷静副”，每个碎片只向史莱姆视觉提供一个 primary，当前为冷静 `#68BCDD`、愤怒 `#ED2F72`。每个玩家史莱姆只有 20 个环形控制点，每角固定 5 次有界二次曲线采样，最终共享 100 点边界给 `Body / Outline / WetRim`；外缘由 3 px 主碎片色边叠 1 px 主色提亮湿润边，单点速度、径向 / 切向位移、邻点速度与位移差、面积压力及最终轮缘都受限，开火和受击冲击只分散到连续 5 点，包含最宽轮缘的最终 extent 不得超过 25 px。`player_slime_dual_vortex.gdshader` 从角色本地 `VERTEX` 坐标生成 50/50 双涡旋：主 / 副智能碎片各用自身 primary，主色流顺时针、副色流逆时针；内部轮缘、外部 Outline 和中心到 38 px 枪口的常驻双端渐隐短束统一使用主碎片 primary，不再读取 secondary / accent，也不使用 `SCREEN_UV`、眼睛、箭头或长瞄准线。场景默认自动移动、开火、受击和交换实际样本；WASD / 方向键移动，左键或 `F` 开火，`H` 受击，`X` 交换实际样本主副，`Space` 暂停，`T` 切换自动演示，`R` 复位，`Esc` 返回索引。`player_slime_fusion_smoke.gd` 检查 20 / 100 点契约、仅两个 primary 运行时槽、主色轮缘 / 光束、3 / 1 px 轮缘宽度、25 px 轮缘上限、面积 / 转角 / 邻点连续性、连续移动 / 开火 / 受击、暂停冻结、五点冲击、38 px 光束、节点 / 材质稳定与固定步进确定性；`capture_player_slime_fusion.gd` 以固定步进和离开常驻光束的体内像素探针生成预览。双涡旋是否明确读成两股气、交换是否可辨、光束方向、动态尖点和与 12 px 子弹的实战区分均保持“待用户人工验收”；用户明确确认前不得接入正式 `client/`。
 - `anchored_star_enemies_test.tscn`：三个自动移动的圆形敌人共享同一个 `ShaderMaterial`，内部程序化星点和星云只从 `SCREEN_UV` 采样；敌人的圆形 Polygon 只充当移动遮罩，因此敌人位移不会拖动星空，而是像三个窗口滑过同一片固定空间。三种半径和敌对轮缘色用于区分个体，运动轨迹与背景坐标标记用于观察位移，星点只做亮度闪烁而不平移 / 旋转。`Space` 暂停 / 继续，`R` 复位，`Esc` 返回索引。`anchored_star_enemies_smoke.gd` 自动检查三个敌人、共享材质、`SCREEN_UV` 锚定、实际位移和暂停冻结；`capture_anchored_star_enemies.gd` 在确定性时间点生成预览图。圆形敌人辨识度、透视感和星空密度仍待用户人工验收。
 - `slime_cross_2d_test.tscn`：把史莱姆软体方法迁移到 2D 十字架凹形轮廓的独立实验。十字架由 20 个顺序轮廓点直接组成长竖干、宽横臂与四个内凹角；静止轮廓与动态轮廓都使用有界二次圆角，曲线只在相邻边构成的局部范围内弯曲，不再因 Catmull-Rom 动态过冲生成尖刺。运行时除弹簧、阻尼、邻点相对形状保持和面积压力外，还对速度与“相对静止轮廓的位移”分别做邻点扩散，让局部冲击以宽波方式传播而不是由单点领先；点击冲击也统一朝物体内部施力。绘制层以暗色反边、薄荷胶体、深青内馅、湿润高光与内部气泡建立 2D 史莱姆材质。调试骨架默认开启：紫线 / 紫圈表示静止轮廓与静止点，黄色连线 / 黄点表示动态弹簧与普通控制点，粉点表示四个内凹控制点，青色辐条表示中心骨架，静止点到动态点的青线表示当前位移；`D` 或底部按钮可隐藏 / 显示。左键点击任意边缘施加局部冲击，`Space` 压扁，`R` 复原，`A` 切换自动脉冲，`Esc` 返回索引。`slime_cross_2d_smoke.gd` 自动检查调试层开关、20 点 / 4 凹角契约、横臂与竖干比例、凹角净距、局部形变、面积保持、动态最大转角、相邻位移连续性、连续多次冲击、回弹和整体压扁；`capture_slime_cross_2d.gd` 生成开启骨架的左横臂受击阶段预览。首版“静止好、运动出现尖尖”的人工反馈已用于本次修正，最终十字辨识度、果冻质感和动态观感仍待用户复验。
@@ -58,6 +59,24 @@
 - `ink_test.tscn`：中国水墨画风「水墨角色」实验。`InkField`（`ink_field.gd`）持一个铺满屏幕、挂 `ink_wash.gdshader` 的 `ColorRect`，把一组抽象墨团角色（1 玩家 + N 敌人）作为 `ink_chars` 数组传入 shader。shader 用 `smin` 软并集距离场把各角色圆盘融成连续墨场，fbm 域扭曲做毛笔不规则轮廓与渗墨；把覆盖度（墨 vs 纸）与墨色明度（焦墨↔淡墨）分离，叠浓淡斑驳、积墨湿边、双向拉伸飞白枯笔，并合成到米白宣纸（纤维纹 + 四角压暗）底。玩家居中、半径大、慢速 lissajous 游移并带一条拖尾笔锋；敌人较小、环绕、各自漂移 / 缓慢绕行。经典黑墨、非交互自动循环，`Esc` 返回索引。纯过程化 canvas_item shader，无 SubViewport / 反馈缓冲。
 - `cloud_mist_test.tscn`：升腾「云雾团」粒子实验。**用粒子系统实现**（区别于其他纯 shader 实验）。`CloudMist`（`cloud_mist.gd`）用两层 `CPUParticles2D`（核心烟柱 + 外缘稀薄烟絮）从底部中心向上发射，配升腾初速 + 浮力 gravity + spread + 旋转 + `scale_amount_curve` 扩张 + `color_ramp` 先显后淡出，做出翻卷上升、越升越淡的白烟羽。每个粒子贴一张**运行时程序生成**的烟团贴图（径向羽化 × `FastNoiseLite` fbm 不规则 + 球面假光照给体积，顶亮底灰），`ImageTexture` 不写入 `.tscn`。harness 用运行时生成的 `GradientTexture2D` 铺亮色渐变天空底；`preprocess` 预热保证截图即见成形烟柱。经典白烟、非交互自动循环，`Esc` 返回索引。选 CPUParticles2D 是因 gl_compatibility 下带窗口截图更稳定。
 - `advanced_cell_test.tscn`：骨骼蒙皮「复杂细胞」实验，**用节点系统让动画易控制**（在 soft_body_cell 基础上升级）。`AdvancedCell`（`advanced_cell.gd`）代码构建 `Skeleton2D` + 一圈径向 `Bone2D` 作为可动画的骨骼控制结构，`AnimationPlayer` 关键帧（代码生成 `Animation` + `AnimationLibrary`）驱动各骨的径向位置；膜 `Polygon2D` 每帧由骨骼半径用角向高斯加权平滑重建（蒙皮跟随骨骼形变），核 / 细胞器漂移脉动在 `_process` 常开。4 套动画 `idle`（循环呼吸）/ `pseudopod`（伪足伸缩）/ `divide`（收腰双叶 + 双核分列的有丝分裂）/ `engulf`（两片膜包拢吞噬橙色食物粒）由按键触发（`1`~`4`，`Space` 顺次），动作 `animation_finished` 后自动回 idle，`Esc` 返回索引。场景里放一颗圆形「石块」障碍物：膜每帧重建后用**射线-圆近交点**把朝向障碍物的膜半径截断在障碍物近表面，使膜贴壁凹陷（而非越过障碍物把它包进膜内），接触弧叠一条压力高亮线；**左键可拖动细胞撞向障碍物**实时看挤压形变。按 `B` 可开关骨架调试显示（中心枢纽 + 各骨辐条 / 关节 / 序号），直观看到骨骼如何驱动膜形变；封面截图取分裂态并显示骨架。工程上膜采用"每帧由骨骼变换重建"而非引擎 Polygon2D 蒙皮权重，规避 gl_compatibility 代码蒙皮难调试，节点系统可控性不变。
+
+## Organic Mind VFX Pipeline Selection 验证
+
+以下命令均从仓库根目录运行；`$godot` 指向 Godot 4.7.1 stable 可执行文件。截图命令需要正常渲染窗口，其他门禁均可 headless 执行。
+
+```powershell
+# 生成轻量场景、正式扫描 Test Lab、显式加载场景和索引入口
+& $godot --headless --path output/test_lab --script res://scripts/create_organic_vfx_pipeline_selection_scene.gd
+py -3 tools/godot_bridge.py --project output/test_lab headless-boot
+& $godot --headless --path output/test_lab --quit-after 8 res://scenes/organic_vfx_pipeline_selection_test.tscn
+& $godot --headless --path output/test_lab --quit-after 8 res://scenes/test_lab_index.tscn
+
+# 外部素材 / manifest、四候选统一契约、绝对时间、粒子清理、节点稳定和非几何门禁
+& $godot --headless --path output/test_lab --script res://tools/organic_vfx_pipeline_selection_smoke.gd
+
+# 生成总览、CHARGE、CONTACT、AFTERMATH 四张 1280×760 预览
+& $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_organic_vfx_pipeline_selection.gd
+```
 
 ## Shader Lab 验证
 
