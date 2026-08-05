@@ -152,7 +152,6 @@
       "energy_orb",
       "ammo_magazine",
       "projectile_barrier",
-      "vfx_weapon_muzzle_flash",
       "vfx_enemy_explosion_telegraph",
       "vfx_enemy_melee_telegraph",
       "vfx_enemy_charge_telegraph",

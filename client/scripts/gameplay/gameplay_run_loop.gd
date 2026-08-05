@@ -567,7 +567,6 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
 	PoolManager.clear_pool(POOL_IDS.AMMO_MAGAZINE)
 	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
-	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
 	var configured_main_hero_id: String = String(
 		_debug_test_arena_config.get(
 			"main_hero_id",

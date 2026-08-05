@@ -3301,7 +3301,7 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 				float(_ranged_windup_contexts[0].get("duration", 0.0)),
 				0.32
 			),
-			"ranged muzzle charge should keep the 0.32 second windup"
+			"ranged fire preparation should keep the 0.32 second windup"
 		)
 	var frozen_timer: float = float(windup_snapshot.get("action_timer", 0.0))
 	GameState.change_state(GameState.PAUSED, {"source": "runtime_ranged_pause"})

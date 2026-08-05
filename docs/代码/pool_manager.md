@@ -98,7 +98,7 @@ PoolManager (autoload Node)
 
 `ammo_magazine` 是 RunLoop 注册的池化弹药拾取物，容量 64、预热 8；每次配置绑定当前 Player、WeaponSystem、弹药数量和吸附速度。`_pool_reset()` / `_pool_release()` 必须清空目标、武器接收器、数量、吸附 blend、速度和视觉计时，避免续局或跨局复用时把弹药送给旧接收器。场上活动状态由 Run v11 保存为玩法快照，PoolManager 仍不保存内部队列。
 
-视觉效果目录保留 `hit_spark`、`damage_number`，并登记 `vfx_weapon_muzzle_flash`。`visual_effects.json.high_frequency=true` 的效果必须提供已登记 `pool_id`；普通低频效果不需要预登记池。VFX 回池除了通用变换 / 可见性，还必须清理 Tween、AnimationPlayer 游标、材质实例参数、粒子 emitting / restart 和轨迹历史。
+视觉效果目录保留 `hit_spark`、`damage_number` 与四个显式敌人攻击池；正式游戏不登记枪口闪光专用池。`visual_effects.json.high_frequency=true` 的效果必须提供已登记 `pool_id`；普通低频效果不需要预登记池。VFX 回池除了通用变换 / 可见性，还必须清理 Tween、AnimationPlayer 游标、材质实例参数、粒子 emitting / restart 和轨迹历史。
 
 运行时每个池保存以下统计：
 

@@ -288,6 +288,7 @@
 | #181 | 正式 `bullet_basic` 改为四控制节点 / 64 点 Catmull-Rom 的无材质史莱姆圆弹；敌我同形、12 px 视觉 / 判定、350 px/s，只切换白 / 红 Body + Rim，删除 Shader、高光、黑边、外发光、拖尾和敌方视觉副本。玩家为 650 px / 1.9 秒，敌人为 720 px / 2.1 秒，零弹为 175 px/s / 3.8 秒；接口、schema、Run v11 与 Replay v3 不变，并取代 ADR #172 的敌弹速度 / 半径 / 寿命 / 枪口距离口径 | GDD v1.49 §4 / §5.3、Data README、Gameplay Runtime / EnemyAI / PoolManager / Visual Effects 文档、AI导航、ammo/runtime/VFX/module-world/save/loading/replay/headless smoke、四条 Replay v3 golden 与三层项目记忆 |
 | #182 | 图片、音频和字体默认作为普通 Git blob 提交，只保留 `binary` 属性；移除常见扩展名的全局 LFS 过滤器，并将当前 199 个、54.44 MiB 文件精确迁回普通 Git。旧提交的 LFS 指针保留，未来仅可对单独决策的明确大型资产路径启用 LFS | `.gitattributes`、`CONTRIBUTING.md`、测试策略、AI导航、三层项目记忆与当日会话日志 |
 | #183 | 正式 Player 改为 25 px 半径、20 控制点 / 100 边界点的有界双涡旋史莱姆；碰撞、命中、地图边界与敌人分离统一 25 px，玩家武器 / VFX 枪口 / 朝向短束统一 38 px，敌人仍为 24 px。`characters.json` v4 收敛为每碎片唯一 `primary`，冷静 `#68BCDD`、愤怒 `#ED2F72`；Resolver 只输出 `main_primary` / `sub_primary`，双涡旋与 HUD 同步交换，外轮廓 / 湿润边 / 短束按主色规则。Shader 表现通过可选 hook 接入，Run v11 / Replay v3 / Meta v2 / 游戏 v1.10 不变 | GDD v1.50 §3.4 / §3.5 / §4 / §9.15.4、IP 设定 / 美术风格、术语表、Data README、Gameplay Runtime / DataLoader / Visual Effects 文档、测试策略、AI导航、actor/runtime/schema/replay 回归与三层项目记忆 |
+| #184 | 正式游戏完全删除枪口闪光：catalog、玩家武器 / 突击枪手 profile 绑定和专用 VFX 池契约全部移除；玩家开火只保留镜头后坐、史莱姆连续五点形变和常驻朝向束，突击枪手保留静默 0.32 秒前摇与四发点射玩法 | GDD v1.51 §5.3 / §9.24、ADR #184、Data README、EnemyAI / Visual Effects / PoolManager 文档、测试策略、AI导航、VFX/runtime/schema/replay 回归与三层项目记忆 |
 
 F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 F14 黄金回放回归报告](reports/2026-07-21-f14-replay-regression.md)。
 ADR #154 模块 JSON / 单向 TSCN 迁移在不重录 golden 的前提下保持旧 map hash 与四条运行时摘要，证据见 [2026-07-23 ADR #154 黄金回放回归报告](reports/2026-07-23-replay-regression.md)。
@@ -298,6 +299,7 @@ ADR #175 敌人生成时金币公式、难度接口、独立 `RNG.economy` 与 R
 
 ADR #177 弹药、换弹、独立 `RNG.ammo`、Run v11 与四条 Replay v3 重录、数据指纹和运行时摘要证据见 [2026-07-29 ADR #177 黄金回放回归报告](reports/2026-07-29-ammunition-replay-regression.md)。
 ADR #183 双涡旋史莱姆、25 px 玩家半径与 primary-only 配色接入后的四条 Replay v3 捕获 / 无差异审计见 [2026-08-05 ADR #183 黄金回放回归报告](reports/2026-08-05-player-slime-replay-regression.md)。
+ADR #184 完全删除正式枪口闪光后的数据指纹更新、四条 Replay v3 语义等价审计与运行时重跑见 [2026-08-05 ADR #184 枪口闪光删除回放回归报告](reports/2026-08-05-muzzle-flash-removal-replay-regression.md)。
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

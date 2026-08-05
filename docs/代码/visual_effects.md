@@ -45,7 +45,7 @@
 | `high_frequency` | 高频为 `true` 时必须同时登记合法 `pool_id` |
 | `tags` / `preview` | 技术 / 读法标签与背景、检查点、尺度 |
 
-可选池字段为 `pool_id`、`prewarm`、`max_size`。当前 catalog 为 19 项、presentation profile 为 14 项；除 `hit_spark`、`damage_number` 和 `vfx_weapon_muzzle_flash` 外，显式敌人攻击新增 `vfx_enemy_explosion_telegraph`（预热 16）、`vfx_enemy_melee_telegraph`（8）、`vfx_enemy_charge_telegraph`（8）和 `vfx_enemy_explosion_impact`（16）。所有玩家统一使用同一份正式效果资源，不存在质量变体或运行时降档接口。
+可选池字段为 `pool_id`、`prewarm`、`max_size`。当前 catalog 为 18 项、presentation profile 为 14 项；池化目录包含 `hit_spark`、`damage_number`，显式敌人攻击使用 `vfx_enemy_explosion_telegraph`（预热 16）、`vfx_enemy_melee_telegraph`（8）、`vfx_enemy_charge_telegraph`（8）和 `vfx_enemy_explosion_impact`（16）。正式游戏不登记枪口闪光 effect 或专用池。所有玩家统一使用同一份正式效果资源，不存在质量变体或运行时降档接口。
 
 `presentation_profiles.json.profiles[]` 以 `id` 为主键，可用可选 `editor_name` 提供中文编辑器显示名，并通过 `parent_profile_id` 继承。缺少 `editor_name` 时编辑器回退显示原始 `id`；子 profile 以 cue 为粒度覆盖父绑定。绑定可含 `effects[]`、`audio_id`、`camera_feedback_id`、`screen_effect_id` 和预留 `hit_stop_profile_id`。cue、anchor、domain、space、lifecycle 等固定词进入生成契约。
 
@@ -125,8 +125,9 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - 玩家 / 敌人受击闪色为 0.16 秒；敌人死亡结算、掉落和移出活跃组即时发生，0.18 秒退场后回池。
 - 技能成功 / 失败、Overdrive 临时强化生命周期、状态 applied/restored/expired、武器发射、拾取、机关预警 / 激活均通过内容数据的 profile cue 接线；角色、敌人、技能、武器和机关不回退到硬编码 profile，除非数据缺失且使用文档声明的默认值。
 - `presentation_module_encounter` 的 `enemy_spawn_telegraph` cue 是首次进入模块遭遇的地面环，按 `module_worlds.json.first_visit_enemy_spawn.telegraph_duration` 缩放时间轴并保留 `gameplay_boundary` 读法。VFX 本身不进存档，槽位保存剩余时间和生成计划，重新激活时重建。
-- `Enemy.attack_windup_started` 统一路由 `enemy_attack_telegraph`：爆猎者使用圆形 96 px 预警，群袭者使用锁向 100° / 52 px 扇形，伏击者 / 壁垒者使用按锁向旋转和二维缩放的冲撞通道；突击枪手不显示弹道线，改在 `muzzle` 挂点复用红色、0.35 缩放的 `weapon_muzzle_flash_default`，按 0.32 秒前摇拉伸为局部蓄光。context 的 `duration` 直接来自当前剩余前摇，续局重建不会重置玩法计时。
+- `Enemy.attack_windup_started` 统一路由 `enemy_attack_telegraph`：爆猎者使用圆形 96 px 预警，群袭者使用锁向 100° / 52 px 扇形，伏击者 / 壁垒者使用按锁向旋转和二维缩放的冲撞通道。突击枪手 profile 不绑定该 cue，因此 0.32 秒前摇期间不显示弹道线、枪口蓄光或其他枪口视觉；信号与 context 继续服务玩法计时和续局恢复。
 - `Enemy.attack_committed` 路由 `enemy_attack_impact`；当前爆猎者绑定池化世界爆炸冲击。impact request 使用 detached `world_position`，因此源敌人进入退场并回池后，冲击效果仍独立播放完成。
+- `presentation_weapon_default.weapon_fire.effects` 为空，只保留 `weapon_recoil_shake`；正式 Player 的连续五点前缘鼓包和 38 px 常驻 `FacingBeam` 属于角色视觉，不是枪口闪光，也不进入 VFX catalog。突击枪手的逐发 `enemy_attack_impact` 同样无视觉绑定。
 - 敌人攻击预警只表现玩法已有的范围、方向、时间或局部起手提示，不自行读取目标、不调用 `Combat`，也不消耗 gameplay RNG。攻击源退场时 `cancel_owner()` 只取消附着表现，不得取消 detached 爆炸冲击。
 - ADR #181 后正式 `bullet_basic` 不属于 VFX catalog，也不使用 `RibbonTrail`、Shader、高光或外发光；其唯一 `BulletSlimeVisual` 由场景内四个持久边缘节点一次生成 64 点平色 `Body + Rim`，阵营差异只切换白色系 / 红色系。通用 `VfxRibbonTrail` 组件仍保留给其他精选组合效果，baker 不再向子弹场景自动补回拖尾。敌人退场仍生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影独立完成 0.45 秒余韵。
 - ADR #183 后正式玩家 `PlayerSlimeVisual` 不进入 VFX catalog：它使用 scene-authored ShaderMaterial、Gradient 和 Line2D，运行时只更新现有 uniform / 点列 / 颜色。角色本地坐标中的两股涡旋分别使用 `main_primary` / `sub_primary`；3 px Outline 与 38 px FacingBeam 使用主色原值，1 px WetRim 使用主色提亮派生。软体状态不进入 Run v11 / Replay v3，也不得消耗任何 RNG。

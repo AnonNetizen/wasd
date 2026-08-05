@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-05",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #183 双涡旋史莱姆已完成正式 Player 接入、事实型审查、完整自动回归和四条黄金回放审计。player.json schema v4 用 body.radius=25 统一视觉、圆形碰撞、hit_radius、半径感知地图边界和敌人分离；玩家基础武器、VFX Muzzle 与朝向短束统一 38 px，敌人枪口仍为 24 px。PlayerSlimeVisual 固定 20 控制点 / 100 点有界二次边界，移动、冲刺和连续 5 点开火冲击只影响表现；characters.json schema v4 每个碎片只含一个 primary，冷静 #68BCDD、愤怒 #ED2F72，Resolver 只输出 main_primary / sub_primary，双涡旋、3px 主色外轮廓、1px 主色提亮湿润边、主色短束、组合界面文案与 HUD 主副槽同步采用新规则。Run v11、Replay v3、Meta v2、游戏 v1.10 和 data fingerprint 7759e7e5…ff69 不变，四条 golden 文本保持不变。正式游戏内双涡旋辨识度、玩家与 12px 子弹区分和形变手感仍待用户人工验收；AI 不代验。",
-  "latest_adr": 183,
+  "current_status": "ADR #184 已完全删除正式游戏枪口闪光：visual_effects catalog 由 19 项降至 18 项，玩家武器与突击枪手 profile 不再绑定枪口视觉，专用 VFX 池从词表和生成契约删除；玩家 weapon_fire 只保留 weapon_recoil_shake，突击枪手仍按 0.32 秒静默前摇与固定四发点射运行。ADR #183 的 25 px 双涡旋 Player、38 px Muzzle / FacingBeam、主副 primary Shader、连续五点开火形变和 HUD 配色继续有效，均不属于枪口闪光。Run v11、Replay v3、Meta v2 与游戏 v1.10 不变；data fingerprint 更新为 d95cd1ec…8caa，四条 Replay v3 除该指纹外与变更前语义完全相等并全部重跑通过。正式游戏内无枪口闪光、双涡旋辨识度、玩家与 12px 子弹区分和形变手感仍待用户人工验收；AI 不代验。",
+  "latest_adr": 184,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #184 / 完全删除正式枪口闪光：删除 weapon muzzle flash catalog 条目、玩家武器与突击枪手前摇 / 逐发 profile 绑定、专用 VFX pool id、生成常量和运行时清理引用；玩家 weapon_fire 只保留 weapon_recoil_shake，突击枪手 0.32 秒静默前摇、四发点射与 Run 恢复语义不变。PlayerSlimeVisual 连续五点开火形变和 38px 常驻 FacingBeam 继续作为角色视觉存在。catalog/pool 数量分别为 18/18，Replay v3 基线只更新 data fingerprint 至 d95cd1ec…8caa，四条 gameplay 语义保持。",
     "ADR #183 / 正式双涡旋史莱姆与 primary-only 碎片配色：player.json 升 schema v4 并以 body.radius=25 统一视觉、碰撞、命中、地图边界和玩家中心分离；玩家 weapon / VFX Muzzle / FacingBeam 统一 38px。PlayerSlimeVisual 复用已验收的 20/100 有界软体，主副 primary 形成反向涡旋，3px Outline 与短束使用主色，1px WetRim 使用主色提亮；ActorPresentationController 优先调用 Shader visual hook，旧敌人回退不变。characters.json 升 schema v4 且 palette 精确只含 primary，冷静 #68BCDD、愤怒 #ED2F72；Resolver 精确输出 main_primary/sub_primary，HUD 名称和槽1/2走主色、槽3/4走副色、能量白色。Run v11、Replay v3、Meta v2、游戏 v1.10 与视觉状态不序列化边界保持。",
     "Test Lab 双涡旋史莱姆玩家人工门禁：新增实战 r=25、两份 4.35× 主副交换预览和 r=12 史莱姆子弹参照；每个视觉固定 20 控制点 / 100 点有界二次边界，3px 主色边叠 1px 主色提亮湿润边，速度、径向 / 切向位移、邻点连续性、面积和 25px 最终轮缘受限，开火 / 受击只作用连续 5 点。每个碎片只贡献一个 primary；角色本地 Shader 使用冷静 #68BCDD 与愤怒 #ED2F72 的 50/50 反向涡旋，当前主 primary 同时控制内部轮缘、外部 Outline 与 38px 渐隐短束；专项 smoke、确定性捕获、索引、README 与人工 checklist 已同步，正式 client 未修改。",
     "ADR #182 / 取消二进制资产全局 LFS：删除图片、音频和字体常见扩展名的 filter=lfs 规则，保留 binary 防文本 diff；按变更前精确清单把当前 199 个、54.44 MiB LFS 文件迁回普通 Git blob。历史提交与远端旧 LFS 对象不改写，未来仅可对经单独决策的明确大型资产路径启用 LFS；黄金回放继续作为普通 Git 文本提交。",
@@ -207,11 +208,16 @@
     "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通矩形范围机关复用通用 Hazard，hazards.csv.radius_tiles 是占用地图矩形格的正整数，新增行为先设计 primitive。",
     "如果继续技能 / 轻量 GAS，优先改 client/data/skills.json、characters.json.hero_skill_ids、hero_passives.json 和 game_modes.resource_pools.skills；四个运行时槽位固定为 skill_1～skill_4，按槽位保存独立冷却并共享主智能碎片能量，能力强度 / 范围 / 效率 / 持续时间只缩放技能显式标记的参数。新增资源、目标类型、效果或 ability tag 先登记 docs/词表与契约.md 对应白名单，并通过通用效果原语 / 状态 / 属性修饰器实现。",
     "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B；DoT 状态通过 skill_effect_apply_status 提供 element_id / magnitude / tick_interval，或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。减速、敌方移速强化和易伤须保持既定覆盖 / 刷新 / 来源过滤语义。",
-    "如果继续 F14 EnemyAI 导航、感知、显式攻击或奖励，先读 docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md、docs/代码/enemy_ai.md、enemy_reward_resolver.md、world_event_system.md、module_world_manager.md、GDD §5.3 / §7.1、ADR #145 / #146 / #166 / #170 / #171 / #173 / #175 / #177 和数据手册。感知数值只改 enemy_ai_profiles.json.perception；攻击参数只改 schema v5 action.attack。保持玩家唯一普通目标、team_enemy 默认拒绝、中心分离无伤、爆猎者不可逆 armed 与稳定生成序连锁；突击枪手起手视线合法后完成固定方向四发点射。防御事件只通过显式 spawn context 指定主目标和伤害组。当前 Run v11 保存攻击提交状态、burst_shots_remaining、事件目标上下文、完整奖励明细和弹药掉落确定性状态，但不保存派生导航状态。难度生命系数只缩放生命和显式攻击伤害；difficulty coefficient 另缩放威胁时间并参与金币。改后跑测试策略 ADR #177 全套与 golden replay；不得恢复 contact、全图活动 Dijkstra、种间生态或自动性能 probe。",
+    "如果继续 F14 EnemyAI 导航、感知、显式攻击或奖励，先读 docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md、docs/代码/enemy_ai.md、enemy_reward_resolver.md、world_event_system.md、module_world_manager.md、GDD §5.3 / §7.1、ADR #145 / #146 / #166 / #170 / #171 / #173 / #175 / #177 / #184 和数据手册。感知数值只改 enemy_ai_profiles.json.perception；攻击参数只改 schema v5 action.attack。保持玩家唯一普通目标、team_enemy 默认拒绝、中心分离无伤、爆猎者不可逆 armed 与稳定生成序连锁；突击枪手起手视线合法后完成固定方向四发点射，但不得恢复弹道线、枪口蓄光或枪口闪光。防御事件只通过显式 spawn context 指定主目标和伤害组。当前 Run v11 保存攻击提交状态、burst_shots_remaining、事件目标上下文、完整奖励明细和弹药掉落确定性状态，但不保存派生导航状态。难度生命系数只缩放生命和显式攻击伤害；difficulty coefficient 另缩放威胁时间并参与金币。改后跑测试策略 ADR #177 全套与 golden replay；不得恢复 contact、全图活动 Dijkstra、种间生态或自动性能 probe。",
     "正式客户端当前只支持固定 16:9 分辨率预设，非 16:9 屏幕加黑边；不要在近期任务中自行推进 16:10、4:3、21:9 或连续响应式适配。未来用户明确点名后，再为目标比例建立独立固定预设，并补 UI、瞄准、截图和玩法视野验收。",
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-05",
+      "command": "sync-contracts/check; validate_data; DataLoader schema regressions; three-tier lint and lint regressions; export-tree; VFX/UI/actor/settings/loading/ammo/runtime/L1 smoke; Godot 4.7.1 headless editor/boot; four golden captures, semantic field audit and replay-runner runtime reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; pre-commit run --all-files",
+      "result": "passed for ADR #184 complete formal muzzle-flash removal. The muzzle effect id, dedicated pool id/constant, player weapon effect binding, rifle windup/impact bindings and runtime pool cleanup references are absent from active client code/data. The shared skill_cast_pulse scene remains for unrelated skill/status consumers. VFX coverage reports 18 effects and preserves weapon_recoil_shake while rifle cues resolve no visual; runtime coverage retains the 0.32-second rifle windup and player slime five-control fire impulse. The data fingerprint intentionally changed from 7759e7e5…ff69 to d95cd1ec…8caa; all four Replay v3 goldens are semantically identical after excluding that top-level field and all runtime reruns pass. Semantic advisory main found no warnings; warning fixtures remain expected. Factual review found no unresolved P0/P1/P2 issue. Existing negative-fixture diagnostics and headless shutdown RID/ObjectDB/resource warnings remain expected. Performance/startup probes did not run. Per ADR #174, absence of formal in-game player/enemy muzzle flashes and existing slime readability/feel remain pending user manual acceptance."
+    },
     {
       "date": "2026-08-05",
       "command": "sync-contracts --check; validate_data; DataLoader schema regressions; three-tier lint and lint regressions; actor/VFX/ammo/runtime/L1; full and technical module-world; save/loading/settings/UI/replay/replay-input; export-tree; Godot 4.7.1 headless editor/boot; four golden captures with field audit and four replay-runner reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; pre-commit run --all-files",
@@ -790,7 +796,7 @@
   ],
   "blockers": [],
   "notes": [
-    "ADR #181 取代 ADR #172 的敌弹速度、半径、寿命和枪口距离当前口径；ADR #172 的局部枪口蓄光、无提前弹道线和其余点射规则继续有效。",
+    "ADR #181 取代 ADR #172 的敌弹速度、半径、寿命和枪口距离当前口径；ADR #184 进一步取代其局部枪口蓄光及任何默认枪口闪光口径。无提前弹道线和其余点射玩法继续有效。",
     "ADR #179 已授权并完成玩家文案迁移与标题副标隐藏；locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、素材、schema、Meta v2、Run v11、Replay v3 和游戏 v1.10 保持原状。",
     "current_state.json 是接手导航牌：只保留当前阶段、候选下一步和最近热验证；详细历史写入 docs/AI记忆/会话日志/，长期索引写入 docs/AI记忆/项目记忆.md。",
     "DRAFT/ 与 draft/ 是用户人工草稿禁区，除非用户明确点名授权，否则不要读取、搜索、修改或提交。",

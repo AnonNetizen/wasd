@@ -694,7 +694,6 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.GOLD_ORB)
 	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
 	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
-	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
 
 
 func _on_title_start_requested() -> void:

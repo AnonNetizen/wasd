@@ -151,36 +151,7 @@
       "id": "presentation_enemy_rifle",
       "editor_name": "突击枪手表现",
       "parent_profile_id": "presentation_enemy_default",
-      "bindings": {
-        "enemy_attack_telegraph": {
-          "effects": [
-            {
-              "effect_id": "weapon_muzzle_flash_default",
-              "anchor": "muzzle",
-              "params": {
-                "tint": "#ff291fff",
-                "scale": 0.35
-              }
-            }
-          ],
-          "audio_id": "",
-          "camera_feedback_id": "",
-          "screen_effect_id": "",
-          "hit_stop_profile_id": ""
-        },
-        "enemy_attack_impact": {
-          "effects": [
-            {
-              "effect_id": "weapon_muzzle_flash_default",
-              "anchor": "muzzle"
-            }
-          ],
-          "audio_id": "",
-          "camera_feedback_id": "",
-          "screen_effect_id": "",
-          "hit_stop_profile_id": ""
-        }
-      }
+      "bindings": {}
     },
     {
       "id": "presentation_skill_default",
@@ -289,15 +260,7 @@
       "parent_profile_id": "",
       "bindings": {
         "weapon_fire": {
-          "effects": [
-            {
-              "effect_id": "weapon_muzzle_flash_default",
-              "anchor": "muzzle",
-              "params": {
-                "scale": 0.35
-              }
-            }
-          ],
+          "effects": [],
           "audio_id": "",
           "camera_feedback_id": "weapon_recoil_shake",
           "screen_effect_id": "",

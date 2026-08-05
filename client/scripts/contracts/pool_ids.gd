@@ -16,7 +16,6 @@ const VALUES: Array[String] = [
 	"energy_orb",
 	"ammo_magazine",
 	"projectile_barrier",
-	"vfx_weapon_muzzle_flash",
 	"vfx_enemy_explosion_telegraph",
 	"vfx_enemy_melee_telegraph",
 	"vfx_enemy_charge_telegraph",
@@ -37,7 +36,6 @@ const GOLD_ORB: String = "gold_orb"
 const ENERGY_ORB: String = "energy_orb"
 const AMMO_MAGAZINE: String = "ammo_magazine"
 const PROJECTILE_BARRIER: String = "projectile_barrier"
-const VFX_WEAPON_MUZZLE_FLASH: String = "vfx_weapon_muzzle_flash"
 const VFX_ENEMY_EXPLOSION_TELEGRAPH: String = "vfx_enemy_explosion_telegraph"
 const VFX_ENEMY_MELEE_TELEGRAPH: String = "vfx_enemy_melee_telegraph"
 const VFX_ENEMY_CHARGE_TELEGRAPH: String = "vfx_enemy_charge_telegraph"

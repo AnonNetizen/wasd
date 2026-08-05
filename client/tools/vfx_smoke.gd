@@ -18,7 +18,7 @@ func _run() -> void:
 		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 	)
 
-	_expect(VisualEffects.effect_ids().size() == 19, "catalog should expose 19 effects")
+	_expect(VisualEffects.effect_ids().size() == 18, "catalog should expose 18 effects")
 	_expect(
 		VisualEffects.profile_ids().size() == 14,
 		"catalog should expose 14 presentation profiles"
@@ -50,48 +50,28 @@ func _run() -> void:
 		"enemy_attack_telegraph"
 	)
 	_expect(
-		not rifle_windup_binding.is_empty(),
-		"rifle profile should resolve its muzzle charge"
+		rifle_windup_binding.is_empty(),
+		"rifle profile should not resolve a muzzle-charge effect"
 	)
-	var rifle_windup_effects: Array = rifle_windup_binding.get("effects", [])
 	_expect(
-		rifle_windup_effects.size() == 1,
-		"rifle muzzle charge should resolve exactly one effect"
-	)
-	if rifle_windup_effects.size() == 1:
-		var rifle_windup_effect: Dictionary = (
-			rifle_windup_effects[0] as Dictionary
-		)
-		_expect(
-			String(rifle_windup_effect.get("effect_id", ""))
-			== "weapon_muzzle_flash_default",
-			"rifle windup should reuse the local muzzle effect"
-		)
-		_expect(
-			String(rifle_windup_effect.get("anchor", "")) == "muzzle",
-			"rifle windup should attach to the muzzle"
-		)
-		var rifle_windup_params: Dictionary = rifle_windup_effect.get(
-			"params",
-			{}
-		) as Dictionary
-		_expect(
-			String(rifle_windup_params.get("tint", "")) == "#ff291fff",
-			"rifle muzzle charge should use the enemy projectile tint"
-		)
-		_expect(
-			is_equal_approx(
-				float(rifle_windup_params.get("scale", 0.0)),
-				0.35
-			),
-			"rifle muzzle charge should stay local to the muzzle"
-		)
-	_expect(
-		not VisualEffects.resolve_binding(
+		VisualEffects.resolve_binding(
 			"presentation_enemy_rifle",
 			"enemy_attack_impact"
 		).is_empty(),
-		"rifle profile should resolve its muzzle flash"
+		"rifle profile should not resolve a muzzle-flash effect"
+	)
+	var weapon_fire_binding: Dictionary = VisualEffects.resolve_binding(
+		"presentation_weapon_default",
+		"weapon_fire"
+	)
+	_expect(
+		weapon_fire_binding.get("effects", []).is_empty(),
+		"weapon fire should not resolve a spawned visual effect"
+	)
+	_expect(
+		String(weapon_fire_binding.get("camera_feedback_id", ""))
+		== "weapon_recoil_shake",
+		"weapon fire should retain camera recoil feedback"
 	)
 	_expect(
 		not VisualEffects.resolve_binding(
@@ -263,10 +243,6 @@ func _run() -> void:
 	screen_layer.add_child(screen_root)
 	add_child(host)
 	_expect(host.register_declared_pools(), "host should register every catalog pool")
-	_expect(
-		PoolManager.has_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH),
-		"high-frequency muzzle flash should have its dedicated pool"
-	)
 	var owner := Node2D.new()
 	owner.name = "Owner"
 	add_child(owner)
@@ -356,7 +332,6 @@ func _run() -> void:
 	host.cancel_all()
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
-	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
 	_restore_settings()
 	await get_tree().process_frame
 	if _failures.is_empty():
