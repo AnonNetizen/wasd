@@ -9,12 +9,8 @@ const PREVIEW_MAIN_POSITION := Vector2(720.0, 375.0)
 const PREVIEW_SWAP_POSITION := Vector2(1040.0, 375.0)
 const PREVIEW_SCALE: float = 4.35
 const PLAYER_RADIUS: float = 25.0
-const MAIN_A_PRIMARY := Color("7e63d8")
-const MAIN_A_SECONDARY := Color("3d315e")
-const MAIN_A_ACCENT := Color("a995ff")
-const MAIN_B_PRIMARY := Color("f2a23a")
-const MAIN_B_SECONDARY := Color("6a3f1f")
-const MAIN_B_ACCENT := Color("ffd07a")
+const MAIN_A_PRIMARY := Color("68bcdd")
+const MAIN_B_PRIMARY := Color("ed2f72")
 
 var _actual_player: Node2D
 var _preview_main: Node2D
@@ -309,16 +305,12 @@ func _configure_palettes() -> void:
 	_preview_main.call(
 		"configure_palette",
 		MAIN_A_PRIMARY,
-		MAIN_B_PRIMARY,
-		MAIN_A_SECONDARY,
-		MAIN_B_ACCENT
+		MAIN_B_PRIMARY
 	)
 	_preview_swap.call(
 		"configure_palette",
 		MAIN_B_PRIMARY,
-		MAIN_A_PRIMARY,
-		MAIN_B_SECONDARY,
-		MAIN_A_ACCENT
+		MAIN_A_PRIMARY
 	)
 
 
@@ -329,17 +321,13 @@ func _configure_actual_palette() -> void:
 		_actual_player.call(
 			"configure_palette",
 			MAIN_B_PRIMARY,
-			MAIN_A_PRIMARY,
-			MAIN_B_SECONDARY,
-			MAIN_A_ACCENT
+			MAIN_A_PRIMARY
 		)
 	else:
 		_actual_player.call(
 			"configure_palette",
 			MAIN_A_PRIMARY,
-			MAIN_B_PRIMARY,
-			MAIN_A_SECONDARY,
-			MAIN_B_ACCENT
+			MAIN_B_PRIMARY
 		)
 
 

@@ -1,8 +1,7 @@
 shader_type canvas_item;
 
-uniform vec4 main_primary : source_color = vec4(0.494, 0.388, 0.847, 1.0);
-uniform vec4 sub_primary : source_color = vec4(0.949, 0.635, 0.227, 1.0);
-uniform vec4 rim_secondary : source_color = vec4(0.239, 0.192, 0.369, 1.0);
+uniform vec4 main_primary : source_color = vec4(0.408, 0.737, 0.867, 1.0);
+uniform vec4 sub_primary : source_color = vec4(0.929, 0.184, 0.447, 1.0);
 uniform vec4 presentation_tint : source_color = vec4(1.0);
 uniform float presentation_alpha : hint_range(0.0, 1.0) = 1.0;
 uniform float animation_time = 0.0;
@@ -82,7 +81,7 @@ void fragment() {
 	float interface_mist = 1.0 - smoothstep(0.0, 0.22, abs(dividing_flow));
 	color = mix(color, mix(main_primary.rgb, sub_primary.rgb, 0.5), interface_mist * 0.18);
 	float inner_rim = smoothstep(0.72, 0.98, radius);
-	color = mix(color, rim_secondary.rgb, inner_rim * 0.42);
+	color = mix(color, main_primary.rgb, inner_rim * 0.42);
 	float wet_light = smoothstep(0.62, 0.94, dot(normalize(point + vec2(0.0001)), normalize(vec2(-0.72, -0.69))));
 	color += mix(main_primary.rgb, sub_primary.rgb, 0.5) * wet_light * (1.0 - radius) * 0.13;
 

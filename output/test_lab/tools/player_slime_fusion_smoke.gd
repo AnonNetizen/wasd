@@ -8,12 +8,10 @@ const MINIMUM_AREA_RATIO: float = 0.82
 const MAXIMUM_AREA_RATIO: float = 1.18
 const MAXIMUM_TURN_DEGREES: float = 18.0
 const MAXIMUM_NEIGHBOR_DELTA: float = 2.8
-const MAIN_A_PRIMARY := Color("7e63d8")
-const MAIN_A_SECONDARY := Color("3d315e")
-const MAIN_A_ACCENT := Color("a995ff")
-const MAIN_B_PRIMARY := Color("f2a23a")
-const MAIN_B_SECONDARY := Color("6a3f1f")
-const MAIN_B_ACCENT := Color("ffd07a")
+const EXPECTED_OUTLINE_WIDTH: float = 3.0
+const EXPECTED_WET_RIM_WIDTH: float = 1.0
+const MAIN_A_PRIMARY := Color("68bcdd")
+const MAIN_B_PRIMARY := Color("ed2f72")
 
 var _failed: bool = false
 
@@ -51,14 +49,22 @@ func _run_smoke() -> void:
 		scene.get_node_or_null("ActualPlayer/Body") is Polygon2D,
 		"Actual player Body Polygon2D is missing."
 	)
-	_expect(
-		scene.get_node_or_null("ActualPlayer/Outline") is Line2D,
-		"Actual player Outline is missing."
-	)
-	_expect(
-		scene.get_node_or_null("ActualPlayer/WetRim") is Line2D,
-		"Shared-boundary wet rim is missing."
-	)
+	var outline := scene.get_node_or_null("ActualPlayer/Outline") as Line2D
+	var wet_rim := scene.get_node_or_null("ActualPlayer/WetRim") as Line2D
+	_expect(outline != null, "Actual player Outline is missing.")
+	_expect(wet_rim != null, "Shared-boundary wet rim is missing.")
+	if outline != null:
+		_expect(
+			is_equal_approx(outline.width, EXPECTED_OUTLINE_WIDTH),
+			"Outline width must be %.1f px, got %.3f px."
+			% [EXPECTED_OUTLINE_WIDTH, outline.width]
+		)
+	if wet_rim != null:
+		_expect(
+			is_equal_approx(wet_rim.width, EXPECTED_WET_RIM_WIDTH),
+			"Wet rim width must be %.1f px, got %.3f px."
+			% [EXPECTED_WET_RIM_WIDTH, wet_rim.width]
+		)
 	_expect(
 		scene.get_node_or_null("ActualPlayer/Direction/FacingBeam") is Line2D,
 		"Center-to-muzzle facing beam is missing."
@@ -89,18 +95,24 @@ func _run_smoke() -> void:
 		main_palette,
 		MAIN_A_PRIMARY,
 		MAIN_B_PRIMARY,
-		MAIN_A_SECONDARY,
-		MAIN_B_ACCENT,
 		"main preview"
 	)
 	_expect_palette(
 		swap_palette,
 		MAIN_B_PRIMARY,
 		MAIN_A_PRIMARY,
-		MAIN_B_SECONDARY,
-		MAIN_A_ACCENT,
 		"swapped preview"
 	)
+	if outline != null:
+		_expect(
+			_color_close(outline.default_color, MAIN_A_PRIMARY),
+			"Outline must use the main fragment primary."
+		)
+	if wet_rim != null:
+		_expect(
+			_color_close(wet_rim.default_color, MAIN_A_PRIMARY.lightened(0.28)),
+			"Wet rim must be derived only from the main fragment primary."
+		)
 	var material := scene.call("debug_body_material") as ShaderMaterial
 	_expect(material != null, "Body ShaderMaterial is missing.")
 	if material != null:
@@ -112,16 +124,12 @@ func _run_smoke() -> void:
 			_color_close(material.get_shader_parameter("sub_primary"), MAIN_B_PRIMARY),
 			"Sub primary uniform is incorrect."
 		)
-		_expect(
-			_color_close(material.get_shader_parameter("rim_secondary"), MAIN_A_SECONDARY),
-			"Main secondary rim uniform is incorrect."
-		)
 	var beam_colors: PackedColorArray = scene.call("debug_beam_gradient_colors")
 	_expect(beam_colors.size() == 3, "Facing beam should use a three-stop fade.")
 	if beam_colors.size() == 3:
 		_expect(
-			_color_rgb_close(beam_colors[1], MAIN_B_ACCENT),
-			"Facing beam midpoint should use the sub fragment accent."
+			_color_rgb_close(beam_colors[1], MAIN_A_PRIMARY),
+			"Facing beam midpoint must use the main fragment primary."
 		)
 		_expect(
 			beam_colors[0].a < beam_colors[1].a and beam_colors[2].a < beam_colors[1].a,
@@ -141,6 +149,10 @@ func _run_smoke() -> void:
 		shader_source.find("clockwise_domain") >= 0
 		and shader_source.find("counter_domain") >= 0,
 		"Shader must retain two counter-rotating flow domains."
+	)
+	_expect(
+		shader_source.find("rim_secondary") < 0,
+		"Shader must not retain a secondary rim color slot."
 	)
 
 	var initial_node_count: int = int(scene.call("debug_scene_node_count"))
@@ -263,8 +275,14 @@ func _run_smoke() -> void:
 	var swapped_beam_colors: PackedColorArray = scene.call("debug_beam_gradient_colors")
 	_expect(
 		swapped_beam_colors.size() == 3
-		and _color_rgb_close(swapped_beam_colors[1], MAIN_A_ACCENT),
-		"Facing beam did not switch to the new sub fragment accent."
+		and _color_rgb_close(swapped_beam_colors[1], MAIN_B_PRIMARY),
+		"Facing beam did not switch to the new main fragment primary."
+	)
+	var swapped_outline := scene.get_node_or_null("ActualPlayer/Outline") as Line2D
+	_expect(
+		swapped_outline != null
+		and _color_close(swapped_outline.default_color, MAIN_B_PRIMARY),
+		"Outline did not switch to the new main fragment primary."
 	)
 
 	var deterministic_a: String = _capture_deterministic_signature(scene)
@@ -303,7 +321,7 @@ func _run_smoke() -> void:
 	)
 	print(
 		"[PlayerSlimeFusionSmoke] Passed 20/100 topology, 25 px containment, "
-		+ "dual-primary local Shader, 38 px beam, five-point impulses, pause, "
+		+ "primary-only dual-vortex/outline/beam colors, 38 px beam, five-point impulses, pause, "
 		+ "palette swap, stable resources, and deterministic stress checks."
 	)
 	quit(0)
@@ -392,10 +410,9 @@ func _expect_palette(
 	palette: Dictionary,
 	main_primary: Color,
 	sub_primary: Color,
-	main_secondary: Color,
-	sub_accent: Color,
 	label: String
 ) -> void:
+	_expect(palette.size() == 2, "%s palette must expose only two primary slots." % label)
 	_expect(
 		_color_close(palette.get("main_primary", Color.TRANSPARENT), main_primary),
 		"%s main primary is incorrect." % label
@@ -403,14 +420,6 @@ func _expect_palette(
 	_expect(
 		_color_close(palette.get("sub_primary", Color.TRANSPARENT), sub_primary),
 		"%s sub primary is incorrect." % label
-	)
-	_expect(
-		_color_close(palette.get("main_secondary", Color.TRANSPARENT), main_secondary),
-		"%s dark rim color is incorrect." % label
-	)
-	_expect(
-		_color_close(palette.get("sub_accent", Color.TRANSPARENT), sub_accent),
-		"%s beam accent is incorrect." % label
 	)
 
 

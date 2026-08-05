@@ -11,8 +11,8 @@ const EXPECTED_BOUNDARY_POINT_COUNT: int = (
 )
 const DEFAULT_RADIUS: float = 25.0
 const MUZZLE_DISTANCE: float = 38.0
-const OUTLINE_WIDTH: float = 2.0
-const WET_RIM_WIDTH: float = 0.75
+const OUTLINE_WIDTH: float = 3.0
+const WET_RIM_WIDTH: float = 1.0
 const REST_RADIUS_INSET: float = 2.2
 const MAXIMUM_RADIAL_INSET: float = 3.1
 const MAXIMUM_TANGENTIAL_OFFSET: float = 1.55
@@ -26,10 +26,8 @@ const DISPLACEMENT_SMOOTHING: float = 0.28
 const CORNER_ROUNDING: float = 0.32
 const FIRE_IMPULSE: float = 88.0
 const HIT_IMPULSE: float = 112.0
-const DEFAULT_MAIN_PRIMARY := Color("7e63d8")
-const DEFAULT_SUB_PRIMARY := Color("f2a23a")
-const DEFAULT_MAIN_SECONDARY := Color("3d315e")
-const DEFAULT_SUB_ACCENT := Color("ffd07a")
+const DEFAULT_MAIN_PRIMARY := Color("68bcdd")
+const DEFAULT_SUB_PRIMARY := Color("ed2f72")
 
 var _radius: float = DEFAULT_RADIUS
 var _rest_points: Array[Vector2] = []
@@ -49,20 +47,13 @@ var _body_material: ShaderMaterial
 var _beam_gradient: Gradient
 var _main_primary: Color = DEFAULT_MAIN_PRIMARY
 var _sub_primary: Color = DEFAULT_SUB_PRIMARY
-var _main_secondary: Color = DEFAULT_MAIN_SECONDARY
-var _sub_accent: Color = DEFAULT_SUB_ACCENT
 var _last_impulse_indices := PackedInt32Array()
 
 
 func _ready() -> void:
 	_build_visual_nodes()
 	_rebuild_membrane()
-	configure_palette(
-		_main_primary,
-		_sub_primary,
-		_main_secondary,
-		_sub_accent
-	)
+	configure_palette(_main_primary, _sub_primary)
 	_sync_visuals()
 
 
@@ -74,22 +65,17 @@ func _physics_process(delta: float) -> void:
 
 func configure_palette(
 	main_primary: Color,
-	sub_primary: Color,
-	main_secondary: Color,
-	sub_accent: Color
+	sub_primary: Color
 ) -> void:
 	_main_primary = main_primary
 	_sub_primary = sub_primary
-	_main_secondary = main_secondary
-	_sub_accent = sub_accent
 	if _body_material != null:
 		_body_material.set_shader_parameter("main_primary", _main_primary)
 		_body_material.set_shader_parameter("sub_primary", _sub_primary)
-		_body_material.set_shader_parameter("rim_secondary", _main_secondary)
 	if _outline != null:
-		_outline.default_color = _main_secondary
+		_outline.default_color = _main_primary
 	if _wet_rim != null:
-		_wet_rim.default_color = _main_primary.lerp(_sub_primary, 0.5).lightened(0.28)
+		_wet_rim.default_color = _main_primary.lightened(0.28)
 	_sync_beam_gradient()
 
 
@@ -245,8 +231,6 @@ func palette_state() -> Dictionary:
 	return {
 		"main_primary": _main_primary,
 		"sub_primary": _sub_primary,
-		"main_secondary": _main_secondary,
-		"sub_accent": _sub_accent,
 	}
 
 
@@ -505,9 +489,9 @@ func _sync_beam_gradient() -> void:
 	_beam_gradient.offsets = PackedFloat32Array([0.0, 0.62, 1.0])
 	_beam_gradient.colors = PackedColorArray(
 		[
-			Color(_sub_accent, 0.16),
-			Color(_sub_accent, 0.78),
-			Color(_sub_accent, 0.06),
+			Color(_main_primary, 0.16),
+			Color(_main_primary, 0.78),
+			Color(_main_primary, 0.06),
 		]
 	)
 
