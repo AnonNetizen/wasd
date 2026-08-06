@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective-to-extraction flow, threat-time combat gates and Run v9 restore.
+## objective completion, threat-time combat gates and Run v13 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -96,9 +96,9 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 12
+		int(fresh_run_snapshot.get("schema_version", 0)) == 13
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v12 should save registered world-event state"
+		"Run v13 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
@@ -114,7 +114,7 @@ func _run() -> void:
 	print("[ModuleWorldSmoke] stage=streaming")
 	await _expect_seamless_streaming(run_loop)
 	print("[ModuleWorldSmoke] stage=objective_restore")
-	await _expect_objective_extraction_and_restore(run_loop)
+	await _expect_objective_completion_and_restore(run_loop)
 	print("[ModuleWorldSmoke] stage=finish")
 	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.RUN)
 	_finish()
@@ -296,7 +296,6 @@ func _expect_deterministic_composition() -> void:
 	_expect((technical_summary.get("world_event_template_ids", []) as Array).size() == 3, "technical slice world events should be distinct")
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_START) == Vector2i(4, 4), "technical slice should retain the center start")
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == Vector2i(3, 4), "technical slice should expose its in-slice objective anchor")
-	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_EXTRACTION) == Vector2i(3, 3), "technical slice should expose its in-slice extraction anchor")
 	_expect_navigation_queries(manager_a, manager_b, manager_technical)
 	var tampered_snapshot: Dictionary = manager_a.call("snapshot")
 	tampered_snapshot["map_hash"] = "0".repeat(64)
@@ -860,7 +859,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	)
 
 
-func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
+func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	var technical_slice: bool = OS.get_cmdline_user_args().has("--module-world-technical-slice")
 	var event_nodes: Dictionary = run_loop.get("_world_event_nodes") as Dictionary
 	var event_controller: Node = run_loop.get("_world_event_controller") as Node
@@ -910,11 +909,6 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	run_loop.call("debug_set_player_position", objective_position)
 	await _wait_frames(BOOT_FRAMES * 2)
 	var objective_id: String = "module_%d_%d_objective_5_5" % [objective_coord.x, objective_coord.y]
-	var damage_result: Dictionary = run_loop.call("debug_damage_interest_point_target", objective_id, 99999.0)
-	_expect(bool(damage_result.get("ok", false)), "module objective should use the existing damage primitive")
-	await _wait_frames(BOOT_FRAMES)
-	var objective_summary: Dictionary = run_loop.call("debug_summary")
-	_expect(bool((objective_summary.get("extraction", {}) as Dictionary).get("active", false)), "destroying objective should activate the separate extraction module")
 	var objective_manager: Node = _find_node_by_name(
 		get_tree().root,
 		"ModuleWorldManager"
@@ -955,23 +949,22 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 		"active world event should retain progress, first wave cursor, and background pin"
 	)
 
-	# Save while the completed objective module is still active. Restore must not recreate
-	# its destroyed target with default HP before applying the interest-point snapshot.
-	# The same restore also proves a live first-entry telegraph keeps its fixed plan.
+	# Save before completing the objective. Restore must recreate its live target and
+	# preserve the same first-entry telegraph plan.
 	run_loop.call("_show_pause_menu")
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v10 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v13 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 12, "module run snapshot should use schema v12")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v12 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 13, "module run snapshot should use schema v13")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v13 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v10 should load")
+	_expect(not loaded.is_empty(), "module run v13 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -1017,7 +1010,7 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 				0
 			)
 		) >= 1,
-		"Run v9 restore should preserve active event progress, pin, and fixed wave plan"
+		"Run v13 restore should preserve active event progress, pin, and fixed wave plan"
 	)
 	_expect(
 		is_equal_approx(
@@ -1034,13 +1027,13 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v9 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v13 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v9 fixture should resume after difficulty comparison"
+		"restored paused Run v13 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
@@ -1050,11 +1043,6 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 			"technical-slice restore should preload and mount all nine active generated scenes"
 		)
 	_expect(int(restored_world.get("visited_count", 0)) >= 2, "restore should preserve module fog/visited state")
-	_expect(bool((restored_summary.get("extraction", {}) as Dictionary).get("active", false)), "restore should preserve objective-to-extraction state")
-	_expect(
-		_find_node_by_name(get_tree().root, "InterestPointTarget_%s" % objective_id) == null,
-		"restore should not recreate an already-destroyed objective target"
-	)
 	var restored_manager: Node = _find_node_by_name(
 		get_tree().root,
 		"ModuleWorldManager"
@@ -1088,15 +1076,6 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 		"save restore should rebuild every encounter telegraph VFX"
 	)
 
-	# Full world extraction is (0,0); technical-slice extraction is (3,3).
-	var extraction_coord := Vector2i(3, 3) if technical_slice else Vector2i(0, 0)
-	var extraction_position := Vector2(-1760.0, -1760.0) if technical_slice else Vector2(-7040.0, -7040.0)
-	restored.call("debug_set_player_position", extraction_position)
-	await _wait_frames(BOOT_FRAMES)
-	var extraction_world: Dictionary = (restored.call("debug_summary") as Dictionary).get("module_world", {}) as Dictionary
-	_expect(_coord_matches(extraction_world.get("current_module", {}), extraction_coord), "player should stream into the extraction slot")
-	_expect(int(extraction_world.get("active_count", 0)) <= 9, "corner streaming should stay inside the chunk budget")
-
 	# A content/hash mismatch must stop before player and entity snapshots are
 	# applied. FormalClientBoot consumes the false result via restore_failed and
 	# returns to title; this direct assertion protects the run-loop fail-closed edge.
@@ -1111,6 +1090,34 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	rejected_snapshot["player"] = rejected_player
 	_expect(not bool(restored.call("_restore_run_snapshot", rejected_snapshot)), "run-loop restore should reject mismatched module content/hash")
 	_expect(player is Node2D and (player as Node2D).global_position.is_equal_approx(player_position_before), "rejected module restore must not apply the old player snapshot")
+
+	var damage_result: Dictionary = restored.call(
+		"debug_damage_interest_point_target",
+		objective_id,
+		99999.0
+	)
+	_expect(
+		bool(damage_result.get("ok", false)),
+		"module objective should use the existing damage primitive"
+	)
+	await _wait_frames(BOOT_FRAMES)
+	var completed_summary: Dictionary = restored.call("debug_summary") as Dictionary
+	var completed_points: Dictionary = (
+		completed_summary.get("interest_points", {}) as Dictionary
+	)
+	var completed_objective: Dictionary = (
+		completed_points.get(objective_id, {}) as Dictionary
+	)
+	_expect(
+		bool(completed_objective.get("completes_run", false))
+		and bool(completed_objective.get("claimed", false))
+		and bool(completed_objective.get("target_destroyed", false)),
+		"destroying the objective should claim the generic run-completion point"
+	)
+	_expect(
+		GameState.is_state(GameState.GAME_OVER),
+		"destroying the objective should complete the run directly"
+	)
 
 
 func _load_world_data() -> Dictionary:
@@ -1371,7 +1378,6 @@ func _formal_assignment_has_three_events_and_flat_fill(
 	var fixed_slots: Dictionary = {
 		"4,4": true,
 		"0,4": true,
-		"0,0": true,
 	}
 	var event_template_ids: Array[String] = []
 	for raw_slot: Variant in assignment.keys():

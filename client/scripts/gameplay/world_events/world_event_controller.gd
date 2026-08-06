@@ -122,15 +122,12 @@ class EventRuntime:
 var _active_continuous_instance_id: String = ""
 var _definitions: Dictionary = {}
 var _instances: Dictionary = {}
-var _mod_pools: Dictionary = {}
 
 
 func configure(world_event_data: Dictionary) -> void:
 	_instances.clear()
 	_active_continuous_instance_id = ""
 	_definitions.clear()
-	_mod_pools.clear()
-	_parse_mod_pools(world_event_data.get("mod_pools", []))
 	var events_raw: Variant = world_event_data.get(
 		"events",
 		world_event_data.get("world_events", [])
@@ -287,13 +284,6 @@ func active_continuous_instance_id() -> String:
 
 func definition(event_id: String) -> Dictionary:
 	return _definition(event_id).duplicate(true)
-
-
-func mod_pool(mod_pool_id: String) -> Array[String]:
-	if not _mod_pools.has(mod_pool_id):
-		return []
-	var source: Array[String] = _mod_pools[mod_pool_id]
-	return source.duplicate()
 
 
 func snapshot() -> Dictionary:
@@ -1159,19 +1149,6 @@ func _waves(definition: Dictionary) -> Array[Dictionary]:
 			return float(left.get("trigger", 0.0)) < float(right.get("trigger", 0.0))
 	)
 	return result
-
-
-func _parse_mod_pools(raw_pools: Variant) -> void:
-	if not raw_pools is Array:
-		return
-	for pool_raw: Variant in raw_pools:
-		if not pool_raw is Dictionary:
-			continue
-		var pool: Dictionary = pool_raw as Dictionary
-		var pool_id: String = String(pool.get("id", ""))
-		if pool_id.is_empty():
-			continue
-		_mod_pools[pool_id] = _string_array(pool.get("mod_ids", []))
 
 
 func _player_is_alive(player: Node, context: Dictionary) -> bool:

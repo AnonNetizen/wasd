@@ -16,12 +16,12 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.11"
+const GAME_VERSION: String = "v1.12"
 const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
-	SAVE_KINDS.META: 2,
-	SAVE_KINDS.RUN: 12,
+	SAVE_KINDS.META: 3,
+	SAVE_KINDS.RUN: 13,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -31,6 +31,7 @@ var _last_error: String = ""
 
 func _ready() -> void:
 	register_migration(SAVE_KINDS.META, 1, 2, Callable(self, "_migrate_meta_v1_to_v2"))
+	register_migration(SAVE_KINDS.META, 2, 3, Callable(self, "_migrate_meta_v2_to_v3"))
 	register_migration(SAVE_KINDS.RUN, 1, 2, Callable(self, "_migrate_run_v1_to_v2"))
 	register_migration(SAVE_KINDS.RUN, 2, 3, Callable(self, "_migrate_run_v2_to_v3"))
 	register_migration(SAVE_KINDS.RUN, 3, 4, Callable(self, "_migrate_run_v3_to_v4"))
@@ -42,6 +43,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 9, 10, Callable(self, "_migrate_run_v9_to_v10"))
 	register_migration(SAVE_KINDS.RUN, 10, 11, Callable(self, "_migrate_run_v10_to_v11"))
 	register_migration(SAVE_KINDS.RUN, 11, 12, Callable(self, "_migrate_run_v11_to_v12"))
+	register_migration(SAVE_KINDS.RUN, 12, 13, Callable(self, "_migrate_run_v12_to_v13"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -353,6 +355,14 @@ func _migrate_meta_v1_to_v2(payload: Dictionary) -> Dictionary:
 	return result
 
 
+func _migrate_meta_v2_to_v3(payload: Dictionary) -> Dictionary:
+	# Gear Mods are now run-scoped. Keep the player's last confirmed hero
+	# composition, but remove the retired account-level inventory and loadouts.
+	var result: Dictionary = _migrate_meta_v1_to_v2(payload)
+	result.erase("gear_mods")
+	return result
+
+
 func _migrate_run_v2_to_v3(payload: Dictionary) -> Dictionary:
 	# v3 adds the F13 room carrier state. Pre-F13 (open-warzone) runs migrate to an empty
 	# room block, which restore reads as "no room carrier" and keeps the open-warzone path.
@@ -486,6 +496,29 @@ func _migrate_run_v11_to_v12(payload: Dictionary) -> Dictionary:
 	]:
 		weapon.erase(retired_field)
 	result["weapon"] = weapon
+	return result
+
+
+func _migrate_run_v12_to_v13(payload: Dictionary) -> Dictionary:
+	# v12 can contain extraction settlement state and account-level Gear Mod
+	# snapshots that have no safe meaning in the run-scoped system. Keep the
+	# envelope readable so FormalClientBoot shows the established notice and
+	# deletes only this incompatible run.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 13
+	result["legacy_run_incompatible"] = true
+	result.erase("pending_loot")
+	result.erase("extraction")
+	for retired_field: String in [
+		"gear_mods",
+		"gear_mod_inventory",
+		"gear_mod_loadout",
+		"gear_mod_profile",
+		"gear_mod_resources",
+		"hero_gear_mods",
+		"weapon_gear_mods",
+	]:
+		result.erase(retired_field)
 	return result
 
 

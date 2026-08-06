@@ -91,7 +91,7 @@ ui_resume,继续,Resume
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
 | `skill_` | 技能名称和描述 | `skill_overdrive_rounds_name` / `skill_overdrive_rounds_desc` |
 | `status_` | HUD 与状态观察中的状态名称 | `status_slow_name` / `status_vulnerable_name` |
-| `gear_mod_` | 装备 Mod 名称、描述和资源名 | `gear_mod_weapon_damage_test_name` / `gear_mod_dust_name` |
+| `gear_mod_` | 局内 Gear Mod 名称与描述 | `gear_mod_weapon_damage_test_name` / `gear_mod_weapon_damage_test_desc` |
 | `enemy_` | 心象个体名称；`enemy` 是不迁移的遗留内部前缀，显示名可随当前设计更新但 key 与内容 id 保持稳定 | `enemy_chaser_name` 为“爆猎者 / Burst Hunter”；`enemy_spitter_name` 保留 key，当前译文为“突击枪手 / Assault Gunner” |
 | `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
 | `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |

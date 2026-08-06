@@ -17,16 +17,12 @@ const GRID_SIZE: int = 9
 @export var revealed_color: Color = Color(0.30, 0.36, 0.42, 0.94)
 @export var current_color: Color = Color(0.35, 0.86, 0.72, 1.0)
 @export var objective_color: Color = Color(1.0, 0.72, 0.20, 1.0)
-@export var extraction_color: Color = Color(0.35, 0.92, 0.70, 1.0)
 @export_range(0.5, 6.0, 0.1) var border_width: float = 1.0
 @export_range(1.0, 8.0, 0.1) var objective_marker_radius: float = 3.0
-@export_range(1.0, 8.0, 0.1) var extraction_marker_radius: float = 3.2
 
 var _visited: Dictionary = {}
 var _current: Vector2i = Vector2i(-1, -1)
 var _objective: Vector2i = Vector2i(-1, -1)
-var _extraction: Vector2i = Vector2i(-1, -1)
-var _extraction_active: bool = false
 
 @onready var _selection_feedback: UISelectionFeedback = get_node_or_null(
 	"SelectionFeedback"
@@ -51,8 +47,6 @@ func configure(state: Dictionary) -> void:
 			_visited[_slot_key(slot)] = true
 	_current = _slot_from_variant(state.get("current_slot", {}))
 	_objective = _slot_from_variant(state.get("objective_slot", {}))
-	_extraction = _slot_from_variant(state.get("extraction_slot", {}))
-	_extraction_active = bool(state.get("extraction_active", false))
 	queue_redraw()
 	if (
 		_selection_feedback != null
@@ -77,10 +71,8 @@ func _draw() -> void:
 			if slot == _current:
 				color = current_color
 			draw_rect(cell_rect, color, true)
-			if slot == _objective and not _extraction_active:
+			if slot == _objective:
 				draw_circle(cell_rect.get_center(), objective_marker_radius, objective_color)
-			if _extraction_active and slot == _extraction:
-				draw_circle(cell_rect.get_center(), extraction_marker_radius, extraction_color)
 
 
 func _slot_from_variant(value: Variant) -> Vector2i:

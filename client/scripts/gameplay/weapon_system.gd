@@ -18,6 +18,8 @@ var _player: Node2D = null
 var _active_parent: Node = null
 var _base_stats: Dictionary = {}
 var _combat_gate: Callable = Callable()
+var _gear_stat_additions: Dictionary = {}
+var _gear_stat_multipliers: Dictionary = {}
 var _runtime_stats: Dictionary = {}
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
@@ -67,6 +69,8 @@ func configure(
 	_base_stats = _weapon_data.get("base_stats", {}).duplicate(true)
 	_stat_additions.clear()
 	_stat_multipliers.clear()
+	_gear_stat_additions.clear()
+	_gear_stat_multipliers.clear()
 	_temporary_modifiers.clear()
 	_rebuild_runtime_stats()
 	_cooldown_remaining = 0.0
@@ -79,6 +83,19 @@ func configure_combat_gate(combat_gate: Callable) -> void:
 func apply_modifiers(modifiers: Array) -> void:
 	for raw_modifier: Variant in modifiers:
 		_accumulate_modifier(raw_modifier, _stat_additions, _stat_multipliers)
+	_rebuild_runtime_stats()
+
+
+## Replaces the run-owned Gear Mod layer. Reapplying the same list is idempotent.
+func set_gear_modifiers(modifiers: Array) -> void:
+	_gear_stat_additions.clear()
+	_gear_stat_multipliers.clear()
+	for raw_modifier: Variant in modifiers:
+		_accumulate_modifier(
+			raw_modifier,
+			_gear_stat_additions,
+			_gear_stat_multipliers
+		)
 	_rebuild_runtime_stats()
 
 
@@ -272,6 +289,12 @@ func _rebuild_runtime_stats() -> void:
 	_runtime_stats = _base_stats.duplicate(true)
 	var additions: Dictionary = _stat_additions.duplicate(true)
 	var multipliers: Dictionary = _stat_multipliers.duplicate(true)
+	_merge_modifier_totals(
+		additions,
+		multipliers,
+		_gear_stat_additions,
+		_gear_stat_multipliers
+	)
 	for entry: Dictionary in _temporary_modifiers:
 		for raw_modifier: Variant in _array_or_empty(entry.get("modifiers", [])):
 			_accumulate_modifier(raw_modifier, additions, multipliers)
@@ -369,6 +392,24 @@ func _accumulate_modifier(raw_modifier: Variant, additions: Dictionary, multipli
 		additions[stat] = float(additions.get(stat, 0.0)) + value
 	elif modifier_type == "mult":
 		multipliers[stat] = float(multipliers.get(stat, 1.0)) * value
+
+
+func _merge_modifier_totals(
+	additions: Dictionary,
+	multipliers: Dictionary,
+	extra_additions: Dictionary,
+	extra_multipliers: Dictionary
+) -> void:
+	for stat: String in extra_additions:
+		additions[stat] = (
+			float(additions.get(stat, 0.0))
+			+ float(extra_additions.get(stat, 0.0))
+		)
+	for stat: String in extra_multipliers:
+		multipliers[stat] = (
+			float(multipliers.get(stat, 1.0))
+			* float(extra_multipliers.get(stat, 1.0))
+		)
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:

@@ -5,7 +5,6 @@ extends RefCounted
 
 
 const CONFIG_PATH: String = "user://debug_test_arena.cfg"
-const DEFAULT_CAPACITY: int = 8
 const DEFAULT_SEED: int = 424242
 const SCHEMA_VERSION: int = 2
 const SECTION: String = "arena"
@@ -177,8 +176,7 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 		diagnostics
 	)
 	var preview: Dictionary = GearModSystem.resolve_preview_loadout(
-		_array_or_empty(raw_config.get("gear_mods", [])),
-		DEFAULT_CAPACITY
+		_array_or_empty(raw_config.get("gear_mods", []))
 	)
 	diagnostics.append_array(
 		_typed_dictionary_array(preview.get("diagnostics", []))
@@ -194,7 +192,6 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 		"gear_mods": _config_selections(
 			_typed_dictionary_array(preview.get("selected", []))
 		),
-		"capacity": DEFAULT_CAPACITY,
 		"modifier_preview": preview,
 		"diagnostics": diagnostics,
 	}

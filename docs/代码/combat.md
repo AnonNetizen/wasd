@@ -89,11 +89,11 @@
 
 - `sync_contracts.py --check`、`validate_data.py`、schema test 和三档 lint。
 - `l1-smoke` 覆盖内置英雄零开局护盾、三层顺序、超盾容量与恢复钳制、空／半／满盾门、恢复、超盾衰减、护甲公式、纯元素抗性、复合不减伤、易伤来源过滤与 DoT。
-- `runtime-smoke`、`save-smoke`、`headless-boot` 和四条 Replay v4 黄金回放覆盖整局与恢复。
+- `runtime-smoke`、`save-smoke`、`headless-boot` 和四条 Replay v5 黄金回放覆盖整局与恢复。
 
 ## 迁移边界
 
-Run v12 保存生命、普通护盾、超量护盾、护盾门、元素被动、玩家敌人击退、Enemy 显式攻击 / armed / 生成序号、锁定金币及世界事件目标上下文，不含弹药字段；旧 Run v11 明确不兼容。Replay v4 删除 `reload` 输入语义和弹药摘要，数据指纹与黄金摘要随当前行为重录。
+Run v13 保存生命、普通护盾、超量护盾、护盾门、元素被动、玩家敌人击退、Enemy 显式攻击 / armed / 生成序号、锁定金币、局内 Gear Mod 及世界事件目标上下文，不含弹药、`pending_loot` 或撤离字段；旧 Run v12 明确不兼容。Replay v5 记录当前 Roguelike 直接通关语义，旧 Replay v4 明确拒绝。
 
 ## 相关文档
 

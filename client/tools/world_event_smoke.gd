@@ -11,6 +11,7 @@ const WORLD_EVENT_STATES := preload(
 	"res://scripts/contracts/world_event_states.gd"
 )
 const WORLD_EVENT_DATA_PATH: String = "res://data/world_events.json"
+const GEAR_MOD_DATA_PATH: String = "res://data/gear_mods.json"
 const SCENE_PATHS: Dictionary = {
 	"world_event_defense": "res://scenes/gameplay/world_events/world_event_defense.tscn",
 	"world_event_survival": "res://scenes/gameplay/world_events/world_event_survival.tscn",
@@ -40,7 +41,7 @@ func _run() -> void:
 	_combat = COMBAT_SCRIPT.new()
 	get_root().add_child(_combat)
 	_controller.configure(data)
-	_mod_pool = _controller.mod_pool("world_event_mod_pool_common")
+	_mod_pool = _gear_mod_pool("world_event_mod_pool_common")
 	_require(_mod_pool.size() == 3, "common Mod pool exposes three entries")
 	_controller.wave_requested.connect(_on_wave_requested)
 	_controller.reward_requested.connect(_on_reward_requested)
@@ -333,11 +334,11 @@ func _test_snapshot_roundtrip() -> void:
 func _prepare_reward(
 	_instance_id: String,
 	_event_id: String,
-	reward_config: Dictionary
+	_reward_config: Dictionary
 ) -> Dictionary:
 	return {
-		"kind": WORLD_EVENT_REWARD_TYPES.WORLD_EVENT_REWARD_GOLD,
-		"amount": int(reward_config.get("gold_amount", 0)),
+		"kind": WORLD_EVENT_REWARD_TYPES.WORLD_EVENT_REWARD_GEAR_MOD,
+		"mod_id": _mod_pool[0],
 		"pending": false,
 	}
 
@@ -363,6 +364,21 @@ func _choose_mod(
 		if not excluded.has(mod_id):
 			return mod_id
 	return ""
+
+
+func _gear_mod_pool(pool_id: String) -> Array[String]:
+	var data: Dictionary = _read_json(GEAR_MOD_DATA_PATH)
+	var result: Array[String] = []
+	for raw_pool: Variant in data.get("reward_pools", []):
+		if not raw_pool is Dictionary:
+			continue
+		var pool: Dictionary = raw_pool as Dictionary
+		if String(pool.get("id", "")) != pool_id:
+			continue
+		for raw_mod_id: Variant in pool.get("mod_ids", []):
+			result.append(String(raw_mod_id))
+		break
+	return result
 
 
 func _sacrifice_health(_instance_id: String, ratio: float) -> Dictionary:

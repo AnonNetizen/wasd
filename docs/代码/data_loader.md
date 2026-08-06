@@ -8,7 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、金币交易、奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -40,7 +40,6 @@
 | `client/data/difficulty_profiles.json` | schema v2 难度名称、难度系数、威胁时间与敌人生命 / 伤害曲线 |
 | `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、drain、修正器和分解返还边界 |
 | `client/data/gear_mod_drop_tables.csv` | 装备 Mod 掉落来源、概率和敌人等级条件边界 |
-| `client/data/gear_mod_fusion_costs.csv` | 装备 Mod 按稀有度 / rank 的升级资源成本边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/map_layouts.json` | 有限地图、玩家出生点、PCG 机关规则和人工摆点边界 |
 | `client/data/warzone_directors.json` | schema v2 敌巢战区导演、固定阶段、巢变异主题、兴趣点和阶段启用 wave 边界 |
@@ -110,7 +109,7 @@
   - `difficulty_profiles.json`：schema v2，每个 profile 必填唯一 `id`、已本地化 `name_key`、有限正数 `difficulty_coefficient`、威胁曲线和九段阶段名。标准 profile 当前系数为 `1.0`；旧 schema v1、缺字段或多余字段均拒绝。
   - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
-  - `gear_mod_fusion_costs.csv`：装备 Mod 升到目标 rank 的资源成本；rarity 与 resource 必须来自词表，且覆盖 `gear_mods.json` 中每个已使用 rarity 的 `1..max_rank`。
+  - `gear_mods.json` schema v2：校验公共奖励池、满阶溢出金币与每个 Mod 的 rank 0–5 效果曲线；不接受 inventory、drain、dismantle 或 fusion 字段。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、表现 profile、伤害、伤害类型、触发间隔、范围和持续时间。
   - `map_layouts.json`：layout id、模式引用、有限地图矩形 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须分别整除 `grid.cell_width/cell_height`。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。

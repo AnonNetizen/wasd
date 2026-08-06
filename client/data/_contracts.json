@@ -158,6 +158,7 @@
       "enemy_drop",
       "event_reward",
       "event_cost",
+      "gear_mod_overflow",
       "debug_command"
     ],
     "reward_choice_triggers": [
@@ -311,12 +312,6 @@
     "gear_mod_rarities": [
       "common"
     ],
-    "gear_mod_resources": [
-      "gear_mod_dust"
-    ],
-    "gear_mod_stack_rules": [
-      "unique_by_id"
-    ],
     "save_kinds": [
       "meta",
       "run",
@@ -329,7 +324,6 @@
       "module_role_resource",
       "module_role_hazard",
       "module_role_objective",
-      "module_role_extraction",
       "module_role_world_event",
       "module_role_sealed"
     ],
@@ -342,7 +336,6 @@
       "module_place_hazard",
       "module_place_reward_cache",
       "module_place_objective",
-      "module_place_extraction",
       "module_place_world_event"
     ],
     "module_edge_directions": [

@@ -130,15 +130,6 @@ func _run() -> void:
 		(preview.get("selected", []) as Array).size() == 1,
 		"pure Gear Mod preview resolves selection"
 	)
-	_check(
-		int(
-			(preview.get("used_drain", {}) as Dictionary).get(
-				"weapon",
-				0
-			)
-		) == 4,
-		"Gear Mod preview enforces rank drain"
-	)
 	var constrained_preview: Dictionary = GearModSystem.resolve_preview_loadout(
 		[
 			{
@@ -149,8 +140,7 @@ func _run() -> void:
 				"mod_id": "gear_mod_weapon_damage_test",
 				"rank": 1,
 			},
-		],
-		8
+		]
 	)
 	var constrained_selected: Array = constrained_preview.get(
 		"selected",
@@ -419,9 +409,19 @@ func _run() -> void:
 		60
 	)
 
+	# Earlier free-skill coverage can legitimately defeat the original AI target.
+	# Rebuild one deterministic target so this assertion isolates the kill control.
+	controller.call("clear_targets", "ai")
+	var kill_target_spawn: Dictionary = controller.call(
+		"spawn_targets",
+		"enemy_chaser",
+		"ai",
+		1
+	) as Dictionary
 	var kill_ai_result: Dictionary = controller.call("kill_ai") as Dictionary
 	_check(
-		int(kill_ai_result.get("count", 0)) == 1,
+		int(kill_target_spawn.get("spawned", 0)) == 1
+		and int(kill_ai_result.get("count", 0)) == 1,
 		"kill AI control uses the real defeat path"
 	)
 	controller.call("reset_arena")

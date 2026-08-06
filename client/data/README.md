@@ -36,7 +36,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
 | 加 / 改模块模板 | 在 Godot 的 `Module JSON` 中央主编辑区编辑 `modules/<id>.json`，再显式 Validate / Bake | 模块固定 11×11 格；JSON 是人工与 AI 协作主源，生成 TSCN 禁止手改，玩法变化会降为 `candidate` |
-| 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点 / 目标 / 撤离锚点，其余槽位按 `RNG.world` + run seed 组合 |
+| 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点与意识核目标，其余槽位按 `RNG.world` + run seed 组合；不存在撤离锚点 |
 | 改世界事件数值 / 波次 / 祭坛概率 | `world_events.json` | schema v1；事件、Gear Mod 池、波次与祭坛参数严格校验，运行时随机走 `RNG.world_event` |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
@@ -47,7 +47,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改敌人金币基础系数 / 阶段增长 / 随机范围 | `enemy_rewards.json` | schema v1；实际金币在敌人成功生成时用 `RNG.economy` 锁定，死亡时不重算 |
 | 改开放战区刷怪组合 / 波次 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改金币等级曲线 / 通用奖励候选 | `level_progression.json` / `reward_choice_pools.json` | 等级曲线使用整数有理数；候选数量由调用方指定 2–5，抽取走 `RNG.ui_choice` |
-| 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` | 装备 Mod 与本地数据包 mod 是不同概念；Mod id / slot / rarity / resource / stack rule 必须先登记契约 |
+| 改局内 Gear Mod / 敌人掉率 / 公共池 | `gear_mods.json`、`gear_mod_drop_tables.csv` | Gear Mod 与本地数据包 mod 是不同概念；正式局自动获得、同类升阶并在局终清空，不存在局外装配 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；Godot 编辑器插件来源与本地补丁另见 `client/addons/README.md`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
 | 做本地 mod 内容包 | `user://mods/<mod_id>/mod.json` + mod 自带 `data/` patch | 通过 `ModLoader` 声明式追加 JSON / CSV；不改 `client/data/` 原文件，不执行脚本 |
@@ -73,16 +73,15 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
 | `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
-| `world_events.json` | 已建立 | 世界事件 schema v1：防御、生存、占点、金币祭坛与血量祭坛，以及事件 Gear Mod 候选池 |
+| `world_events.json` | 已建立 | 世界事件 schema v2：防御、生存、占点、金币祭坛与血量祭坛；Gear Mod 公共池由 `gear_mods.json` 统一定义 |
 | `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态、批准时 source hash 和可用旋转 |
 | `module_tile_catalog.json` | 已建立 | 稳定 `module_tile_id` 到 Godot TileSet source / atlas / alternative 的编辑期映射 |
 | `modules/*.json` | 制作主源 | 11×11 地形、placement 与三层视觉声明；由人工、AI 和 Module JSON Editor 协作维护 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `level_progression.json` | 已建立 | 金币驱动等级曲线：首段成本和整数倍率 |
 | `reward_choice_pools.json` | 已建立 | 通用奖励选项池、权重、等级条件和 modifier 边界 |
-| `gear_mods.json` | JSON | 装备 Mod 定义：英雄 / 武器槽位、稀有度、rank、drain、修正器和分解返还 |
+| `gear_mods.json` | JSON | 局内 Gear Mod schema v2：slot、稀有度、rank 曲线、公共奖励池与满阶金币转化 |
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
-| `gear_mod_fusion_costs.csv` | CSV | 装备 Mod 按稀有度 / rank 的升级资源成本 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；G.U.I.D.E、Xelu prompts 与 Lato 字体分别登记，vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
 | `visual_effects.json` | 已建立 | 视觉效果 catalog：资源、领域、技术标签、空间、生命周期、对象池与预览元数据 |
 | `presentation_profiles.json` | 已建立 | 表现 profile 继承与 cue → 视觉 / 音频 / 相机 / 屏幕绑定 |
@@ -490,7 +489,7 @@ round(
 )
 ```
 
-所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v12 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件固定金币奖励不读本文件。
+所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v13 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件奖励不读本文件。
 
 ## `game_modes.json`
 
@@ -633,7 +632,7 @@ round(
 - 需要测试特定机关交互时，用 `manual_hazards` 固定位置；需要测试 PCG 稳定性时改 `pcg.hazards[].count` / `min_spacing`。
 - `hazards.csv` 只管机关基础数值和占格尺寸，`map_layouts.json` 才管初始地图上的机关位置。
 - PCG 摆放使用 `RNG.world`，刷怪位置仍使用 `RNG.spawn`，不要把二者混用。
-- F12 标准短刷图首片把 `player_start` 放在偏外侧格心，让玩家从边缘切入战区；兴趣点本身仍由 `warzone_directors.json.interest_points[]` 通过 `source="director"` 初始机关表达。
+- open-warzone 回归路径把 `player_start` 放在偏外侧格心，让玩家从边缘切入战区；兴趣点仍由 `warzone_directors.json.interest_points[]` 通过 `source="director"` 初始机关表达。
 
 ## `enemies.csv`
 
@@ -826,7 +825,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 | `hazard_id` | string | 可空；非空时必须存在于 `hazards.csv` | 可选机关 id，用于把机关生成作为波次压力的一部分 |
 | `hazard_weight` | int | `>= 0`；大于 0 时 `hazard_id` 必填 | 可选机关权重；`0` 表示本波次不使用机关 |
 
-`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。F12 标准短刷图从 0:00 起同时开放爆猎者与突击枪手，随后于 1:00 / 4:00 / 7:00 打开其余敌群层级；突击枪手以 `1.35s` 间隔和 `16` 上限承担最常见的基础远程压力，其余波次已等量下调，使总生成速率基本不变。`9999.0` 是软上限后的持续压力窗口，不是硬性局长限制。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
+`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理。open-warzone 回归路径从 0:00 起同时开放爆猎者与突击枪手，随后于 1:00 / 4:00 / 7:00 打开其余敌群层级；`9999.0` 只是持续压力窗口，不是局长验收限制。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
 
 ## `warzone_directors.json`
 
@@ -834,13 +833,13 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "directors": [
     {
       "id": "director_standard_warzone",
       "mode_id": "mode_standard_survival",
       "mutation_id": "nest_mutation_hunting_ground",
-      "description": "Standard short loot-run director. It targets an 8-12 minute clear, uses fixed phases, and never reads player-state pressure.",
+      "description": "Open-warzone regression director for the top-down shooter Roguelike loop. It uses fixed pressure phases, never reads player-state pressure, and completes immediately when the core objective is cleared.",
       "phases": [
         {
           "id": "phase_insertion",
@@ -888,7 +887,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
           "claim_start_time": 60.0,
           "target_hp": 120.0,
           "target_hit_radius": 36.0,
-          "resource_rewards": [{"resource_id": "gear_mod_dust", "amount": 25}]
+          "gold_reward_amount": 90
         },
         {
           "id": "poi_mod_cache",
@@ -918,7 +917,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `2` | 数据结构版本；旧导演敌人组合元数据会被双端 schema 明确拒绝 |
+| `schema_version` | int | 必须为 `3` | 数据结构版本；旧资源、Mod 直发和撤离元数据会被双端 schema 明确拒绝 |
 | `directors[]` | array[object] | 非空 | 战区导演列表；首片每个模式只允许一个导演 |
 | `directors[].id` | string | 文件内唯一，非空 | 导演 id；只用于调试、验证和后续工具 |
 | `directors[].mode_id` | string | 必须存在于 `game_modes.json`，且来自词表 §12-A | 该导演绑定的游戏模式 |
@@ -938,32 +937,25 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 | `interest_points[].min_distance_from_player` | number | 可选，`>= 0`，px | 运行时摆放时距玩家出生点的额外最小距离；会与 layout `safe_radius` 取较大值 |
 | `interest_points[].min_spacing` | number | 可选，`>= 0`，px | 与已放置机关之间的最小间距；用于把收益点分散到小而密的路线中 |
 | `interest_points[].claim_radius` | number | 可选；有奖励或 `completes_run=true` 时必填且 `> 0`，px | 无目标兴趣点中，玩家进入该半径后可领取 / 交互一次兴趣点奖励；有目标兴趣点由目标摧毁触发领取 |
-| `interest_points[].extraction_radius` | number | 可选；`completes_run=true` 时必填且 `> 0`，px | 小巢核领取后开启撤离区的基础半径；运行时会吸附为贴合 `map_layouts.json.grid` 的矩形范围 |
-| `interest_points[].extraction_hold_time` | number | 可选；`completes_run=true` 时必填且 `> 0`，秒 | 玩家站在撤离区内需要保持的结算读条时间；离开撤离区会重置首版读条进度 |
 | `interest_points[].claim_start_time` | number | 可选，`>= 0`，秒 | 奖励最早可领取时间；使用 `GameClock.now()`，不读取玩家状态 |
-| `interest_points[].requires_interaction` | bool | 可选 | 为 `true` 时不会进圈自动领取；运行时生成可见缓存箱，玩家进入 `claim_radius` 后按 `interact` action 打开并把奖励放入 `run.pending_loot` |
+| `interest_points[].requires_interaction` | bool | 可选 | 为 `true` 时不会进圈自动领取；运行时生成可见缓存箱，玩家进入 `claim_radius` 后按 `interact` action 打开并立即结算局内奖励 |
 | `interest_points[].target_hp` | number | 可选，`> 0` | 有值时 `GameplayRunLoop` 会生成可被子弹命中的 `InterestPointTarget`，摧毁后触发同一套奖励；目标生成后立即可受伤，无值时仍按进圈领取 |
 | `interest_points[].target_hit_radius` | number | 可选，`> 0`，px | 可伤害目标的命中半径；只在 `target_hp` 存在时使用，视觉 footprint 会向上吸附到地图矩形格整数尺寸 |
-| `interest_points[].resource_rewards[]` | array[object] | 可选，非空；`resource_id` 必须来自 `gear_mod_resources`，`amount >= 1` | 领取时先进入 `run.pending_loot.resources`；撤离成功时才通过 `GearModSystem.grant_resource()` 写入 `meta.gear_mods.resources` |
-| `resource_rewards[].resource_id` | string | 必须存在于 `gear_mod_resources` | 当前首片使用 `gear_mod_dust` |
-| `resource_rewards[].amount` | int | `>= 1` | 发放资源数量 |
-| `interest_points[].gear_mod_rewards[]` | array[object] | 可选，非空；`mod_id` 必须存在于 `gear_mods.json`，`count >= 1` | 领取时先进入 `run.pending_loot.gear_mods`；撤离成功时才通过 `GearModSystem.grant_mod()` 写入库存 |
-| `gear_mod_rewards[].mod_id` | string | 必须存在于 `gear_mods.json` 且来自 `gear_mod_ids` | 当前首片使用测试武器 Mod |
-| `gear_mod_rewards[].count` | int | `>= 1` | 发放 Mod 实例数量 |
-| `interest_points[].completes_run` | bool | 可选 | 为 `true` 时领取后开启撤离区；撤离读条完成才删除当前 `run` 存档、提交暂存战利品并显示完成结果面板；首片用于小巢核 |
+| `interest_points[].gold_reward_amount` | int | 可选，`>= 1`；不能与 Mod 池或 `completes_run` 同时出现 | 领取时立即增加局内金币；精英巢 / 资源缓存当前为 90 / 60 |
+| `interest_points[].gear_mod_pool_id` | string | 可选，来自 `world_event_mod_pool_ids` | Mod 缓存从 `gear_mods.json.reward_pools[]` 解析公共候选池 |
+| `interest_points[].gear_mod_rolls` | int | 与 `gear_mod_pool_id` 同时出现且 `>= 1` | 从公共池独立抽取次数；当前 Mod 缓存为 2 |
+| `interest_points[].completes_run` | bool | 可选 | 为 `true` 时领取 / 摧毁后立即删除当前 `run` 存档并显示完成结果面板；完成点不能同时发奖励 |
 | `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 
-`warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 且无 `requires_interaction` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `requires_interaction=true` 的兴趣点会生成可见缓存箱，玩家进入半径后按 `interact` action 打开；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核领取后只开启撤离区，玩家进入贴合地图矩形格的撤离矩形并完成 `extraction_hold_time` 读条后，才提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态、撤离状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 未开启撤离 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
+`warzone_directors.json` 是开放战区回归路径的数据源。运行时使用 `phases[].wave_ids` 给 Spawner 做阶段 gating；兴趣点奖励统一由 `GameplayRunLoop` 原子结算：金币即时进入局内账本，Mod 缓存从公共池独立抽取并立即写入本局 ranks，完成点直接结束本局。领取状态、目标状态和奖励结果进入 Run v13；恢复后不重抽、不重复发奖。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态。
 
 ## `world_events.json`
 
-`world_events.json` schema v1 是五类世界事件和事件 Gear Mod 奖励池的唯一数值源。根级 `mod_pools[]` 必须完整覆盖 `world_event_mod_pool_ids`；每个池只引用已存在的 `gear_mod_ids`，池内不得重复。`events[]` 必须完整覆盖五个 `world_event_ids` 与五个 `world_event_kinds`，事件对象按 kind 使用严格字段集，不允许多余字段。
+`world_events.json` schema v2 是五类世界事件的数值源；Gear Mod 奖励池统一由 `gear_mods.json.reward_pools[]` 定义。`events[]` 必须完整覆盖五个 `world_event_ids` 与五个 `world_event_kinds`，事件对象按 kind 使用严格字段集，不允许多余字段。
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `1` | 世界事件数据 schema |
-| `mod_pools[].id` | string | `world_event_mod_pool_ids`，唯一且完整覆盖 | 事件奖励 Gear Mod 池 |
-| `mod_pools[].mod_ids` | array[string] | 已存在的 `gear_mod_ids`，非空且不重复 | 当前普通池等权包含三个普通武器 Mod |
+| `schema_version` | int | 必须为 `2` | 世界事件数据 schema |
 | `events[].id` / `events[].kind` | string | 分别完整覆盖 `world_event_ids` / `world_event_kinds` | 稳定事件 id 与严格类型 |
 | `events[].name_key` / `desc_key` | string | 已存在的 `world_event_` locale key | 玩家可见名称与描述 |
 | `events[].interaction_radius` | number | `> 0` | `interact` 可用距离，单位 px |
@@ -971,16 +963,14 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 | `waves[].trigger` / `count` | number / int | 首项 trigger 为 `0`，非递减且不超过事件时长；count `>= 1` | 激活时据此生成固定波次计划 |
 | `target_max_health` / `target_hit_radius` | number | 防御类型必填且 `> 0` | 防御目标生命与受击半径 |
 | `capture_radius` / `entry_delay` / `entry_delay_decay` | number | 占点类型必填且 `> 0` | 实际区域、启动延迟与离区反向衰减速率 |
-| `completion_reward.gold_weight` / `mod_weight` | int | 均 `>= 1` | 持续事件隐藏固定奖励的相对权重 |
-| `completion_reward.gold_amount` | int | `>= 1` | 对应事件的即时金币奖励 |
-| `completion_reward.mod_pool_id` / `mod_pool_id` | string | 根级已定义的事件 Mod 池 | 完成奖励或金币祭坛的 Gear Mod 候选 |
+| `completion_reward.mod_pool_id` / `mod_pool_id` | string | `gear_mods.json` 已定义的公共 Mod 池 | 持续事件固定 1 个 Mod；金币祭坛最多成功 2 次且不重复 |
 | `base_cost` / `cost_multiplier` | int / number | `base_cost >= 1`、倍率 `> 1` | 金币祭坛递增价格 |
 | `success_chance` | number | `0 < value < 1` | 金币祭坛每次独立成功率 |
 | `max_successes` | int | `>= 1` | 金币祭坛成功耗尽次数 |
 | `sacrifice_ratios[]` | array[number] | 恰好 3 个、严格递增且均在 `(0,1)` | 血量祭坛三次组合生命献祭比例 |
 | `gold_ratio` | number | `(0,1)` | 实际献祭值到即时金币的换算比例 |
 
-事件波次、隐藏奖励与祭坛判定使用独立 `RNG.world_event`，不得消费模块 assignment 的 `RNG.world` 或敌人普通生成流。
+事件波次、Mod 选择与祭坛判定使用独立 `RNG.world_event`，不得消费模块 assignment 的 `RNG.world` 或敌人普通生成流。
 
 ## `module_worlds.json` / `module_templates.json` / `module_tile_catalog.json` / `modules/*.json`
 
@@ -988,7 +978,7 @@ F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 �
 
 每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v4 中重复存储。相邻非封锁模块旋转后的边缘开放格交集必须非空，不再要求整条 socket 完全一致；世界外圈仍不得越界开放。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。模块 placement 不包含敌人出生点，旧 `module_place_enemy_spawn` 会被 DataLoader、Python 校验器、编辑器与 baker 明确拒绝。世界事件模块使用 `module_place_world_event`，payload 严格只有 `world_event_id`。
 
-ADR #164 后，正式 `template_pool` 只包含 0° 的 `module_flat_ground`；除三个固定槽外，`fallback_assignment` 也全部使用平地。平地 121 格都是 floor 且没有 gameplay placement。既有模块仍保留文件、生成场景和技术首片用途，但暂不进入普通正式随机池。固定起点不触发首次进入遭遇；固定目标和撤离槽与普通非起点槽使用同一套空地刷怪规则。
+正式 `template_pool` 当前只使用已批准模板；`fallback_assignment` 以平地为主。固定起点不触发首次进入遭遇；固定目标与普通非起点槽使用同一套空地刷怪规则。两张资源缓存模块因本次把 dust 改成即时金币而自动降为 candidate，须待人工复核后才能重新进入正式池。
 
 AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在中央主编辑区中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
 
@@ -1022,7 +1012,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `3` | 增加限量模板组 |
+| `schema_version` | int | 必须为 `4` | 删除撤离锚点和目标后路线，只保留 start / objective |
 | `worlds[].id` | string | 唯一、非空 | 世界 id；Run v9 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
@@ -1031,13 +1021,11 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `worlds[].seal_outer_edges` | bool | 首版必须 `true` | 外圈有效通道不得朝地图外开放 |
 | `worlds[].start_slot.x` / `worlds[].start_slot.y` | int | `0..8`，固定 `(4,4)` | 起点模块槽位 |
 | `worlds[].objective_slot.x` / `worlds[].objective_slot.y` | int | `0..8` | 目标模块固定槽位 |
-| `worlds[].extraction_slot.x` / `worlds[].extraction_slot.y` | int | `0..8` | 撤离模块固定槽位 |
-| `worlds[].route_budget.start_to_objective.min_crossings` / `worlds[].route_budget.start_to_objective.max_crossings` | int | `4..6` | 起点到目标的模块跨越预算 |
-| `worlds[].route_budget.objective_to_extraction.min_crossings` / `worlds[].route_budget.objective_to_extraction.max_crossings` | int | `3..5` | 目标到撤离的模块跨越预算 |
-| `worlds[].route_budget.main_route_modules.min` / `worlds[].route_budget.main_route_modules.max` | int | `8..12` | 主路线模块数预算 |
+| `worlds[].route_budget.start_to_objective.min_crossings` / `worlds[].route_budget.start_to_objective.max_crossings` | int | 当前固定 `4` | 起点到目标的模块跨越预算 |
+| `worlds[].route_budget.main_route_modules.min` / `worlds[].route_budget.main_route_modules.max` | int | 当前固定 `5` | 主路线模块数预算 |
 | `worlds[].route_budget.optional_exploration_modules.max` | int | 首版 `<= 14` | 可选探索模块预算上限 |
 | `worlds[].fixed_slots[].slot.x` / `worlds[].fixed_slots[].slot.y` | int | `0..8`、不得重复 | 固定关键槽位坐标 |
-| `worlds[].fixed_slots[].template_id` | string | 注册表中存在且 approved；必须在三个配置锚点各放恰好 1 个 start / objective / extraction 角色 | 固定关键模板引用，防止 seeded 世界缺少目标或撤离 |
+| `worlds[].fixed_slots[].template_id` | string | 注册表中存在且 approved；必须各有 1 个 start / objective 角色 | 固定关键模板引用，防止 seeded 世界缺少起点或目标 |
 | `worlds[].fixed_slots[].rotation` | int | `0/90/180/270` | 固定模板旋转，不允许镜像 |
 | `worlds[].template_pool` | array[string] | 非空，只能引用 `approved` | 普通槽位随机模板池 |
 | `worlds[].limited_template_groups[]` | array[object] | 非空；组 id 与模板引用均不得重复 | 在普通模板填充前执行的限量抽选 |
@@ -1067,7 +1055,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 |----------|------|---------------|------|
 | `templates[].id` | string | 唯一、非空 | 模板 id；世界 assignment 引用此值 |
 | `templates[].path` | string | `res://data/modules/*.json` 且文件存在 | 独立模块 JSON 路径 |
-| `templates[].role` | string | `module_roles` | 起点 / 连接 / 战斗 / 资源 / 机关 / 目标 / 撤离 / 世界事件 / 封锁角色 |
+| `templates[].role` | string | `module_roles` | 起点 / 连接 / 战斗 / 资源 / 机关 / 目标 / 世界事件 / 封锁角色；撤离角色已删除 |
 | `templates[].tags` | array[string] | 可为空 | 编辑期筛选标签，不直接产生玩法分支 |
 | `templates[].source` | string | 首版 `ai` | 内容来源审计字段；AI 只在编辑期产出 JSON |
 | `templates[].review_status` | string | `module_review_statuses` | `candidate` 不得进入默认池，人工批准后为 `approved` |
@@ -1556,11 +1544,15 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ## `gear_mods.json`
 
-> 装备 Mod 系统见 `docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`。这里的装备 Mod 是玩家装配系统，不是 `ModLoader` 读取的本地数据包 mod。
+> Gear Mod 系统见 `docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`。这里的 Gear Mod 是本局构筑系统，不是 `ModLoader` 读取的本地数据包 mod。
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
+  "overflow_gold": 75,
+  "reward_pools": [
+    {"id": "world_event_mod_pool_common", "mod_ids": ["gear_mod_weapon_damage_test"]}
+  ],
   "mods": [
     {
       "id": "gear_mod_weapon_damage_test",
@@ -1569,16 +1561,9 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       "slot": "weapon",
       "rarity": "common",
       "max_rank": 5,
-      "base_drain": 2,
-      "drain_per_rank": 1,
       "rank_modifiers": [
         { "stat": "damage", "type": "mult", "base_value": 1.10, "value_per_rank": 0.05 }
-      ],
-      "stack_rule": "unique_by_id",
-      "dismantle": {
-        "resource_id": "gear_mod_dust",
-        "amount": 10
-      }
+      ]
     }
   ]
 }
@@ -1588,20 +1573,18 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 必须为 `2` | 数据结构版本 |
+| `overflow_gold` | int | `>= 1`；当前为 `75` | Mod 已满 rank 后每份重复转化的局内金币 |
+| `reward_pools[].id` | string | `world_event_mod_pool_ids`，唯一且完整覆盖 | 世界事件与缓存共用的 Gear Mod 池 |
+| `reward_pools[].mod_ids` | array[string] | 已存在的 `gear_mod_ids`，非空且不重复 | 公共池内等权候选 |
 | `mods[].id` | string | 词表 §13-A `gear_mod_id` | 装备 Mod id |
 | `mods[].name_key` / `desc_key` | string | `gear_mod_*_name` / `gear_mod_*_desc` | 名称和描述译文 key |
-| `mods[].slot` | string | 词表 §13-B | 可装备到英雄或武器 loadout |
-| `mods[].rarity` | string | 词表 §13-C | 稀有度；用于掉落展示和升级成本 |
-| `mods[].max_rank` | int | `>= 0` | 最大升级 rank；rank 0 表示初始获得状态 |
-| `mods[].base_drain` | int | `>= 0` | rank 0 装备容量消耗 |
-| `mods[].drain_per_rank` | int | `>= 0` | 每提升 1 rank 增加的容量消耗 |
+| `mods[].slot` | string | 词表 §13-B | modifier 应用到 hero 或 weapon 独立层 |
+| `mods[].rarity` | string | 词表 §13-C | 稀有度；用于奖励展示与后续池权重扩展 |
+| `mods[].max_rank` | int | `>= 0` | 最大 rank；首次获得为 rank 0 / 玩家显示第 1 阶 |
 | `mods[].rank_modifiers[]` | array[object] | stat 来自词表 §1 | 随 rank 计算的 modifiers |
 | `rank_modifiers[].base_value` | number | 由 modifier 类型决定 | rank 0 的初始值；`mult` 用 `1.0` 表示不变 |
 | `rank_modifiers[].value_per_rank` | number | 可正可负 | 每 rank 增量 |
-| `mods[].stack_rule` | string | 词表 §13-E | 同一 loadout 内的重复装备规则；首片为 `unique_by_id` |
-| `mods[].dismantle.resource_id` | string | 词表 §13-D | 分解返还资源 |
-| `mods[].dismantle.amount` | int | `>= 0` | 分解返还数量；应低于一次升级成本，避免套利 |
 
 当前普通武器 Mod 包含基础伤害、后坐力和弹道扩散三类修正。`gear_mod_weapon_recoil_damper` 与 `gear_mod_weapon_spread_stabilizer` 均从 rank 0 的 `0.90` 倍率开始，每 rank 递减 `0.05`，rank 5 为 `0.65`；运行时通过通用 modifier 摘要显示当前 rank 的实际百分比，描述文案不重复写死数值。所有掉落都必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
 
@@ -1609,7 +1592,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```csv
 source_enemy_id,mod_id,drop_chance,min_enemy_level,max_enemy_level
-enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
+enemy_chaser,gear_mod_weapon_damage_test,0.05,1,999
 ```
 
 字段说明：
@@ -1621,29 +1604,7 @@ enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
 | `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；高频敌人应按出现率反向校准，不能只比较单体概率 |
 | `min_enemy_level` / `max_enemy_level` | int | `>= 1` | 可选等级区间；未实现敌人等级前可先填宽范围 |
 
-当前基础伤害与后坐力 Mod 分别由 `enemy_chaser`、`enemy_bulwark` 以 `1%` 概率掉落；突击枪手 `enemy_spitter` 因完整敌池占比约 45.5%，其弹道稳定 Mod 单体概率下调为 `0.2%`，以大致维持改造前的总体获取节奏。掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出装备 Mod。
-
-## `gear_mod_fusion_costs.csv`
-
-```csv
-rarity,rank,resource_id,cost
-common,1,gear_mod_dust,20
-common,2,gear_mod_dust,35
-common,3,gear_mod_dust,55
-common,4,gear_mod_dust,85
-common,5,gear_mod_dust,130
-```
-
-字段说明：
-
-| 字段 | 类型 | 单位 / 范围 | 说明 |
-|------|------|-------------|------|
-| `rarity` | string | 词表 §13-C | 装备 Mod 稀有度 |
-| `rank` | int | `1..max_rank` | 升到该 rank 需要的成本 |
-| `resource_id` | string | 词表 §13-D | 消耗的装备 Mod 资源 |
-| `cost` | int | `>= 0` | 升级资源消耗 |
-
-首片使用专用 `gear_mod_dust`，避免旧永久升级经济影响新系统。
+当前基础伤害、后坐力与弹道稳定 Mod 分别由 `enemy_chaser`、`enemy_bulwark`、`enemy_spitter` 以 `5%`、`15%`、`2.5%` 概率掉落。掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出 Gear Mod。不存在 fusion cost、dust、容量、升级或分解数据。
 
 ## `level_progression.json`
 

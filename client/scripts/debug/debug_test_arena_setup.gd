@@ -20,7 +20,6 @@ var _config_manager: RefCounted = null
 var _consumables_label: Label = null
 var _content: Dictionary = {}
 var _feedback_label: Label = null
-var _gear_mod_capacity_label: Label = null
 var _gear_mod_rows: Array[DebugTestArenaModRow] = []
 var _mod_list: VBoxContainer = null
 var _relics_label: Label = null
@@ -55,9 +54,6 @@ func _ready() -> void:
 	_mod_list = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/ModSection/ModScroll/ModList"
 	) as VBoxContainer
-	_gear_mod_capacity_label = get_node_or_null(
-		"Root/Center/Panel/Margin/Layout/ModSection/CapacityLabel"
-	) as Label
 	_relics_label = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/UnavailableSection/RelicsLabel"
 	) as Label
@@ -84,7 +80,6 @@ func _ready() -> void:
 		or _weapon_option == null
 		or _skill_option == null
 		or _mod_list == null
-		or _gear_mod_capacity_label == null
 		or _relics_label == null
 		or _active_items_label == null
 		or _consumables_label == null
@@ -348,15 +343,6 @@ func _refresh_preview() -> void:
 		"modifier_preview",
 		{}
 	) as Dictionary
-	var used_drain: Dictionary = preview.get("used_drain", {}) as Dictionary
-	_gear_mod_capacity_label.text = tr(
-		"ui_debug_test_arena_capacity"
-	) % [
-		int(used_drain.get("hero", 0)),
-		int(normalized.get("capacity", 8)),
-		int(used_drain.get("weapon", 0)),
-		int(normalized.get("capacity", 8)),
-	]
 	var diagnostics: Array[Dictionary] = _typed_dictionary_array(
 		preview.get("diagnostics", [])
 	)
@@ -373,7 +359,6 @@ func _has_blocking_preview_diagnostic(
 ) -> bool:
 	for diagnostic: Dictionary in diagnostics:
 		if String(diagnostic.get("reason", "")) in [
-			"capacity_exceeded",
 			"duplicate_unique_mod",
 			"unknown_mod",
 			"unknown_loadout_slot",

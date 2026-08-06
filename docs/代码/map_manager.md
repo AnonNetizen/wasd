@@ -57,7 +57,7 @@ GameplayRunLoop
 |------|----------|----------|
 | 数据加载 | `GameplayRunLoop` 读取 `game_modes.json` 后按 `mode_id` 找第一条 layout | `_load_map_layout()` |
 | 配置 | 运行时把 layout 与 `hazards.csv` 行数据交给 `MapManager`，解析 bounds 与 `grid.cell_width/cell_height` | `configure(layout_data, hazard_rows)` |
-| 开局 | `MapManager` 先放 `manual_hazards`，再按 `pcg.hazards` 摆放机关，最后解释 WarzoneDirector 当前 layout 的兴趣点机关；奇数 `radius_tiles` 吸附格心，偶数吸附网格顶点；带 `target_hp` 的兴趣点会额外生成 `interest_point_target_position` 目标 marker，带 `requires_interaction` 且无目标的兴趣点会额外生成 `interest_point_cache_position` 缓存 marker，并让关联机关避开该 POI 占格；即使关联机关找不到合法摆位，POI marker 仍保留，anchor 摆位也会在严格间距失败后降级为不重叠摆位，避免 POI 奖励 / 撤离 / 交互语义丢失 | `generate_hazard_placements()` |
+| 开局 | `MapManager` 先放 `manual_hazards`，再按 `pcg.hazards` 摆放机关，最后解释 WarzoneDirector 当前 layout 的兴趣点机关；奇数 `radius_tiles` 吸附格心，偶数吸附网格顶点；带 `target_hp` 的兴趣点会额外生成 `interest_point_target_position` 目标 marker，带 `requires_interaction` 且无目标的兴趣点会额外生成 `interest_point_cache_position` 缓存 marker，并让关联机关避开该 POI 占格；即使关联机关找不到合法摆位，POI marker 仍保留，anchor 摆位也会在严格间距失败后降级为不重叠摆位，避免局内奖励 / 完成 / 交互语义丢失 | `generate_hazard_placements()` |
 | 实体边界 | 玩家出生点、玩家移动位置和敌人移动位置由矩形逻辑边界 clamp | `player_start()`、`clamp_position()`、`Player.set_movement_bounds()`、`Enemy.set_movement_bounds()` |
 | 可见边界 | 地图边框按 `bounds` 的左上 / 右上 / 右下 / 左下四点绘制成矩形 | `boundary_points()`、`boundary_half_extents()`、`debug_summary()` |
 | 出生安全区 | `safe_radius` 仍用于 PCG 避让距离；可见提示按矩形格向外吸附，显示为贴地矩形而不是圆 | `safe_zone_points()`、`safe_zone_half_extents()`、`debug_summary()` |
@@ -100,7 +100,7 @@ GameplayRunLoop
 - `safe_radius` 是 PCG 避让出生点的距离下限，视觉提示会转换成贴格矩形并向外吸附到最近格线；它不是一个正圆地面资产。
 - 机关实际边界由 `hazards.csv.radius_tiles` 与当前 grid cell size 推导；奇数 / 偶数锚点不同是为了保证机关外边缘贴住背景矩形格线，PCG 会确保机关完整留在矩形地图内。
 - PCG 随机只用 `RNG.world`；刷怪候选位置只用 `RNG.spawn`。
-- placement 的 `source` 当前使用 `"manual"`、`"pcg"` 与 `"director"`，用于诊断，不作为 gameplay 分支条件；`"director"` placement 来自 `warzone_directors.json.interest_points[]`，可带 `interest_point_id`，带 `target_hp` 时会附加 `interest_point_target_position` 作为目标格心，带 `requires_interaction` 且无目标时会附加 `interest_point_cache_position` 作为缓存箱格心，并透传 `interest_point_claim_radius`、`interest_point_requires_interaction`、`interest_point_resource_rewards`、`interest_point_gear_mod_rewards`、`interest_point_target_hp`、`interest_point_target_hit_radius`、`interest_point_completes_run`、`interest_point_extraction_radius`、`interest_point_extraction_hold_time` 等元数据给 `GameplayRunLoop`。POI marker 的 `hazard_id` 为空，表示只提供 POI 目标 / 缓存 / 奖励 / 交互 / 撤离元数据；`GameplayRunLoop._spawn_hazard()` 会跳过它。`MapManager` 只负责摆放和快照，不负责发奖励、生成缓存箱、生成目标、开启撤离或结束本局。
+- placement 的 `source` 当前使用 `"manual"`、`"pcg"` 与 `"director"`，用于诊断，不作为 gameplay 分支条件；`"director"` placement 来自 `warzone_directors.json.interest_points[]`，可带 `interest_point_id`，带 `target_hp` 时会附加目标格心，带 `requires_interaction` 且无目标时会附加缓存箱格心，并透传 `interest_point_claim_radius`、`interest_point_requires_interaction`、`interest_point_gold_reward_amount`、`interest_point_gear_mod_pool_id`、`interest_point_gear_mod_rolls`、`interest_point_target_hp`、`interest_point_target_hit_radius` 与 `interest_point_completes_run` 给 `GameplayRunLoop`。POI marker 的 `hazard_id` 为空，只提供目标 / 缓存 / 局内奖励 / 交互 / 直接完成元数据；`GameplayRunLoop._spawn_hazard()` 会跳过它。`MapManager` 只负责摆放和快照，不负责发奖励、生成实体或结束本局。
 
 ## 依赖
 
@@ -113,14 +113,14 @@ GameplayRunLoop
 ADR #142 的模块大地图（详见 `docs/代码/module_world_manager.md`）把 `MapManager` 当作全图矩形几何 carrier 复用，不分叉边界与格子算法：
 
 - 默认模块模式用世界配置生成单个 99×99 格、15,840×15,840 px 的 bounds，并统一复用 `grid_cell_size()`、`clamp_position()`、`player_start()` 与移动边界注入；跨模块时不重配全图 bounds。
-- 模块模式**不调** `generate_hazard_placements()`，也不解释 `WarzoneDirector` 兴趣点。模块 JSON 的敌人、机关、奖励、目标和撤离摆放由 `GameplayRunLoop` 解释，`ModuleWorldManager` 负责 assignment / 流式状态，`ModuleChunk` 负责合并绘制与碰撞。
+- 模块模式**不调** `generate_hazard_placements()`，也不解释 `WarzoneDirector` 兴趣点。模块 JSON 的敌人、机关、局内奖励与 `completes_run` 目标由 `GameplayRunLoop` 解释，`ModuleWorldManager` 负责 assignment / 流式状态，`ModuleChunk` 负责合并绘制与碰撞。
 - `--open-warzone` 对照回归仍走旧 `configure()` + `generate_hazard_placements()` 路径；两条 carrier 共享同一份矩形 grid / bounds / clamp 几何 API。
 
 ## 扩展点
 
 - 新地图：新增 `layouts[]`，绑定现有或新模式；如果同一模式需要多张图，先明确选择规则再扩 schema。
 - 新 PCG 内容类型：优先在 `map_layouts.json` 增加同级规则，例如后续 `pcg.points_of_interest`；运行时先做通用规则解释，避免按内容 id 特判。
-- 战区兴趣点：优先在 `warzone_directors.json.interest_points[]` 声明战区主题机关组合；`MapManager` 只解释 `hazard_ids[]`、可选 `min_distance_from_player` / `min_spacing` 与 layout 过滤后的通用 placement，并透传奖励 / 交互 / 可伤害目标 / 撤离元数据，不按兴趣点 id 分支。有可伤害目标或交互缓存箱时，POI anchor 使用格心，机关围绕 anchor 摆放但不得与 POI footprint 重合；若严格 `min_spacing` 找不到 anchor，会降级到 POI 与已有 POI / 机关 footprint 不重叠的合法点。F12 首片用该机制表达精英巢点、Mod 缓存、资源缓存和小巢核占位；`requires_interaction` 由 `GameplayRunLoop` 解释为可见缓存箱，MapManager 不实例化箱体。
+- 战区兴趣点：优先在 `warzone_directors.json.interest_points[]` 声明战区主题机关组合；`MapManager` 只解释 `hazard_ids[]`、可选 `min_distance_from_player` / `min_spacing` 与 layout 过滤后的通用 placement，并透传即时金币 / Mod 池 / 交互 / 可伤害目标 / 直接完成元数据，不按兴趣点 id 分支。有可伤害目标或交互缓存箱时，POI anchor 使用格心，机关围绕 anchor 摆放但不得与 POI footprint 重合；若严格 `min_spacing` 找不到 anchor，会降级到 POI 与已有 POI / 机关 footprint 不重叠的合法点。open-warzone 回归路径用该机制表达精英巢点、Mod 缓存、资源缓存和意识核占位；`requires_interaction` 由 `GameplayRunLoop` 解释为可见缓存箱，MapManager 不实例化箱体。
 - 新机关类型：先在 `hazards.csv` 加基础数值，再在 `map_layouts.json` 引用；运行时仍走通用 `Hazard`，除非需要全新行为 primitive。
 - 边界表现：可扩展 `MapManager._draw()` 或替换为 TileMap / 美术资源；当前可见边界和逻辑边界必须保持同一套矩形轮廓，玩家与敌人中心移动边界由 `bounds()` / `boundary_half_extents()` 注入。
 

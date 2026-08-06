@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-08-05",
+  "updated_at": "2026-08-06",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -149,7 +149,7 @@
       "authority": "WASD collective-unconscious IP; Cleanup Intelligence goal, Intelligence Fragment, Mind Layer, Mindform, and Mind Core definitions; narrative ambiguity, player-facing terminology, and naming boundaries",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-08-05",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["ip_direction", "worldbuilding", "ip_term_definitions", "narrative_ambiguity", "naming_style", "marketing_tone"],
       "must_read_for": ["ip_change", "worldbuilding_change", "intelligence_fragment_packaging", "marketing_copy", "naming_style_change"],
       "related_docs": ["docs/IP美术风格.md", "docs/游戏设计文档.md", "docs/术语表.md", "docs/决策记录.md", "docs/AI导航.md", "client/locale/README.md"],
@@ -225,7 +225,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md", "docs/AI协作/工作包/F12-ShortLootRuns.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "player.json schema v4", "body.radius", "characters.json", "characters.json schema v4", "primary-only", "main_primary", "sub_primary", "weapons.json", "38 px muzzle", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "level_progression.json", "reward_choice_pools.json", "gold_drop", "energy_drop", "gold_reward", "enemy_ai_profiles.json", "schema v5", "windup", "burst_count", "shot_interval", "action.attack", "explicit enemy attacks", "突击枪手", "Assault Gunner", "350 px/s", "12 px bullet radius", "2.1 second lifetime", "removed contact_damage", "短刷图", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "装备 Mod", "Gear Mod", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "enemies.csv", "hazards.csv", "radius_tiles", "矩形机关", "rectangular hazard", "rectangular map grid", "PCG", "有限地图", "人工摆点", "局外成长", "validate_data", "ADR #169", "ADR #170", "ADR #171", "ADR #172", "ADR #181", "ADR #183"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "player.json schema v4", "body.radius", "characters.json", "characters.json schema v4", "primary-only", "main_primary", "sub_primary", "weapons.json", "38 px muzzle", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "level_progression.json", "reward_choice_pools.json", "gold_drop", "energy_drop", "gold_reward", "enemy_ai_profiles.json", "schema v5", "windup", "burst_count", "shot_interval", "action.attack", "explicit enemy attacks", "突击枪手", "Assault Gunner", "350 px/s", "12 px bullet radius", "2.1 second lifetime", "removed contact_damage", "Roguelike", "gear_mods.json", "gear_mods schema v2", "public reward pool", "gear_mod_drop_tables.csv", "装备 Mod", "Gear Mod", "run-local", "overflow gold", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "enemies.csv", "hazards.csv", "radius_tiles", "矩形机关", "rectangular hazard", "rectangular map grid", "PCG", "有限地图", "人工摆点", "validate_data", "ADR #169", "ADR #170", "ADR #171", "ADR #172", "ADR #181", "ADR #183", "ADR #188"]
     },
     {
       "path": "client/addons/README.md",
@@ -608,30 +608,30 @@
     {
       "path": "docs/AI协作/工作包/F11-GearModLoadout.md",
       "type": "workflow",
-      "authority": "F11 Gear Mod loadout scope, data schema, old meta retirement boundary, and acceptance commands",
+      "authority": "F11 run-local Gear Mod build scope, stateless rule service, unified grants, rank overflow, replacement modifier layer, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-25",
-      "canonical_for": ["f11_gear_mod_loadout_work_package", "gear_mod_progression_scope", "old_meta_retirement_boundary"],
-      "must_read_for": ["f11_gear_mod_loadout", "gear_mod_system_change", "mod_loadout_change", "old_meta_retirement"],
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["f11_run_local_gear_mod_work_package", "gear_mod_run_progression_scope", "gear_mod_atomic_grant"],
+      "must_read_for": ["gear_mod_system_change", "run_local_mod_change", "gear_mod_reward_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gear_mod_system.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F6-MetaProgression.md"],
-      "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/scripts/ui/", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/data/gear_mod_fusion_costs.csv", "client/scripts/autoload/data_loader.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/godot_bridge.py"],
-      "update_triggers": ["F11 scope changes", "gear mod schema changes", "mod loadout behavior changes", "mod drop or fusion cost changes", "old meta retirement boundary changes", "acceptance command changes"],
-      "keywords": ["F11", "GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "星际战甲", "英雄 Mod", "武器 Mod", "hero mod loadout", "weapon mod loadout", "mod loadout", "mod upgrade", "mod dismantle", "enemy_chaser", "1% drop", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "MetaProgression legacy", "no old save migration", "ADR #118"]
+      "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/scripts/autoload/data_loader.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/godot_bridge.py"],
+      "update_triggers": ["F11 scope changes", "gear mod schema changes", "run-local grant or rank behavior changes", "mod drop or overflow changes", "modifier replacement behavior changes", "acceptance command changes"],
+      "keywords": ["F11", "GearModSystem", "Gear Mod", "局内 Mod", "run-local", "rank 0-5", "overflow gold", "gear_mod_overflow", "atomic grant", "replacement modifier", "gear_mods.json", "gear_mod_drop_tables.csv", "Meta v3", "Run v13", "ADR #188"]
     },
     {
       "path": "docs/AI协作/工作包/F12-ShortLootRuns.md",
       "type": "workflow",
-      "authority": "Historical F12 short-loot work package; its old growth-disable boundary is superseded by ADR #169, while POI / extraction and legacy small-nest-core implementation context remain useful under the current Mind Core packaging",
+      "authority": "F12 Roguelike run reward and endpoint work package; historical filename retained while extraction and loot-return semantics are superseded by ADR #188",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-07-29",
-      "canonical_for": ["f12_short_loot_runs_work_package", "short_loot_run_default_loop"],
-      "must_read_for": ["f12_short_loot_runs", "short_loot_run_change", "interest_point_short_loop"],
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["f12_roguelike_run_rewards", "open_warzone_interest_points", "mind_core_direct_completion"],
+      "must_read_for": ["run_reward_change", "open_warzone_interest_point_change", "mind_core_completion_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gameplay_runtime.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/map_manager.md", "docs/代码/gear_mod_system.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F10-WarzoneDirector.md"],
       "related_code": ["client/data/game_modes.json", "client/data/warzone_directors.json", "client/data/spawn_waves.csv", "client/data/map_layouts.json", "client/data/gear_mod_drop_tables.csv", "client/scripts/gameplay/gameplay_run_loop.gd", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tools/replay_runner.gd", "client/tests/replays/golden_reward_choice.replay"],
-      "update_triggers": ["F12 scope changes", "default run length changes", "short-loop interest point structure changes", "Mind Core or legacy small nest core loop changes", "acceptance command changes"],
-      "keywords": ["F12", "ShortLootRuns", "short loot runs", "短刷图", "短循环", "暗黑式刷图", "Diablo-like", "8-12分钟", "默认模式", "mode_standard_survival", "gold-driven progression", "ADR #169", "ADR #171", "ADR #178", "突击枪手", "Assault Gunner", "0秒解锁", "45.5%", "golden_reward_choice", "Gear Mod", "装备 Mod", "pending_loot", "兴趣点", "POI", "意识核", "Mind Core", "小巢核", "遗留实现术语", "撤离", "extraction", "extraction_radius", "extraction_hold_time", "runtime-smoke", "f9-demo-smoke"]
+      "update_triggers": ["F12 scope changes", "Roguelike loop changes", "open-warzone interest point structure changes", "Mind Core direct completion changes", "acceptance command changes"],
+      "keywords": ["F12", "Roguelike", "俯视角射击", "mode_standard_survival", "run-local Gear Mod", "open-warzone", "interest point", "POI", "意识核", "Mind Core", "completes_run", "direct completion", "runtime-smoke", "gear-mod-smoke", "ADR #188"]
     },
     {
       "path": "docs/AI协作/工作包/F13-HandcraftedRooms.md",
@@ -650,16 +650,16 @@
     {
       "path": "docs/AI协作/工作包/F13-ModularGridWorld.md",
       "type": "workflow",
-      "authority": "F13 9x9 modular grid world scope, AI JSON review gate, limited world-event templates, pinned streaming runtime, Run v9, and acceptance commands",
+      "authority": "F13 9x9 modular Roguelike world scope, no-extraction schema v4, AI JSON review gate, pinned events, Run v13, and direct Mind Core completion",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-07-29",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["f13_modular_grid_world", "module_content_workflow", "module_world_event_placement", "module_world_acceptance"],
-      "must_read_for": ["module_world_change", "module_json_authoring", "world_event_module_change", "run_v9_change", "module_streaming_change"],
+      "must_read_for": ["module_world_change", "module_json_authoring", "world_event_module_change", "run_v13_change", "module_streaming_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码/module_world_manager.md", "docs/代码/world_event_system.md", "docs/代码/gameplay_runtime.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/词表与契约.md"],
       "related_code": ["client/scripts/gameplay/module_world_manager.gd", "client/scripts/gameplay/module_chunk.gd", "client/scripts/gameplay/module_minimap.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/world_events/", "client/data/module_worlds.json", "client/data/module_templates.json", "client/data/modules/", "client/data/world_events.json", "client/tools/module_world_smoke.gd", "client/tools/world_event_smoke.gd", "tools/validate_data.py"],
-      "update_triggers": ["module world geometry changes", "module schema changes", "limited template group changes", "world event placement or pin changes", "approval gate changes", "streaming behavior changes", "run v9 changes", "acceptance commands change"],
-      "keywords": ["F13", "ModularGridWorld", "9x9", "11x11", "ModuleWorldManager", "ModuleChunk", "module fog", "approved", "candidate", "module schema v4", "module world schema v3", "limited_template_groups", "world event", "12 chunks", "Run v9", "module-world-smoke", "world-event-smoke", "ADR #173"]
+      "update_triggers": ["module world geometry changes", "module schema changes", "limited template group changes", "world event placement or pin changes", "approval gate changes", "streaming behavior changes", "run v13 changes", "Mind Core completion changes", "acceptance commands change"],
+      "keywords": ["F13", "ModularGridWorld", "9x9", "11x11", "ModuleWorldManager", "ModuleChunk", "module fog", "approved", "candidate", "module schema v4", "module world schema v4", "no extraction", "Mind Core", "completes_run", "12 chunks", "Run v13", "module-world-smoke", "world-event-smoke", "ADR #188"]
     },
     {
       "path": "docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md",
@@ -916,7 +916,7 @@
     {
       "path": "docs/代码/gameplay_runtime.md",
       "type": "module_doc",
-      "authority": "Gameplay runtime contract for zero built-in starting shield, bounded overshield, infinite player shooting without ammunition, spawn-time enemy gold rewards, world events, explicit enemy attacks, timed threat progression, finite module/open-warzone carriers, HUD, Run v12 save/restore, title flow, and restart",
+      "authority": "Gameplay runtime contract for zero built-in starting shield, bounded overshield, run-local Gear Mods, infinite player shooting without ammunition, world events, direct Mind Core completion, finite module/open-warzone carriers, HUD, Run v13 save/restore, title flow, and restart",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-08-06",
@@ -925,35 +925,35 @@
       "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/正式项目工作规划.md", "docs/代码/enemy_reward_resolver.md", "docs/代码/world_event_system.md", "docs/代码/gameplay_loading.md", "docs/代码/difficulty_progression.md", "docs/代码/difficulty_marker.md", "docs/代码/combat.md", "docs/代码/input_service.md", "docs/代码/guide.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/module_world_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/autoload/input_service.gd", "client/resources/input/", "client/scripts/data/hero_composition_resolver.gd", "client/scripts/data/difficulty_progression.gd", "client/scripts/data/enemy_reward_resolver.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/weapon_system.gd", "client/scenes/gameplay/gameplay_hud.tscn", "client/data/weapons.json", "client/data/enemy_ai_profiles.json", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/bullet_slime_visual.gd", "client/scenes/gameplay/bullet.tscn", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/tools/runtime_smoke.gd", "client/tools/save_manager_smoke.gd", "client/tools/replay_runner.gd", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["Gameplay runtime behavior changes", "main/sub hero composition or skill-slot mapping changes", "energy, dash, shield, overshield, shield-gate, barrier, or energy-orb runtime changes", "player loading mode, resource preparation, or activation boundary changes", "Player, weapon, skill, menu, or debug input consumption changes", "Player, weapon, bullet, skill, map, or hazard runtime changes", "run-level camera rig ownership, aim look, mouse screen-position conversion, or player retargeting changes", "bullet terrain collision or wall-pierce semantics change", "Player/Enemy status host changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema or additive bullet snapshot changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "Player", "zero starting shield", "overshield capacity", "max_hp + max_shield", "ADR #187", "WeaponSystem", "infinite shooting", "no ammunition", "Run v12", "Replay v4", "ADR #186", "BulletSlimeVisual", "four-node slime bullet", "64-point Catmull-Rom", "350 px/s", "12 px bullet radius", "ADR #181", "EnemyRewardResolver", "RNG.economy", "WorldEventController", "DifficultyProgression", "InputService", "runtime-smoke", "save-smoke", "replay-smoke", "HUD", "对象池", "headless boot"]
+      "keywords": ["GameplayRunLoop", "Player", "zero starting shield", "overshield capacity", "max_hp + max_shield", "ADR #187", "WeaponSystem", "run-local Gear Mod", "replacement modifier", "overflow gold", "direct Mind Core completion", "infinite shooting", "no ammunition", "Run v13", "Replay v5", "ADR #188", "ADR #186", "BulletSlimeVisual", "four-node slime bullet", "64-point Catmull-Rom", "350 px/s", "12 px bullet radius", "ADR #181", "EnemyRewardResolver", "RNG.economy", "WorldEventController", "DifficultyProgression", "InputService", "runtime-smoke", "save-smoke", "replay-smoke", "HUD", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/enemy_reward_resolver.md",
       "type": "module_doc",
-      "authority": "Pure spawn-time enemy gold formula, bounded rounding, RNG.economy consumption boundary, locked reward snapshot, and Run v12 restoration contract",
+      "authority": "Pure spawn-time enemy gold formula, bounded rounding, RNG.economy consumption boundary, locked reward snapshot, and Run v13 restoration contract",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-08-04",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["enemy_reward_formula", "enemy_gold_value_multiplier", "enemy_reward_specialization_multiplier", "enemy_reward_snapshot", "economy_rng_stream"],
       "must_read_for": ["enemy_reward_change", "enemy_gold_balance_change", "difficulty_reward_change", "economy_rng_change", "enemy_reward_save_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/代码/gameplay_runtime.md", "docs/代码/difficulty_progression.md", "docs/代码/enemy_ai.md", "docs/代码/rng.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/data/enemy_reward_resolver.gd", "client/data/enemy_rewards.json", "client/data/enemies.csv", "client/data/difficulty_profiles.json", "client/scripts/data/difficulty_progression.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/save_manager.gd", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd", "client/tools/save_manager_smoke.gd"],
       "update_triggers": ["enemy reward formula changes", "enemy reward data schema changes", "difficulty coefficient reward semantics change", "RNG.economy consumption changes", "enemy reward snapshot or Run schema changes"],
-      "keywords": ["EnemyRewardResolver", "enemy_rewards.json", "gold_value_multiplier", "reward_specialization_multiplier", "difficulty_coefficient", "spawn_tier", "time multiplier", "RNG.economy", "0.9", "1.1", "base coefficient 10", "spawn-time locked gold", "safe integer saturation", "Run v12", "ADR #175"]
+      "keywords": ["EnemyRewardResolver", "enemy_rewards.json", "gold_value_multiplier", "reward_specialization_multiplier", "difficulty_coefficient", "spawn_tier", "time multiplier", "RNG.economy", "0.9", "1.1", "base coefficient 10", "spawn-time locked gold", "safe integer saturation", "Run v13", "ADR #175", "ADR #188"]
     },
     {
       "path": "docs/代码/difficulty_progression.md",
       "type": "module_doc",
-      "authority": "Mode-level difficulty profile/coefficient, threat-time, start-module combat gate, explicit-attack enemy spawn scaling, spawn-time reward tier, event activation-time combat difficulty capture, Run v12, and replay-summary contract",
+      "authority": "Mode-level difficulty profile/coefficient, threat-time, start-module combat gate, explicit-attack enemy spawn scaling, spawn-time reward tier, event activation-time combat difficulty capture, Run v13, and Replay v5 summary contract",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-29",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["difficulty_progression", "difficulty_profile_interface", "difficulty_coefficient", "difficulty_time", "threat_level", "enemy_spawn_scaling", "enemy_reward_tier", "start_module_combat_gate", "difficulty_run_snapshot"],
       "must_read_for": ["difficulty_curve_change", "difficulty_time_change", "enemy_spawn_scaling_change", "start_module_rule_change", "run_difficulty_snapshot_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/代码/enemy_reward_resolver.md", "docs/代码/gameplay_runtime.md", "docs/代码/difficulty_marker.md", "docs/代码/save_manager.md", "docs/代码/replay.md", "docs/代码/warzone_director.md", "client/data/README.md", "client/locale/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/data/difficulty_progression.gd", "client/data/difficulty_profiles.json", "client/data/game_modes.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/autoload/save_manager.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/l1_smoke.gd", "client/tools/module_world_smoke.gd"],
       "update_triggers": ["difficulty profile schema or formula changes", "difficulty pause conditions change", "combat gate API or semantics change", "enemy spawn multiplier fields change", "Run schema or Replay difficulty summary changes"],
-      "keywords": ["DifficultyProgression", "difficulty_profiles.json schema v2", "difficulty_profile_id", "difficulty_coefficient", "Standard", "标准", "configure_difficulty_profile_id", "difficulty time", "难度时间", "threat level", "威胁等级", "90 seconds", "enemy spawn snapshot", "enemy reward tier", "event activation combat difficulty", "health multiplier", "explicit attack damage multiplier", "attack geometry unchanged", "combat_locked", "module_role_start", "Run v12", "Replay v4", "ADR #166", "ADR #170", "ADR #173", "ADR #175"]
+      "keywords": ["DifficultyProgression", "difficulty_profiles.json schema v2", "difficulty_profile_id", "difficulty_coefficient", "Standard", "标准", "configure_difficulty_profile_id", "difficulty time", "难度时间", "threat level", "威胁等级", "90 seconds", "enemy spawn snapshot", "enemy reward tier", "event activation combat difficulty", "health multiplier", "explicit attack damage multiplier", "attack geometry unchanged", "combat_locked", "module_role_start", "Run v13", "Replay v5", "ADR #166", "ADR #170", "ADR #173", "ADR #175", "ADR #188"]
     },
     {
       "path": "docs/代码/difficulty_marker.md",
@@ -1000,29 +1000,29 @@
     {
       "path": "docs/代码/input_service.md",
       "type": "module_doc",
-      "authority": "Project input facade contract for canonical actions, normalized bool/Vector2 intents, binding schema v3 persistence, device prompts, Replay v4 override, and Godot UI bridge",
+      "authority": "Project input facade contract for canonical actions, normalized bool/Vector2 intents, binding schema v3 persistence, device prompts, Replay v5 override, and Godot UI bridge",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-27",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["input_service", "project_input_facade", "normalized_input_intent", "guide_project_adapter", "input_binding_schema", "replay_input_bridge"],
       "must_read_for": ["input_system_change", "input_action_change", "input_context_change", "input_rebinding_change", "input_prompt_change", "replay_input_change"],
       "related_docs": ["docs/代码/guide.md", "docs/代码/settings.md", "docs/代码/replay.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md", "docs/代码/README.md"],
       "related_code": ["client/scripts/autoload/input_service.gd", "client/resources/input/actions/", "client/resources/input/contexts/", "client/scripts/contracts/actions.gd", "client/scripts/autoload/settings.gd", "client/scripts/autoload/replay.gd", "client/scripts/gameplay/player.gd", "client/scripts/ui/settings_panel.gd"],
       "update_triggers": ["InputService API or signal changes", "canonical action or binding id changes", "input context or priority changes", "binding schema or Settings/Replay compatibility changes", "device prompt behavior changes", "Replay intent bridge changes"],
-      "keywords": ["InputService", "input facade", "normalized intent", "move", "aim", "pointer_position", "Vector2", "input.move_stick", "input.aim_stick", "input.fire", "skill_1", "skill_2", "skill_3", "skill_4", "dash", "interact", "input_bindings.tres", "GUIDERemappingConfig", "binding schema v3", "Replay v4", "R unassigned", "gamepad East unassigned", "gameplay context", "ui context", "debug context", "UI bridge", "ADR #151", "ADR #152", "ADR #161", "ADR #186"]
+      "keywords": ["InputService", "input facade", "normalized intent", "move", "aim", "pointer_position", "Vector2", "input.move_stick", "input.aim_stick", "input.fire", "skill_1", "skill_2", "skill_3", "skill_4", "dash", "interact", "input_bindings.tres", "GUIDERemappingConfig", "binding schema v3", "Replay v5", "Replay v4 incompatible", "R unassigned", "gamepad East unassigned", "gameplay context", "ui context", "debug context", "UI bridge", "ADR #151", "ADR #152", "ADR #161", "ADR #186", "ADR #188"]
     },
     {
       "path": "docs/代码/skill_system.md",
       "type": "module_doc",
-      "authority": "SkillSystem runtime contract for four fixed slots, shared energy, start-module combat gating, ability-stat scaling, targeting/effect primitives, source-scoped modifiers, statuses, barriers, cooldowns, and Run v9 snapshots",
+      "authority": "SkillSystem runtime contract for four fixed slots, shared energy, start-module combat gating, ability-stat scaling, targeting/effect primitives, source-scoped modifiers, statuses, barriers, cooldowns, and Run v13 snapshots",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-28",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["skill_system", "active_skills", "skill_runtime", "skill_slots", "skill_combat_gate", "energy", "ability_stats", "hero_composition", "ability_tags", "lightweight_gas", "skill_status_effects", "projectile_barrier"],
       "must_read_for": ["skill_system_change", "skill_combat_gate_change", "new_skill", "skill_slot_change", "energy_change", "ability_stat_change", "hero_composition_change", "skill_targeting_change", "skill_effect_change", "ability_tag_change", "status_effect_change"],
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/combat.md", "docs/代码/status_effect_component.md", "client/data/README.md", "client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/data/hero_composition_resolver.gd", "client/scripts/data/skill_value_resolver.gd", "client/scripts/data/skill_description_formatter.gd", "client/scripts/ui/hero_composition_panel.gd", "client/scripts/gameplay/projectile_barrier.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/hero_passives.json", "client/data/game_modes.json", "client/locale/strings.csv", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/l1_smoke.gd", "client/tools/loading_smoke.gd", "client/tools/runtime_smoke.gd"],
-      "update_triggers": ["SkillSystem API, combat gate, or fixed-slot changes", "skills.json schema changes", "hero composition or ability-stat rules change", "energy or cooldown behavior changes", "ability tag contract changes", "status effect contract changes", "skill targeting contract changes", "skill effect primitive changes", "config-backed skill description token or formatter changes", "skill Run v9 snapshot changes"],
+      "update_triggers": ["SkillSystem API, combat gate, or fixed-slot changes", "skills.json schema changes", "hero composition or ability-stat rules change", "energy or cooldown behavior changes", "ability tag contract changes", "status effect contract changes", "skill targeting contract changes", "skill effect primitive changes", "config-backed skill description token or formatter changes", "skill Run v13 snapshot changes"],
       "keywords": ["SkillSystem", "GAS", "lightweight GAS", "skill_1", "skill_2", "skill_3", "skill_4", "four skill slots", "四技能", "main hero", "sub hero", "主英雄", "子英雄", "hero composition", "energy", "ability_strength", "ability_range", "ability_efficiency", "ability_duration", "skills.json", "skill", "技能", "SkillValueResolver", "SkillDescriptionFormatter", "配置描述", "命名占位符", "projectile barrier", "静域屏障", "镇静脉冲", "怒意超频", "激怒标记", "skill_effect_weapon_modifiers", "WeaponSystem", "source-scoped modifiers", "skill_effect_apply_status", "StatusEffect", "StatusEffectComponent", "vulnerability", "易伤", "element_id", "DoT", "Combat", "ADR #161", "ADR #162"]
     },
     {
@@ -1084,16 +1084,16 @@
     {
       "path": "docs/代码/warzone_director.md",
       "type": "module_doc",
-      "authority": "WarzoneDirector gameplay module contract for DifficultyProgression-based fixed phase pacing, legacy internal mutation fields, Mind Layer theme packaging, wave gating, interest-point map placement, and no-player-state director boundary",
+      "authority": "WarzoneDirector schema v3 gameplay contract for DifficultyProgression-based fixed phase pacing, run-local gold/Mod interest points, direct Mind Core completion, wave gating, and no-player-state director boundary",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-28",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["warzone_director_module", "warzone_director_api", "warzone_directors_schema_runtime_boundary", "difficulty_time_phase_gating", "director_interest_point_map_placement", "no_hidden_dda_runtime_boundary"],
       "must_read_for": ["warzone_director_change", "warzone_directors_json_change", "difficulty_phase_gating_change", "phase_gating_change", "director_interest_point_change", "warzone_debug_summary_change"],
       "related_docs": ["docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/代码/gameplay_runtime.md", "docs/代码/difficulty_progression.md", "docs/代码/game_clock.md", "docs/代码/map_manager.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/warzone_director.gd", "client/scripts/data/difficulty_progression.gd", "client/data/difficulty_profiles.json", "client/data/warzone_directors.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd"],
       "update_triggers": ["warzone director API changes", "warzone_directors.json schema changes", "wave gating behavior changes", "director interest point placement changes", "debug summary changes", "player-state-reading boundary changes"],
-      "keywords": ["WarzoneDirector", "DifficultyProgression", "difficulty time", "威胁时间", "warzone director", "战区导演", "意识层主题", "Mind Layer theme", "敌巢战区", "巢变异", "nest mutation", "遗留内部命名", "phase", "阶段", "schema v2", "兴趣点", "POI", "source=director", "director hazards", "interest_points_for_layout", "extraction_radius", "extraction_hold_time", "撤离", "extraction", "wave gating", "spawn_waves", "warzone_directors.json", "no hidden DDA", "不读玩家状态", "runtime LLM", "ADR #166", "ADR #178"]
+      "keywords": ["WarzoneDirector", "DifficultyProgression", "difficulty time", "威胁时间", "warzone director", "战区导演", "意识层主题", "Mind Layer theme", "敌巢战区", "巢变异", "nest mutation", "遗留内部命名", "phase", "阶段", "schema v3", "兴趣点", "POI", "source=director", "director hazards", "interest_points_for_layout", "run-local gold", "Gear Mod reward pool", "Mind Core", "completes_run", "direct completion", "wave gating", "spawn_waves", "warzone_directors.json", "no hidden DDA", "不读玩家状态", "runtime LLM", "ADR #166", "ADR #178", "ADR #188"]
     },
     {
       "path": "docs/代码/room_manager.md",
@@ -1112,30 +1112,30 @@
     {
       "path": "docs/代码/module_world_manager.md",
       "type": "module_doc",
-      "authority": "ModuleWorldManager contract for schema v3 limited event assignment, coordinates, pooled 3x3 plus three pinned modules, empty-floor queries, fog/hash/slot state, F14 navigation, and Run v9 restore",
+      "authority": "ModuleWorldManager contract for no-extraction schema v4 assignment, coordinates, pooled 3x3 plus pinned start/objective modules, empty-floor queries, fog/hash/slot state, F14 navigation, and Run v13 restore",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-28",
+      "last_reviewed": "2026-08-06",
       "canonical_for": ["module_world_manager", "module_navigation_field", "module_chunk", "module_terrain_collision_layer", "module_world_runtime", "module_world_navigation", "module_empty_floor_query", "module_first_visit_encounter_geometry", "module_start_role_query", "module_world_snapshot"],
       "must_read_for": ["module_world_change", "module_navigation_change", "module_chunk_change", "bullet_terrain_collision_change", "module_world_data_change", "module_first_visit_spawn_change", "module_start_gate_change", "module_run_snapshot_change"],
       "related_docs": ["docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md", "docs/代码/enemy_ai.md", "docs/代码/gameplay_runtime.md", "docs/代码/map_manager.md", "docs/代码/save_manager.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/scripts/gameplay/module_world_manager.gd", "client/scripts/gameplay/module_navigation_field.gd", "client/scripts/gameplay/module_chunk.gd", "client/scripts/gameplay/module_minimap.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/bullet.gd", "client/scenes/generated/modules/", "client/data/module_worlds.json", "client/data/module_templates.json", "client/data/modules/", "client/tools/module_world_smoke.gd"],
       "update_triggers": ["assignment changes", "empty-floor or placement-footprint query changes", "first-visit encounter geometry changes", "generated scene preload or chunk mount changes", "coordinate or navigation API changes", "flow-field radius, bound, or terrain sight changes", "terrain collision layer or bullet sweep changes", "streaming behavior changes", "fog or map hash changes", "module snapshot changes"],
-      "keywords": ["ModuleWorldManager", "ModuleNavigationField", "ModuleChunk", "module_flat_ground", "limited_template_groups", "world event module", "set_slot_pinned", "12 chunks", "empty_floor_positions_at", "first_visit_enemy_spawn", "9x9", "11x11", "99x99", "RNG.world", "map hash", "fog", "slot state", "Run v9", "module-world-smoke", "ADR #173"]
+      "keywords": ["ModuleWorldManager", "ModuleNavigationField", "ModuleChunk", "module_flat_ground", "limited_template_groups", "world event module", "set_slot_pinned", "11 chunks", "empty_floor_positions_at", "first_visit_enemy_spawn", "9x9", "11x11", "99x99", "RNG.world", "map hash", "fog", "slot state", "module schema v4", "no extraction", "Mind Core", "direct completion", "Run v13", "candidate approval gate", "module-world-smoke", "ADR #173", "ADR #188"]
     },
     {
       "path": "docs/代码/world_event_system.md",
       "type": "module_doc",
-      "authority": "ADR #173 runtime contract for five interactive world events, continuous-event exclusivity, shrine transactions, pinned background simulation, event enemy targets, rewards, and Run v9 idempotent restore",
+      "authority": "ADR #173/#188 schema v2 runtime contract for five interactive world events, fixed run-local Mod rewards, continuous-event exclusivity, shrine transactions, pinned background simulation, event enemy targets, and Run v13 idempotent restore",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-08-04",
-      "canonical_for": ["world_event_system", "world_event_controller", "world_event_modules", "world_event_rewards", "defense_event_targeting", "world_event_run_v9"],
-      "must_read_for": ["world_event_change", "world_event_data_change", "world_event_module_change", "defense_target_change", "event_reward_change", "run_v9_change"],
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["world_event_system", "world_event_controller", "world_event_modules", "world_event_rewards", "defense_event_targeting", "world_event_run_v13"],
+      "must_read_for": ["world_event_change", "world_event_data_change", "world_event_module_change", "defense_target_change", "event_reward_change", "run_v13_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/代码/gameplay_runtime.md", "docs/代码/enemy_ai.md", "docs/代码/module_world_manager.md", "docs/代码/save_manager.md", "docs/代码/rng.md", "client/data/README.md", "client/locale/README.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/data/world_events.json", "client/scripts/gameplay/world_events/", "client/scenes/gameplay/world_events/", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/module_world_manager.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/player.gd", "client/tools/world_event_smoke.gd", "client/tools/module_world_smoke.gd", "client/tools/runtime_smoke.gd"],
       "update_triggers": ["world event schema changes", "event timing or reward changes", "continuous-event exclusivity changes", "shrine transaction changes", "background pin behavior changes", "event enemy target changes", "world event snapshot changes"],
-      "keywords": ["world event", "世界事件", "防御", "生存", "占点", "金币祭坛", "血量祭坛", "WorldEventController", "RNG.world_event", "module_place_world_event", "pending_loot", "Run v9", "ADR #173"]
+      "keywords": ["world event", "世界事件", "防御", "生存", "占点", "金币祭坛", "血量祭坛", "WorldEventController", "RNG.world_event", "module_place_world_event", "fixed Gear Mod reward", "run-local", "no pending loot", "Run v13", "ADR #173", "ADR #188"]
     },
     {
       "path": "docs/代码/module_authoring_pipeline.md",
@@ -1322,16 +1322,16 @@
     {
       "path": "docs/代码/replay.md",
       "type": "module_doc",
-      "authority": "Replay autoload contract for deterministic normalized intent and reward-choice decision recording, v3-only persistence, gold/difficulty summary fields, unsupported-schema rejection, summary diff, and InputService playback override",
+      "authority": "Replay v5 autoload contract for deterministic normalized intent and reward-choice decision recording, run-local Gear Mod/direct-completion summaries, unsupported-schema rejection, summary diff, and InputService playback override",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-28",
-      "canonical_for": ["replay", "deterministic_recording", "input_recording", "replay_schema_v3", "replay_v3_only_compatibility", "replay_gold_difficulty_summary"],
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["replay", "deterministic_recording", "input_recording", "replay_schema_v5", "replay_v5_only_compatibility", "replay_run_local_mod_summary"],
       "must_read_for": ["replay_change", "input_recording_change", "input_playback_change", "replay_input_schema_change", "replay_gold_difficulty_summary_change", "golden_replay_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/difficulty_progression.md", "docs/代码/input_service.md", "docs/代码/guide.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/analytics.md"],
       "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/input_service.gd", "client/scripts/data/difficulty_progression.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/contracts/actions.gd", "client/scripts/contracts/analytics_events.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/replay_input_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tests/replays/"],
       "update_triggers": ["Replay API changes", "replay schema or compatibility changes", "InputService playback bridge changes", "input recording changes", "decision recording changes", "replay persistence changes"],
-      "keywords": ["Replay", "autoload", "Replay v4", "v4 only", "Replay v3 incompatible", "unsupported schema", "bool intent", "vector2 intent", "InputService", "playback override", "record_decision", "determinism", "golden replay", "runtime summary", "difficulty_time", "enemy_health_multiplier", "enemy_damage_multiplier", "gold_balance", "gold_earned_total", "reward choice decision", "enemy explicit attacks", "golden_pause_resume", "golden_full_death", "golden_reward_choice", "ADR #166", "ADR #169", "ADR #170", "ADR #186"]
+      "keywords": ["Replay", "autoload", "Replay v5", "v5 only", "Replay v4 incompatible", "unsupported schema", "bool intent", "vector2 intent", "InputService", "playback override", "record_decision", "determinism", "golden replay", "runtime summary", "difficulty_time", "enemy_health_multiplier", "enemy_damage_multiplier", "gold_balance", "gold_earned_total", "gear_mod_ranks", "Mind Core direct completion", "reward choice decision", "enemy explicit attacks", "golden_pause_resume", "golden_full_death", "golden_reward_choice", "ADR #166", "ADR #169", "ADR #170", "ADR #186", "ADR #188"]
     },
     {
       "path": "docs/代码/localization.md",
@@ -1364,30 +1364,30 @@
     {
       "path": "docs/代码/save_manager.md",
       "type": "module_doc",
-      "authority": "SaveManager autoload contract for Meta v2 / Run v12 weapon cooldown/modifiers without ammunition, enemy reward/economy, world-event and combat saves, replay_index, standard envelopes, migrations, atomic writes, backup fallback, and broken-save quarantine",
+      "authority": "SaveManager autoload contract for Meta v3 / Run v13 run-local Gear Mod ranks, layered modifiers, enemy/world state, standard envelopes, migrations, atomic writes, backup fallback, and broken-save quarantine",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-08-04",
-      "canonical_for": ["save_manager", "save_envelope", "save_migration", "run_v10_resume_save", "enemy_reward_snapshot", "economy_rng_snapshot", "world_event_snapshot", "world_event_transaction_idempotency", "difficulty_run_snapshot", "enemy_attack_snapshot", "enemy_event_context_snapshot", "enemy_spawn_multiplier_snapshot", "player_knockback_snapshot", "gear_mod_meta_save"],
-      "must_read_for": ["save_manager_change", "save_schema_change", "run_resume_change", "enemy_reward_save_change", "difficulty_run_snapshot_change", "gear_mod_persistence"],
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["save_manager", "save_envelope", "save_migration", "run_v13_resume_save", "meta_v3", "run_local_gear_mod_snapshot", "enemy_reward_snapshot", "economy_rng_snapshot", "world_event_snapshot", "difficulty_run_snapshot", "enemy_attack_snapshot"],
+      "must_read_for": ["save_manager_change", "save_schema_change", "run_resume_change", "enemy_reward_save_change", "difficulty_run_snapshot_change", "run_local_gear_mod_persistence"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/enemy_reward_resolver.md", "docs/代码/difficulty_progression.md", "docs/代码/gameplay_runtime.md", "docs/代码/replay.md", "docs/代码/analytics.md", "docs/代码/game_state.md"],
       "related_code": ["client/scripts/autoload/save_manager.gd", "client/scripts/data/enemy_reward_resolver.gd", "client/scripts/data/difficulty_progression.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/contracts/save_kinds.gd", "client/scripts/autoload/analytics.gd", "client/tools/save_manager_smoke.gd", "client/tools/runtime_smoke.gd", "client/tools/module_world_smoke.gd"],
       "update_triggers": ["SaveManager API changes", "save envelope changes", "save kind changes", "migration behavior changes", "atomic write or broken-save behavior changes"],
-      "keywords": ["SaveManager", "autoload", "save_kinds", "Meta v2", "Run v12", "old Run v11 incompatible", "weapon cooldown", "weapon modifiers", "no ammunition fields", "enemy reward snapshot", "RNG.economy state", "world events", "meta", "run", "replay_index", "JSON normalization", "data_hash", "migration", "atomic save", "backup", "broken save", "ADR #186"]
+      "keywords": ["SaveManager", "autoload", "save_kinds", "Meta v3", "Run v13", "old Run v12 incompatible", "gear_mod_ranks", "layered modifiers", "no pending_loot", "no extraction", "enemy reward snapshot", "RNG.economy state", "world events", "meta", "run", "replay_index", "JSON normalization", "data_hash", "migration", "atomic save", "backup", "broken save", "ADR #188"]
     },
     {
       "path": "docs/代码/gear_mod_system.md",
       "type": "module_doc",
-      "authority": "GearModSystem autoload contract for Warframe-like gear mods, inventory, rank, resources, hero / weapon loadouts, drops, upgrades, dismantle, and run-start modifier snapshots",
+      "authority": "GearModSystem stateless rule-service contract for definitions, reward pools, drops, rank modifiers, overflow gold, and isolated developer preview",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-25",
-      "canonical_for": ["gear_mod_system", "gear_mod_inventory", "hero_weapon_mod_loadouts", "gear_mod_progression", "old_meta_retirement_boundary"],
-      "must_read_for": ["gear_mod_system_change", "gear_mod_data_schema_change", "mod_loadout_ui_change", "old_meta_retirement"],
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["gear_mod_system", "gear_mod_rule_service", "gear_mod_reward_pools", "gear_mod_rank_modifiers", "gear_mod_preview"],
+      "must_read_for": ["gear_mod_system_change", "gear_mod_data_schema_change", "gear_mod_drop_change", "gear_mod_preview_change"],
       "related_docs": ["docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/AI导航.md", "client/data/README.md"],
-      "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/scripts/ui/", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/data/gear_mod_fusion_costs.csv", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/scripts/gameplay/gameplay_run_loop.gd", "tools/godot_bridge.py"],
-      "update_triggers": ["GearModSystem API changes", "gear mod profile schema changes", "mod loadout UI changes", "mod drop behavior changes", "mod upgrade or dismantle behavior changes", "old meta retirement boundary changes"],
-      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "Gear Mod drop feedback", "HUD 暂存提示", "pending_loot", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta", "no old save migration", "ADR #118", "ADR #122"]
+      "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "tools/godot_bridge.py"],
+      "update_triggers": ["GearModSystem API changes", "gear mod schema changes", "reward pool changes", "mod drop behavior changes", "rank curve or overflow changes", "developer preview changes"],
+      "keywords": ["GearModSystem", "Gear Mod", "局内 Mod", "stateless service", "reward pool", "rank 0-5", "overflow gold", "Gear Mod drop feedback", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "RNG.drop", "Run v13", "ADR #188"]
     },
     {
       "path": "docs/代码/audio_manager.md",
@@ -1598,6 +1598,34 @@
       "related_code": ["client/tests/replays/golden_basic_run.replay", "client/tests/replays/golden_pause_resume.replay", "client/tests/replays/golden_full_death.replay", "client/tests/replays/golden_reward_choice.replay", "client/tools/golden_replay_capture.gd", "client/tools/replay_runner.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/weapons.json"],
       "update_triggers": ["ADR #186 golden replay recapture", "ADR #186 replay conclusion changes", "infinite shooting, removed ammunition semantics, Replay v4, Run v12, or golden data fingerprint changes"],
       "keywords": ["ADR #186", "ammunition removed", "infinite shooting", "weapons schema v5", "input binding v3", "Run v12", "Replay v4", "old Replay v3 incompatible", "data fingerprint", "runtime summary", "semantic equality", "四条黄金回放"]
+    },
+    {
+      "path": "docs/reports/2026-08-06-health.md",
+      "type": "health_report",
+      "authority": "ADR #188 large-change health snapshot for contracts, data/schema, three-tier lint, documentation and knowledge base, Replay v5, and ADR synchronization",
+      "status": "active",
+      "owner_scope": "health-reports",
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["2026_08_06_project_health_snapshot"],
+      "must_read_for": ["adr_188_handoff", "2026_08_06_health_audit"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI知识库索引.md", "docs/reports/2026-08-06-roguelike-gear-mod-replay-regression.md", "docs/AI记忆/current_state.json", "docs/AI记忆/会话日志/2026-08-06.md"],
+      "related_code": ["tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/lint_semantic_rules.py", "tools/docs_health_check.py", "client/tests/replays/golden_basic_run.replay", "client/tests/replays/golden_pause_resume.replay", "client/tests/replays/golden_full_death.replay", "client/tests/replays/golden_reward_choice.replay"],
+      "update_triggers": ["2026-08-06 health conclusion changes", "ADR #188 final validation changes", "health metrics are rerun for this change"],
+      "keywords": ["health report", "ADR #188", "pre-commit", "contracts", "data validation", "three-tier lint", "docs health", "knowledge base health", "Replay v5", "4/4 golden", "manual health metrics"]
+    },
+    {
+      "path": "docs/reports/2026-08-06-roguelike-gear-mod-replay-regression.md",
+      "type": "test_report",
+      "authority": "ADR #188 evidence for recapturing and runtime-summary validating four Replay v5 goldens after run-local Gear Mods, direct Mind Core completion, and extraction removal",
+      "status": "active",
+      "owner_scope": "test-reports",
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["adr_188_replay_regression_evidence"],
+      "must_read_for": ["adr_188_replay_audit", "run_local_gear_mod_replay_audit", "direct_completion_replay_audit"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/代码/gameplay_runtime.md", "docs/代码/gear_mod_system.md", "docs/代码/module_world_manager.md", "docs/代码/save_manager.md", "docs/代码/replay.md", "docs/AI记忆/current_state.json", "docs/AI记忆/会话日志/2026-08-06.md"],
+      "related_code": ["client/tests/replays/golden_basic_run.replay", "client/tests/replays/golden_pause_resume.replay", "client/tests/replays/golden_full_death.replay", "client/tests/replays/golden_reward_choice.replay", "client/tools/golden_replay_capture.gd", "client/tools/replay_runner.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/autoload/gear_mod_system.gd", "client/scripts/autoload/replay.gd"],
+      "update_triggers": ["ADR #188 golden replay recapture", "ADR #188 replay conclusion changes", "run-local Gear Mod, direct Mind Core completion, Replay v5, Run v13, or golden data fingerprint changes"],
+      "keywords": ["ADR #188", "Roguelike", "run-local Gear Mod", "direct Mind Core completion", "no extraction", "Run v13", "Replay v5", "old Replay v4 incompatible", "data fingerprint", "runtime summary", "module map hash", "四条黄金回放"]
     }
   ]
 }

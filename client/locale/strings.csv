@@ -77,15 +77,9 @@ ui_quit_to_title,返回标题,Back to Title
 ui_confirm,确认,Confirm
 ui_cancel,取消,Cancel
 ui_run_summary,清理 {kills} · 时间 {time}s,Cleared {kills} · Time {time}s
-ui_result_gear_mod_count,Mod x{count},Mods x{count}
-ui_result_loot_lost,战利品丢失：{loot},Loot lost: {loot}
-ui_result_loot_secured,带回战利品：{loot},Loot secured: {loot}
-ui_result_no_loot,没有带回战利品,No loot secured
-ui_result_no_lost_loot,没有丢失战利品,No loot lost
-ui_result_secured_header,带回战利品,Loot Secured
-ui_result_lost_header,丢失战利品,Loot Lost
-ui_result_resource_line,{name} x{amount},{name} x{amount}
-ui_result_gear_mod_line,{name} x{count},{name} x{count}
+ui_result_build_header,最终构筑,Final Build
+ui_result_no_build,本局未获得 Gear Mod,No Gear Mods acquired this run
+ui_result_gear_mod_line,{name} · 第 {count} 阶,{name} · Tier {count}
 ui_hud_life,生命,Life
 ui_hud_kills,清理,Cleared
 ui_hud_time,时间,Time
@@ -140,56 +134,13 @@ gear_mod_weapon_recoil_damper_name,反冲阻尼,Recoil Dampener
 gear_mod_weapon_recoil_damper_desc,降低主武器后坐力。,Reduces primary weapon recoil.
 gear_mod_weapon_spread_stabilizer_name,弹道稳定器,Ballistic Stabilizer
 gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces primary weapon projectile spread.
-gear_mod_dust_name,模组尘,Mod Dust
-gear_mod_dust_desc,分解装备 Mod 获得的材料，用于升级装备 Mod。,A material gained by dismantling gear mods and spent to upgrade gear mods.
-ui_gear_mod_title_entry,装备 Mod,Gear Mods
-ui_gear_mod_title,装备 Mod,Gear Mods
-ui_gear_mod_tab_hero,清理智能,Cleanup Intelligence
-ui_gear_mod_tab_weapon,武器,Weapon
-ui_gear_mod_resource_summary,{resource} {amount},{resource} {amount}
-ui_gear_mod_capacity,容量 {used}/{capacity},Capacity {used}/{capacity}
-ui_gear_mod_empty,当前槽位暂无 Mod,No mods for this slot
-ui_gear_mod_no_selection,未选择 Mod,No mod selected
-ui_gear_mod_rank,等级 {rank}/{max},Rank {rank}/{max}
-ui_gear_mod_drain,消耗 {drain},Drain {drain}
-ui_gear_mod_equipped,已装备,Equipped
-ui_gear_mod_effect_line,{stat} {type} {value},{stat} {type} {value}
-ui_gear_mod_modifier_type_mult,倍率,Multiplier
-ui_gear_mod_modifier_type_add,加值,Additive
-ui_gear_mod_equip,装备,Equip
-ui_gear_mod_unequip,卸下,Unequip
-ui_gear_mod_upgrade,升级,Upgrade
-ui_gear_mod_upgrade_cost,升级：{resource} {cost},Upgrade: {resource} {cost}
-ui_gear_mod_max_rank,已满级,Max Rank
-ui_gear_mod_dismantle,分解,Dismantle
-ui_gear_mod_dismantle_value,分解：{resource} +{amount},Dismantle: {resource} +{amount}
-ui_gear_mod_action_equip,装备,Equipped
-ui_gear_mod_action_unequip,卸下,Unequipped
-ui_gear_mod_action_dismantle,分解,Dismantled
-ui_gear_mod_feedback_success,{action} {name},{action} {name}
-ui_gear_mod_feedback_upgrade_success,{name} 升至 {rank} 级,{name} upgraded to Rank {rank}
-ui_gear_mod_feedback_failed,操作失败：{reason},Action failed: {reason}
-ui_gear_mod_drop_obtained,暂存 Mod：{name},Mod stashed: {name}
-ui_gear_mod_reason_unknown,未知原因,Unknown reason
-ui_gear_mod_reason_unknown_instance,未找到该 Mod,Mod not found
-ui_gear_mod_reason_unknown_mod,未知 Mod,Unknown mod
-ui_gear_mod_reason_unknown_loadout_slot,未知槽位,Unknown slot
-ui_gear_mod_reason_slot_mismatch,槽位不匹配,Slot mismatch
-ui_gear_mod_reason_capacity_exceeded,容量不足,Not enough capacity
-ui_gear_mod_reason_duplicate_mod,同名 Mod 已装备,Matching mod already equipped
-ui_gear_mod_reason_not_equipped,尚未装备,Not equipped
-ui_gear_mod_reason_equipped,已装备的 Mod 不能分解,Equipped mods cannot be dismantled
-ui_gear_mod_reason_max_rank,已满级,Max rank reached
-ui_gear_mod_reason_missing_cost,缺少升级消耗配置,Upgrade cost missing
-ui_gear_mod_reason_insufficient_resource,资源不足,Not enough resources
-ui_gear_mod_reason_save_failed,保存失败,Save failed
-ui_gear_mod_resource_obtained,暂存资源：{resource} +{amount},Resource stashed: {resource} +{amount}
-ui_extraction_available,撤离点已开启,Extraction point active
+ui_gear_mod_drop_obtained,获得 {name} · 第 {rank} 阶,Acquired {name} · Tier {rank}
+ui_gear_mod_overflow_gold,{name} 已满阶，转化为 {gold} 金币,{name} is maxed — converted to {gold} Gold
 ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
-ui_run_complete,撤离成功,Extracted
-ui_run_complete_summary,清理 {kills} · 时间 {time}s · 战利品已回收,Cleared {kills} · Time {time}s · Loot secured
+ui_run_complete,意识核已清理,Mind Core Cleared
+ui_run_complete_summary,清理 {kills} · 时间 {time}s · 本局完成,Cleared {kills} · Time {time}s · Run Complete
 ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_hud_level,等级,Level
 ui_hud_gold_progress,金币余额 {balance} · 等级进度 {progress}/{required},Gold {balance} · Level Progress {progress}/{required}
@@ -223,8 +174,8 @@ ui_credits_usage_input_prompts,G.U.I.D.E 随附的键盘与手柄提示图标,Ke
 ui_credits_usage_input_prompt_font,G.U.I.D.E 键盘提示字体,Keyboard prompt font bundled with G.U.I.D.E
 ui_credits_usage_ai_reference,项目级 AI skill / 工作流参考,Project AI skill and workflow reference
 ui_credits_usage_code_style_reference,代码风格参考,Code style reference
-ui_mode_standard_survival_name,标准生存,Standard Survival
-ui_mode_standard_survival_desc,进入意识层，清理意识核并成功撤离。,"Enter the Mind Layer, clear the Mind Core, and extract."
+ui_mode_standard_survival_name,标准 Roguelike,Standard Roguelike
+ui_mode_standard_survival_desc,进入意识层，构筑本局能力并清理意识核。,"Enter the Mind Layer, build your run, and clear the Mind Core."
 character_default_name,流浪者,Wanderer
 character_default_desc,默认角色，使用鼠标瞄准与按住开火,Default character with mouse aim and held fire
 character_primary_a_name,冷静,Calm

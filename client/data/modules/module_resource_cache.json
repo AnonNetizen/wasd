@@ -155,12 +155,7 @@
         "x": 5,
         "y": 5
       },
-      "resource_rewards": [
-        {
-          "id": "gear_mod_dust",
-          "amount": 20
-        }
-      ],
+      "gold_reward_amount": 20,
       "claim_radius": 170
     }
   ],

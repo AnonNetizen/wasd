@@ -19,7 +19,7 @@ var _selection_locked: bool = false
 var _summary_label: Label = null
 var _title_label: Label = null
 var _kills: int = 0
-var _loot_summary: Dictionary = {}
+var _build_summary: Dictionary = {}
 var _run_time: float = 0.0
 var _completed: bool = false
 
@@ -77,11 +77,11 @@ func _exit_tree() -> void:
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
-func configure(kills: int, run_time: float, completed: bool = false, loot_summary: Dictionary = {}) -> void:
+func configure(kills: int, run_time: float, completed: bool = false, build_summary: Dictionary = {}) -> void:
 	_kills = kills
 	_run_time = run_time
 	_completed = completed
-	_loot_summary = loot_summary.duplicate(true)
+	_build_summary = build_summary.duplicate(true)
 	refresh_texts()
 
 
@@ -99,38 +99,37 @@ func refresh_texts() -> void:
 		"kills": _kills,
 		"time": int(_run_time),
 	})
-	var loot_text: String = _loot_summary_text()
-	if not loot_text.is_empty():
-		summary_text = "%s\n%s" % [summary_text, loot_text]
+	var build_text: String = _build_summary_text()
+	if not build_text.is_empty():
+		summary_text = "%s\n%s" % [summary_text, build_text]
 	_summary_label.text = summary_text
 
 
-func _loot_summary_text() -> String:
+func _build_summary_text() -> String:
 	var lines: PackedStringArray = PackedStringArray()
-	var resources: Dictionary = _loot_summary.get("resources", {}) if _loot_summary.get("resources", {}) is Dictionary else {}
-	var resource_ids: Array[String] = _sorted_keys(resources)
-	for resource_id: String in resource_ids:
-		var amount: int = int(resources.get(resource_id, 0))
-		if amount <= 0:
+	var gear_mods: Array = (
+		_build_summary.get("gear_mods", [])
+		if _build_summary.get("gear_mods", []) is Array
+		else []
+	)
+	for raw_entry: Variant in gear_mods:
+		if not raw_entry is Dictionary:
 			continue
-		lines.append(tr("ui_result_resource_line").format({
-			"name": tr("%s_name" % resource_id),
-			"amount": amount,
-		}))
-	var gear_mods: Array = _loot_summary.get("gear_mods", []) if _loot_summary.get("gear_mods", []) is Array else []
-	var gear_mod_counts: Dictionary = _gear_mod_counts(gear_mods)
-	for mod_name_key: String in _sorted_keys(gear_mod_counts):
-		var count: int = int(gear_mod_counts.get(mod_name_key, 0))
-		if count <= 0:
+		var entry: Dictionary = raw_entry as Dictionary
+		var mod_name_key: String = String(entry.get("name_key", ""))
+		if mod_name_key.is_empty():
 			continue
+		var display_rank: int = maxi(
+			int(entry.get("display_rank", int(entry.get("rank", 0)) + 1)),
+			1
+		)
 		lines.append(tr("ui_result_gear_mod_line").format({
 			"name": tr(mod_name_key),
-			"count": count,
+			"count": display_rank,
 		}))
 	if lines.is_empty():
-		return tr("ui_result_no_loot") if _completed else tr("ui_result_no_lost_loot")
-	var header_key: String = "ui_result_secured_header" if _completed else "ui_result_lost_header"
-	return "%s\n%s" % [tr(header_key), _join_text(lines, "\n")]
+		return tr("ui_result_no_build")
+	return "%s\n%s" % [tr("ui_result_build_header"), _join_text(lines, "\n")]
 
 
 func _join_text(parts: PackedStringArray, separator: String) -> String:
@@ -139,29 +138,6 @@ func _join_text(parts: PackedStringArray, separator: String) -> String:
 		if index > 0:
 			result += separator
 		result += parts[index]
-	return result
-
-
-func _gear_mod_counts(gear_mods: Array) -> Dictionary:
-	var counts: Dictionary = {}
-	for raw_entry: Variant in gear_mods:
-		if not raw_entry is Dictionary:
-			continue
-		var entry: Dictionary = raw_entry as Dictionary
-		var name_key: String = String(entry.get("name_key", ""))
-		if name_key.is_empty():
-			continue
-		counts[name_key] = int(counts.get(name_key, 0)) + 1
-	return counts
-
-
-func _sorted_keys(values: Dictionary) -> Array[String]:
-	var result: Array[String] = []
-	for key: Variant in values.keys():
-		var value: String = String(key)
-		if not value.is_empty():
-			result.append(value)
-	result.sort()
 	return result
 
 

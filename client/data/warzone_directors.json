@@ -1,11 +1,11 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "directors": [
     {
       "id": "director_standard_warzone",
       "mode_id": "mode_standard_survival",
       "mutation_id": "nest_mutation_hunting_ground",
-      "description": "Standard short loot-run director. It targets an 8-12 minute clear, uses fixed phases, and never reads player-state pressure.",
+      "description": "Open-warzone regression director for the top-down shooter Roguelike loop. It uses fixed pressure phases, never reads player-state pressure, and completes immediately when the core objective is cleared.",
       "phases": [
         {
           "id": "phase_insertion",
@@ -79,13 +79,8 @@
           "claim_start_time": 60.0,
           "target_hp": 120.0,
           "target_hit_radius": 36.0,
-          "resource_rewards": [
-            {
-              "resource_id": "gear_mod_dust",
-              "amount": 25
-            }
-          ],
-          "notes": "First reward node: an elite nest guard point that should pay medium Gear Mod or dust value in later reward wiring."
+          "gold_reward_amount": 90,
+          "notes": "First reward node: an elite nest guard point that pays immediate in-run gold."
         },
         {
           "id": "poi_mod_cache",
@@ -97,13 +92,9 @@
           "claim_radius": 180.0,
           "claim_start_time": 240.0,
           "requires_interaction": true,
-          "gear_mod_rewards": [
-            {
-              "mod_id": "gear_mod_weapon_damage_test",
-              "count": 1
-            }
-          ],
-          "notes": "Second reward node: guarded Mod cache placeholder, represented by a director-sourced FEA-12 pulse in the first slice."
+          "gear_mod_pool_id": "world_event_mod_pool_common",
+          "gear_mod_rolls": 2,
+          "notes": "Second reward node: a guarded Mod cache that rolls the common pool twice."
         },
         {
           "id": "poi_resource_cache",
@@ -115,13 +106,8 @@
           "claim_radius": 170.0,
           "claim_start_time": 0.0,
           "requires_interaction": true,
-          "resource_rewards": [
-            {
-              "resource_id": "gear_mod_dust",
-              "amount": 20
-            }
-          ],
-          "notes": "Lower-risk dust and sustain cache placeholder for the short loot-run route."
+          "gold_reward_amount": 60,
+          "notes": "Lower-risk cache that pays immediate in-run gold."
         },
         {
           "id": "poi_minor_nest_core",
@@ -134,22 +120,8 @@
           "claim_start_time": 420.0,
           "target_hp": 240.0,
           "target_hit_radius": 48.0,
-          "extraction_radius": 220.0,
-          "extraction_hold_time": 2.0,
-          "resource_rewards": [
-            {
-              "resource_id": "gear_mod_dust",
-              "amount": 60
-            }
-          ],
-          "gear_mod_rewards": [
-            {
-              "mod_id": "gear_mod_weapon_damage_test",
-              "count": 1
-            }
-          ],
           "completes_run": true,
-          "notes": "Run endpoint placeholder: a compact minor nest core guarded by hazards and the 7-9 minute bulwark wave."
+          "notes": "Run endpoint: destroying the compact minor nest core completes the run directly without a reward payload."
         }
       ]
     }

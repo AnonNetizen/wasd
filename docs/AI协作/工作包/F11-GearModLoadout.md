@@ -1,185 +1,56 @@
-# F11 Gear Mod Loadout 工作包
+# F11 — Gear Mod 局内构筑
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
-> 本文档是装备 Mod 装配系统的阶段工作包；改装备 Mod 范围、数据 schema、迁移边界或验收命令时，必须同步 GDD、ADR、`docs/AI导航.md`、`client/data/README.md`、`docs/代码/gear_mod_system.md`、测试策略与 AI 记忆。
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 Gear Mod 局内构筑工作包；改动时同步 GDD、ADR、Gear Mod / Gameplay / Save 文档、数据手册、测试策略与 AI 记忆。
 
-## 1. 目标
+> 历史文件名保留以维持导航稳定。ADR #188 已取代旧局外 loadout、库存、dust、升级、分解和融合方案；当前权威是“每局空开局、局内获得、自动升阶、结局清空”。
 
-F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装备 Mod 装配系统。ADR #117 后旧运行时 / UI 已退役，ADR #118 后旧测试档迁移与 `meta_progression.json` 也已删除。首片只做两套可配置 Mod：
+## 目标
 
-- **英雄 Mod 配置**：作用于英雄 / 玩家基础属性、拾取、生存或后续技能资源。
-- **武器 Mod 配置**：作用于当前主武器属性，例如基础伤害、射速、弹速和暴击。
+把 Gear Mod 做成俯视角射击 Roguelike 的核心局内构筑层：玩家不在标题页配置 Mod，也不把 Mod 带到下一局；获得时立即改变当前 Player / WeaponSystem 数值。
 
-系统应提供长期刷取、升级、分解和装配取舍，而不是把所有永久属性无条件叠到下一局。玩家仍通过 `SaveManager` 的 `meta` kind 保存跨局档案；旧 `MetaProgressionSystem` 运行时与旧测试档补偿路径已删除。
+## 当前规则
 
-## 2. 首片范围
+- 新局的 Mod ranks 必须为空。
+- 首次获得某个 Mod 时写内部 rank 0，HUD 显示“第 1 阶”；重复获得依次升到内部 rank 5 / 玩家可见第 6 阶。
+- 第七份及以后不增强，通过 `gear_mod_overflow` 金币事务转为 75 局内金币。
+- 同类重复自动升阶，不提供手动装备、卸下、升级、分解或融合。
+- 死亡、胜利、重开和新局都清空 Mod；结果页只显示刚结束一局的最终构筑快照。
+- 本期不做局内手动配置面板；该功能登记为后续设计事项。
 
-必须包含：
+## 权威边界
 
-1. 新数据文件：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` 或等价拆分。
-2. 新运行时模块：`GearModSystem`，负责读取 Mod 定义、保存拥有列表 / rank / 装配、输出当前英雄与武器 modifiers。
-3. 两套 loadout：`hero` 与 `weapon`，每套独立槽位、容量和已装备 Mod 列表。
-4. 一张测试武器 Mod：增加武器基础 `damage`，普通小怪 `enemy_chaser` 被玩家击杀时有 `1%` 概率掉落。
-5. Mod 升级：消耗局外资源提升 rank，rank 提高效果值与 drain。
-6. Mod 分解：把重复或不需要的 Mod 转成升级资源。
-7. 退役策略：旧局外永久升级系统停止作为下一局属性来源；项目尚未上线，旧测试存档不迁移，必要时重置或隔离。
+| 层 | 职责 |
+|---|---|
+| `GearModSystem` | 无状态规则服务：定义查询、掉落、公共池、max rank、overflow gold、rank modifier 与测试岛预览 |
+| `GameplayRunLoop` | `{mod_id: rank}` 权威、统一原子授予、HUD 反馈、Run v13 保存 / 恢复、结果页构筑摘要 |
+| `Player` / `WeaponSystem` | `set_gear_modifiers()` 替换专属 Gear Mod 层；普通奖励与临时 modifier 独立保留 |
+| `SaveManager` | 只保存 Run v13 的局内 ranks；Meta v3 不含 Gear Mod |
+| 开发者测试岛 | 纯内存选择 Mod / rank 并预览，不读写正式 Meta，不解释容量或 drain |
 
-当前实现状态（2026-06-25）：
+恢复顺序固定为：恢复实体基础状态 → 恢复普通 / 临时 modifier → 从 `gear_mod_ranks` 统一替换 Gear Mod 层一次。重复重建不得累加或连乘漂移。
 
-- 已完成数据 / 契约首片：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / validate_data / schema regression。
-- 已完成运行时首片：`GearModSystem` autoload 保存 `meta.gear_mods`，支持 profile roundtrip、授予、英雄 / 武器 loadout、capacity / drain、唯一装备、升级、分解、`enemy_chaser` 玩家归因击杀掉落和开局 hero / weapon modifier snapshot。
-- 已完成最小 UI：标题菜单进入 `GearModPanel`，可切换英雄 / 武器 loadout，查看资源、容量、rank、drain 和效果，并执行装备、卸下、升级和分解。
-- 已完成专用验证：`python tools/godot_bridge.py --project client gear-mod-smoke` 覆盖授予、槽位拒绝、装备、重复拒绝、分解返还、容量阻止升级、资源升级、modifier 数值变化、强制掉落、暂存提示和 Gear Mod 面板按钮流；`runtime-smoke` 覆盖玩家归因击杀后的强制掉落 HUD 提示路径。
-- 已完成旧迁移路径清理：旧 `meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿逻辑已删除。
-- 待做：更多 Mod 内容。
+## 数据
 
-首片不做：
+- `client/data/gear_mods.json` schema v2 保存 slot、rarity、max rank、公共奖励池、满阶溢出金币与 rank 效果曲线。
+- 伤害曲线保持 `1.10 → 1.35`；后坐与扩散保持 `0.90 → 0.65`。
+- `gear_mod_drop_tables.csv`：追击者伤害 Mod 5%，喷吐者扩散 Mod 2.5%，壁垒者后坐 Mod 15%。
+- 只有玩家归因击杀能触发敌人 Mod 掉落，随机固定走 `RNG.drop`。
+- `gear_mod_fusion_costs.csv`、`gear_mod_dust`、dismantle、drain、fusion 已删除。
 
-- 极性、Forma、不同武器类型专属槽、交易、套装加成、Riven 随机词条。
-- 复杂背包筛选 / 排序 UI；可以先做最小可验证列表。
-- 运行时玩家本地 mod 数据包扩展装备 Mod 核心契约。这里的装备 Mod 与 `ModLoader` 的本地数据包 mod 是两个概念。
+## 奖励入口
 
-## 3. 推荐数据边界
+敌人、Mod 缓存和五类世界事件必须调用同一个局内原子授予入口：
 
-### `gear_mods.json`
+- 防御 / 生存 / 占点完成：固定一个等权普通 Mod。
+- 金币祭坛成功：授予 Mod，最多成功两次且两次不同。
+- 血量祭坛：不产 Mod。
+- Mod 缓存：公共池独立抽取两次。
+- 事件敌人：仍可正常触发自身掉落。
 
-复杂配置优先 JSON。建议结构：
+## 验证
 
-```json
-{
-  "schema_version": 1,
-  "mods": [
-    {
-      "id": "gear_mod_weapon_damage_test",
-      "name_key": "gear_mod_weapon_damage_test_name",
-      "desc_key": "gear_mod_weapon_damage_test_desc",
-      "slot": "weapon",
-      "rarity": "common",
-      "max_rank": 5,
-      "base_drain": 2,
-      "drain_per_rank": 1,
-      "rank_modifiers": [
-        { "stat": "damage", "type": "mult", "base_value": 1.10, "value_per_rank": 0.05 }
-      ],
-      "stack_rule": "unique_by_id",
-      "dismantle": {
-        "resource_id": "gear_mod_dust",
-        "amount": 10
-      }
-    }
-  ]
-}
-```
+`gear-mod-smoke` 必须覆盖：空开局、首次 rank 0、六份升至 rank 5、第七份转 75 金币、不同 Mod 独立、立即生效、新局清空、Run 恢复不重发，以及替换式 modifier 的幂等性。
 
-`docs/词表与契约.md` 已登记首片 `gear_mod_*` id、slot、rarity、resource、stack rule 等需要代码引用的契约；新增条目前仍必须先登记并跑契约同步。
+同时运行 contracts、数据 / schema、三档 lint、`runtime-smoke`、`world-event-smoke`、`save-smoke`、`loading-smoke`、正式 / 技术模块世界、开发者测试岛、headless boot/editor 与 Replay v5 黄金回放。
 
-### `gear_mod_drop_tables.csv`
-
-平表掉落优先 CSV。首片可用：
-
-```csv
-source_enemy_id,mod_id,drop_chance,min_enemy_level,max_enemy_level
-enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
-```
-
-掉落必须在玩家归因击杀时触发，随机走 `RNG.drop`，不能让怪物互杀产出 Mod。
-
-### `gear_mod_fusion_costs.csv`
-
-平表成本优先 CSV：
-
-```csv
-rarity,rank,resource_id,cost
-common,1,gear_mod_dust,20
-common,2,gear_mod_dust,35
-common,3,gear_mod_dust,55
-common,4,gear_mod_dust,85
-common,5,gear_mod_dust,130
-```
-
-资源来源为 Mod 分解和局外奖励。首片使用专用 `gear_mod_dust`（模组尘），避免和旧永久升级经济混在一起。
-
-## 4. 存档与迁移
-
-`meta` payload 新增或迁移到以下结构：
-
-```json
-{
-  "gear_mods": {
-    "resources": { "gear_mod_dust": 0 },
-    "inventory": [
-      { "instance_id": "uuid_or_stable_id", "mod_id": "gear_mod_weapon_damage_test", "rank": 0, "count": 1 }
-    ],
-    "loadouts": {
-      "hero": { "capacity": 8, "equipped": [] },
-      "weapon": { "capacity": 8, "equipped": ["instance_id"] }
-    }
-  }
-}
-```
-
-实现要求：
-
-- `SaveManager` 仍是唯一存档入口，`meta` kind 保留。
-- `MetaProgressionSystem` 的旧购买轨道不能继续给下一局注入永久 modifiers；当前 `GameplayRunLoop` 已改为读取 `GearModSystem` 的 hero / weapon modifiers。
-- 项目尚未上线，不维护旧 `purchased_upgrades` 补偿；测试存档如果不符合当前 `meta.gear_mods` 结构，直接重置或隔离。
-- `run` 存档只需要记录开局时已应用的 loadout/modifier 快照；不要在局中读取玩家背包实时改属性。
-
-## 5. UI / 操作边界
-
-当前最小 UI 已支撑验证：
-
-- 标题菜单进入“装备 Mod”界面。
-- 切换英雄 / 武器两套配置。
-- 查看 Mod 名称、rank、drain、效果、拥有数量。
-- 装备 / 卸下 Mod，容量不足时阻止并显示原因。
-- 升级 Mod，资源不足时阻止。
-- 分解 Mod，获得资源。
-
-所有玩家可见文本走 `client/locale/strings.csv`，英文 `en` 文案长度作为布局验收基准。
-
-玩家归因击杀触发 Mod 掉落时，`GameplayRunLoop` 会把掉落结果交给 `GameplayHud.show_gear_mod_drop_feedback()`，用 `ui_gear_mod_drop_obtained` 显示短暂暂存提示；该提示与升级获得提示共用 HUD 样式，但使用独立文案 key。ADR #122 后默认标准局的掉落先进入 `run.pending_loot`，完成或撤离成功后才写入 `meta.gear_mods`。
-
-## 6. 数值首片
-
-测试武器 Mod 推荐：
-
-| 字段 | 建议 |
-|------|------|
-| slot | `weapon` |
-| max_rank | 5 |
-| base_drain | 2 |
-| drain_per_rank | 1 |
-| rank 0 效果 | `damage mult 1.10` |
-| 每 rank 增量 | `+0.05` |
-| rank 5 效果 | `damage mult 1.35` |
-| 掉落来源 | 玩家击杀 `enemy_chaser` |
-| 掉落率 | `0.01` |
-| 分解资源 | 低于一次升级成本，避免刷分解套利 |
-
-## 7. 验收命令
-
-纯文档 / 数据规划阶段：
-
-- `python -m json.tool docs/AI记忆/current_state.json`
-- `python -m json.tool docs/_kb_index.json`
-- `python tools/docs_health_check.py`
-- `git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"`
-
-实现阶段至少追加：
-
-- `python tools/sync_contracts.py --check`
-- `python tools/validate_data.py`
-- `python tools/test_data_loader_schema.py`
-- `python tools/godot_bridge.py --project client headless-boot`
-- `python tools/godot_bridge.py --project client gear-mod-smoke`
-- 改 `GameplayRunLoop` 开局应用、击杀归因或死亡结算旁路时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
-- 项目尚未上线，不再维护旧 meta 测试档迁移 / 补偿；若未来重新引入存档 schema 迁移，再单独写 ADR 和 `save-smoke` 覆盖。
-- 若默认开局属性或掉落影响 golden 摘要，重跑四条 checked-in replay；有意变化时重录并说明。
-
-## 8. 风险
-
-- **命名冲突**：装备 Mod 与 `ModLoader` 本地数据包 mod 必须在文档、代码和 UI 中区分。
-- **经济膨胀**：掉落、分解和升级资源如果循环套利，会破坏刷宝节奏。
-- **无脑堆伤害**：首片只有伤害 Mod 时容易形成唯一最优；后续应快速补英雄生存、拾取、射速、弹速、暴击和副作用 Mod。
-- **存档迁移**：删除旧局外成长必须通过 SaveManager 迁移，不能让老档坏掉。
+性能 probe 不属于本工作包验收。标题无局外入口、掉落 / 升阶反馈、结果页构筑和中英文布局均为待人工验收。

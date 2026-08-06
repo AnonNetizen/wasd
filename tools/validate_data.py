@@ -46,7 +46,6 @@ MODULES_DIR = ROOT / "client" / "data" / "modules"
 GEAR_MODS_JSON = ROOT / "client" / "data" / "gear_mods.json"
 WORLD_EVENTS_JSON = ROOT / "client" / "data" / "world_events.json"
 GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
-GEAR_MOD_FUSION_COSTS_CSV = ROOT / "client" / "data" / "gear_mod_fusion_costs.csv"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
 HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
@@ -142,9 +141,7 @@ def main() -> int:
     _validate_gear_mods(ctx)
     gear_mod_ids = _collect_gear_mod_ids(ctx)
     world_event_ids = _validate_world_events(ctx, gear_mod_ids)
-    gear_mod_rarity_max_ranks = _collect_gear_mod_rarity_max_ranks(ctx)
     _validate_gear_mod_drop_tables(ctx, enemy_ids, gear_mod_ids)
-    _validate_gear_mod_fusion_costs(ctx, gear_mod_rarity_max_ranks)
     _validate_hazards_csv(ctx)
     hazard_ids = _collect_hazard_ids(ctx)
     _validate_relics(ctx)
@@ -165,7 +162,7 @@ def main() -> int:
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
-    _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx), gear_mod_ids)
+    _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx))
     module_tile_catalog = _validate_module_tile_catalog(ctx)
     _validate_module_world_data(
         ctx,
@@ -1786,7 +1783,40 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    if set(data) != {"schema_version", "overflow_gold", "reward_pools", "mods"}:
+        ctx.error(path, "root", "must define exactly schema_version, overflow_gold, reward_pools, and mods")
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
+    _require_int(ctx, path, "overflow_gold", data.get("overflow_gold"), minimum=1)
+    reward_pools = _require_list(ctx, path, "reward_pools", data.get("reward_pools"))
+    seen_pool_ids: set[str] = set()
+    for pool_index, pool in enumerate(reward_pools):
+        pool_field = f"reward_pools[{pool_index}]"
+        if not isinstance(pool, dict):
+            ctx.error(path, pool_field, "must be an object")
+            continue
+        if set(pool) != {"id", "mod_ids"}:
+            ctx.error(path, pool_field, "must define exactly id and mod_ids")
+        pool_id = _require_registered(
+            ctx, path, f"{pool_field}.id", pool.get("id"), "world_event_mod_pool_ids"
+        )
+        if pool_id:
+            if pool_id in seen_pool_ids:
+                ctx.error(path, f"{pool_field}.id", f"duplicate reward pool id {pool_id}")
+            seen_pool_ids.add(pool_id)
+        pool_mod_ids = _require_list(ctx, path, f"{pool_field}.mod_ids", pool.get("mod_ids"))
+        if not pool_mod_ids:
+            ctx.error(path, f"{pool_field}.mod_ids", "must be a non-empty array")
+        seen_pool_mod_ids: set[str] = set()
+        for mod_index, raw_mod_id in enumerate(pool_mod_ids):
+            mod_field = f"{pool_field}.mod_ids[{mod_index}]"
+            mod_id = _require_registered(ctx, path, mod_field, raw_mod_id, "gear_mod_ids")
+            if mod_id:
+                if mod_id in seen_pool_mod_ids:
+                    ctx.error(path, mod_field, f"duplicate Gear Mod id {mod_id}")
+                seen_pool_mod_ids.add(mod_id)
+    expected_pool_ids = set(ctx.contracts.get("world_event_mod_pool_ids", []))
+    if seen_pool_ids != expected_pool_ids:
+        ctx.error(path, "reward_pools", "must define every registered world_event_mod_pool_id exactly once")
     mods = _require_list(ctx, path, "mods", data.get("mods"))
     if not mods:
         ctx.error(path, "mods", "must be a non-empty array")
@@ -1796,6 +1826,14 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         if not isinstance(mod, dict):
             ctx.error(path, field, "must be an object")
             continue
+        if set(mod) != {
+            "id", "name_key", "desc_key", "slot", "rarity", "max_rank", "rank_modifiers"
+        }:
+            ctx.error(
+                path,
+                field,
+                "must define exactly id, name_key, desc_key, slot, rarity, max_rank, and rank_modifiers",
+            )
         mod_id = _require_registered(ctx, path, f"{field}.id", mod.get("id"), "gear_mod_ids")
         if mod_id:
             if mod_id in seen:
@@ -1806,11 +1844,7 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         _require_registered(ctx, path, f"{field}.slot", mod.get("slot"), "gear_mod_slots")
         _require_registered(ctx, path, f"{field}.rarity", mod.get("rarity"), "gear_mod_rarities")
         _require_int(ctx, path, f"{field}.max_rank", mod.get("max_rank"), minimum=0)
-        _require_int(ctx, path, f"{field}.base_drain", mod.get("base_drain"), minimum=0)
-        _require_int(ctx, path, f"{field}.drain_per_rank", mod.get("drain_per_rank"), minimum=0)
         _validate_gear_mod_rank_modifiers(ctx, path, f"{field}.rank_modifiers", mod.get("rank_modifiers"))
-        _require_registered(ctx, path, f"{field}.stack_rule", mod.get("stack_rule"), "gear_mod_stack_rules")
-        _validate_gear_mod_dismantle(ctx, path, f"{field}.dismantle", mod.get("dismantle"))
 
 
 def _validate_gear_mod_rank_modifiers(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
@@ -1827,14 +1861,6 @@ def _validate_gear_mod_rank_modifiers(ctx: ValidationContext, path: Path, field:
             ctx.error(path, f"{item_field}.type", "must be add or mult")
         _require_number(ctx, path, f"{item_field}.base_value", modifier.get("base_value"))
         _require_number(ctx, path, f"{item_field}.value_per_rank", modifier.get("value_per_rank"))
-
-
-def _validate_gear_mod_dismantle(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
-    if not isinstance(data, dict):
-        ctx.error(path, field, "must be an object")
-        return
-    _require_registered(ctx, path, f"{field}.resource_id", data.get("resource_id"), "gear_mod_resources")
-    _require_int(ctx, path, f"{field}.amount", data.get("amount"), minimum=0)
 
 
 def _validate_gear_mod_drop_tables(ctx: ValidationContext, enemy_ids: set[str], gear_mod_ids: set[str]) -> None:
@@ -1875,46 +1901,6 @@ def _validate_gear_mod_drop_tables(ctx: ValidationContext, enemy_ids: set[str], 
                     seen.add(key)
         if row_count == 0:
             ctx.error(path, "rows", "must contain at least one gear mod drop row")
-
-
-def _validate_gear_mod_fusion_costs(ctx: ValidationContext, rarity_max_ranks: dict[str, int]) -> None:
-    path = GEAR_MOD_FUSION_COSTS_CSV
-    if not path.exists():
-        ctx.error(path, "$", "missing gear mod fusion costs CSV")
-        return
-
-    required = {"rarity", "rank", "resource_id", "cost"}
-    costs_by_rarity: dict[str, set[int]] = {}
-    seen: set[tuple[str, int]] = set()
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = reader.fieldnames or []
-        missing = required.difference(fieldnames)
-        if missing:
-            ctx.error(path, "header", f"missing required columns {sorted(missing)}")
-            return
-        row_count = 0
-        for line_number, row in enumerate(reader, start=2):
-            row_count += 1
-            field = f"line {line_number}"
-            rarity = _require_registered(ctx, path, f"{field}.rarity", row.get("rarity"), "gear_mod_rarities")
-            rank = _parse_int(ctx, path, f"{field}.rank", row.get("rank"), minimum=1)
-            _require_registered(ctx, path, f"{field}.resource_id", row.get("resource_id"), "gear_mod_resources")
-            _parse_int(ctx, path, f"{field}.cost", row.get("cost"), minimum=0)
-            if rarity and rank is not None:
-                key = (rarity, rank)
-                if key in seen:
-                    ctx.error(path, field, f"duplicate fusion cost for {rarity} rank {rank}")
-                seen.add(key)
-                costs_by_rarity.setdefault(rarity, set()).add(rank)
-        if row_count == 0:
-            ctx.error(path, "rows", "must contain at least one gear mod fusion cost row")
-
-    for rarity, max_rank in rarity_max_ranks.items():
-        covered = costs_by_rarity.get(rarity, set())
-        for rank in range(1, max_rank + 1):
-            if rank not in covered:
-                ctx.error(path, f"{rarity}.rank_{rank}", "missing fusion cost for gear mod rarity/rank")
 
 
 def _status_params_has_damage_tick(params: dict[str, Any]) -> bool:
@@ -2507,13 +2493,12 @@ def _validate_warzone_directors(
     wave_ids_by_mode: dict[str, set[str]],
     hazard_ids: dict[str, int],
     map_layout_ids: set[str],
-    gear_mod_ids: set[str],
 ) -> None:
     path = WARZONE_DIRECTORS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2, maximum=2)
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3, maximum=3)
     directors = _require_list(ctx, path, "directors", data.get("directors"))
     if not directors:
         ctx.error(path, "directors", "must be a non-empty array")
@@ -2540,7 +2525,7 @@ def _validate_warzone_directors(
         if "description" in director:
             _require_non_empty_string(ctx, path, f"{director_field}.description", director.get("description"))
         _reject_removed_field(ctx, path, director_field, director, "encounters", schema_version=2)
-        _validate_warzone_interest_points(ctx, path, f"{director_field}.interest_points", director.get("interest_points"), hazard_ids, map_layout_ids, gear_mod_ids)
+        _validate_warzone_interest_points(ctx, path, f"{director_field}.interest_points", director.get("interest_points"), hazard_ids, map_layout_ids)
         mode_wave_ids = wave_ids_by_mode.get(mode_id or "", set())
         referenced_waves = _validate_warzone_phases(ctx, path, director_field, director.get("phases"), mode_id or "", mode_wave_ids)
         for wave_id in mode_wave_ids:
@@ -2608,7 +2593,6 @@ def _validate_warzone_interest_points(
     data: Any,
     hazard_ids: dict[str, int],
     map_layout_ids: set[str],
-    gear_mod_ids: set[str],
 ) -> None:
     points = _require_list(ctx, path, field, data)
     if not points:
@@ -2642,7 +2626,10 @@ def _validate_warzone_interest_points(
         if "min_spacing" in point:
             _require_number(ctx, path, f"{item_field}.min_spacing", point.get("min_spacing"), minimum=0)
         completes_run = bool(point.get("completes_run", False))
-        has_reward_payload = "resource_rewards" in point or "gear_mod_rewards" in point or completes_run
+        has_gold_reward = "gold_reward_amount" in point
+        has_mod_pool = "gear_mod_pool_id" in point
+        has_mod_rolls = "gear_mod_rolls" in point
+        has_reward_payload = has_gold_reward or has_mod_pool or has_mod_rolls or completes_run
         if "claim_radius" in point or has_reward_payload:
             _require_number(ctx, path, f"{item_field}.claim_radius", point.get("claim_radius"), minimum=0, exclusive_minimum=True)
         if "claim_start_time" in point:
@@ -2651,48 +2638,35 @@ def _validate_warzone_interest_points(
             _require_bool(ctx, path, f"{item_field}.requires_interaction", point.get("requires_interaction"))
         if "completes_run" in point:
             _require_bool(ctx, path, f"{item_field}.completes_run", point.get("completes_run"))
-        if "extraction_radius" in point or completes_run:
-            _require_number(ctx, path, f"{item_field}.extraction_radius", point.get("extraction_radius"), minimum=0, exclusive_minimum=True)
-        if "extraction_hold_time" in point or completes_run:
-            _require_number(ctx, path, f"{item_field}.extraction_hold_time", point.get("extraction_hold_time"), minimum=0, exclusive_minimum=True)
+        if has_gold_reward:
+            _require_int(ctx, path, f"{item_field}.gold_reward_amount", point.get("gold_reward_amount"), minimum=1)
+        if has_mod_pool != has_mod_rolls:
+            ctx.error(path, item_field, "must define gear_mod_pool_id and gear_mod_rolls together")
+        if has_mod_pool:
+            _require_registered(
+                ctx,
+                path,
+                f"{item_field}.gear_mod_pool_id",
+                point.get("gear_mod_pool_id"),
+                "world_event_mod_pool_ids",
+            )
+        if has_mod_rolls:
+            _require_int(ctx, path, f"{item_field}.gear_mod_rolls", point.get("gear_mod_rolls"), minimum=1)
+        if completes_run and (has_gold_reward or has_mod_pool or has_mod_rolls):
+            ctx.error(path, item_field, "run completion point must not define a reward payload")
         if "target_hp" in point:
             _require_number(ctx, path, f"{item_field}.target_hp", point.get("target_hp"), minimum=0, exclusive_minimum=True)
         if "target_hit_radius" in point:
             _require_number(ctx, path, f"{item_field}.target_hit_radius", point.get("target_hit_radius"), minimum=0, exclusive_minimum=True)
-        if "resource_rewards" in point:
-            _validate_warzone_resource_rewards(ctx, path, f"{item_field}.resource_rewards", point.get("resource_rewards"))
-        if "gear_mod_rewards" in point:
-            _validate_warzone_gear_mod_rewards(ctx, path, f"{item_field}.gear_mod_rewards", point.get("gear_mod_rewards"), gear_mod_ids)
+        for removed_field in (
+            "resource_rewards",
+            "gear_mod_rewards",
+            "extraction_radius",
+            "extraction_hold_time",
+        ):
+            _reject_removed_field(ctx, path, item_field, point, removed_field, schema_version=3)
         if "notes" in point:
             _require_non_empty_string(ctx, path, f"{item_field}.notes", point.get("notes"))
-
-
-def _validate_warzone_resource_rewards(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
-    rewards = _require_list(ctx, path, field, data)
-    if not rewards:
-        ctx.error(path, field, "must be a non-empty array")
-    for index, reward in enumerate(rewards):
-        reward_field = f"{field}[{index}]"
-        if not isinstance(reward, dict):
-            ctx.error(path, reward_field, "must be an object")
-            continue
-        _require_registered(ctx, path, f"{reward_field}.resource_id", reward.get("resource_id"), "gear_mod_resources")
-        _require_int(ctx, path, f"{reward_field}.amount", reward.get("amount"), minimum=1)
-
-
-def _validate_warzone_gear_mod_rewards(ctx: ValidationContext, path: Path, field: str, data: Any, gear_mod_ids: set[str]) -> None:
-    rewards = _require_list(ctx, path, field, data)
-    if not rewards:
-        ctx.error(path, field, "must be a non-empty array")
-    for index, reward in enumerate(rewards):
-        reward_field = f"{field}[{index}]"
-        if not isinstance(reward, dict):
-            ctx.error(path, reward_field, "must be an object")
-            continue
-        mod_id = _require_registered(ctx, path, f"{reward_field}.mod_id", reward.get("mod_id"), "gear_mod_ids")
-        if mod_id and mod_id not in gear_mod_ids:
-            ctx.error(path, f"{reward_field}.mod_id", f"mod is not defined in gear_mods.json: {mod_id}")
-        _require_int(ctx, path, f"{reward_field}.count", reward.get("count"), minimum=1)
 
 
 def _validate_map_bounds(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
@@ -3241,48 +3215,16 @@ def _collect_gear_mod_ids(ctx: ValidationContext) -> set[str]:
     return {item.get("id") for item in mods if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
-def _validate_world_events(ctx: ValidationContext, gear_mod_ids: set[str]) -> set[str]:
+def _validate_world_events(ctx: ValidationContext, _gear_mod_ids: set[str]) -> set[str]:
     path = WORLD_EVENTS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return set()
-    if set(data) != {"schema_version", "mod_pools", "events"}:
-        ctx.error(path, "root", "must define exactly schema_version, mod_pools, and events")
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    if set(data) != {"schema_version", "events"}:
+        ctx.error(path, "root", "must define exactly schema_version and events")
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
 
-    mod_pools = _require_list(ctx, path, "mod_pools", data.get("mod_pools"))
-    mod_pool_ids: set[str] = set()
-    for pool_index, pool in enumerate(mod_pools):
-        field = f"mod_pools[{pool_index}]"
-        if not isinstance(pool, dict):
-            ctx.error(path, field, "must be an object")
-            continue
-        if set(pool) != {"id", "mod_ids"}:
-            ctx.error(path, field, "must define exactly id and mod_ids")
-        pool_id = _require_registered(
-            ctx, path, f"{field}.id", pool.get("id"), "world_event_mod_pool_ids"
-        )
-        if pool_id:
-            if pool_id in mod_pool_ids:
-                ctx.error(path, f"{field}.id", f"duplicate mod pool id {pool_id}")
-            mod_pool_ids.add(pool_id)
-        mod_ids = _require_list(ctx, path, f"{field}.mod_ids", pool.get("mod_ids"))
-        if not mod_ids:
-            ctx.error(path, f"{field}.mod_ids", "must be a non-empty array")
-        seen_mod_ids: set[str] = set()
-        for mod_index, raw_mod_id in enumerate(mod_ids):
-            mod_field = f"{field}.mod_ids[{mod_index}]"
-            mod_id = _require_registered(ctx, path, mod_field, raw_mod_id, "gear_mod_ids")
-            if not mod_id:
-                continue
-            if mod_id in seen_mod_ids:
-                ctx.error(path, mod_field, f"duplicate Gear Mod id {mod_id}")
-            seen_mod_ids.add(mod_id)
-            if mod_id not in gear_mod_ids:
-                ctx.error(path, mod_field, f"Gear Mod is not defined in gear_mods.json: {mod_id}")
-    expected_pool_ids = set(ctx.contracts.get("world_event_mod_pool_ids", []))
-    if mod_pool_ids != expected_pool_ids:
-        ctx.error(path, "mod_pools", "must define every registered world_event_mod_pool_id exactly once")
+    mod_pool_ids = set(ctx.contracts.get("world_event_mod_pool_ids", []))
 
     events = _require_list(ctx, path, "events", data.get("events"))
     event_ids: set[str] = set()
@@ -3474,11 +3416,8 @@ def _validate_world_event_completion_reward(
     if not isinstance(value, dict):
         ctx.error(path, field, "must be an object")
         return
-    if set(value) != {"gold_weight", "mod_weight", "gold_amount", "mod_pool_id"}:
-        ctx.error(path, field, "must define exactly gold_weight, mod_weight, gold_amount, and mod_pool_id")
-    _require_int(ctx, path, f"{field}.gold_weight", value.get("gold_weight"), minimum=1)
-    _require_int(ctx, path, f"{field}.mod_weight", value.get("mod_weight"), minimum=1)
-    _require_int(ctx, path, f"{field}.gold_amount", value.get("gold_amount"), minimum=1)
+    if set(value) != {"mod_pool_id"}:
+        ctx.error(path, field, "must define exactly mod_pool_id")
     _validate_world_event_mod_pool_reference(
         ctx, path, f"{field}.mod_pool_id", value.get("mod_pool_id"), mod_pool_ids
     )
@@ -3493,7 +3432,7 @@ def _validate_world_event_mod_pool_reference(
 ) -> None:
     pool_id = _require_registered(ctx, path, field, value, "world_event_mod_pool_ids")
     if pool_id and pool_id not in mod_pool_ids:
-        ctx.error(path, field, f"mod pool is not defined in world_events.json: {pool_id}")
+        ctx.error(path, field, f"mod pool is not defined in gear_mods.json: {pool_id}")
 
 
 def _collect_gear_mod_rarity_max_ranks(ctx: ValidationContext) -> dict[str, int]:
@@ -3572,7 +3511,7 @@ def _validate_module_world_data(
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 3)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 4)
     worlds = _require_list(ctx, path, "worlds", data.get("worlds"))
     if not worlds:
         ctx.error(path, "worlds", "must be a non-empty array")
@@ -3600,7 +3539,7 @@ def _validate_module_world_data(
             continue
 
         anchors: dict[str, tuple[int, int] | None] = {}
-        for anchor_name in ("start_slot", "objective_slot", "extraction_slot"):
+        for anchor_name in ("start_slot", "objective_slot"):
             anchors[anchor_name] = _validate_module_cell(
                 ctx, path, f"{field}.{anchor_name}", world.get(anchor_name), 9, 9
             )
@@ -4079,23 +4018,31 @@ def _validate_module_file(
                 ctx.error(path, f"{field}.hazard_id", f"hazard is not defined in hazards.csv: {hazard_id}")
             danger_cells.update(footprint)
         elif placement_type == "module_place_reward_cache":
-            rewards = _require_list(ctx, path, f"{field}.resource_rewards", placement.get("resource_rewards"))
-            if not rewards:
-                ctx.error(path, f"{field}.resource_rewards", "must be a non-empty array")
-            for reward_index, reward in enumerate(rewards):
-                reward_field = f"{field}.resource_rewards[{reward_index}]"
-                if not isinstance(reward, dict):
-                    ctx.error(path, reward_field, "must be an object")
-                    continue
-                _require_registered(ctx, path, f"{reward_field}.id", reward.get("id"), "gear_mod_resources")
-                _require_int(ctx, path, f"{reward_field}.amount", reward.get("amount"), minimum=1)
+            has_gold_reward = "gold_reward_amount" in placement
+            has_mod_pool = "gear_mod_pool_id" in placement
+            has_mod_rolls = "gear_mod_rolls" in placement
+            if has_gold_reward:
+                _require_int(ctx, path, f"{field}.gold_reward_amount", placement.get("gold_reward_amount"), minimum=1)
+            if has_mod_pool != has_mod_rolls:
+                ctx.error(path, field, "must define gear_mod_pool_id and gear_mod_rolls together")
+            if has_mod_pool:
+                _require_registered(
+                    ctx,
+                    path,
+                    f"{field}.gear_mod_pool_id",
+                    placement.get("gear_mod_pool_id"),
+                    "world_event_mod_pool_ids",
+                )
+            if has_mod_rolls:
+                _require_int(ctx, path, f"{field}.gear_mod_rolls", placement.get("gear_mod_rolls"), minimum=1)
+            if not has_gold_reward and not (has_mod_pool and has_mod_rolls):
+                ctx.error(path, field, "must define a gold reward or Gear Mod pool reward")
+            if "resource_rewards" in placement:
+                ctx.error(path, f"{field}.resource_rewards", "was removed; use gold_reward_amount or Gear Mod pool fields")
             _require_number(ctx, path, f"{field}.claim_radius", placement.get("claim_radius"), minimum=0.0, exclusive_minimum=True)
         elif placement_type == "module_place_objective":
             _require_number(ctx, path, f"{field}.target_hp", placement.get("target_hp"), minimum=0.0, exclusive_minimum=True)
             _require_number(ctx, path, f"{field}.target_hit_radius", placement.get("target_hit_radius"), minimum=0.0, exclusive_minimum=True)
-        elif placement_type == "module_place_extraction":
-            _require_number(ctx, path, f"{field}.radius", placement.get("radius"), minimum=0.0, exclusive_minimum=True)
-            _require_number(ctx, path, f"{field}.hold_time", placement.get("hold_time"), minimum=0.0, exclusive_minimum=True)
         elif placement_type == "module_place_world_event":
             if set(placement) != {"type", "cell", "world_event_id"}:
                 ctx.error(path, field, "must define exactly type, cell, and world_event_id")
@@ -4117,7 +4064,6 @@ def _validate_module_file(
         "module_place_player_start",
         "module_place_reward_cache",
         "module_place_objective",
-        "module_place_extraction",
         "module_place_world_event",
     }
     danger_types = {"module_place_hazard"}
@@ -4125,7 +4071,7 @@ def _validate_module_file(
         for right_type, right_cells in footprint_by_type[left_index + 1:]:
             if ((left_type in danger_types and right_type in protected_types) or
                     (right_type in danger_types and left_type in protected_types)) and left_cells & right_cells:
-                ctx.error(path, "placements", "danger placement overlaps player start, objective, extraction, or reward")
+                ctx.error(path, "placements", "danger placement overlaps player start, objective, or reward")
 
     _validate_module_role_budget(ctx, path, role, placement_counts)
     if role == "module_role_start" and start_cell is not None:
@@ -4289,8 +4235,6 @@ def _validate_module_role_budget(
         _validate_budget_range(ctx, path, hazards, 2, 4, "hazard module hazard count")
     elif role == "module_role_objective" and counts.get("module_place_objective", 0) != 1:
         ctx.error(path, "placements", "objective module requires exactly one objective")
-    elif role == "module_role_extraction" and counts.get("module_place_extraction", 0) != 1:
-        ctx.error(path, "placements", "extraction module requires exactly one extraction")
     elif role == "module_role_world_event":
         if counts.get("module_place_world_event", 0) != 1 or len(counts) != 1:
             ctx.error(path, "placements", "world event module requires exactly one world event placement")
@@ -4308,7 +4252,7 @@ def _validate_module_route_budget(ctx: ValidationContext, path: Path, field: str
         ctx.error(path, field, "must be an object")
         return {}
     result: dict[str, Any] = {}
-    for segment in ("start_to_objective", "objective_to_extraction"):
+    for segment in ("start_to_objective",):
         segment_value = value.get(segment)
         segment_field = f"{field}.{segment}"
         if not isinstance(segment_value, dict):
@@ -4407,7 +4351,6 @@ def _validate_module_fixed_anchor_roles(
     for anchor_name, expected_role in (
         ("start_slot", "module_role_start"),
         ("objective_slot", "module_role_objective"),
-        ("extraction_slot", "module_role_extraction"),
     ):
         role_slots = [
             role_slot
@@ -4444,7 +4387,6 @@ def _validate_module_assignment_world(
         for anchor_name, role in (
             ("start_slot", "module_role_start"),
             ("objective_slot", "module_role_objective"),
-            ("extraction_slot", "module_role_extraction"),
         ):
             role_slots = [
                 slot for slot, (template_id, _rotation) in assignment.items()
@@ -4457,7 +4399,6 @@ def _validate_module_assignment_world(
     for anchor_name, expected_role in (
         ("start_slot", "module_role_start"),
         ("objective_slot", "module_role_objective"),
-        ("extraction_slot", "module_role_extraction"),
     ):
         slot = effective_anchors.get(anchor_name)
         if slot is None or slot not in assignment:
@@ -4501,23 +4442,16 @@ def _validate_module_assignment_world(
     if missing:
         ctx.error(path, field, f"all non-sealed slots must be reachable from start; unreachable: {sorted(missing)[:4]}")
     objective = effective_anchors.get("objective_slot")
-    extraction = effective_anchors.get("extraction_slot")
     if objective not in reachable:
         ctx.error(path, field, "critical route start -> objective is unreachable")
-        return
-    objective_distances = _module_graph_distances(graph, objective)
-    if extraction not in objective_distances:
-        ctx.error(path, field, "critical route objective -> extraction is unreachable")
         return
     if technical:
         return
     start_distance = reachable[objective]
-    extraction_distance = objective_distances[extraction]
     _validate_route_distance(ctx, path, field, "start_to_objective", start_distance, route_budget.get("start_to_objective"))
-    _validate_route_distance(ctx, path, field, "objective_to_extraction", extraction_distance, route_budget.get("objective_to_extraction"))
     main_range = route_budget.get("main_route_modules")
     if isinstance(main_range, tuple) and None not in main_range:
-        module_count = start_distance + extraction_distance + 1
+        module_count = start_distance + 1
         if module_count < main_range[0] or module_count > main_range[1]:
             ctx.error(path, field, f"main route module count {module_count} is outside {main_range[0]}..{main_range[1]}")
 

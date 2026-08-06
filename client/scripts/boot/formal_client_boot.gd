@@ -11,7 +11,6 @@ const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
 const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
-const GEAR_MOD_PANEL_SCENE := preload("res://scenes/ui/gear_mod_panel.tscn")
 const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const HERO_COMPOSITION_PANEL_SCENE := preload("res://scenes/ui/hero_composition_panel.tscn")
@@ -45,7 +44,6 @@ var _run_loop: Node = null
 var _open_warzone_launch: bool = false
 var _module_world_technical_slice_launch: bool = false
 var _debug_console: CanvasLayer = null
-var _gear_mod_panel: CanvasLayer = null
 var _hero_composition_panel: CanvasLayer = null
 var _last_main_hero_id: String = ""
 var _last_sub_hero_id: String = ""
@@ -343,7 +341,6 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), notice_key)
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"))
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
-	_title_menu.connect("gear_mod_requested", Callable(self, "_on_title_gear_mod_requested"))
 	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
@@ -751,15 +748,6 @@ func _run_save_unavailable_notice_key(payload: Dictionary) -> String:
 	return "ui_run_save_unavailable"
 
 
-func _on_title_gear_mod_requested() -> void:
-	if _gear_mod_panel != null and is_instance_valid(_gear_mod_panel):
-		return
-	_gear_mod_panel = UIManager.push(GEAR_MOD_PANEL_SCENE, {"source": "formal_client_boot"}) as CanvasLayer
-	if _gear_mod_panel == null:
-		return
-	_gear_mod_panel.connect("closed_requested", Callable(self, "_on_gear_mod_closed"), CONNECT_ONE_SHOT)
-
-
 func _on_title_quit_requested() -> void:
 	get_tree().quit()
 
@@ -771,14 +759,6 @@ func _on_title_settings_requested() -> void:
 	if _settings_panel == null:
 		return
 	_settings_panel.connect("closed_requested", Callable(self, "_on_settings_panel_closed"), CONNECT_ONE_SHOT)
-
-
-func _on_gear_mod_closed() -> void:
-	if UIManager.top() == _gear_mod_panel:
-		UIManager.pop()
-	elif _gear_mod_panel != null and is_instance_valid(_gear_mod_panel):
-		_gear_mod_panel.queue_free()
-	_gear_mod_panel = null
 
 
 func _on_settings_panel_closed() -> void:

@@ -131,7 +131,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `presentation_weapon_default.weapon_fire.effects` 为空，只保留 `weapon_recoil_shake`；正式 Player 的连续五点前缘鼓包和 38 px 常驻 `FacingBeam` 属于角色视觉，不是枪口闪光，也不进入 VFX catalog。突击枪手的逐发 `enemy_attack_impact` 同样无视觉绑定。
 - 敌人攻击预警只表现玩法已有的范围、方向、时间或局部起手提示，不自行读取目标、不调用 `Combat`，也不消耗 gameplay RNG。攻击源退场时 `cancel_owner()` 只取消附着表现，不得取消 detached 爆炸冲击。
 - ADR #181 后正式 `bullet_basic` 不属于 VFX catalog，也不使用 `RibbonTrail`、Shader、高光或外发光；其唯一 `BulletSlimeVisual` 由场景内四个持久边缘节点一次生成 64 点平色 `Body + Rim`，阵营差异只切换白色系 / 红色系。通用 `VfxRibbonTrail` 组件仍保留给其他精选组合效果，baker 不再向子弹场景自动补回拖尾。敌人退场仍生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影独立完成 0.45 秒余韵。
-- ADR #183 后正式玩家 `PlayerSlimeVisual` 不进入 VFX catalog：它使用 scene-authored ShaderMaterial、Gradient 和 Line2D，运行时只更新现有 uniform / 点列 / 颜色。角色本地坐标中的两股涡旋分别使用 `main_primary` / `sub_primary`；3 px Outline 与 38 px FacingBeam 使用主色原值，1 px WetRim 使用主色提亮派生。软体状态不进入 Run v12 / Replay v4，也不得消耗任何 RNG。
+- ADR #183 后正式玩家 `PlayerSlimeVisual` 不进入 VFX catalog：它使用 scene-authored ShaderMaterial、Gradient 和 Line2D，运行时只更新现有 uniform / 点列 / 颜色。角色本地坐标中的两股涡旋分别使用 `main_primary` / `sub_primary`；3 px Outline 与 38 px FacingBeam 使用主色原值，1 px WetRim 使用主色提亮派生。软体状态不进入 Run v13 / Replay v5，也不得消耗任何 RNG。
 - `WeaponSystem.active_temporary_modifiers()` 是续局重建持续表现的权威状态。
 
 ## 验证

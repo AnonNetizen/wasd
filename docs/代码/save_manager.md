@@ -9,8 +9,8 @@
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
 - 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
-- 当前 `meta` 为 v2、`run` 为 v12：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 保存完整世界、玩家、武器冷却与修正、经济、敌人、世界事件和 RNG 状态，不包含任何弹量、换弹、掉落计数或场上弹匣字段。旧 Run v11 直接标记不兼容，启动流程提示一次后只删除 run，Meta v2 保留。
-- F11 已由 `GearModSystem` 接管真实 `meta` profile：装备 Mod 资源、库存、loadout 和 rank 写入 `meta.gear_mods`；旧死亡结算货币 / 账号经验 / 永久升级运行时代码与旧档补偿路径已删除。`SaveManager` 仍不解释 profile 字段。
+- 当前 `meta` 为 v3、`run` 为 v13：Meta 只保存上次确认的主／副智能碎片选择，不含 Gear Mod；Run 保存完整世界、玩家、武器分层修正、局内 Gear Mod ranks、经济、敌人、世界事件和 RNG 状态，不包含 `pending_loot`、撤离或弹药字段。旧 Run v12 明确不兼容，启动流程提示一次后只删除 run，Meta v3 保留。
+- Gear Mod 已纯局内化：`GameplayRunLoop` 是 ranks 权威，`GearModSystem` 不读写 SaveManager；Meta v2→v3 直接删除旧 `gear_mods` 库存、rank、dust 与 loadout，不补偿。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
 ## 阅读方式
@@ -27,9 +27,9 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/save_manager.gd` | `SaveManager` autoload 脚本 |
-| `client/scripts/autoload/gear_mod_system.gd` | 当前 `meta.gear_mods` profile 的业务解释者和 SaveManager 调用方 |
+| `client/scripts/autoload/gear_mod_system.gd` | Gear Mod 无状态规则服务；不得调用 SaveManager |
 | `client/tools/save_manager_smoke.gd` | F5 存档可靠性 headless smoke：run roundtrip、备份回退、坏档隔离、迁移 |
-| `client/tools/gear_mod_smoke.gd` | F11 `meta.gear_mods` profile headless smoke：资源、库存、loadout、升级、分解和掉落 |
+| `client/tools/gear_mod_smoke.gd` | 局内 Gear Mod headless smoke：空开局、升阶、溢出金币、立即应用、清空与 Run 恢复 |
 | `tools/godot_bridge.py` | `save-smoke` 命令入口 |
 | `client/scripts/contracts/save_kinds.gd` | 自动生成的 save kind 常量 |
 | `client/scripts/contracts/analytics_events.gd` | 自动生成的存档相关埋点事件常量 |
@@ -62,7 +62,7 @@ user://saves/
 | 损坏 | 正式文件和备份都失败时，用唯一文件名隔离坏文件到 `.broken` 并发事件 | `save_corrupted` |
 | 删除 | 删除正式、备份、临时文件；若 slot 目录空则清理空目录 | `delete()` / `save_deleted` |
 | F5 续局 | Gameplay runtime 生成 JSON 友好的 run payload，SaveManager 写入 envelope；标题继续时只返回 payload | `save()` / `load()` |
-| F11 装备 Mod | `GearModSystem` 归一化 profile、写入 `meta.gear_mods`，并在掉落 / 装备 / 升级 / 分解 / 开局 modifier 读取时调用 SaveManager | `save()` / `load()` / `has_save()` |
+| 局内 Gear Mod | `GameplayRunLoop` 把 `{mod_id: rank}` 写入 Run v13；新局不读取 Meta，恢复后统一替换应用 Mod 层 | `save()` / `load()` |
 
 ## 公共 API
 
@@ -98,8 +98,8 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 | kind | 用途 |
 |------|------|
-| `meta` | 局外长期档案，当前 v2：Gear Mod profile + 上次确认的 `main_hero_id` / `sub_hero_id` |
-| `run` | 当前一局续局档案，当前 v12：完整世界、英雄组合、武器冷却 / 修正、经济、威胁时间、敌人奖励快照、显式攻击、世界事件和事务游标；精确不含弹药状态 |
+| `meta` | 局外长期档案，当前 v3：上次确认的 `main_hero_id` / `sub_hero_id`；不含 Gear Mod |
+| `run` | 当前一局续局档案，当前 v13：完整世界、英雄组合、武器分层修正、局内 Gear Mod ranks、经济、威胁时间、敌人奖励快照、显式攻击、世界事件和事务游标；精确不含 `pending_loot`、撤离与弹药状态 |
 | `replay_index` | 回放索引档案：具体回放文件仍由 `Replay` 管理 |
 
 存档 envelope：
@@ -115,7 +115,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-Run v12 payload 延续模块、事件和敌人奖励确定性字段；`weapon` 只保存冷却与武器修正，不存在弹量或换弹字段，顶层也不存在掉落计数、场上弹匣或 `RNG.ammo` state。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 大整数仍以字符串保存。
+Run v13 payload 延续模块、事件和敌人奖励确定性字段，并保存 `gear_mod_ranks`；`weapon` 保存冷却与普通 / 临时 / Gear Mod 分层修正，不存在弹量或换弹字段，顶层也不存在 `pending_loot`、`extraction`、掉落计数、场上弹匣或 `RNG.ammo` state。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 大整数仍以字符串保存。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 
@@ -133,19 +133,21 @@ Run v12 payload 延续模块、事件和敌人奖励确定性字段；`weapon` �
 
 `run` v11→v12 是 ADR #186 完全删除弹药系统的边界：迁移器删除旧武器弹量 / 换弹字段、顶层掉落计数 / 场上弹匣以及任何遗留弹药状态，并设置 `legacy_run_incompatible=true`。正式启动提示一次后只删除 run，Meta v2 与 Gear Mod 完整保留；不尝试把旧弹药状态折算为其他资源。
 
-`meta` v1→v2 在保留 `gear_mods` 全部字段的同时补入默认组合“冷静主 + 愤怒子”。`FormalClientBoot` 在玩家确认组合时合并写回这两个 ID；SaveManager 仍只校验 envelope 与 hash，不解释业务字段。
+`run` v12→v13 是 ADR #188 的 Roguelike 直接通关与局内 Gear Mod 边界：旧 run 的 `pending_loot`、`extraction`、跨局 Mod 依赖和 modifier 恢复顺序不能无损转换，迁移只设置 `legacy_run_incompatible=true`；正式启动提示后删除旧 run，不尝试补发或折算奖励。
+
+`meta` v1→v2 在保留当时 `gear_mods` 字段的同时补入默认组合；`meta` v2→v3 保留合法的 `main_hero_id` / `sub_hero_id`，直接删除旧 `gear_mods` inventory、rank、dust 与 loadout，不补偿。SaveManager 仍只校验 envelope 与 hash，业务层只解释英雄组合。
 
 ## 依赖
 
 - 上游依赖：`DataLoader` 提供 save kind 契约校验；`Analytics` 记录存档诊断事件。
-- 下游调用方：`GearModSystem`、暂停菜单、主菜单继续游戏、回放索引 UI。
+- 下游调用方：`GameplayRunLoop`、暂停菜单、主菜单继续游戏、回放索引 UI。
 - 禁止依赖：玩家设置不得写入 `SaveManager`；`Replay` 的具体回放文件不得混入 `run` 存档；业务系统不得直接写 `user://saves/`。
 
 ## 扩展点
 
 - 新 save kind：先登记 `docs/词表与契约.md` §14，跑 `tools/sync_contracts.py`，再补当前版本与文档。
 - 新 schema 版本：更新 `CURRENT_KIND_VERSIONS`，注册逐级 migration，并补 L1 迁移测试。
-- `meta` 接入：`GearModSystem` 解释 `meta.gear_mods`，FormalClientBoot 解释上次英雄组合；写入时必须合并，不能覆盖另一业务域。
+- `meta` 接入：FormalClientBoot 只解释上次英雄组合；Gear Mod 不得写入 Meta。
 - `run` 接入：玩法系统生成可恢复快照，`SaveManager` 不知道玩家 / 敌人 / 子弹内部字段；保存对象池实体时只保存活动节点字段，恢复时由玩法系统通过 `PoolManager` 重新 acquire。
 
 ## 常见改动入口
@@ -154,7 +156,7 @@ Run v12 payload 延续模块、事件和敌人奖励确定性字段；`weapon` �
 |------------|----------|----------|----------|
 | 新增 save kind | `docs/词表与契约.md`、`save_manager.gd` | 本文档、AI 导航 | `tools/sync_contracts.py --check`、headless boot |
 | 改 envelope 字段 | `save_manager.gd` | 本文档、GDD §9.16、测试策略 | L1 + roundtrip + 坏档测试 |
-| 改 `meta` payload | `GearModSystem`、Gear Mod 数据配置 | 本文档、GearModSystem 文档 | `gear-mod-smoke` + 数据校验 |
+| 改 `meta` payload | `FormalClientBoot`、`save_manager.gd` | 本文档、GDD、测试策略 | `save-smoke` + `runtime-smoke` |
 | 改 `run` 快照 / 迁移 | 玩法快照生产者、`save_manager.gd`、`client/tools/save_manager_smoke.gd` | 本文档、测试策略、回放文档 | `python tools/godot_bridge.py --project client save-smoke`；人工存档 checklist 由用户执行 |
 | 改损坏隔离 | `save_manager.gd` | 本文档 | 坏 JSON / hash mismatch smoke |
 
@@ -173,13 +175,13 @@ Run v12 payload 延续模块、事件和敌人奖励确定性字段；`weapon` �
 ## 测试义务
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，并跑 `python tools/godot_bridge.py --project client save-smoke`。
-- 改 `meta.gear_mods` profile 或局外装配存档调用方时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`；改死亡面板、标题入口或 run 清理时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
+- 改 Meta v3 英雄组合或 Run v13 局内 Gear Mod 字段时追加 `save-smoke`、`gear-mod-smoke` 与 `runtime-smoke`；Meta 必须断言不存在 `gear_mods`。
 - 后续引入 GUT 后，`SaveManager` 必须覆盖 envelope 字段、hash mismatch、原子写入 / `.bak`、迁移链、坏档隔离、`meta` / `run` roundtrip、slot 校验和删除行为。
 - 改存档 schema 必须注册 migration 并补迁移测试；改 `run` 续局字段还要跑适用的自动 roundtrip，L5 存档 checklist 保持待人工验收并由用户执行。影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
 
 ## 迁移 / 兼容
 
-当前 `meta` 为 v2、`run` 为 v12、`replay_index` 为 v1，游戏版本标签为 `v1.11`。Meta v1→v2 保留 Gear Mod并补默认组合；Run 保留旧逐级迁移链，v4→v5 至 v11→v12 都是明确的不兼容重置边界。Replay 文件由 `Replay` 独立管理，当前为 v4。未来每次提升 kind 版本时必须：
+当前 `meta` 为 v3、`run` 为 v13、`replay_index` 为 v1，游戏版本标签为 `v1.12`。Meta v2→v3 删除旧 Gear Mod profile 且保留英雄组合；Run v12→v13 是明确的不兼容重置边界。Replay 文件由 `Replay` 独立管理，当前为 v5，旧 Replay v4 明确拒绝。未来每次提升 kind 版本时必须：
 
 1. 更新 `CURRENT_KIND_VERSIONS[kind]`。
 2. 用 `register_migration(kind, old, old + 1, fn)` 补逐级迁移。

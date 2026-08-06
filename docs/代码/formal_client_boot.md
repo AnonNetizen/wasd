@@ -33,11 +33,9 @@
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | F4+ 正式 gameplay runtime 场景，由启动脚本实例化 |
 | `client/scenes/ui/title_menu.tscn` | 正常启动后的正式标题菜单场景 |
 | `client/scenes/ui/loading_screen.tscn` | 开始 / 继续 / 重开期间的统一全屏加载界面 |
-| `client/scenes/ui/gear_mod_panel.tscn` | F11 标题装备 Mod 面板场景 |
 | `client/scenes/ui/settings_panel.tscn` | F7 标题设置面板场景 |
 | `client/scripts/ui/title_menu.gd` | F4 阶段最小标题界面，通过 `UIManager` 挂载 |
 | `client/scripts/ui/loading_screen.gd` | 加载文字刷新与旋转动画诊断 |
-| `client/scripts/ui/gear_mod_panel.gd` | F11 装备 Mod 面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/ui/settings_panel.gd` | F7 设置面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
 | `client/tools/save_manager_smoke.gd` | `--save-smoke` 下挂载的 F5 存档可靠性 smoke |
@@ -65,7 +63,6 @@ UIManager
 └── UIRoot
     ├── TitleMenu (scene; normal boot after data schema passes; shows continue when run.save exists)
     ├── LoadingScreen (scene; start / continue / restart preparation, always-process, input-blocking)
-    ├── GearModPanel (scene; opened from title menu)
     ├── DebugTestArenaSetup (debug/dev_tools only; opened from title menu or arena)
     └── SettingsPanel (scene; pushed above title menu when requested)
 
@@ -83,14 +80,13 @@ FormalClientBoot
 | 主场景加载 | 实例化 `FormalClientBoot` 根节点 | 无 |
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 | 正常启动 | 数据校验通过后通过 `UIManager` 显示 `TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
-| 标题装备 Mod | 标题菜单发出 `gear_mod_requested` 后，启动脚本把 `GearModPanel` 推入 UI 栈；关闭时弹出该面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | 标题设置 | 标题菜单发出 `settings_requested` 后，启动脚本把 `SettingsPanel` 推入 UI 栈；关闭时只弹出设置面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | 玩家加载入口 | 开始 / 继续 / 重开立即清理旧 UI、进入 `GameState.LOADING` 并压入唯一 `LoadingScreen`；至少渲染一帧后才读取存档或挂载 runtime。重复请求被忽略 | `_begin_player_gameplay_load()`、`UIManager.push()`、`GameState.LOADING` |
-| Gameplay runtime 准备 / 激活 | 开始 / 重开先生成新的 `RNG` run seed，并把可选 difficulty profile id 在 RunLoop 入树前配置；未指定时使用 mode 默认，当前正式 UI 固定标准难度。继续游戏在加载界面出现后读取 Run v12 payload，并恢复保存 profile、武器冷却 / 修正、世界与战斗状态。收到 `run_prepared` 后 `pop_expected(LoadingScreen)` 并等待 `ui_removed`，再调用 `activate_prepared_run()`；失败使用 immediate clear 清理半成品和对象池并回标题 | `configure_difficulty_profile_id()`、`run_prepared`、`run_prepare_failed`、`UIManager.ui_removed`、`GameState.PLAYING` |
+| Gameplay runtime 准备 / 激活 | 开始 / 重开先生成新的 `RNG` run seed，并把可选 difficulty profile id 在 RunLoop 入树前配置；未指定时使用 mode 默认，当前正式 UI 固定标准难度。继续游戏在加载界面出现后读取 Run v13 payload，并恢复保存 profile、武器冷却 / 分层修正、局内 Mod、世界与战斗状态。收到 `run_prepared` 后 `pop_expected(LoadingScreen)` 并等待 `ui_removed`，再调用 `activate_prepared_run()`；失败使用 immediate clear 清理半成品和对象池并回标题 | `configure_difficulty_profile_id()`、`run_prepared`、`run_prepare_failed`、`UIManager.ui_removed`、`GameState.PLAYING` |
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | F7 设置 smoke | `--settings-smoke` 启动时只挂载 `SettingsSmoke`，验证设置缺文件默认值、有效配置 roundtrip、非法值拒绝、坏值 / 坏文件回退以及 `Localization` 跟随语言设置 | `client/tools/settings_smoke.gd` |
 | F11 装备 Mod smoke | `--gear-mod-smoke` 启动时只挂载 `GearModSmoke`，验证 Gear Mod profile、授予、装备、容量、升级、分解和掉落 | `client/tools/gear_mod_smoke.gd` |
-| F13 模块世界 smoke | `--module-world-smoke` 启动默认模块载体，验证 81 槽 assignment/hash、不同 seed、三种不同世界事件、坐标、3×3 邻域与最多三个事件 pin（最多 12 chunk）、起点威胁暂停 / combat gate、敌人出生倍率、跨模块状态、迷雾、目标后撤离、Run v12 模块 / 事件子快照恢复与坏 map hash 拒绝 | `client/tools/module_world_smoke.gd` |
+| F13 模块世界 smoke | `--module-world-smoke` 启动默认模块载体，验证 81 槽 assignment/hash、不同 seed、三种不同世界事件、坐标、3×3 邻域与最多三个事件 pin（最多 11 chunk）、起点威胁暂停 / combat gate、敌人出生倍率、跨模块状态、迷雾、意识核直接完成、Run v13 模块 / 事件子快照恢复与坏 map hash 拒绝 | `client/tools/module_world_smoke.gd` |
 | F13 首帧可玩 probe（按需） | 仅在用户明确要求性能测试时，`--startup-probe` 在正式主场景 `_ready()` 首行输出 `BOOT_BEGIN`，启动默认模块载体，进入 `PLAYING` 且找到 `GameplayRunLoop` 后输出 `PLAYABLE` 并退出；Bridge 以两 marker 间单调时钟执行 2 秒硬门槛，进程冷启动另作诊断 | `client/tools/startup_probe.gd`、`tools/godot_bridge.py startup-probe` |
 | F8 / F9 L1 smoke | `--l1-smoke` 启动时只挂载 `L1Smoke`，验证 `RNG`、`GameClock`、`GameState`、`SaveManager`、`Combat`、`ModLoader` 和 `PlatformServices` 的最小基础设施行为 | `client/tools/l1_smoke.gd` |
 | F8 Replay smoke | `--replay-smoke` 启动时只挂载 `ReplaySmoke`，验证 Replay 最小录制、`.replay` 保存 / 读取、摘要对比和 data fingerprint | `client/tools/replay_smoke.gd` |
@@ -103,7 +99,7 @@ FormalClientBoot
 | 玩家加载 smoke | `--loading-smoke` 走真实标题按钮与重开信号，验证加载界面 / `LOADING`、跨帧旋转、输入阻断、重复请求、唯一 RunLoop、续局、重开与准备失败回退 | `client/tools/loading_smoke.gd` |
 | DebugTools smoke | `--debug-tools-smoke` 启动时挂载 `GameplayRunLoop` 与 `DebugToolsSmoke`；debug 模式验证 `DebugConsole` / `GMCommandRegistry`、help/stats/spawn/gold/hp/damage/heal/dust/kill/clear 命令，`--force-release-debug-tools-off` 模拟 release 时确认没有调试节点或 debug action | `client/tools/debug_tools_smoke.gd` |
 | 重开 / 回标题 | `GameplayRunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 gameplay 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
-| 存档拒绝 | Run v12 的 gold / reward choice / difficulty / enemy reward / assignment / map hash / 世界事件 / 显式攻击状态不一致，或读到旧 Run v11 兼容性标记时，启动层删除该 run、回标题并显示一次不可用提示，Meta v2 不受影响 | `restore_failed` / `SaveManager.delete(..., save_kind_run)` |
+| 存档拒绝 | Run v13 的 Gear Mod / gold / reward choice / difficulty / enemy reward / assignment / map hash / 世界事件 / 显式攻击状态不一致，或读到旧 Run v12 兼容性标记时，启动层删除该 run、回标题并显示一次不可用提示，Meta v3 不受影响 | `restore_failed` / `SaveManager.delete(..., save_kind_run)` |
 
 ## 公共 API
 
@@ -122,14 +118,14 @@ FormalClientBoot
 - `client/project.godot` 的默认 viewport 为 1920×1080；当前只设计 / 验收 16:9，窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在非 16:9 屏幕上等比缩放并补上下或左右黑边。设置页只应暴露经过验证的 16:9 固定分辨率预设，不接受任意宽高输入；16:10、4:3、21:9 等比例留作未来按独立固定预设接入的优化项，当前不做连续响应式适配。
 - 启动日志输出 `data_schema_ok`、`mods`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`map_layouts`、`module_worlds`、`module_templates`、`warzone_directors`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`level_progression_profiles`、`reward_choice_pools`、`game_modes`、`platform_provider`、`platform_available` 等 smoke 计数 / 状态。
 - 启动脚本不硬编码玩家可见文本；标题、加载、HUD、设置、失败页和装备 Mod 面板文案见 `client/locale/strings.csv`。加载界面只显示 `ui_loading`，通用准备失败回标题显示 `ui_loading_failed`。
-- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“装备 Mod”常驻可见并由 `GearModPanel` 展示 `GearModSystem` 的 profile / mod summaries；旧“局外升级”标题入口已删除。开始新局和重开会删除旧 `run` 存档，并通过 `RNG.set_random_run_seed()` 生成新的主 seed，避免重复继续旧局或每局固定序列。继续游戏先显示加载界面，再读取和校验 run；若读取失败或坏档被隔离，标题菜单显示既有 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 在加载界面移除后按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或通用奖励选择面板，不生成新 seed。
+- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；标题页不提供 Gear Mod 局外配置。开始新局和重开会删除旧 `run` 存档、建立空的局内 Mod 状态，并通过 `RNG.set_random_run_seed()` 生成新的主 seed。继续游戏先显示加载界面，再读取和校验 Run v13；失败时提示并隐藏继续按钮，成功时按 `ui_restore` 恢复普通游玩、暂停菜单或通用奖励选择面板。
 - DebugTools 只在 `OS.is_debug_build()` 或 `OS.has_feature("dev_tools")` 为真时动态加载；release 构建不应启用 `dev_tools`，也不应包含 `res://scripts/debug/*` 调试资源。
 - 正式 boot 与标题菜单不得包含开发者测试岛节点、路径、signal 或 `--debug-test-arena` 参数处理；该零耦合边界由项目 lint 守门。
 
 ## 依赖
 
 - 上游依赖：Godot 4.7.1 项目加载机制、已注册的 F2 autoload。
-- 下游调用方：`TitleMenu`、`LoadingScreen`、`GearModPanel` 和 `SettingsPanel` 场景由本启动脚本通过 `UIManager` 挂载，`GameplayRunLoop` 场景由本启动脚本创建、激活和清理。
+- 下游调用方：`TitleMenu`、`LoadingScreen` 和 `SettingsPanel` 场景由本启动脚本通过 `UIManager` 挂载，`GameplayRunLoop` 场景由本启动脚本创建、激活和清理。
 - 禁止依赖：不得引用 MVP 场景或脚本；不得用启动脚本临时拼长期 gameplay / UI 层级；不得提前绕过未来 F2 autoload 边界。
 
 ## 扩展点
@@ -146,7 +142,7 @@ FormalClientBoot
 | 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
 | 调整 gameplay runtime 挂载 / 新局 seed / 继续游戏 | `formal_client_boot.gd`、`gameplay_run_loop.tscn`、`gameplay_run_loop.gd` | 本文档、`docs/代码/gameplay_runtime.md`、RNG 文档、AI导航 | headless boot、`l1-smoke`、`runtime-smoke`、`save-smoke`、checked-in replay runner 抽查、手动保存续局 |
 | 调整开始 / 继续 / 重开加载 | `formal_client_boot.gd`、`loading_screen.tscn/.gd`、`gameplay_run_loop.gd` | 本文档、Gameplay Loading / Runtime、GameState、UIManager 文档 | `loading-smoke`、`runtime-smoke`、`save-smoke`、module-world full / technical、手动中英文 |
-| 调整标题装备 Mod 入口 | `formal_client_boot.gd`、`title_menu.tscn`、`gear_mod_panel.tscn`、对应脚本 | 本文档、`docs/代码/gameplay_runtime.md`、`docs/代码/gear_mod_system.md`、AI导航 | headless boot、`gear-mod-smoke`、手动标题菜单点开 |
+| 调整标题菜单或未来局内 Mod 配置入口 | `formal_client_boot.gd`、`title_menu.tscn`、对应脚本 | 本文档、Gameplay / GearModSystem 文档、AI导航；局内配置需新 ADR | headless boot、runtime / gear-mod smoke、人工标题菜单验收 |
 | 调整标题设置入口 | `formal_client_boot.gd`、`title_menu.tscn`、`settings_panel.tscn`、对应脚本 | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke`、`runtime-smoke` |
 | 调整 F7 设置 smoke 挂载 | `formal_client_boot.gd`、`client/tools/settings_smoke.gd` | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke` |
 | 调整 F11 Gear Mod smoke 挂载 | `formal_client_boot.gd`、`client/tools/gear_mod_smoke.gd` | 本文档、`docs/代码/gear_mod_system.md`、AI导航 | headless boot、`gear-mod-smoke` |
@@ -165,8 +161,7 @@ FormalClientBoot
 | 数据通过但没有运行时节点 | `formal_client_boot.gd` 是否创建 `GameplayRunLoop`，以及脚本编译是否失败 |
 | 场景加载报警或找不到节点 | `gameplay_run_loop.tscn` / UI `.tscn` 的 ext_resource 路径、节点名和脚本 `get_node_or_null()` 路径是否一致 |
 | 正常启动没有标题菜单 | `TitleMenu` 是否通过 `UIManager.push()` 挂载，`UIManager.stack_size()` 是否异常 |
-| 标题菜单看不到装备 Mod | `TitleMenu` 是否有 `GearModButton`；locale 是否有 `ui_gear_mod_title_entry`；`FormalClientBoot` 是否连接 `gear_mod_requested` |
-| 装备 Mod 面板没有 Mod 列表 | `GearModSystem.mod_summaries()` 是否返回当前槽位 Mod；`GearModPanel` 是否能找到 `ModList`；`gear-mod-smoke` 是否通过面板按钮流 |
+| 标题菜单仍显示装备 Mod | `TitleMenu` / `FormalClientBoot` 是否残留 button、signal、preload 或 locale key；正式入口必须为零 |
 | 标题菜单仍出现旧局外升级 | `TitleMenu` 是否意外恢复 `MetaProgressionButton` / `meta_progression_requested`；`FormalClientBoot` 是否意外恢复旧连接 |
 | 设置面板关闭后没回标题 | `_on_settings_panel_closed()` 是否只弹出 `SettingsPanel`；`UIManager.top()` 是否为设置面板 |
 | 有 run 存档但没有继续按钮 | `SaveManager.has_save(slot_0, run)` 是否为真；旧存档是否 hash mismatch 被隔离；标题菜单是否显示 `ui_run_save_unavailable` |
@@ -189,14 +184,14 @@ FormalClientBoot
 - 修改 `--input-smoke` / `--l1-smoke` / `--replay-smoke` / `--replay-runner` / `--replay-input-smoke` / `--capture-golden-replay` / `--f9-demo-smoke` 挂载时，追加对应 `python tools/godot_bridge.py --project client input-smoke`、`l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_reward_choice`、`f9-demo-smoke`；改 golden 对照逻辑时还要跑四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。修改性能 probe 挂载时只做静态 / headless 基础校验，除非用户当次明确要求运行性能测试。
 - 修改 DebugTools 挂载或 release guard 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`。
 - 若项目 lint 报正式入口引用测试岛，应删除该耦合并按 `docs/代码/debug_test_arena.md` 从独立 scene 验证；不要在本模块增加测试岛挂载或 CLI。
-- 修改标题装备 Mod 入口或 `GearModPanel` 挂载时，追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 并做一次手动标题菜单点开检查。
+- 修改标题菜单与局内 Gear Mod 隔离边界时，追加 `gear-mod-smoke`、`runtime-smoke`，并把“标题页无局外入口”保留为人工验收。
 - 修改标题设置入口或 `SettingsPanel` 挂载时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。
 - 不需要 GUT 单测；该模块只做 smoke / gameplay runtime 编排。改 DataLoader schema 时按 DataLoader 测试义务处理；改 gameplay runtime 挂载时跑 headless boot。
 
 ## 迁移 / 兼容
 
-新游戏流程为“标题开始 → 英雄组合选择 → Loading → 游戏”；选择页默认读取 Meta v2 上次确认组合，首次为冷静主 + 愤怒子，局外禁用同英雄。重开沿用当前组合和 difficulty profile，继续游戏直接恢复 Run v12 组合、武器冷却 / 修正、金币、未完成奖励选择、难度、世界 / 事件、敌人奖励与显式攻击状态。旧 Run v11 显示一次不兼容提示并只删除 run，Meta 与 Gear Mod 不受影响。`--module-world-technical-slice` 与 `--open-warzone` 仍只作 opt-in 回归入口；DebugTools 只在 debug/dev_tools 或 smoke 路径启用。
+新游戏流程为“标题开始 → 英雄组合选择 → Loading → 游戏”；选择页默认读取 Meta v3 上次确认组合，首次为冷静主 + 愤怒子，局外禁用同英雄。重开沿用当前组合和 difficulty profile，继续游戏直接恢复 Run v13 组合、武器冷却 / 分层修正、局内 Gear Mod、金币、未完成奖励选择、难度、世界 / 事件、敌人奖励与显式攻击状态。旧 Run v12 显示一次不兼容提示并只删除 run，Meta v3 不受影响。`--module-world-technical-slice` 与 `--open-warzone` 仍只作 opt-in 回归入口；DebugTools 只在 debug/dev_tools 或 smoke 路径启用。
 
 ## 相关文档
 

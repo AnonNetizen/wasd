@@ -8,7 +8,6 @@ const VALUES: Array[String] = [
 	"module_role_resource",
 	"module_role_hazard",
 	"module_role_objective",
-	"module_role_extraction",
 	"module_role_world_event",
 	"module_role_sealed",
 ]
@@ -19,6 +18,5 @@ const MODULE_ROLE_COMBAT: String = "module_role_combat"
 const MODULE_ROLE_RESOURCE: String = "module_role_resource"
 const MODULE_ROLE_HAZARD: String = "module_role_hazard"
 const MODULE_ROLE_OBJECTIVE: String = "module_role_objective"
-const MODULE_ROLE_EXTRACTION: String = "module_role_extraction"
 const MODULE_ROLE_WORLD_EVENT: String = "module_role_world_event"
 const MODULE_ROLE_SEALED: String = "module_role_sealed"

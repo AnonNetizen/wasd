@@ -49,6 +49,8 @@ var _external_knockback_remaining: float = 0.0
 var _external_knockback_velocity: Vector2 = Vector2.ZERO
 var _has_movement_bounds: bool = false
 var _health_regen: float = 0.0
+var _gear_stat_additions: Dictionary = {}
+var _gear_stat_multipliers: Dictionary = {}
 var _luck: float = 0.0
 var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
@@ -144,6 +146,8 @@ func configure(base_stats: Dictionary) -> void:
 	_base_stats = base_stats.duplicate(true)
 	_stat_additions.clear()
 	_stat_multipliers.clear()
+	_gear_stat_additions.clear()
+	_gear_stat_multipliers.clear()
 	_clear_status_effects_for_reuse()
 	_camera_look_offset = Vector2.ZERO
 	_ensure_presentation()
@@ -670,6 +674,30 @@ func apply_modifiers(modifiers: Array) -> void:
 			_stat_additions[stat] = float(_stat_additions.get(stat, 0.0)) + value
 		elif modifier_type == "mult":
 			_stat_multipliers[stat] = float(_stat_multipliers.get(stat, 1.0)) * value
+	_rebuild_stats(false)
+
+
+## Replaces the run-owned Gear Mod layer. Reapplying the same list is idempotent.
+func set_gear_modifiers(modifiers: Array) -> void:
+	_gear_stat_additions.clear()
+	_gear_stat_multipliers.clear()
+	for raw_modifier: Variant in modifiers:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
+		var stat: String = String(modifier.get("stat", ""))
+		var modifier_type: String = String(modifier.get("type", ""))
+		var value: float = float(modifier.get("value", 0.0))
+		if stat.is_empty():
+			continue
+		if modifier_type == "add":
+			_gear_stat_additions[stat] = (
+				float(_gear_stat_additions.get(stat, 0.0)) + value
+			)
+		elif modifier_type == "mult":
+			_gear_stat_multipliers[stat] = (
+				float(_gear_stat_multipliers.get(stat, 1.0)) * value
+			)
 	_rebuild_stats(false)
 
 
@@ -1317,8 +1345,14 @@ func _clamp_axis_to_radius_bounds(
 
 func _stat_value(stat: String, default_value: float) -> float:
 	var base_value: float = float(_base_stats.get(stat, default_value))
-	var added_value: float = float(_stat_additions.get(stat, 0.0))
-	var multiplier: float = float(_stat_multipliers.get(stat, 1.0))
+	var added_value: float = (
+		float(_stat_additions.get(stat, 0.0))
+		+ float(_gear_stat_additions.get(stat, 0.0))
+	)
+	var multiplier: float = (
+		float(_stat_multipliers.get(stat, 1.0))
+		* float(_gear_stat_multipliers.get(stat, 1.0))
+	)
 	for entry: Variant in _temporary_modifiers.values():
 		if not entry is Dictionary:
 			continue

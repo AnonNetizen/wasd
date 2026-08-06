@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "worlds": [
     {
       "id": "module_world_9x9",
@@ -18,22 +18,14 @@
         "x": 0,
         "y": 4
       },
-      "extraction_slot": {
-        "x": 0,
-        "y": 0
-      },
       "route_budget": {
         "start_to_objective": {
           "min_crossings": 4,
           "max_crossings": 4
         },
-        "objective_to_extraction": {
-          "min_crossings": 4,
-          "max_crossings": 4
-        },
         "main_route_modules": {
-          "min": 8,
-          "max": 12
+          "min": 5,
+          "max": 5
         },
         "optional_exploration_modules": {
           "max": 14
@@ -54,14 +46,6 @@
             "y": 4
           },
           "template_id": "module_objective_core",
-          "rotation": 0
-        },
-        {
-          "slot": {
-            "x": 0,
-            "y": 0
-          },
-          "template_id": "module_extraction_pad",
           "rotation": 0
         }
       ],
@@ -107,7 +91,7 @@
             "x": 0,
             "y": 0
           },
-          "template_id": "module_extraction_pad",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -997,7 +981,7 @@
             "x": 3,
             "y": 3
           },
-          "template_id": "module_extraction_pad",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -1141,7 +1125,7 @@
             "x": 3,
             "y": 5
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {

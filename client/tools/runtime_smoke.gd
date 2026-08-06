@@ -9,7 +9,7 @@ const ENEMY_DEFEAT_CAUSES := preload(
 	"res://scripts/contracts/enemy_defeat_causes.gd"
 )
 const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
-const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
+const GEAR_MOD_IDS := preload("res://scripts/contracts/gear_mod_ids.gd")
 const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character_default.tscn")
 const WORLD_EVENT_DEFENSE_SCENE := preload(
 	"res://scenes/gameplay/world_events/world_event_defense.tscn"
@@ -58,7 +58,6 @@ func _ready() -> void:
 
 func _run() -> void:
 	RNG.set_run_seed(4242)
-	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
 	_original_screen_shake = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true))
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
 
@@ -104,8 +103,8 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 12,
-		"new runs should use Run schema v12"
+		int(initial_run_snapshot.get("schema_version", 0)) == 13,
+		"new runs should use Run schema v13"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -389,7 +388,7 @@ func _run() -> void:
 
 	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
 	_expect(enemy != null, "at least one chaser enemy should be in active_enemies")
-	var inventory_before_forced_drop: int = _gear_mod_inventory_count()
+	var ranks_before_forced_drop: Dictionary = _run_gear_mod_ranks(run_loop)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
 	if enemy != null:
@@ -421,9 +420,16 @@ func _run() -> void:
 			and bool(gear_mod_hud.call("is_gear_mod_drop_feedback_visible")),
 			"forced player-attributed enemy defeat should show Gear Mod drop HUD feedback"
 		)
+		var ranks_after_forced_drop: Dictionary = _run_gear_mod_ranks(run_loop)
 		_expect(
-			_gear_mod_inventory_count() == inventory_before_forced_drop,
-			"enemy Gear Mod drops should stay in pending loot before extraction"
+			int(ranks_after_forced_drop.get(
+				GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
+				-1
+			)) > int(ranks_before_forced_drop.get(
+				GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
+				-1
+			)),
+			"enemy Gear Mod drops should immediately advance the run-scoped rank"
 		)
 
 	var smoke_player_damage_source: Node = Node.new()
@@ -497,15 +503,18 @@ func _run() -> void:
 	var game_over_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
 	_expect(game_over_panel != null, "player death should show game-over panel")
 	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "player death should consume the active run save")
-	_expect(_gear_mod_inventory_count() == inventory_before_forced_drop, "player death should not commit pending Gear Mod loot")
 	_expect(_find_node_by_name(game_over_panel, "SettlementLabel") == null, "game-over panel should not show legacy meta settlement rewards")
 	var game_over_summary: Label = _find_node_by_name(game_over_panel, "SummaryLabel") as Label
 	var game_over_summary_text: String = String(game_over_summary.text) if game_over_summary != null else ""
 	_expect(
 		game_over_summary != null
-		and game_over_summary_text.contains(tr("ui_result_lost_header"))
+		and game_over_summary_text.contains(tr("ui_result_build_header"))
 		and game_over_summary_text.contains(tr("gear_mod_weapon_damage_test_name")),
-		"player death result panel should list lost pending Gear Mod loot: %s" % game_over_summary_text
+		"player death result panel should list the current run build: %s" % game_over_summary_text
+	)
+	_expect(
+		_run_gear_mod_ranks(run_loop).is_empty(),
+		"player death should clear the in-memory run Gear Mod state"
 	)
 	var game_over_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(
@@ -4219,7 +4228,7 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 		return
 	_expect(InputService.action_resource(ACTIONS.INTERACT) != null, "InputService should expose interact")
 
-	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
+	var gold_before_resource_cache: int = int(run_loop.call("gold_balance"))
 	player.global_position = _interest_point_position(run_loop, "poi_resource_cache")
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
@@ -4239,18 +4248,21 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	var resource_points: Dictionary = resource_snapshot.get("interest_points", {}) as Dictionary
 	var resource_claimed_state: Dictionary = resource_points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(resource_claimed_state.get("claimed", false)), "interact should open the resource cache")
+	var resource_reward: Dictionary = resource_claimed_state.get("reward_result", {}) as Dictionary
+	var resource_gold: int = int(resource_reward.get("gold_amount", 0))
 	_expect(
-		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) == dust_before,
-		"resource cache should not commit gear mod dust before extraction"
-	)
-	_expect(
-		hud != null
-		and hud.has_method("is_gear_mod_resource_feedback_visible")
-		and bool(hud.call("is_gear_mod_resource_feedback_visible")),
-		"resource cache claim should show resource HUD feedback"
+		resource_gold > 0
+		and int(run_loop.call("gold_balance"))
+		== gold_before_resource_cache + resource_gold,
+		"resource cache should grant configured gold immediately: reward=%d before=%d after=%d"
+		% [
+			resource_gold,
+			gold_before_resource_cache,
+			int(run_loop.call("gold_balance")),
+		]
 	)
 
-	var inventory_before: int = _gear_mod_inventory_count()
+	var ranks_before_mod_cache: Dictionary = _run_gear_mod_ranks(run_loop)
 	GameClock.restore_snapshot({
 		"elapsed": 240.0,
 		"tick": GameClock.tick(),
@@ -4270,7 +4282,15 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	var mod_points: Dictionary = mod_snapshot.get("interest_points", {}) as Dictionary
 	var mod_claimed_state: Dictionary = mod_points.get("poi_mod_cache", {}) as Dictionary
 	_expect(bool(mod_claimed_state.get("claimed", false)), "interact should open the mod cache")
-	_expect(_gear_mod_inventory_count() == inventory_before, "mod cache should keep Gear Mod loot pending before extraction")
+	var mod_reward: Dictionary = mod_claimed_state.get("reward_result", {}) as Dictionary
+	var granted_mods: Array = mod_reward.get("gear_mods", []) as Array
+	var ranks_after_mod_cache: Dictionary = _run_gear_mod_ranks(run_loop)
+	_expect(
+		not granted_mods.is_empty()
+		and ranks_after_mod_cache != ranks_before_mod_cache,
+		"mod cache should grant or advance a run-scoped Gear Mod immediately: reward=%s before=%s after=%s"
+		% [granted_mods, ranks_before_mod_cache, ranks_after_mod_cache]
+	)
 	_expect(
 		hud != null
 		and hud.has_method("is_gear_mod_drop_feedback_visible")
@@ -4286,11 +4306,12 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	var points: Dictionary = snapshot.get("interest_points", {}) as Dictionary
 	var resource_state: Dictionary = points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(resource_state.get("claimed", false)), "run snapshot should persist claimed interest point state")
-	var pending_loot: Dictionary = snapshot.get("pending_loot", {}) as Dictionary
-	var pending_resources: Dictionary = pending_loot.get("resources", {}) as Dictionary
-	var pending_mods: Array = pending_loot.get("gear_mods", []) as Array
-	_expect(int(pending_resources.get(GEAR_MOD_RESOURCES.GEAR_MOD_DUST, 0)) >= 20, "run snapshot should persist pending dust loot")
-	_expect(pending_mods.size() >= 1, "run snapshot should persist pending Gear Mod loot")
+	var gear_mod_state: Dictionary = snapshot.get("gear_mods", {}) as Dictionary
+	var saved_ranks: Dictionary = gear_mod_state.get("ranks", {}) as Dictionary
+	_expect(
+		saved_ranks == ranks_after_mod_cache,
+		"run snapshot should persist run-scoped Gear Mod ranks"
+	)
 
 
 func _expect_reward_choice(run_loop: Node, player: Node2D) -> Dictionary:
@@ -4591,6 +4612,9 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			paused_run_snapshot.get("rng", {}) as Dictionary
 		).get("streams", {}) as Dictionary
 	).get("economy", {}) as Dictionary
+	var saved_gear_mod_ranks: Dictionary = (
+		paused_run_snapshot.get("gear_mods", {}) as Dictionary
+	).get("ranks", {}) as Dictionary
 	await _verify_pause_settings_entry(pause_menu)
 
 	var paused_time: float = GameClock.now()
@@ -4775,11 +4799,39 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var restored_points: Dictionary = restored_snapshot.get("interest_points", {}) as Dictionary
 	var restored_resource_state: Dictionary = restored_points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(restored_resource_state.get("claimed", false)), "continue should restore claimed interest point state")
-	var restored_loot: Dictionary = restored_snapshot.get("pending_loot", {}) as Dictionary
-	var restored_resources: Dictionary = restored_loot.get("resources", {}) as Dictionary
-	var restored_mods: Array = restored_loot.get("gear_mods", []) as Array
-	_expect(int(restored_resources.get(GEAR_MOD_RESOURCES.GEAR_MOD_DUST, 0)) >= 20, "continue should restore pending dust loot")
-	_expect(restored_mods.size() >= 1, "continue should restore pending Gear Mod loot")
+	var restored_gear_mod_ranks: Dictionary = (
+		restored_snapshot.get("gear_mods", {}) as Dictionary
+	).get("ranks", {}) as Dictionary
+	_expect(
+		restored_gear_mod_ranks == saved_gear_mod_ranks,
+		"continue should restore exact run-scoped Gear Mod ranks"
+	)
+	_expect(
+		not bool(restored_run_loop.call(
+			"_restore_run_gear_mods",
+			{"ranks": {"missing_gear_mod": 0}}
+		)),
+		"Run v13 restore should reject unknown Gear Mod ids"
+	)
+	_expect(
+		not bool(restored_run_loop.call(
+			"_restore_run_gear_mods",
+			{
+				"ranks": {
+					GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST: 6,
+				},
+			}
+		)),
+		"Run v13 restore should reject out-of-range Gear Mod ranks"
+	)
+	_expect(
+		bool(restored_run_loop.call(
+			"_restore_run_gear_mods",
+			{"ranks": saved_gear_mod_ranks}
+		)),
+		"valid Gear Mod ranks should remain restorable after rejection checks"
+	)
+	restored_run_loop.call("_apply_run_gear_modifiers")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
 	_expect(resume_button != null, "restored pause menu should expose resume")
 	await _wait_for_ui_active(restored_pause_menu)
@@ -4962,18 +5014,12 @@ func _run_save_path() -> String:
 	return SaveManager.save_root().path_join(SaveManager.DEFAULT_SLOT).path_join("%s.save" % SAVE_KINDS.RUN)
 
 
-func _gear_mod_resource_balance(resource_id: String) -> int:
-	var profile: Dictionary = GearModSystem.load_or_create_profile(SaveManager.DEFAULT_SLOT)
-	var gear_state: Dictionary = profile.get("gear_mods", {}) as Dictionary
-	var resources: Dictionary = gear_state.get("resources", {}) as Dictionary
-	return int(resources.get(resource_id, 0))
-
-
-func _gear_mod_inventory_count() -> int:
-	var profile: Dictionary = GearModSystem.load_or_create_profile(SaveManager.DEFAULT_SLOT)
-	var gear_state: Dictionary = profile.get("gear_mods", {}) as Dictionary
-	var inventory: Array = gear_state.get("inventory", []) as Array
-	return inventory.size()
+func _run_gear_mod_ranks(run_loop: Node) -> Dictionary:
+	if run_loop == null or not run_loop.has_method("create_run_snapshot"):
+		return {}
+	var snapshot: Dictionary = run_loop.call("create_run_snapshot") as Dictionary
+	var gear_mods: Dictionary = snapshot.get("gear_mods", {}) as Dictionary
+	return (gear_mods.get("ranks", {}) as Dictionary).duplicate(true)
 
 
 func _expect_game_over_buttons(game_over_panel: Node) -> void:
@@ -5020,10 +5066,12 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	var completion_summary_text: String = String(completion_summary.text) if completion_summary != null else ""
 	_expect(
 		completion_summary != null
-		and completion_summary_text.contains(tr("ui_result_secured_header"))
-		and completion_summary_text.contains(tr("gear_mod_dust_name"))
-		and completion_summary_text.contains(tr("gear_mod_weapon_damage_test_name")),
-		"completion result panel should list secured Gear Mod and dust loot: %s" % completion_summary_text
+		and completion_summary_text.contains(tr("ui_result_no_build")),
+		"completion result panel should show the empty current run build: %s" % completion_summary_text
+	)
+	_expect(
+		_run_gear_mod_ranks(restarted_run_loop).is_empty(),
+		"Mind Core completion should clear the in-memory run Gear Mod state"
 	)
 	var completion_restart_button: Button = _find_node_by_name(completion_panel, "RestartButton") as Button
 	_expect(completion_restart_button != null, "completion panel should expose restart")
@@ -5063,42 +5111,11 @@ func _expect_minor_nest_core_completion(run_loop: Node) -> void:
 	_expect(run_loop.has_method("debug_damage_interest_point_target"), "runtime should expose minor nest core target damage hook")
 	if not run_loop.has_method("debug_damage_interest_point_target"):
 		return
-	var player: Node2D = _find_node_by_name(run_loop, "Player") as Node2D
-	_expect(player != null, "minor nest core completion smoke should find the player")
-	if player == null:
-		return
-	var inventory_before: int = _gear_mod_inventory_count()
-	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
 	var core_damage: Dictionary = run_loop.call("debug_damage_interest_point_target", "poi_minor_nest_core", 9999.0) as Dictionary
+	await get_tree().process_frame
 	_expect(bool(core_damage.get("ok", false)), "minor nest core target damage should apply")
-	_expect(GameState.is_state(GameState.PLAYING), "minor nest core destruction should keep gameplay active until extraction")
-	_expect(_gear_mod_inventory_count() == inventory_before, "minor nest core should keep Gear Mod loot pending before extraction")
-	_expect(
-		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) == dust_before,
-		"minor nest core should keep dust pending before extraction"
-	)
-	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
-	var extraction: Dictionary = summary.get("extraction", {}) as Dictionary
-	_expect(bool(extraction.get("active", false)), "minor nest core destruction should activate extraction")
-	_expect(String(extraction.get("source_point_id", "")) == "poi_minor_nest_core", "extraction should remember the core source point")
-	var run_snapshot: Dictionary = run_loop.call("create_run_snapshot") as Dictionary
-	var saved_extraction: Dictionary = run_snapshot.get("extraction", {}) as Dictionary
-	_expect(bool(saved_extraction.get("active", false)), "active extraction should enter the run snapshot")
-	_expect(
-		String(saved_extraction.get("source_point_id", "")) == "poi_minor_nest_core",
-		"run snapshot should remember the extraction source point"
-	)
-	var extraction_position: Dictionary = extraction.get("position", {}) as Dictionary
-	player.global_position = Vector2(float(extraction_position.get("x", 0.0)), float(extraction_position.get("y", 0.0)))
-	var hold_time: float = float(extraction.get("hold_time", 0.0))
-	await get_tree().create_timer(maxf(hold_time + 0.35, 0.1)).timeout
-	_expect(GameState.is_state(GameState.GAME_OVER), "standing in extraction should freeze gameplay in GAME_OVER state")
-	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "extraction completion should consume the active run save")
-	_expect(_gear_mod_inventory_count() >= inventory_before + 1, "minor nest core should grant a Gear Mod")
-	_expect(
-		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) >= dust_before + 60,
-		"minor nest core extraction should grant gear mod dust"
-	)
+	_expect(GameState.is_state(GameState.GAME_OVER), "minor nest core destruction should complete the run immediately")
+	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "minor nest core completion should consume the active run save")
 
 
 func _expect_bad_run_notice() -> void:

@@ -83,8 +83,6 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("gear_mod_ids", "## 13-A. 装备 Mod id gear_mod_id", "gear_mod_ids.gd", "GearModIds"),
     ContractSection("gear_mod_slots", "## 13-B. 装备 Mod 槽位 gear_mod_slot", "gear_mod_slots.gd", "GearModSlots"),
     ContractSection("gear_mod_rarities", "## 13-C. 装备 Mod 稀有度 gear_mod_rarity", "gear_mod_rarities.gd", "GearModRarities"),
-    ContractSection("gear_mod_resources", "## 13-D. 装备 Mod 资源 gear_mod_resource", "gear_mod_resources.gd", "GearModResources"),
-    ContractSection("gear_mod_stack_rules", "## 13-E. 装备 Mod 装配规则 gear_mod_stack_rule", "gear_mod_stack_rules.gd", "GearModStackRules"),
     ContractSection("save_kinds", "## 14. 存档种类 save_kind", "save_kinds.gd", "SaveKinds"),
     ContractSection("module_roles", "## 15-A. 模块角色 module_role", "module_roles.gd", "ModuleRoles"),
     ContractSection("module_cell_tokens", "## 15-B. 模块格子令牌 module_cell_token", "module_cell_tokens.gd", "ModuleCellTokens"),

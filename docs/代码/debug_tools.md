@@ -6,7 +6,7 @@
 ## 职责
 
 - 只在 Godot debug build 或带 `dev_tools` feature 的构建中挂载调试控制台。
-- 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `gold` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `dust` / `seed`。
+- 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `gold` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `seed`。
 - GM 命令只能调用正式系统 API 或受控 `debug_*` API，不直接散落修改 gameplay 私有状态、存档文件或 analytics。
 - release 构建默认不会挂载 `DebugConsole` / `GMCommandRegistry`，也不会启用 `InputService` 的 debug context 或 `debug_*` action。
 - ADR #159 / #160 的“开发者测试岛”与控制台共享 debug/dev_tools 构建边界，但只通过独立 scene 运行，拥有独立模块文档、配置和 smoke；它不挂标题 / FormalClientBoot，不是 GM 命令集合或正式 game mode。
@@ -20,7 +20,7 @@
 | `client/scripts/boot/formal_client_boot.gd` | 通过字符串路径动态加载 `DebugConsole`，并提供 release 双重 guard |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 提供 `debug_summary()`、刷怪、金币、玩家生命、杀敌 / 清敌等受控 runtime debug API |
 | `client/scripts/gameplay/player.gd` | 提供生命值设置 / 治疗 / 清无敌的 debug API |
-| `client/scripts/autoload/gear_mod_system.gd` | 提供 `debug_grant_resource()`，仍走 profile normalize 与 `save_meta_profile()` |
+| `client/scripts/autoload/gear_mod_system.gd` | 只提供无状态 Gear Mod 规则与测试岛纯内存预览，不提供资源 / Meta debug 写入 |
 | `client/tools/debug_tools_smoke.gd` | headless 自动验证 debug 可用与 release 模拟禁用 |
 | `client/scenes/debug/` / `client/scripts/debug/debug_test_arena_*.gd` | 开发者测试岛、配装与控制面板；详细契约见 `docs/代码/debug_test_arena.md` |
 | `client/tools/debug_test_arena_smoke.gd` | 隔离 `user://` 的测试岛端到端 smoke |
@@ -50,7 +50,6 @@
 | `kill_player` | 通过 `Combat.apply_damage()` 造成足量伤害 |
 | `kill_enemies` | 对当前 active enemies 走 `Combat.apply_damage()` |
 | `clear_enemies` | 通过 `PoolManager.release()` 清理当前 active enemies |
-| `dust <amount>` | 通过 `GearModSystem.debug_grant_resource()` 增加 Gear Mod 升级资源 |
 | `seed <int>` | 调用 `RNG.set_run_seed()` 设置 run seed |
 
 ## Release 边界

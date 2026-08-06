@@ -6,12 +6,10 @@ extends CanvasLayer
 
 signal quit_requested()
 signal continue_requested()
-signal gear_mod_requested()
 signal settings_requested()
 signal start_requested()
 
 var _continue_button: Button = null
-var _gear_mod_button: Button = null
 var _notice_key: String = ""
 var _notice_label: Label = null
 var _quit_button: Button = null
@@ -31,7 +29,6 @@ func _ready() -> void:
 	_quit_button = get_node_or_null("Root/Center/Panel/Margin/Layout/QuitButton") as Button
 	_notice_label = get_node_or_null("Root/Center/Panel/Margin/Layout/RunSaveNoticeLabel") as Label
 	_continue_button = get_node_or_null("Root/Center/Panel/Margin/Layout/ContinueRunButton") as Button
-	_gear_mod_button = get_node_or_null("Root/Center/Panel/Margin/Layout/GearModButton") as Button
 
 	if _title_label == null or _subtitle_label == null or _start_button == null or _quit_button == null:
 		push_error("[TitleMenu] missing required scene nodes")
@@ -39,7 +36,7 @@ func _ready() -> void:
 	if _notice_label == null or _continue_button == null:
 		push_error("[TitleMenu] missing required scene nodes")
 		return
-	if _gear_mod_button == null or _settings_button == null:
+	if _settings_button == null:
 		push_error("[TitleMenu] missing required scene nodes")
 		return
 
@@ -50,9 +47,6 @@ func _ready() -> void:
 
 	_start_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_start_button.pressed.connect(_on_start_pressed)
-
-	_gear_mod_button.process_mode = Node.PROCESS_MODE_ALWAYS
-	_gear_mod_button.pressed.connect(_on_gear_mod_pressed)
 
 	_settings_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_settings_button.pressed.connect(_on_settings_pressed)
@@ -101,8 +95,6 @@ func refresh_texts() -> void:
 		_start_button.text = tr("ui_start")
 	if _settings_button != null:
 		_settings_button.text = tr("ui_settings")
-	if _gear_mod_button != null:
-		_gear_mod_button.text = tr("ui_gear_mod_title_entry")
 	if _quit_button != null:
 		_quit_button.text = tr("ui_quit")
 	if _notice_label != null and _notice_label.visible and not _notice_key.is_empty():
@@ -120,10 +112,6 @@ func _on_start_pressed() -> void:
 
 func _on_continue_pressed() -> void:
 	continue_requested.emit()
-
-
-func _on_gear_mod_pressed() -> void:
-	gear_mod_requested.emit()
 
 
 func _on_settings_pressed() -> void:

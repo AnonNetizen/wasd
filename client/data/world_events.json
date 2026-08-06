@@ -1,15 +1,5 @@
 {
-  "schema_version": 1,
-  "mod_pools": [
-    {
-      "id": "world_event_mod_pool_common",
-      "mod_ids": [
-        "gear_mod_weapon_damage_test",
-        "gear_mod_weapon_recoil_damper",
-        "gear_mod_weapon_spread_stabilizer"
-      ]
-    }
-  ],
+  "schema_version": 2,
   "events": [
     {
       "id": "world_event_defense",
@@ -35,9 +25,6 @@
       "target_max_health": 1200.0,
       "target_hit_radius": 48.0,
       "completion_reward": {
-        "gold_weight": 70,
-        "mod_weight": 30,
-        "gold_amount": 90,
         "mod_pool_id": "world_event_mod_pool_common"
       }
     },
@@ -67,9 +54,6 @@
         }
       ],
       "completion_reward": {
-        "gold_weight": 70,
-        "mod_weight": 30,
-        "gold_amount": 75,
         "mod_pool_id": "world_event_mod_pool_common"
       }
     },
@@ -99,9 +83,6 @@
         }
       ],
       "completion_reward": {
-        "gold_weight": 70,
-        "mod_weight": 30,
-        "gold_amount": 60,
         "mod_pool_id": "world_event_mod_pool_common"
       }
     },

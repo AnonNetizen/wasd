@@ -5,6 +5,8 @@
 
 > **已被取代（ADR #142，2026-07-20）**：默认关卡方向已改为 `F13-ModularGridWorld.md` 的 9×9 模块连续大地图。本文件只保留 ADR #127/#128 的历史首片记录；旧 RoomManager、线性数据、marker、演示场景、启动参数和 smoke 已删除，不再作为后续实现入口。`docs/代码/room_manager.md` 只保留退役说明。
 
+> **当前补充（ADR #188，2026-08-06）**：正式定位已改为俯视角射击 Roguelike；Gear Mod 纯局内化，意识核完成后立即结束，不存在 `pending_loot`、撤离或战利品带回。下文旧 F12 / F13 叙述仅是已退役历史，不得作为当前实现依据。
+
 > **状态（2026-06-28，ADR #128）**：首片已实现并通过验证。RoomManager、`rooms.json` / `room_sequences.json`、RoomRoot + 四类 marker、两个演示房间 `.tscn`、门 / 清房契约（词表 §15-A / §15-B / §15-C）、run payload v3 + 迁移、`room-switch-smoke` 全部完成。房间 carrier 为首片 **opt-in**（测试用 `debug_enable_room_carrier()` 或 run 存档含非空 `room` 块），默认标准模式仍是 F12 开放有限战区；「把房间设为默认可玩模式」留作后续切片。详见下方「首片落地状态」与 `docs/代码/room_manager.md`。
 
 ## 1. 目标

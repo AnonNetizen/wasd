@@ -379,6 +379,7 @@ func _expect_menu_settings_entries() -> void:
 	var title_label: Label = _find_node_by_name(title_menu, "TitleLabel") as Label
 	var subtitle_label: Label = _find_node_by_name(title_menu, "SubtitleLabel") as Label
 	var title_settings_button: Button = _find_node_by_name(title_menu, "SettingsButton") as Button
+	var title_gear_mod_button: Button = _find_node_by_name(title_menu, "GearModButton") as Button
 	_expect(title_label != null and String(title_label.text) == "WASD", "title menu should keep the WASD project codename")
 	_expect(
 		subtitle_label != null and not subtitle_label.visible and String(subtitle_label.text).is_empty(),
@@ -395,6 +396,8 @@ func _expect_menu_settings_entries() -> void:
 	await get_tree().process_frame
 	_expect(title_label != null and String(title_label.text) == "WASD", "title menu should keep the WASD codename when returning to English")
 	_expect(title_settings_button != null and String(title_settings_button.text) == tr("ui_settings"), "title menu should expose localized settings entry")
+	_expect(title_gear_mod_button == null, "title menu should not expose retired account-level Gear Mod entry")
+	_expect(not title_menu.has_signal("gear_mod_requested"), "title menu should remove the retired Gear Mod request signal")
 	var title_requested: Array[bool] = [false]
 	title_menu.connect("settings_requested", func() -> void:
 		title_requested[0] = true
@@ -525,7 +528,15 @@ func _expect_game_over_locale_refresh() -> void:
 	panel.name = "GameOverPanel"
 	add_child(panel)
 	await get_tree().process_frame
-	panel.call("configure", 5, 42.0)
+	panel.call("configure", 5, 42.0, false, {
+		"gear_mods": [
+			{
+				"name_key": "gear_mod_weapon_damage_test_name",
+				"rank": 2,
+				"display_rank": 3,
+			},
+		],
+	})
 	await get_tree().process_frame
 
 	var title_label: Label = _find_node_by_name(panel, "TitleLabel") as Label
@@ -534,11 +545,24 @@ func _expect_game_over_locale_refresh() -> void:
 	var quit_button: Button = _find_node_by_name(panel, "QuitToTitleButton") as Button
 	_expect(title_label != null and String(title_label.text) == tr("ui_game_over"), "game-over title should start in zh_CN")
 	_expect(summary_label != null and String(summary_label.text).contains(tr("ui_hud_kills")), "game-over summary should start in zh_CN")
+	_expect(
+		summary_label != null
+		and String(summary_label.text).contains(tr("ui_result_build_header"))
+		and String(summary_label.text).contains(tr("gear_mod_weapon_damage_test_name"))
+		and String(summary_label.text).contains("3"),
+		"game-over summary should show the current run build and display rank"
+	)
 
 	Localization.set_locale("en")
 	await get_tree().process_frame
 	_expect(title_label != null and String(title_label.text) == "Run Over", "game-over title should refresh to en")
 	_expect(summary_label != null and String(summary_label.text).contains("Cleared"), "game-over summary should refresh cleanup count to en")
+	_expect(
+		summary_label != null
+		and String(summary_label.text).contains(tr("ui_result_build_header"))
+		and String(summary_label.text).contains(tr("gear_mod_weapon_damage_test_name")),
+		"game-over build summary should refresh to en"
+	)
 	_expect(restart_button != null and String(restart_button.text) == "Restart", "game-over restart button should refresh to en")
 	_expect(quit_button != null and String(quit_button.text) == "Back to Title", "game-over quit button should refresh to en")
 	_expect_english_buttons_fit(panel, "game-over panel")

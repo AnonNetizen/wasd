@@ -8,8 +8,8 @@
 - 读取 `client/data/warzone_directors.json` 中与当前模式匹配的导演配置。
 - 按 `DifficultyProgression` 的威胁时间解释固定阶段。
 - 判断某个 `spawn_waves.csv` wave 是否在当前阶段被允许。
-- 按当前 `map_layout_id` 输出可用于初始地图机关生成和 F12 奖励领取的兴趣点。
-- F12 标准模式用 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟阶段组织短刷图节奏；9 分钟后是软加压，不是硬性结束。
+- 按当前 `map_layout_id` 输出可用于 open-warzone 回归路径初始地图机关生成和 Roguelike 局内奖励的兴趣点。
+- open-warzone 回归路径继续用 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟阶段组织压力；不把局长作为验收指标，意识核目标完成时立即结束。
 - 输出 debug summary，供 smoke、DebugTools 或后续平衡诊断查看当前 director / mutation / phase / wave / interest point。
 - 保持首片确定性：不随机、不读玩家状态；奖励领取状态由 `GameplayRunLoop` 保存，不由导演保存运行时状态。
 
@@ -25,7 +25,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/gameplay/warzone_director.gd` | `WarzoneDirector` 实现，`RefCounted` 数据解释器 |
-| `client/data/warzone_directors.json` | schema v2 导演、mutation、phase、wave gating、interest point 数据 |
+| `client/data/warzone_directors.json` | schema v3 导演、mutation、phase、wave gating、局内奖励与 `completes_run` 兴趣点数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 创建导演、把 `debug_summary()` 暴露给运行时摘要、在 `_update_spawner()` 调用 `is_wave_enabled()`、把当前 layout 的兴趣点传给 `MapManager` |
 | `client/scripts/autoload/data_loader.gd` | Godot 侧 schema 校验 |
 | `tools/validate_data.py` | Python 侧数据校验 |
@@ -35,9 +35,9 @@
 
 ## 数据契约
 
-`warzone_directors.json` 是 schema v2 复杂 JSON：
+`warzone_directors.json` 是 schema v3 复杂 JSON：
 
-- `schema_version` 必须为 `2`；旧顶层 encounter 数组和 phase encounter 引用必须被 Godot / Python schema 拒绝，不能静默忽略。
+- `schema_version` 必须为 `3`；旧顶层 encounter、跨局资源奖励与撤离字段必须被 Godot / Python schema 拒绝，不能静默忽略。
 - `directors[].mode_id` 必须存在于 `game_modes.json`。
 - 每个模式首片只允许一个 director。
 - `phases[]` 必须非空、按时间升序、不重叠，且 `end_time > start_time`。
@@ -46,11 +46,10 @@
 - `interest_points[].map_layout_id` 必须存在于 `map_layouts.json`。
 - `interest_points[].min_distance_from_player` / `min_spacing` 为可选摆放约束，由 `MapManager` 解释；首片用它们把精英巢点、Mod 缓存、资源缓存和小巢核分散到战区中。
 - `interest_points[].claim_radius` / `claim_start_time` 为 F12 领取约束，由 `GameplayRunLoop` 解释；有奖励或 `completes_run=true` 时必须提供正数 `claim_radius`。
-- `interest_points[].requires_interaction` 为可选交互领取标记；为 `true` 时运行时生成贴合地图矩形格的 `InterestPointCache`，玩家进入 `claim_radius` 后按 `interact` action 打开并触发同一套暂存奖励。
+- `interest_points[].requires_interaction` 为可选交互领取标记；为 `true` 时运行时生成贴合地图矩形格的 `InterestPointCache`，玩家进入 `claim_radius` 后按 `interact` action 打开并触发同一套局内奖励。
 - `interest_points[].target_hp` / `target_hit_radius` 为可选可伤害目标数值；存在 `target_hp` 时运行时生成贴合地图矩形格的 `InterestPointTarget`，目标一生成即可被子弹 / `Combat` 摧毁并触发同一套奖励，`claim_start_time` 只继续约束无目标兴趣点的进圈领取。
-- `interest_points[].resource_rewards[]` 必须引用 `gear_mod_resources`；`gear_mod_rewards[]` 必须引用 `gear_mods.json` 中存在的 `gear_mod_ids`；领取时分别走 `GearModSystem.grant_resource()` 与 `grant_mod()`。
-- `interest_points[].extraction_radius` / `extraction_hold_time` 为 F12 撤离约束；`completes_run=true` 时必须提供正数，运行时用它们开启贴合地图格的撤离区和读条。
-- `interest_points[].completes_run` 为可选 bool；为 `true` 时领取后只开启撤离区，玩家完成撤离读条后才提交暂存战利品、进入完成结果面板并删除当前 `run` 存档。
+- `interest_points[].gold_reward_amount` 为即时局内金币；`gear_mod_pool_id` 必须引用 `gear_mods.json.reward_pools[].id`，`gear_mod_rolls` 表示从该池独立抽取的次数。所有 Mod 都走 `GameplayRunLoop` 统一授予入口。
+- `interest_points[].completes_run` 为可选 bool；为 `true` 时目标领取后立即进入完成结果面板并删除当前 `run` 存档，不再生成撤离区或读条。
 
 ## 公共 API
 
@@ -69,8 +68,8 @@
 2. `GameplayRunLoop` 读取 `DataLoader.WARZONE_DIRECTORS_PATH`，选择当前 mode 的 director。
 3. `WarzoneDirector.configure()` 缓存 phases / interest_points。
 4. 开局生成地图机关时，`GameplayRunLoop` 用 `interest_points_for_layout(layout_id)` 取当前地图兴趣点，并传给 `MapManager.generate_hazard_placements()`。
-5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement，并透传 `claim_radius`、奖励数组、交互标记、可伤害目标数值、`completes_run` 和撤离数值等兴趣点元数据。
-6. `GameplayRunLoop` 从 placement 重建兴趣点状态；无目标且不要求交互的兴趣点每帧只按底层 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取；要求交互的兴趣点生成可见 `InterestPointCache`，玩家在半径内按 `interact` 领取；有目标的兴趣点生成可伤害 `InterestPointTarget`，目标被摧毁后领取；小巢核领取后开启撤离区，撤离完成才提交暂存战利品，不读取玩家表现数据。
+5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement，并透传 `claim_radius`、局内金币 / Mod 池、交互标记、可伤害目标数值与 `completes_run` 元数据。
+6. `GameplayRunLoop` 从 placement 重建兴趣点状态；无目标且不要求交互的兴趣点每帧只按底层 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取；要求交互的兴趣点生成可见 `InterestPointCache`；有目标的兴趣点生成可伤害 `InterestPointTarget`。资源缓存即时发金币，Mod 缓存从公共池独立抽取两次，意识核领取后立即结束，不读取玩家表现数据。
 7. 每帧 `GameplayRunLoop._update_spawner()` 先询问 `is_wave_enabled(wave_key, DifficultyProgression.current_snapshot().elapsed)`，被当前 phase 禁用的 wave 直接跳过。开放战区从对局激活后立即推进该时间；起点房暂停规则只属于模块世界。
 8. 通过导演后，原有 wave 时间窗、预算、同时存活上限和对象池生成逻辑继续执行。
 
@@ -83,7 +82,7 @@
 ## 扩展点
 
 - 随机 mutation：必须先决定 RNG stream、保存 / 恢复策略和 replay 影响；首片不做。
-- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；F12 首片已有 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个调试语义点位，并通过通用 `resource_rewards[]` / `gear_mod_rewards[]` 表达 dust / Mod 奖励，通过 `requires_interaction` 表达缓存箱交互领取，通过 `target_hp` / `target_hit_radius` 表达可伤害巢点 / 巢核目标，通过 `extraction_radius` / `extraction_hold_time` 表达小巢核后的撤离区。后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
+- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；保留 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个回归点位，通过 `gold_reward_amount` 表达即时金币、`gear_mod_pool_id + gear_mod_rolls` 表达公共池抽取、`requires_interaction` 表达缓存箱、`target_hp` / `target_hit_radius` 表达目标、`completes_run` 表达意识核立即完成。后续扩展仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
 - 敌人组合由 `spawn_waves.csv` 或 F13 模块 JSON 负责；导演不再维护额外敌人组合元数据。
 - 玩家可见主题：新增 name / desc 前先补 `client/locale/strings.csv`，数据只存 locale key。
 
@@ -93,7 +92,7 @@
 |------------|----------|------|
 | 调阶段时间 / wave 组合 | `client/data/warzone_directors.json` | `validate_data`、`test_data_loader_schema`、`runtime-smoke`、`f9-demo-smoke` |
 | 新增 interest point | `warzone_directors.json`、必要时 `map_layouts.json` / `hazards.csv` | `validate_data` + `test_data_loader_schema`；兴趣点影响地图时追加 runtime / F9 smoke |
-| 调兴趣点奖励 / 交互 / 目标 / 小巢核撤离完成 | `warzone_directors.json`、`gameplay_run_loop.gd`、`interest_point_cache.gd`、`interest_point_target.gd`、`gear_mod_system.gd` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `gear-mod-smoke` + `save-smoke` |
+| 调兴趣点奖励 / 交互 / 目标 / 意识核完成 | `warzone_directors.json`、`gameplay_run_loop.gd`、`interest_point_cache.gd`、`interest_point_target.gd`、`gear_mod_system.gd` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `gear-mod-smoke` + `save-smoke` |
 | 改 schema | `data_loader.gd`、`validate_data.py`、`test_data_loader_schema.py`、本文档、数据手册 | schema test + docs health |
 | 让导演影响地图 | `warzone_director.gd`、`map_manager.gd`、`gameplay_run_loop.gd` | runtime-smoke、f9-demo-smoke、save-smoke，评估 golden；性能 probe 仅由用户明确触发 |
 
@@ -102,10 +101,10 @@
 - 改数据或 schema：`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`。
 - 改 GDScript：`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client runtime-smoke`。
 - 改 7 分钟小巢核压力、9 分钟后软加压或 FEA-12 兴趣点：追加 `python tools/godot_bridge.py --project client f9-demo-smoke`。
-- 改兴趣点奖励、`claim_radius`、`requires_interaction`、`completes_run`、撤离数值或结果面板：追加 `python tools/godot_bridge.py --project client runtime-smoke`、`gear-mod-smoke` 与 `save-smoke`。
+- 改兴趣点奖励、`claim_radius`、`requires_interaction`、`completes_run` 或结果面板：追加 `python tools/godot_bridge.py --project client runtime-smoke`、`gear-mod-smoke` 与 `save-smoke`。
 - 改兴趣点地图生成接线：追加 `python tools/godot_bridge.py --project client save-smoke`，并跑 checked-in golden replay runner 评估行为漂移；`perf-probe` 仅在用户明确要求性能测试时运行。
 - 若引入随机 mutation、run snapshot 字段或 replay summary 变化，必须追加对应 save / replay runner 并更新 ADR。
 
 ## 迁移 / 兼容
 
-导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v12 的 difficulty 快照恢复。开放战区敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v2 删除的旧导演敌人组合元数据不进入 run payload。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段，撤离开启 / 读条状态保存于可选 `extraction` 字段；旧 payload 缺失这些字段时按未领取 / 未开启撤离处理，旧 `map.hazard_placements` 缺少奖励或撤离元数据时只恢复机关，不补发奖励也不开启撤离。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。
+导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v13 的 difficulty 快照恢复。开放战区敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v3 删除旧跨局奖励与撤离元数据；兴趣点领取状态保存于 Run v13 的 `interest_points`，局内 Gear Mod ranks 由 RunLoop 单独保存。旧 Run v12 明确不兼容，不尝试补发奖励。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步快照接口。

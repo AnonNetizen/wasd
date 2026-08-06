@@ -47,7 +47,6 @@ const MODULE_TEMPLATES_PATH: String = "res://data/module_templates.json"
 const MODULE_TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GEAR_MODS_PATH: String = "res://data/gear_mods.json"
 const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
-const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv"
 const WORLD_EVENTS_PATH: String = "res://data/world_events.json"
 
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
@@ -188,9 +187,7 @@ func validate_project_data() -> bool:
 	var gear_mod_ids: Dictionary = _collect_gear_mod_ids()
 	is_valid = _validate_world_events_json(locale_keys, gear_mod_ids) and is_valid
 	var world_event_ids: Dictionary = _collect_world_event_ids()
-	var gear_mod_rarity_max_ranks: Dictionary = _collect_gear_mod_rarity_max_ranks()
 	is_valid = _validate_gear_mod_drop_tables_csv(enemy_ids, gear_mod_ids) and is_valid
-	is_valid = _validate_gear_mod_fusion_costs_csv(gear_mod_rarity_max_ranks) and is_valid
 	is_valid = _validate_hazards_csv(locale_keys) and is_valid
 	var hazard_ids: Dictionary = _collect_hazard_ids()
 	is_valid = _validate_relics_json(locale_keys) and is_valid
@@ -219,7 +216,7 @@ func validate_project_data() -> bool:
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
-	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids(), gear_mod_ids) and is_valid
+	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids()) and is_valid
 	var module_tile_catalog: Dictionary = _validate_module_tile_catalog()
 	is_valid = not module_tile_catalog.is_empty() and is_valid
 	is_valid = _validate_module_world_data(
@@ -2638,8 +2635,83 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		return _schema_fail(GEAR_MODS_PATH, "root", "Dictionary")
 
 	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(GEAR_MODS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		GEAR_MODS_PATH,
+		"root",
+		payload,
+		["schema_version", "overflow_gold", "reward_pools", "mods"]
+	)
+	is_valid = _require_exact_int(
+		GEAR_MODS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		2
+	) and is_valid
+	is_valid = _require_int(
+		GEAR_MODS_PATH,
+		"overflow_gold",
+		payload.get("overflow_gold"),
+		1
+	) and is_valid
+	var reward_pools: Array = _require_array(
+		GEAR_MODS_PATH,
+		"reward_pools",
+		payload.get("reward_pools")
+	)
+	var seen_pool_ids: Dictionary = {}
+	for pool_index: int in range(reward_pools.size()):
+		var pool_field: String = "reward_pools[%d]" % pool_index
+		var raw_pool: Variant = reward_pools[pool_index]
+		if not raw_pool is Dictionary:
+			is_valid = _schema_fail(GEAR_MODS_PATH, pool_field, "Dictionary") and is_valid
+			continue
+		var pool: Dictionary = raw_pool as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			GEAR_MODS_PATH,
+			pool_field,
+			pool,
+			["id", "mod_ids"]
+		) and is_valid
+		var pool_id: String = _require_registered(
+			GEAR_MODS_PATH,
+			"%s.id" % pool_field,
+			pool.get("id"),
+			"world_event_mod_pool_ids"
+		)
+		if pool_id.is_empty():
+			is_valid = false
+		elif seen_pool_ids.has(pool_id):
+			is_valid = _schema_fail(GEAR_MODS_PATH, "%s.id" % pool_field, "unique reward pool id") and is_valid
+		else:
+			seen_pool_ids[pool_id] = true
+		var pool_mods: Array = _require_array(
+			GEAR_MODS_PATH,
+			"%s.mod_ids" % pool_field,
+			pool.get("mod_ids")
+		)
+		if pool_mods.is_empty():
+			is_valid = _schema_fail(GEAR_MODS_PATH, "%s.mod_ids" % pool_field, "non-empty Array") and is_valid
+		var seen_pool_mods: Dictionary = {}
+		for mod_index: int in range(pool_mods.size()):
+			var mod_field: String = "%s.mod_ids[%d]" % [pool_field, mod_index]
+			var mod_id: String = _require_registered(
+				GEAR_MODS_PATH,
+				mod_field,
+				pool_mods[mod_index],
+				"gear_mod_ids"
+			)
+			if mod_id.is_empty():
+				is_valid = false
+			elif seen_pool_mods.has(mod_id):
+				is_valid = _schema_fail(GEAR_MODS_PATH, mod_field, "unique Gear Mod id in pool") and is_valid
+			else:
+				seen_pool_mods[mod_id] = true
+	var expected_pool_ids: Array = contract_values("world_event_mod_pool_ids")
+	if seen_pool_ids.size() != expected_pool_ids.size():
+		is_valid = _schema_fail(GEAR_MODS_PATH, "reward_pools", "every registered world event Mod pool exactly once") and is_valid
+	for raw_pool_id: Variant in expected_pool_ids:
+		if not seen_pool_ids.has(String(raw_pool_id)):
+			is_valid = _schema_fail(GEAR_MODS_PATH, "reward_pools", "every registered world event Mod pool exactly once") and is_valid
 	var mods: Array = _require_array(GEAR_MODS_PATH, "mods", payload.get("mods"))
 	if mods.is_empty():
 		is_valid = _schema_fail(GEAR_MODS_PATH, "mods", "non-empty Array") and is_valid
@@ -2652,6 +2724,12 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 			is_valid = _schema_fail(GEAR_MODS_PATH, field, "Dictionary") and is_valid
 			continue
 		var mod_dict: Dictionary = mod as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			GEAR_MODS_PATH,
+			field,
+			mod_dict,
+			["id", "name_key", "desc_key", "slot", "rarity", "max_rank", "rank_modifiers"]
+		) and is_valid
 		var mod_id: String = _require_registered(GEAR_MODS_PATH, "%s.id" % field, mod_dict.get("id"), "gear_mod_ids")
 		if not mod_id.is_empty():
 			if seen.has(mod_id):
@@ -2662,11 +2740,8 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		is_valid = _require_registered(GEAR_MODS_PATH, "%s.slot" % field, mod_dict.get("slot"), "gear_mod_slots") != "" and is_valid
 		is_valid = _require_registered(GEAR_MODS_PATH, "%s.rarity" % field, mod_dict.get("rarity"), "gear_mod_rarities") != "" and is_valid
 		is_valid = _require_int(GEAR_MODS_PATH, "%s.max_rank" % field, mod_dict.get("max_rank"), 0) and is_valid
-		is_valid = _require_int(GEAR_MODS_PATH, "%s.base_drain" % field, mod_dict.get("base_drain"), 0) and is_valid
-		is_valid = _require_int(GEAR_MODS_PATH, "%s.drain_per_rank" % field, mod_dict.get("drain_per_rank"), 0) and is_valid
 		is_valid = _validate_gear_mod_rank_modifiers("%s.rank_modifiers" % field, mod_dict.get("rank_modifiers")) and is_valid
-		is_valid = _require_registered(GEAR_MODS_PATH, "%s.stack_rule" % field, mod_dict.get("stack_rule"), "gear_mod_stack_rules") != "" and is_valid
-		is_valid = _validate_gear_mod_dismantle("%s.dismantle" % field, mod_dict.get("dismantle")) and is_valid
+	_last_schema_counts["gear_mod_reward_pools"] = reward_pools.size()
 	return is_valid
 
 
@@ -2688,16 +2763,6 @@ func _validate_gear_mod_rank_modifiers(field: String, data: Variant) -> bool:
 			is_valid = _schema_fail(GEAR_MODS_PATH, "%s.type" % item_field, "add or mult") and is_valid
 		is_valid = _require_number(GEAR_MODS_PATH, "%s.base_value" % item_field, modifier_dict.get("base_value")) and is_valid
 		is_valid = _require_number(GEAR_MODS_PATH, "%s.value_per_rank" % item_field, modifier_dict.get("value_per_rank")) and is_valid
-	return is_valid
-
-
-func _validate_gear_mod_dismantle(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(GEAR_MODS_PATH, field, "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_registered(GEAR_MODS_PATH, "%s.resource_id" % field, payload.get("resource_id"), "gear_mod_resources") != "" and is_valid
-	is_valid = _require_int(GEAR_MODS_PATH, "%s.amount" % field, payload.get("amount"), 0) and is_valid
 	return is_valid
 
 
@@ -2736,45 +2801,6 @@ func _validate_gear_mod_drop_tables_csv(enemy_ids: Dictionary, gear_mod_ids: Dic
 				if seen.has(key):
 					is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, field, "unique source/mod/level range") and is_valid
 				seen[key] = true
-	return is_valid
-
-
-func _validate_gear_mod_fusion_costs_csv(rarity_max_ranks: Dictionary) -> bool:
-	var rows: Array[Dictionary] = load_csv(GEAR_MOD_FUSION_COSTS_PATH)
-	var is_valid: bool = true
-	if rows.is_empty():
-		is_valid = _schema_fail(GEAR_MOD_FUSION_COSTS_PATH, "rows", "non-empty CSV") and is_valid
-	var seen: Dictionary = {}
-	var costs_by_rarity: Dictionary = {}
-	_last_schema_counts["gear_mod_fusion_costs"] = rows.size()
-	for index: int in range(rows.size()):
-		var row: Dictionary = rows[index]
-		var field: String = "line %d" % (index + 2)
-		var rarity: String = _require_registered(GEAR_MOD_FUSION_COSTS_PATH, "%s.rarity" % field, row.get("rarity"), "gear_mod_rarities")
-		var rank_ok: bool = _require_csv_int(GEAR_MOD_FUSION_COSTS_PATH, "%s.rank" % field, row.get("rank"), 1)
-		is_valid = not rarity.is_empty() and is_valid
-		is_valid = rank_ok and is_valid
-		is_valid = _require_registered(GEAR_MOD_FUSION_COSTS_PATH, "%s.resource_id" % field, row.get("resource_id"), "gear_mod_resources") != "" and is_valid
-		is_valid = _require_csv_int(GEAR_MOD_FUSION_COSTS_PATH, "%s.cost" % field, row.get("cost"), 0) and is_valid
-		if not rarity.is_empty() and rank_ok:
-			var rank: int = int(String(row.get("rank", "0")))
-			var key: String = "%s:%d" % [rarity, rank]
-			if seen.has(key):
-				is_valid = _schema_fail(GEAR_MOD_FUSION_COSTS_PATH, field, "unique rarity/rank") and is_valid
-			seen[key] = true
-			if not costs_by_rarity.has(rarity):
-				costs_by_rarity[rarity] = {}
-			var rarity_costs: Dictionary = costs_by_rarity[rarity]
-			rarity_costs[rank] = true
-			costs_by_rarity[rarity] = rarity_costs
-
-	for rarity_key: Variant in rarity_max_ranks.keys():
-		var rarity_id: String = String(rarity_key)
-		var max_rank: int = int(rarity_max_ranks[rarity_key])
-		var covered: Dictionary = costs_by_rarity.get(rarity_id, {}) as Dictionary
-		for rank: int in range(1, max_rank + 1):
-			if not covered.has(rank):
-				is_valid = _schema_fail(GEAR_MOD_FUSION_COSTS_PATH, "%s.rank_%d" % [rarity_id, rank], "fusion cost row") and is_valid
 	return is_valid
 
 
@@ -3332,13 +3358,13 @@ func _validate_map_layouts_json(hazard_ids: Dictionary, game_mode_ids: Dictionar
 	return is_valid
 
 
-func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mode: Dictionary, hazard_ids: Dictionary, map_layout_ids: Dictionary, gear_mod_ids: Dictionary) -> bool:
+func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mode: Dictionary, hazard_ids: Dictionary, map_layout_ids: Dictionary) -> bool:
 	var data: Variant = load_json(WARZONE_DIRECTORS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(WARZONE_DIRECTORS_PATH, "root", "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(WARZONE_DIRECTORS_PATH, "schema_version", payload.get("schema_version"), 2, 2) and is_valid
+	is_valid = _require_int(WARZONE_DIRECTORS_PATH, "schema_version", payload.get("schema_version"), 3, 3) and is_valid
 	var directors: Array = _require_array(WARZONE_DIRECTORS_PATH, "directors", payload.get("directors"))
 	if directors.is_empty():
 		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "directors", "non-empty Array") and is_valid
@@ -3369,7 +3395,7 @@ func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mod
 		if director_dict.has("description"):
 			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.description" % director_field, director_dict.get("description")) and is_valid
 		is_valid = _reject_removed_field(WARZONE_DIRECTORS_PATH, director_field, director_dict, "encounters", 2) and is_valid
-		is_valid = _validate_warzone_interest_points("%s.interest_points" % director_field, director_dict.get("interest_points"), hazard_ids, map_layout_ids, gear_mod_ids) and is_valid
+		is_valid = _validate_warzone_interest_points("%s.interest_points" % director_field, director_dict.get("interest_points"), hazard_ids, map_layout_ids) and is_valid
 
 		var mode_wave_ids: Dictionary = {}
 		if wave_ids_by_mode.get(mode_id, {}) is Dictionary:
@@ -3446,7 +3472,7 @@ func _validate_warzone_phase_wave_ids(field: String, wave_ids: Array, mode_id: S
 	return is_valid
 
 
-func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids: Dictionary, map_layout_ids: Dictionary, gear_mod_ids: Dictionary) -> bool:
+func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids: Dictionary, map_layout_ids: Dictionary) -> bool:
 	var points: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
 	var is_valid: bool = true
 	if points.is_empty():
@@ -3486,7 +3512,10 @@ func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids:
 		if point_dict.has("min_spacing"):
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.min_spacing" % item_field, point_dict.get("min_spacing"), 0.0) and is_valid
 		var completes_run: bool = bool(point_dict.get("completes_run", false))
-		var has_reward_payload: bool = point_dict.has("resource_rewards") or point_dict.has("gear_mod_rewards") or completes_run
+		var has_gold_reward: bool = point_dict.has("gold_reward_amount")
+		var has_mod_pool: bool = point_dict.has("gear_mod_pool_id")
+		var has_mod_rolls: bool = point_dict.has("gear_mod_rolls")
+		var has_reward_payload: bool = has_gold_reward or has_mod_pool or has_mod_rolls or completes_run
 		if point_dict.has("claim_radius") or has_reward_payload:
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_radius" % item_field, point_dict.get("claim_radius"), 0.0, null, true) and is_valid
 		if point_dict.has("claim_start_time"):
@@ -3495,56 +3524,24 @@ func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids:
 			is_valid = _require_bool(WARZONE_DIRECTORS_PATH, "%s.requires_interaction" % item_field, point_dict.get("requires_interaction")) and is_valid
 		if point_dict.has("completes_run"):
 			is_valid = _require_bool(WARZONE_DIRECTORS_PATH, "%s.completes_run" % item_field, point_dict.get("completes_run")) and is_valid
-		if point_dict.has("extraction_radius") or completes_run:
-			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.extraction_radius" % item_field, point_dict.get("extraction_radius"), 0.0, null, true) and is_valid
-		if point_dict.has("extraction_hold_time") or completes_run:
-			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.extraction_hold_time" % item_field, point_dict.get("extraction_hold_time"), 0.0, null, true) and is_valid
+		if has_gold_reward:
+			is_valid = _require_int(WARZONE_DIRECTORS_PATH, "%s.gold_reward_amount" % item_field, point_dict.get("gold_reward_amount"), 1) and is_valid
+		if has_mod_pool != has_mod_rolls:
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "gear_mod_pool_id and gear_mod_rolls together") and is_valid
+		if has_mod_pool:
+			is_valid = _require_registered(WARZONE_DIRECTORS_PATH, "%s.gear_mod_pool_id" % item_field, point_dict.get("gear_mod_pool_id"), "world_event_mod_pool_ids") != "" and is_valid
+		if has_mod_rolls:
+			is_valid = _require_int(WARZONE_DIRECTORS_PATH, "%s.gear_mod_rolls" % item_field, point_dict.get("gear_mod_rolls"), 1) and is_valid
+		if completes_run and (has_gold_reward or has_mod_pool or has_mod_rolls):
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "run completion point without reward payload") and is_valid
 		if point_dict.has("target_hp"):
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.target_hp" % item_field, point_dict.get("target_hp"), 0.0, null, true) and is_valid
 		if point_dict.has("target_hit_radius"):
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.target_hit_radius" % item_field, point_dict.get("target_hit_radius"), 0.0, null, true) and is_valid
-		if point_dict.has("resource_rewards"):
-			is_valid = _validate_warzone_resource_rewards("%s.resource_rewards" % item_field, point_dict.get("resource_rewards")) and is_valid
-		if point_dict.has("gear_mod_rewards"):
-			is_valid = _validate_warzone_gear_mod_rewards("%s.gear_mod_rewards" % item_field, point_dict.get("gear_mod_rewards"), gear_mod_ids) and is_valid
+		for removed_field: String in ["resource_rewards", "gear_mod_rewards", "extraction_radius", "extraction_hold_time"]:
+			is_valid = _reject_removed_field(WARZONE_DIRECTORS_PATH, item_field, point_dict, removed_field, 3) and is_valid
 		if point_dict.has("notes"):
 			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.notes" % item_field, point_dict.get("notes")) and is_valid
-	return is_valid
-
-
-func _validate_warzone_resource_rewards(field: String, data: Variant) -> bool:
-	var rewards: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
-	var is_valid: bool = true
-	if rewards.is_empty():
-		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
-	for reward_index: int in range(rewards.size()):
-		var reward_field: String = "%s[%d]" % [field, reward_index]
-		var reward: Variant = rewards[reward_index]
-		if not reward is Dictionary:
-			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, reward_field, "Dictionary") and is_valid
-			continue
-		var reward_dict: Dictionary = reward as Dictionary
-		is_valid = _require_registered(WARZONE_DIRECTORS_PATH, "%s.resource_id" % reward_field, reward_dict.get("resource_id"), "gear_mod_resources") != "" and is_valid
-		is_valid = _require_int(WARZONE_DIRECTORS_PATH, "%s.amount" % reward_field, reward_dict.get("amount"), 1) and is_valid
-	return is_valid
-
-
-func _validate_warzone_gear_mod_rewards(field: String, data: Variant, gear_mod_ids: Dictionary) -> bool:
-	var rewards: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
-	var is_valid: bool = true
-	if rewards.is_empty():
-		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
-	for reward_index: int in range(rewards.size()):
-		var reward_field: String = "%s[%d]" % [field, reward_index]
-		var reward: Variant = rewards[reward_index]
-		if not reward is Dictionary:
-			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, reward_field, "Dictionary") and is_valid
-			continue
-		var reward_dict: Dictionary = reward as Dictionary
-		var mod_id: String = _require_registered(WARZONE_DIRECTORS_PATH, "%s.mod_id" % reward_field, reward_dict.get("mod_id"), "gear_mod_ids")
-		if not mod_id.is_empty() and not gear_mod_ids.has(mod_id):
-			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.mod_id" % reward_field, "mod defined in gear_mods.json") and is_valid
-		is_valid = _require_int(WARZONE_DIRECTORS_PATH, "%s.count" % reward_field, reward_dict.get("count"), 1) and is_valid
 	return is_valid
 
 
@@ -4215,7 +4212,7 @@ func _collect_gear_mod_ids() -> Dictionary:
 
 func _validate_world_events_json(
 	locale_keys: Dictionary,
-	gear_mod_ids: Dictionary
+	_gear_mod_ids: Dictionary
 ) -> bool:
 	var data: Variant = load_json(WORLD_EVENTS_PATH)
 	if not data is Dictionary:
@@ -4225,107 +4222,17 @@ func _validate_world_events_json(
 		WORLD_EVENTS_PATH,
 		"root",
 		payload,
-		["schema_version", "mod_pools", "events"]
+		["schema_version", "events"]
 	)
 	is_valid = _require_exact_int(
 		WORLD_EVENTS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		1
+		2
 	) and is_valid
-
-	var mod_pools: Array = _require_array(
-		WORLD_EVENTS_PATH,
-		"mod_pools",
-		payload.get("mod_pools")
-	)
 	var mod_pool_ids: Dictionary = {}
-	for pool_index: int in range(mod_pools.size()):
-		var pool_field: String = "mod_pools[%d]" % pool_index
-		var raw_pool: Variant = mod_pools[pool_index]
-		if not raw_pool is Dictionary:
-			is_valid = _schema_fail(
-				WORLD_EVENTS_PATH,
-				pool_field,
-				"Dictionary"
-			) and is_valid
-			continue
-		var pool: Dictionary = raw_pool as Dictionary
-		is_valid = _validate_exact_dictionary_keys(
-			WORLD_EVENTS_PATH,
-			pool_field,
-			pool,
-			["id", "mod_ids"]
-		) and is_valid
-		var pool_id: String = _require_registered(
-			WORLD_EVENTS_PATH,
-			"%s.id" % pool_field,
-			pool.get("id"),
-			"world_event_mod_pool_ids"
-		)
-		if pool_id.is_empty():
-			is_valid = false
-		elif mod_pool_ids.has(pool_id):
-			is_valid = _schema_fail(
-				WORLD_EVENTS_PATH,
-				"%s.id" % pool_field,
-				"unique world event mod pool id"
-			) and is_valid
-		else:
-			mod_pool_ids[pool_id] = true
-		var mod_values: Array = _require_array(
-			WORLD_EVENTS_PATH,
-			"%s.mod_ids" % pool_field,
-			pool.get("mod_ids")
-		)
-		if mod_values.is_empty():
-			is_valid = _schema_fail(
-				WORLD_EVENTS_PATH,
-				"%s.mod_ids" % pool_field,
-				"non-empty Array"
-			) and is_valid
-		var seen_mod_ids: Dictionary = {}
-		for mod_index: int in range(mod_values.size()):
-			var mod_field: String = "%s.mod_ids[%d]" % [
-				pool_field,
-				mod_index,
-			]
-			var mod_id: String = _require_registered(
-				WORLD_EVENTS_PATH,
-				mod_field,
-				mod_values[mod_index],
-				"gear_mod_ids"
-			)
-			if mod_id.is_empty():
-				is_valid = false
-				continue
-			if seen_mod_ids.has(mod_id):
-				is_valid = _schema_fail(
-					WORLD_EVENTS_PATH,
-					mod_field,
-					"unique Gear Mod id in pool"
-				) and is_valid
-			seen_mod_ids[mod_id] = true
-			if not gear_mod_ids.has(mod_id):
-				is_valid = _schema_fail(
-					WORLD_EVENTS_PATH,
-					mod_field,
-					"Gear Mod defined in gear_mods.json"
-				) and is_valid
-	var expected_pool_ids: Array = contract_values("world_event_mod_pool_ids")
-	if mod_pool_ids.size() != expected_pool_ids.size():
-		is_valid = _schema_fail(
-			WORLD_EVENTS_PATH,
-			"mod_pools",
-			"every registered world_event_mod_pool_id exactly once"
-		) and is_valid
-	for raw_expected_pool_id: Variant in expected_pool_ids:
-		if not mod_pool_ids.has(String(raw_expected_pool_id)):
-			is_valid = _schema_fail(
-				WORLD_EVENTS_PATH,
-				"mod_pools",
-				"every registered world_event_mod_pool_id exactly once"
-			) and is_valid
+	for raw_pool_id: Variant in contract_values("world_event_mod_pool_ids"):
+		mod_pool_ids[String(raw_pool_id)] = true
 
 	var events: Array = _require_array(
 		WORLD_EVENTS_PATH,
@@ -4451,7 +4358,6 @@ func _validate_world_events_json(
 				"events",
 				"every registered world_event_kind exactly once"
 			) and is_valid
-	_last_schema_counts["world_event_mod_pools"] = mod_pools.size()
 	_last_schema_counts["world_events"] = events.size()
 	return is_valid
 
@@ -4789,26 +4695,8 @@ func _validate_world_event_completion_reward(
 		WORLD_EVENTS_PATH,
 		field,
 		reward,
-		["gold_weight", "mod_weight", "gold_amount", "mod_pool_id"]
+		["mod_pool_id"]
 	)
-	is_valid = _require_int(
-		WORLD_EVENTS_PATH,
-		"%s.gold_weight" % field,
-		reward.get("gold_weight"),
-		1
-	) and is_valid
-	is_valid = _require_int(
-		WORLD_EVENTS_PATH,
-		"%s.mod_weight" % field,
-		reward.get("mod_weight"),
-		1
-	) and is_valid
-	is_valid = _require_int(
-		WORLD_EVENTS_PATH,
-		"%s.gold_amount" % field,
-		reward.get("gold_amount"),
-		1
-	) and is_valid
 	is_valid = _validate_world_event_mod_pool_reference(
 		"%s.mod_pool_id" % field,
 		reward.get("mod_pool_id"),
@@ -4949,7 +4837,7 @@ func _validate_module_world_data(
 	if not data is Dictionary:
 		return _schema_fail(MODULE_WORLDS_PATH, "root", "Dictionary") and is_valid
 	var payload: Dictionary = data as Dictionary
-	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 3) and is_valid
+	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 4) and is_valid
 	var worlds: Array = _require_array(MODULE_WORLDS_PATH, "worlds", payload.get("worlds"))
 	if worlds.is_empty():
 		is_valid = _schema_fail(MODULE_WORLDS_PATH, "worlds", "non-empty Array") and is_valid
@@ -4979,7 +4867,7 @@ func _validate_module_world_data(
 			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.seal_outer_edges" % field, "true") and is_valid
 
 		var anchors: Dictionary = {}
-		for anchor_name: String in ["start_slot", "objective_slot", "extraction_slot"]:
+		for anchor_name: String in ["start_slot", "objective_slot"]:
 			var anchor: Variant = _validate_module_cell(MODULE_WORLDS_PATH, "%s.%s" % [field, anchor_name], world.get(anchor_name), 9, 9)
 			if anchor == null:
 				is_valid = false
@@ -5787,24 +5675,25 @@ func _validate_module_placements(
 				for danger: Variant in cells.keys():
 					danger_cells[danger] = true
 			MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE:
-				var rewards: Array = _require_array(resource_path, "%s.resource_rewards" % field, placement.get("resource_rewards"))
-				if rewards.is_empty():
-					is_valid = _schema_fail(resource_path, "%s.resource_rewards" % field, "non-empty Array") and is_valid
-				for reward_index: int in range(rewards.size()):
-					if not rewards[reward_index] is Dictionary:
-						is_valid = _schema_fail(resource_path, "%s.resource_rewards[%d]" % [field, reward_index], "Dictionary") and is_valid
-						continue
-					var reward: Dictionary = rewards[reward_index] as Dictionary
-					if _require_registered(resource_path, "%s.resource_rewards[%d].id" % [field, reward_index], reward.get("id"), "gear_mod_resources").is_empty():
-						is_valid = false
-					is_valid = _require_int(resource_path, "%s.resource_rewards[%d].amount" % [field, reward_index], reward.get("amount"), 1) and is_valid
+				var has_gold_reward: bool = placement.has("gold_reward_amount")
+				var has_mod_pool: bool = placement.has("gear_mod_pool_id")
+				var has_mod_rolls: bool = placement.has("gear_mod_rolls")
+				if has_gold_reward:
+					is_valid = _require_int(resource_path, "%s.gold_reward_amount" % field, placement.get("gold_reward_amount"), 1) and is_valid
+				if has_mod_pool != has_mod_rolls:
+					is_valid = _schema_fail(resource_path, field, "gear_mod_pool_id and gear_mod_rolls together") and is_valid
+				if has_mod_pool:
+					is_valid = _require_registered(resource_path, "%s.gear_mod_pool_id" % field, placement.get("gear_mod_pool_id"), "world_event_mod_pool_ids") != "" and is_valid
+				if has_mod_rolls:
+					is_valid = _require_int(resource_path, "%s.gear_mod_rolls" % field, placement.get("gear_mod_rolls"), 1) and is_valid
+				if not has_gold_reward and not (has_mod_pool and has_mod_rolls):
+					is_valid = _schema_fail(resource_path, field, "gold reward or Gear Mod pool reward") and is_valid
+				if placement.has("resource_rewards"):
+					is_valid = _schema_fail(resource_path, "%s.resource_rewards" % field, "removed; use gold_reward_amount or Gear Mod pool fields") and is_valid
 				is_valid = _require_number(resource_path, "%s.claim_radius" % field, placement.get("claim_radius"), 0.0, null, true) and is_valid
 			MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE:
 				is_valid = _require_number(resource_path, "%s.target_hp" % field, placement.get("target_hp"), 0.0, null, true) and is_valid
 				is_valid = _require_number(resource_path, "%s.target_hit_radius" % field, placement.get("target_hit_radius"), 0.0, null, true) and is_valid
-			MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION:
-				is_valid = _require_number(resource_path, "%s.radius" % field, placement.get("radius"), 0.0, null, true) and is_valid
-				is_valid = _require_number(resource_path, "%s.hold_time" % field, placement.get("hold_time"), 0.0, null, true) and is_valid
 			MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT:
 				is_valid = _validate_exact_dictionary_keys(
 					resource_path,
@@ -5829,14 +5718,14 @@ func _validate_module_placements(
 			_:
 				pass
 	var danger_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD]
-	var protected_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION, MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT]
+	var protected_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT]
 	for left_index: int in range(occupied.size()):
 		var left: Dictionary = occupied[left_index]
 		for right_index: int in range(left_index + 1, occupied.size()):
 			var right: Dictionary = occupied[right_index]
 			var conflicting: bool = (danger_types.has(String(left.get("type"))) and protected_types.has(String(right.get("type")))) or (danger_types.has(String(right.get("type"))) and protected_types.has(String(left.get("type"))))
 			if conflicting and _dictionaries_share_key(left.get("cells", {}) as Dictionary, right.get("cells", {}) as Dictionary):
-				is_valid = _schema_fail(resource_path, "placements", "no danger overlap with player start, objective, extraction, or reward") and is_valid
+				is_valid = _schema_fail(resource_path, "placements", "no danger overlap with player start, objective, or reward") and is_valid
 	is_valid = _validate_module_role_budget(resource_path, role, counts) and is_valid
 	if role == MODULE_ROLES.MODULE_ROLE_START and start_cell is Vector2i:
 		for danger: Variant in danger_cells.keys():
@@ -5897,9 +5786,6 @@ func _validate_module_role_budget(resource_path: String, role: String, counts: D
 		MODULE_ROLES.MODULE_ROLE_OBJECTIVE:
 			if int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, 0)) != 1:
 				return _schema_fail(resource_path, "placements", "exactly one objective")
-		MODULE_ROLES.MODULE_ROLE_EXTRACTION:
-			if int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION, 0)) != 1:
-				return _schema_fail(resource_path, "placements", "exactly one extraction")
 		MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
 			if (
 				int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT, 0))
@@ -5925,7 +5811,7 @@ func _validate_module_route_budget(field: String, value: Variant) -> Dictionary:
 		result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, field, "Dictionary")
 		return result
 	var budget: Dictionary = value as Dictionary
-	for segment: String in ["start_to_objective", "objective_to_extraction"]:
+	for segment: String in ["start_to_objective"]:
 		var segment_value: Variant = budget.get(segment)
 		if not segment_value is Dictionary:
 			result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, "%s.%s" % [field, segment], "Dictionary") and bool(result["is_valid"])
@@ -6008,7 +5894,6 @@ func _validate_module_fixed_anchor_roles(field: String, assignment: Dictionary, 
 	for anchor_role: Array in [
 		["start_slot", MODULE_ROLES.MODULE_ROLE_START],
 		["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE],
-		["extraction_slot", MODULE_ROLES.MODULE_ROLE_EXTRACTION],
 	]:
 		var anchor_name: String = String(anchor_role[0])
 		var role_count: int = 0
@@ -6038,7 +5923,7 @@ func _validate_module_assignment_world(field: String, assignment: Dictionary, te
 		return {"is_valid": false}
 	var effective_anchors: Dictionary = anchors.duplicate()
 	if technical:
-		for anchor_role: Array in [["start_slot", MODULE_ROLES.MODULE_ROLE_START], ["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE], ["extraction_slot", MODULE_ROLES.MODULE_ROLE_EXTRACTION]]:
+		for anchor_role: Array in [["start_slot", MODULE_ROLES.MODULE_ROLE_START], ["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE]]:
 			var role_slots: Array[Vector2i] = []
 			for slot_value: Variant in assignment.keys():
 				var assigned: Dictionary = assignment[slot_value] as Dictionary
@@ -6048,7 +5933,7 @@ func _validate_module_assignment_world(field: String, assignment: Dictionary, te
 				is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly one %s in technical slice" % String(anchor_role[1])) and is_valid
 			else:
 				effective_anchors[String(anchor_role[0])] = role_slots[0]
-	for anchor_role: Array in [["start_slot", MODULE_ROLES.MODULE_ROLE_START], ["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE], ["extraction_slot", MODULE_ROLES.MODULE_ROLE_EXTRACTION]]:
+	for anchor_role: Array in [["start_slot", MODULE_ROLES.MODULE_ROLE_START], ["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE]]:
 		if not effective_anchors.has(String(anchor_role[0])):
 			continue
 		var anchor: Vector2i = effective_anchors[String(anchor_role[0])] as Vector2i
@@ -6082,8 +5967,7 @@ func _validate_module_assignment_world(field: String, assignment: Dictionary, te
 					(graph[neighbor] as Array).append(slot)
 	var start: Variant = effective_anchors.get("start_slot")
 	var objective: Variant = effective_anchors.get("objective_slot")
-	var extraction: Variant = effective_anchors.get("extraction_slot")
-	if not start is Vector2i or not objective is Vector2i or not extraction is Vector2i:
+	if not start is Vector2i or not objective is Vector2i:
 		return {"is_valid": false}
 	var start_distances: Dictionary = _module_graph_distances(graph, start as Vector2i)
 	for slot_value: Variant in assignment.keys():
@@ -6093,16 +5977,11 @@ func _validate_module_assignment_world(field: String, assignment: Dictionary, te
 	if not start_distances.has(objective):
 		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "reachable start -> objective") and is_valid
 		return {"is_valid": is_valid}
-	var objective_distances: Dictionary = _module_graph_distances(graph, objective as Vector2i)
-	if not objective_distances.has(extraction):
-		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "reachable objective -> extraction") and is_valid
-		return {"is_valid": is_valid}
 	if not technical:
 		is_valid = _validate_module_route_distance(field, "start_to_objective", int(start_distances[objective]), route_budget.get("start_to_objective")) and is_valid
-		is_valid = _validate_module_route_distance(field, "objective_to_extraction", int(objective_distances[extraction]), route_budget.get("objective_to_extraction")) and is_valid
 		if route_budget.get("main_route_modules") is Vector2i:
 			var main_range: Vector2i = route_budget.get("main_route_modules") as Vector2i
-			var main_count: int = int(start_distances[objective]) + int(objective_distances[extraction]) + 1
+			var main_count: int = int(start_distances[objective]) + 1
 			if main_count < main_range.x or main_count > main_range.y:
 				is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "main route module count inside budget") and is_valid
 	return {"is_valid": is_valid}

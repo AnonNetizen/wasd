@@ -20,21 +20,17 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_l8tca")
-baker_schema_version = 4
 module_id = "module_resource_cache"
-gameplay_hash = "85ff837949672c9f521bd65a86939edf8b6bfe64221d57757147817555fe5bbd"
+gameplay_hash = "6b5f311b995afbad561dd6b5541bd281a8f4da0aefef85fe2a7b05e364920a2a"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "9f2c1b3ae7ba4912776c61ad873634944fda36fe35efaf6562e164480be92486"
+bake_hash = "8b0a7c3e564af7e9bf73bc30d8042317b731c1f2080b1d44c5cceb27dcaa825e"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,
 "y": 5
 },
 "claim_radius": 170,
-"resource_rewards": [{
-"amount": 20,
-"id": "gear_mod_dust"
-}],
+"gold_reward_amount": 20,
 "type": "module_place_reward_cache"
 }])
 

@@ -116,7 +116,7 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 12
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 13
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -150,12 +150,6 @@ const WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY: String = (
 	"event_primary"
 )
 
-@export_group("Extraction Visual Style")
-@export var extraction_zone_fill_color: Color = Color(0.18, 0.82, 0.68, 0.16)
-@export var extraction_zone_progress_color: Color = Color(0.38, 0.96, 0.78, 0.35)
-@export var extraction_zone_ring_color: Color = Color(0.38, 0.96, 0.78, 0.92)
-@export_range(0.5, 12.0, 0.1) var extraction_zone_ring_width: float = 4.0
-
 var _active_world: Node2D = null
 var _actor_scene_cache: Dictionary = {}
 var _camera_controller: Node2D = null
@@ -166,12 +160,6 @@ var _enemy_rows: Dictionary = {}
 var _enemy_reward_config: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
 var _gold_drop_config: Dictionary = {}
-var _extraction_active: bool = false
-var _extraction_hold_time: float = 0.0
-var _extraction_position: Vector2 = Vector2.ZERO
-var _extraction_progress: float = 0.0
-var _extraction_radius: float = 0.0
-var _extraction_source_point_id: String = ""
 var _gold_progression: GoldProgression = null
 var _gameplay_feedback: GameplayFeedbackController = null
 var _game_over_panel: CanvasLayer = null
@@ -184,14 +172,13 @@ var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
 var _main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _reward_choice_panel: CanvasLayer = null
-var _pending_loot: Dictionary = {}
+var _run_gear_mod_ranks: Dictionary = {}
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
 var _player_host: Node2D = null
 var _map_layout: Dictionary = {}
 var _map_manager: Node2D = null
-var _module_extraction_point_id: String = ""
 var _module_world_definition: Dictionary = {}
 var _module_world_enabled: bool = true
 var _module_world_technical_slice: bool = false
@@ -245,29 +232,6 @@ func _exit_tree() -> void:
 		Combat.damage_applied.disconnect(_on_combat_damage_applied)
 
 
-func _draw() -> void:
-	if not _extraction_active:
-		return
-	var half_extents: Vector2 = _extraction_half_extents()
-	var zone_points: PackedVector2Array = PackedVector2Array([
-		_extraction_position + Vector2(-half_extents.x, -half_extents.y),
-		_extraction_position + Vector2(half_extents.x, -half_extents.y),
-		_extraction_position + Vector2(half_extents.x, half_extents.y),
-		_extraction_position + Vector2(-half_extents.x, half_extents.y),
-	])
-	draw_colored_polygon(zone_points, extraction_zone_fill_color)
-	_draw_polygon_outline(zone_points, extraction_zone_ring_color, extraction_zone_ring_width)
-	var progress_ratio: float = clampf(_extraction_progress / maxf(_extraction_hold_time, 0.001), 0.0, 1.0)
-	if progress_ratio > 0.0:
-		var progress_half_extents: Vector2 = half_extents * progress_ratio
-		if progress_half_extents.x >= 0.5 and progress_half_extents.y >= 0.5:
-			draw_rect(
-				Rect2(_extraction_position - progress_half_extents, progress_half_extents * 2.0),
-				extraction_zone_progress_color,
-				true
-			)
-
-
 func _process(delta: float) -> void:
 	_update_stats_panel()
 	_update_combat_hud()
@@ -290,9 +254,6 @@ func _process(delta: float) -> void:
 	_update_interest_points()
 	_update_combined_interaction_prompt()
 	_refresh_world_event_hud()
-	if not GameState.is_state(GameState.PLAYING):
-		return
-	_update_extraction(delta)
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	if not _module_world_enabled:
@@ -489,8 +450,7 @@ func create_run_snapshot() -> Dictionary:
 		"rng": RNG.snapshot(),
 		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
 		"interest_points": _interest_points_snapshot(),
-		"extraction": _extraction_snapshot(),
-		"pending_loot": _pending_loot.duplicate(true),
+		"gear_mods": _run_gear_mod_snapshot(),
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
@@ -810,8 +770,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_gold_progression.reset()
 	_reward_choice_controller.clear()
 	_kills = 0
-	_pending_loot = _empty_pending_loot()
-	_reset_extraction()
+	_run_gear_mod_ranks.clear()
 	_run_completed = false
 
 	_player_host = _active_world.get_node_or_null("PlayerHost") as Node2D
@@ -886,7 +845,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		)
 	_connect_weapon_feedback()
 	_configure_skill_system(character)
-	_apply_loadout_modifiers()
+	_apply_initial_gear_modifiers()
 
 	_hud = get_node_or_null("GameplayHud") as CanvasLayer
 	if _hud == null:
@@ -1582,8 +1541,7 @@ func debug_summary() -> Dictionary:
 		"active_enemies": _active_enemy_count(),
 		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
 		"interest_points": _interest_point_debug_summary(),
-		"extraction": _extraction_snapshot(),
-		"pending_loot": _pending_loot.duplicate(true),
+		"gear_mods": _run_gear_mod_snapshot(),
 		"difficulty": _difficulty_snapshot(),
 		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
 		"module_world": _module_world_manager.call("debug_summary") if _module_world_manager != null and _module_world_manager.has_method("debug_summary") else {},
@@ -2060,44 +2018,6 @@ func debug_damage_interest_point_target(point_id: String, amount: float) -> Dict
 	return debug_result
 
 
-func _update_extraction(delta: float) -> void:
-	if not _extraction_active or _player == null or _run_completed:
-		return
-	if not _is_position_in_extraction_zone(_player.global_position):
-		if _extraction_progress > 0.0:
-			_extraction_progress = 0.0
-			queue_redraw()
-		return
-	_extraction_progress += GameClock.delta_scaled(delta)
-	queue_redraw()
-	if _extraction_progress >= _extraction_hold_time:
-		_complete_run(_extraction_source_point_id)
-
-
-func _activate_extraction(point_id: String, state: Dictionary) -> void:
-	_extraction_active = true
-	_extraction_source_point_id = point_id
-	_extraction_position = _dict_to_vector(state.get("position", {}), Vector2.ZERO)
-	_extraction_radius = maxf(float(state.get("extraction_radius", 0.0)), float(state.get("claim_radius", 0.0)))
-	_extraction_hold_time = maxf(float(state.get("extraction_hold_time", 0.0)), 0.0)
-	_extraction_progress = 0.0
-	if _hud != null and _hud.has_method("show_extraction_feedback"):
-		_hud.call("show_extraction_feedback")
-	queue_redraw()
-	if _extraction_hold_time <= 0.0:
-		_complete_run(point_id)
-
-
-func _reset_extraction() -> void:
-	_extraction_active = false
-	_extraction_source_point_id = ""
-	_extraction_position = Vector2.ZERO
-	_extraction_radius = 0.0
-	_extraction_hold_time = 0.0
-	_extraction_progress = 0.0
-	queue_redraw()
-
-
 func _update_spawner() -> void:
 	var elapsed: float = _difficulty_elapsed()
 	for wave: Dictionary in _waves:
@@ -2378,10 +2298,8 @@ func _choose_world_event_mod(
 	pool_id: String,
 	excluded: Array[String]
 ) -> String:
-	if _world_event_controller == null:
-		return ""
 	var candidates: Array[String] = []
-	for mod_id: String in _world_event_controller.mod_pool(pool_id):
+	for mod_id: String in GearModSystem.reward_pool_ids(pool_id):
 		if not excluded.has(mod_id):
 			candidates.append(mod_id)
 	if candidates.is_empty():
@@ -2446,32 +2364,6 @@ func _prepare_world_event_reward(
 				event_id
 			)
 		)
-	var gold_weight: int = maxi(
-		int(reward_config.get("gold_weight", 0)),
-		0
-	)
-	var mod_weight: int = maxi(
-		int(reward_config.get("mod_weight", 0)),
-		0
-	)
-	var total_weight: int = gold_weight + mod_weight
-	if total_weight <= 0:
-		return {}
-	var roll: int = int(
-		RNG.world_event.randi() % total_weight
-	)
-	if roll < gold_weight:
-		return {
-			"kind": (
-				WORLD_EVENT_REWARD_TYPES
-				.WORLD_EVENT_REWARD_GOLD
-			),
-			"amount": maxi(
-				int(reward_config.get("gold_amount", 0)),
-				0
-			),
-			"pending": false,
-		}
 	var pool_id: String = String(
 		reward_config.get("mod_pool_id", "")
 	)
@@ -2488,7 +2380,7 @@ func _prepare_world_event_reward(
 			.WORLD_EVENT_REWARD_GEAR_MOD
 		),
 		"mod_id": mod_id,
-		"pending": true,
+		"pending": false,
 	}
 
 
@@ -2723,7 +2615,7 @@ func _on_world_event_reward_requested(
 		var mod_id: String = String(reward.get("mod_id", ""))
 		if mod_id.is_empty():
 			return
-		_add_pending_mod(mod_id, _gear_mod_name_key(mod_id))
+		_grant_run_gear_mod(mod_id, 1, false)
 		feedback_key = (
 			"ui_world_event_gold_shrine_success"
 			if source_kind
@@ -3564,7 +3456,6 @@ func _register_module_interest_point(module_coord: Vector2i, placement: Dictiona
 	if not placement_type in [
 		MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE,
 		MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE,
-		MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION,
 	]:
 		return
 	var local_cell: Vector2i = _dict_to_vector2i(placement.get("cell", {}))
@@ -3576,8 +3467,6 @@ func _register_module_interest_point(module_coord: Vector2i, placement: Dictiona
 		local_cell.y,
 	]
 	if _interest_points.has(point_id):
-		if placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION:
-			_module_extraction_point_id = point_id
 		return
 	var generic_placement: Dictionary = {
 		"interest_point_id": point_id,
@@ -3586,32 +3475,31 @@ func _register_module_interest_point(module_coord: Vector2i, placement: Dictiona
 		"interest_point_claim_radius": 0.0,
 		"interest_point_claim_start_time": 0.0,
 		"interest_point_requires_interaction": false,
-		"interest_point_resource_rewards": [],
-		"interest_point_gear_mod_rewards": [],
+		"interest_point_gold_reward_amount": 0,
+		"interest_point_gear_mod_pool_id": "",
+		"interest_point_gear_mod_rolls": 0,
 		"interest_point_completes_run": false,
-		"interest_point_extraction_radius": 0.0,
-		"interest_point_extraction_hold_time": 0.0,
 		"interest_point_target_hp": 0.0,
 		"interest_point_target_hit_radius": 24.0,
 	}
 	if placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE:
 		generic_placement["interest_point_claim_radius"] = maxf(float(placement.get("claim_radius", 180.0)), 1.0)
 		generic_placement["interest_point_requires_interaction"] = true
-		var rewards: Array[Dictionary] = []
-		for reward: Dictionary in _typed_dictionary_array(placement.get("resource_rewards", [])):
-			rewards.append({
-				"resource_id": String(reward.get("id", "")),
-				"amount": int(reward.get("amount", 0)),
-			})
-		generic_placement["interest_point_resource_rewards"] = rewards
+		generic_placement["interest_point_gold_reward_amount"] = maxi(
+			int(placement.get("gold_reward_amount", 0)),
+			0
+		)
+		generic_placement["interest_point_gear_mod_pool_id"] = String(
+			placement.get("gear_mod_pool_id", "")
+		)
+		generic_placement["interest_point_gear_mod_rolls"] = maxi(
+			int(placement.get("gear_mod_rolls", 0)),
+			0
+		)
 	elif placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE:
 		generic_placement["interest_point_completes_run"] = true
 		generic_placement["interest_point_target_hp"] = maxf(float(placement.get("target_hp", 1.0)), 1.0)
 		generic_placement["interest_point_target_hit_radius"] = maxf(float(placement.get("target_hit_radius", 24.0)), 1.0)
-	elif placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION:
-		generic_placement["interest_point_extraction_radius"] = maxf(float(placement.get("radius", 160.0)), 1.0)
-		generic_placement["interest_point_extraction_hold_time"] = maxf(float(placement.get("hold_time", 1.0)), 0.0)
-		_module_extraction_point_id = point_id
 	var state: Dictionary = _new_interest_point_state(point_id, generic_placement)
 	state["module_slot"] = _module_slot_key(module_coord)
 	_interest_points[point_id] = state
@@ -3701,8 +3589,6 @@ func _refresh_module_world_hud() -> void:
 		"visited_slots": _module_world_manager.call("visited_module_coords"),
 		"current_slot": _coord_to_dict(_module_world_manager.call("current_module_coord") as Vector2i),
 		"objective_slot": _coord_to_dict(_module_world_manager.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) as Vector2i),
-		"extraction_slot": _coord_to_dict(_module_world_manager.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_EXTRACTION) as Vector2i),
-		"extraction_active": _extraction_active,
 	}
 	_hud.call("set_module_world_state", state)
 
@@ -3742,11 +3628,10 @@ func _new_interest_point_state(point_id: String, placement: Dictionary) -> Dicti
 		"claim_radius": maxf(float(placement.get("interest_point_claim_radius", 0.0)), 0.0),
 		"claim_start_time": maxf(float(placement.get("interest_point_claim_start_time", 0.0)), 0.0),
 		"requires_interaction": bool(placement.get("interest_point_requires_interaction", false)),
-		"resource_rewards": _typed_dictionary_array(placement.get("interest_point_resource_rewards", [])),
-		"gear_mod_rewards": _typed_dictionary_array(placement.get("interest_point_gear_mod_rewards", [])),
+		"gear_mod_pool_id": String(placement.get("interest_point_gear_mod_pool_id", "")),
+		"gear_mod_rolls": maxi(int(placement.get("interest_point_gear_mod_rolls", 0)), 0),
+		"gold_reward_amount": maxi(int(placement.get("interest_point_gold_reward_amount", 0)), 0),
 		"completes_run": bool(placement.get("interest_point_completes_run", false)),
-		"extraction_radius": maxf(float(placement.get("interest_point_extraction_radius", 0.0)), 0.0),
-		"extraction_hold_time": maxf(float(placement.get("interest_point_extraction_hold_time", 0.0)), 0.0),
 		"target_hp": maxf(float(placement.get("interest_point_target_hp", 0.0)), 0.0),
 		"target_hit_radius": maxf(float(placement.get("interest_point_target_hit_radius", 24.0)), 1.0),
 		"target_destroyed": false,
@@ -3799,20 +3684,14 @@ func _claim_interest_point(point_id: String, force: bool = false) -> Dictionary:
 	_mark_interest_point_cache_opened(point_id)
 	if _hud != null and _hud.has_method("hide_interaction_prompt"):
 		_hud.call("hide_interaction_prompt")
-	if bool(state.get("completes_run", false)):
-		if not _module_extraction_point_id.is_empty() and _interest_points.has(_module_extraction_point_id):
-			_activate_extraction(
-				_module_extraction_point_id,
-				_interest_points[_module_extraction_point_id] as Dictionary
-			)
-		else:
-			_activate_extraction(point_id, state)
+	var completed_run: bool = bool(state.get("completes_run", false))
+	if completed_run:
+		_complete_run(point_id)
 
 	var result: Dictionary = rewards.duplicate(true)
 	result["ok"] = true
 	result["interest_point_id"] = point_id
-	result["completed_run"] = false
-	result["extraction_active"] = _extraction_active
+	result["completed_run"] = completed_run
 	return result
 
 
@@ -4168,38 +4047,21 @@ func _interaction_binding_label() -> String:
 
 
 func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
-	var granted_resources: Array[Dictionary] = []
-	for reward: Dictionary in _typed_dictionary_array(state.get("resource_rewards", [])):
-		var resource_id: String = String(reward.get("resource_id", ""))
-		var amount: int = maxi(int(reward.get("amount", 0)), 0)
-		if resource_id.is_empty() or amount <= 0:
-			continue
-		_add_pending_resource(resource_id, amount)
-		granted_resources.append({
-			"resource_id": resource_id,
-			"amount": amount,
-		})
-		if _hud != null and _hud.has_method("show_gear_mod_resource_feedback"):
-			_hud.call("show_gear_mod_resource_feedback", "%s_name" % resource_id, amount)
-
 	var granted_mods: Array[Dictionary] = []
-	for reward: Dictionary in _typed_dictionary_array(state.get("gear_mod_rewards", [])):
-		var mod_id: String = String(reward.get("mod_id", ""))
-		var count: int = maxi(int(reward.get("count", 1)), 1)
-		if mod_id.is_empty():
-			continue
-		for _index: int in range(count):
-			var name_key: String = _gear_mod_name_key(mod_id)
-			_add_pending_mod(mod_id, name_key)
-			granted_mods.append({
-				"mod_id": mod_id,
-				"name_key": name_key,
-			})
-			if not name_key.is_empty() and _hud != null and _hud.has_method("show_gear_mod_drop_feedback"):
-				_hud.call("show_gear_mod_drop_feedback", name_key)
+	var pool_id: String = String(state.get("gear_mod_pool_id", ""))
+	var pool: Array[String] = GearModSystem.reward_pool_ids(pool_id)
+	var rolls: int = maxi(int(state.get("gear_mod_rolls", 0)), 0)
+	for _index: int in range(rolls):
+		if pool.is_empty():
+			break
+		var mod_id: String = pool[int(RNG.drop.randi() % pool.size())]
+		granted_mods.append(_grant_run_gear_mod(mod_id))
+	var gold_amount: int = maxi(int(state.get("gold_reward_amount", 0)), 0)
+	if gold_amount > 0:
+		add_gold(gold_amount, GOLD_TRANSACTION_REASONS.EVENT_REWARD)
 
 	return {
-		"resources": granted_resources,
+		"gold_amount": gold_amount,
 		"gear_mods": granted_mods,
 	}
 
@@ -4351,32 +4213,6 @@ func _map_grid_cell_size() -> Vector2:
 	if _map_manager != null and _map_manager.has_method("grid_cell_size"):
 		return _map_manager.call("grid_cell_size")
 	return DEFAULT_GRID_CELL_SIZE
-
-
-func _extraction_half_extents() -> Vector2:
-	var grid_size: Vector2 = _map_grid_cell_size()
-	var half_width: float = maxf(ceilf(_extraction_radius / maxf(grid_size.x, 1.0)) * grid_size.x, grid_size.x)
-	var half_height: float = maxf(ceilf(_extraction_radius / maxf(grid_size.y, 1.0)) * grid_size.y, grid_size.y)
-	return Vector2(half_width, half_height)
-
-
-func _is_position_in_extraction_zone(world_position: Vector2) -> bool:
-	if not _extraction_active:
-		return false
-	var half_extents: Vector2 = _extraction_half_extents()
-	if half_extents.x <= 0.0 or half_extents.y <= 0.0:
-		return false
-	var offset: Vector2 = world_position - _extraction_position
-	return absf(offset.x) <= half_extents.x and absf(offset.y) <= half_extents.y
-
-
-func _draw_polygon_outline(points: PackedVector2Array, color: Color, width: float) -> void:
-	if points.size() < 2:
-		return
-	for index: int in range(points.size()):
-		var start_point: Vector2 = points[index]
-		var end_point: Vector2 = points[(index + 1) % points.size()]
-		draw_line(start_point, end_point, color, width)
 
 
 func _reparent_to_active_world(node: Node) -> void:
@@ -4900,16 +4736,18 @@ func _on_player_died() -> void:
 		call_deferred("_reset_debug_test_arena_after_player_death")
 		return
 	var difficulty: Dictionary = _difficulty_snapshot()
+	var build_summary: Dictionary = _run_gear_mod_build_summary()
 	_finish_run_replay(false)
+	_clear_run_gear_mods()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
 		"run_time": _difficulty_elapsed(),
 		"difficulty": difficulty,
 		"completed": false,
-		"lost_loot": _pending_loot.duplicate(true),
+		"build": build_summary.duplicate(true),
 	})
-	_show_game_over_panel(false, _lost_loot_summary())
+	_show_game_over_panel(false, build_summary)
 
 
 func _complete_run(point_id: String) -> void:
@@ -4917,9 +4755,9 @@ func _complete_run(point_id: String) -> void:
 		return
 	_run_completed = true
 	var difficulty: Dictionary = _difficulty_snapshot()
-	var settlement: Dictionary = _commit_pending_loot()
+	var build_summary: Dictionary = _run_gear_mod_build_summary()
 	_finish_run_replay(true)
-	_reset_extraction()
+	_clear_run_gear_mods()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
@@ -4927,9 +4765,9 @@ func _complete_run(point_id: String) -> void:
 		"difficulty": difficulty,
 		"completed": true,
 		"interest_point_id": point_id,
-		"settlement": settlement.duplicate(true),
+		"build": build_summary.duplicate(true),
 	})
-	_show_game_over_panel(true, settlement)
+	_show_game_over_panel(true, build_summary)
 
 
 func _finish_run_replay(completed: bool) -> void:
@@ -4952,6 +4790,7 @@ func _finish_run_replay(completed: bool) -> void:
 		),
 		"main_hero_id": _main_hero_id,
 		"sub_hero_id": _sub_hero_id,
+		"gear_mods": _run_gear_mod_snapshot(),
 	})
 	var recording: Dictionary = Replay.stop_recording(
 		"completed" if completed else "player_death"
@@ -4960,7 +4799,7 @@ func _finish_run_replay(completed: bool) -> void:
 		Replay.save_recording(recording)
 
 
-func _show_game_over_panel(completed: bool = false, loot_summary: Dictionary = {}) -> void:
+func _show_game_over_panel(completed: bool = false, build_summary: Dictionary = {}) -> void:
 	_game_over_panel = UIManager.push(GAME_OVER_PANEL_SCENE, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
@@ -4969,7 +4808,7 @@ func _show_game_over_panel(completed: bool = false, loot_summary: Dictionary = {
 		_kills,
 		_difficulty_elapsed(),
 		completed,
-		loot_summary
+		build_summary
 	)
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
@@ -4995,28 +4834,26 @@ func _roll_gear_mod_drop(enemy: Node) -> void:
 		return
 	var forced_roll: float = _debug_next_gear_mod_drop_forced_roll
 	_debug_next_gear_mod_drop_forced_roll = -1.0
-	var drop_result: Dictionary = GearModSystem.roll_drop_for_enemy(enemy_id, 1, SaveManager.DEFAULT_SLOT, forced_roll, false)
+	var drop_result: Dictionary = GearModSystem.roll_drop_for_enemy(
+		enemy_id,
+		1,
+		forced_roll
+	)
 	for raw_drop: Variant in drop_result.get("drops", []):
 		if not raw_drop is Dictionary:
 			continue
 		var drop: Dictionary = raw_drop as Dictionary
 		var mod_id: String = String(drop.get("mod_id", ""))
-		var name_key: String = String(drop.get("name_key", ""))
 		if not mod_id.is_empty():
-			_add_pending_mod(mod_id, name_key)
-		if name_key.is_empty():
-			continue
-		if _hud != null and _hud.has_method("show_gear_mod_drop_feedback"):
-			_hud.call("show_gear_mod_drop_feedback", name_key)
+			_grant_run_gear_mod(mod_id)
 
 
-func _apply_loadout_modifiers() -> void:
+func _apply_initial_gear_modifiers() -> void:
 	var hero_modifiers: Array[Dictionary] = []
 	var weapon_modifiers: Array[Dictionary] = []
 	if _is_debug_test_arena():
 		var preview: Dictionary = GearModSystem.resolve_preview_loadout(
-			_array_or_empty(_debug_test_arena_config.get("gear_mods", [])),
-			int(_debug_test_arena_config.get("capacity", 8))
+			_array_or_empty(_debug_test_arena_config.get("gear_mods", []))
 		)
 		var all_modifiers: Dictionary = _dictionary_or_empty(
 			preview.get("modifiers", {})
@@ -5027,17 +4864,10 @@ func _apply_loadout_modifiers() -> void:
 		weapon_modifiers = _typed_dictionary_array(
 			all_modifiers.get(GEAR_MOD_SLOTS.WEAPON, [])
 		)
-	else:
-		hero_modifiers = GearModSystem.current_modifiers(
-			GEAR_MOD_SLOTS.HERO
-		)
-		weapon_modifiers = GearModSystem.current_modifiers(
-			GEAR_MOD_SLOTS.WEAPON
-		)
-	if _player != null and _player.has_method("apply_modifiers"):
-		_player.call("apply_modifiers", hero_modifiers)
-	if _weapon_system != null and _weapon_system.has_method("apply_modifiers"):
-		_weapon_system.call("apply_modifiers", weapon_modifiers)
+	if _player != null and _player.has_method("set_gear_modifiers"):
+		_player.call("set_gear_modifiers", hero_modifiers)
+	if _weapon_system != null and _weapon_system.has_method("set_gear_modifiers"):
+		_weapon_system.call("set_gear_modifiers", weapon_modifiers)
 
 
 func _show_pause_menu() -> void:
@@ -5157,17 +4987,6 @@ func _interest_points_snapshot() -> Dictionary:
 	return result
 
 
-func _extraction_snapshot() -> Dictionary:
-	return {
-		"active": _extraction_active,
-		"source_point_id": _extraction_source_point_id,
-		"position": _vector_to_dict(_extraction_position),
-		"radius": _extraction_radius,
-		"hold_time": _extraction_hold_time,
-		"progress": _extraction_progress,
-	}
-
-
 func _interest_point_debug_summary() -> Dictionary:
 	var result: Dictionary = {}
 	for point_key: Variant in _interest_points.keys():
@@ -5183,12 +5002,12 @@ func _interest_point_debug_summary() -> Dictionary:
 			"claimed": bool(state.get("claimed", false)),
 			"claimed_time": float(state.get("claimed_time", 0.0)),
 			"completes_run": bool(state.get("completes_run", false)),
-			"extraction_radius": float(state.get("extraction_radius", 0.0)),
-			"extraction_hold_time": float(state.get("extraction_hold_time", 0.0)),
 			"target_hp": float(state.get("target_hp", 0.0)),
 			"target_destroyed": bool(state.get("target_destroyed", false)),
-			"resource_reward_count": _typed_dictionary_array(state.get("resource_rewards", [])).size(),
-			"gear_mod_reward_count": _typed_dictionary_array(state.get("gear_mod_rewards", [])).size(),
+			"gold_reward_amount": int(state.get("gold_reward_amount", 0)),
+			"gear_mod_reward_count": int(state.get("gear_mod_rolls", 0)),
+			"gear_mod_pool_id": String(state.get("gear_mod_pool_id", "")),
+			"gear_mod_rolls": int(state.get("gear_mod_rolls", 0)),
 		}
 	return result
 
@@ -5299,6 +5118,10 @@ func _restore_run_snapshot(
 		_player.call("restore_snapshot", snapshot_data.get("player", {}) as Dictionary)
 	if _weapon_system != null and _weapon_system.has_method("restore_snapshot") and snapshot_data.get("weapon", {}) is Dictionary:
 		_weapon_system.call("restore_snapshot", snapshot_data.get("weapon", {}) as Dictionary)
+	if not _restore_run_gear_mods(snapshot_data.get("gear_mods", {})):
+		push_error("[GameplayRunLoop] Gear Mod snapshot restore failed")
+		return false
+	_apply_run_gear_modifiers()
 	if _skill_system != null and _skill_system.has_method("restore_snapshot") and snapshot_data.get("skills", {}) is Dictionary:
 		_skill_system.call("restore_snapshot", snapshot_data.get("skills", {}) as Dictionary)
 
@@ -5317,8 +5140,6 @@ func _restore_run_snapshot(
 	if not _module_world_enabled and _map_manager != null and _map_manager.has_method("hazard_placements"):
 		_configure_interest_points(_typed_dictionary_array(_map_manager.call("hazard_placements")))
 	_restore_interest_points(snapshot_data.get("interest_points", {}))
-	_restore_pending_loot(snapshot_data.get("pending_loot", {}))
-	_restore_extraction(snapshot_data.get("extraction", {}))
 	if _module_world_enabled and _module_world_manager != null:
 		var active_module_coords: Array[Vector2i] = _module_world_manager.call("active_module_coords")
 		for module_coord: Vector2i in active_module_coords:
@@ -5396,104 +5217,144 @@ func _restore_interest_points(raw_value: Variant) -> void:
 		_interest_points[point_id] = state
 
 
-func _restore_pending_loot(raw_value: Variant) -> void:
-	var saved_loot: Dictionary = _dictionary_or_empty(raw_value)
-	_pending_loot = _empty_pending_loot()
-	var resources: Dictionary = _dictionary_or_empty(saved_loot.get("resources", {}))
-	for resource_key: Variant in resources.keys():
-		var resource_id: String = String(resource_key)
-		var amount: int = maxi(int(resources.get(resource_key, 0)), 0)
-		if resource_id.is_empty() or amount <= 0:
-			continue
-		_add_pending_resource(resource_id, amount)
-	for entry: Dictionary in _typed_dictionary_array(saved_loot.get("gear_mods", [])):
-		var mod_id: String = String(entry.get("mod_id", ""))
-		if mod_id.is_empty():
-			continue
-		_add_pending_mod(mod_id, String(entry.get("name_key", _gear_mod_name_key(mod_id))))
+func _gear_mod_name_key(mod_id: String) -> String:
+	return String(
+		GearModSystem.mod_definition(mod_id).get("name_key", "")
+	)
 
 
-func _restore_extraction(raw_value: Variant) -> void:
-	var saved_state: Dictionary = _dictionary_or_empty(raw_value)
-	if saved_state.is_empty() or not bool(saved_state.get("active", false)):
-		_reset_extraction()
-		return
-	_extraction_active = true
-	_extraction_source_point_id = String(saved_state.get("source_point_id", ""))
-	_extraction_position = _dict_to_vector(saved_state.get("position", {}), Vector2.ZERO)
-	_extraction_radius = maxf(float(saved_state.get("radius", 0.0)), 0.0)
-	_extraction_hold_time = maxf(float(saved_state.get("hold_time", 0.0)), 0.0)
-	_extraction_progress = clampf(float(saved_state.get("progress", 0.0)), 0.0, _extraction_hold_time)
-	queue_redraw()
+func _run_gear_mod_snapshot() -> Dictionary:
+	return {"ranks": _run_gear_mod_ranks.duplicate(true)}
 
 
-func _empty_pending_loot() -> Dictionary:
+func _restore_run_gear_mods(raw_value: Variant) -> bool:
+	if not raw_value is Dictionary:
+		return false
+	var saved_state: Dictionary = raw_value as Dictionary
+	if not saved_state.get("ranks", {}) is Dictionary:
+		return false
+	var saved_ranks: Dictionary = saved_state.get("ranks", {}) as Dictionary
+	var restored_ranks: Dictionary = {}
+	var mod_ids: Array[String] = []
+	for raw_mod_id: Variant in saved_ranks.keys():
+		mod_ids.append(String(raw_mod_id))
+	mod_ids.sort()
+	for mod_id: String in mod_ids:
+		var maximum_rank: int = GearModSystem.max_rank(mod_id)
+		if maximum_rank < 0:
+			return false
+		var rank: int = int(saved_ranks.get(mod_id, -1))
+		if rank < 0 or rank > maximum_rank:
+			return false
+		restored_ranks[mod_id] = rank
+	_run_gear_mod_ranks = restored_ranks
+	return true
+
+
+func _grant_run_gear_mod(
+	mod_id: String,
+	count: int = 1,
+	show_feedback: bool = true
+) -> Dictionary:
+	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
+	if definition.is_empty() or count <= 0:
+		return _debug_result(false, "unknown_gear_mod")
+	var maximum_rank: int = GearModSystem.max_rank(mod_id)
+	var rank: int = int(_run_gear_mod_ranks.get(mod_id, -1))
+	var overflow_gold: int = 0
+	var rank_changed: bool = false
+	for _index: int in range(count):
+		if rank < 0:
+			rank = 0
+			rank_changed = true
+		elif rank < maximum_rank:
+			rank += 1
+			rank_changed = true
+		else:
+			overflow_gold += GearModSystem.overflow_gold()
+	if overflow_gold > 0:
+		var gold_result: Dictionary = add_gold(
+			overflow_gold,
+			GOLD_TRANSACTION_REASONS.GEAR_MOD_OVERFLOW
+		)
+		if not bool(gold_result.get("ok", false)):
+			return {
+				"ok": false,
+				"reason": "overflow_gold_failed",
+				"gold_result": gold_result,
+			}
+	_run_gear_mod_ranks[mod_id] = rank
+	if rank_changed:
+		_apply_run_gear_modifiers()
+	if (
+		show_feedback
+		and _hud != null
+		and _hud.has_method("show_gear_mod_drop_feedback")
+	):
+		_hud.call(
+			"show_gear_mod_drop_feedback",
+			String(definition.get("name_key", "")),
+			rank + 1,
+			overflow_gold
+		)
 	return {
-		"resources": {},
-		"gear_mods": [],
+		"ok": true,
+		"mod_id": mod_id,
+		"name_key": String(definition.get("name_key", "")),
+		"rank": rank,
+		"display_rank": rank + 1,
+		"overflow_gold": overflow_gold,
 	}
 
 
-func _add_pending_resource(resource_id: String, amount: int) -> void:
-	if resource_id.is_empty() or amount <= 0:
-		return
-	var resources: Dictionary = _dictionary_or_empty(_pending_loot.get("resources", {}))
-	resources[resource_id] = int(resources.get(resource_id, 0)) + amount
-	_pending_loot["resources"] = resources
+func _clear_run_gear_mods() -> void:
+	_run_gear_mod_ranks.clear()
+	_apply_run_gear_modifiers()
 
 
-func _add_pending_mod(mod_id: String, name_key: String) -> void:
-	if mod_id.is_empty():
-		return
-	var mods: Array = _array_or_empty(_pending_loot.get("gear_mods", []))
-	mods.append({
-		"mod_id": mod_id,
-		"name_key": name_key if not name_key.is_empty() else _gear_mod_name_key(mod_id),
-	})
-	_pending_loot["gear_mods"] = mods
+func _apply_run_gear_modifiers() -> void:
+	var hero_modifiers: Array[Dictionary] = []
+	var weapon_modifiers: Array[Dictionary] = []
+	var mod_ids: Array[String] = []
+	for raw_mod_id: Variant in _run_gear_mod_ranks.keys():
+		mod_ids.append(String(raw_mod_id))
+	mod_ids.sort()
+	for mod_id: String in mod_ids:
+		var definition: Dictionary = GearModSystem.mod_definition(mod_id)
+		var modifiers: Array[Dictionary] = GearModSystem.rank_modifiers(
+			mod_id,
+			int(_run_gear_mod_ranks.get(mod_id, 0))
+		)
+		match String(definition.get("slot", "")):
+			GEAR_MOD_SLOTS.HERO:
+				hero_modifiers.append_array(modifiers)
+			GEAR_MOD_SLOTS.WEAPON:
+				weapon_modifiers.append_array(modifiers)
+			_:
+				continue
+	if _player != null and _player.has_method("set_gear_modifiers"):
+		_player.call("set_gear_modifiers", hero_modifiers)
+	if _weapon_system != null and _weapon_system.has_method(
+		"set_gear_modifiers"
+	):
+		_weapon_system.call("set_gear_modifiers", weapon_modifiers)
 
 
-func _gear_mod_name_key(mod_id: String) -> String:
-	for mod: Dictionary in _typed_dictionary_array(_load_array(DataLoader.GEAR_MODS_PATH, "mods")):
-		if String(mod.get("id", "")) == mod_id:
-			return String(mod.get("name_key", ""))
-	return ""
-
-
-func _commit_pending_loot() -> Dictionary:
-	var settlement: Dictionary = _empty_pending_loot()
-	var resources: Dictionary = _dictionary_or_empty(_pending_loot.get("resources", {}))
-	for resource_key: Variant in resources.keys():
-		var resource_id: String = String(resource_key)
-		var amount: int = maxi(int(resources.get(resource_key, 0)), 0)
-		if resource_id.is_empty() or amount <= 0:
-			continue
-		var grant: Dictionary = GearModSystem.grant_resource(resource_id, amount, SaveManager.DEFAULT_SLOT)
-		if bool(grant.get("ok", false)):
-			var settled_resources: Dictionary = _dictionary_or_empty(settlement.get("resources", {}))
-			settled_resources[resource_id] = int(settled_resources.get(resource_id, 0)) + amount
-			settlement["resources"] = settled_resources
-
-	for entry: Dictionary in _typed_dictionary_array(_pending_loot.get("gear_mods", [])):
-		var mod_id: String = String(entry.get("mod_id", ""))
-		if mod_id.is_empty():
-			continue
-		var grant: Dictionary = GearModSystem.grant_mod(mod_id, 1, SaveManager.DEFAULT_SLOT)
-		if bool(grant.get("ok", false)):
-			var settled_mods: Array = _array_or_empty(settlement.get("gear_mods", []))
-			settled_mods.append({
-				"mod_id": mod_id,
-				"name_key": String(grant.get("name_key", entry.get("name_key", ""))),
-				"instance_ids": grant.get("instance_ids", []),
-			})
-			settlement["gear_mods"] = settled_mods
-
-	_pending_loot = _empty_pending_loot()
-	return settlement
-
-
-func _lost_loot_summary() -> Dictionary:
-	return _pending_loot.duplicate(true)
+func _run_gear_mod_build_summary() -> Dictionary:
+	var mods: Array[Dictionary] = []
+	var mod_ids: Array[String] = []
+	for raw_mod_id: Variant in _run_gear_mod_ranks.keys():
+		mod_ids.append(String(raw_mod_id))
+	mod_ids.sort()
+	for mod_id: String in mod_ids:
+		var rank: int = int(_run_gear_mod_ranks.get(mod_id, 0))
+		mods.append({
+			"mod_id": mod_id,
+			"name_key": _gear_mod_name_key(mod_id),
+			"rank": rank,
+			"display_rank": rank + 1,
+		})
+	return {"gear_mods": mods}
 
 
 func _restore_ui_state(raw_ui_restore: Variant) -> void:

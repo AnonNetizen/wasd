@@ -4,8 +4,6 @@ class_name GMCommandRegistry
 extends Node
 
 
-const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
-
 const COMMAND_HELP: String = "help"
 const COMMAND_STATS: String = "stats"
 const COMMAND_SPAWN: String = "spawn"
@@ -16,7 +14,6 @@ const COMMAND_DAMAGE: String = "damage"
 const COMMAND_KILL_PLAYER: String = "kill_player"
 const COMMAND_KILL_ENEMIES: String = "kill_enemies"
 const COMMAND_CLEAR_ENEMIES: String = "clear_enemies"
-const COMMAND_DUST: String = "dust"
 const COMMAND_SEED: String = "seed"
 
 const DEFAULT_SPAWN_ENEMY_ID: String = "enemy_chaser"
@@ -56,8 +53,6 @@ func execute(raw_command: String) -> Dictionary:
 			return _kill_enemies()
 		COMMAND_CLEAR_ENEMIES:
 			return _clear_enemies()
-		COMMAND_DUST:
-			return _dust(tokens)
 		COMMAND_SEED:
 			return _seed(tokens)
 		_:
@@ -76,7 +71,6 @@ func available_commands() -> PackedStringArray:
 		COMMAND_KILL_PLAYER,
 		COMMAND_KILL_ENEMIES,
 		COMMAND_CLEAR_ENEMIES,
-		COMMAND_DUST,
 		COMMAND_SEED,
 	])
 
@@ -193,18 +187,6 @@ func _clear_enemies() -> Dictionary:
 	return _result(bool(result.get("ok", false)), "cleared enemies=%d" % int(result.get("count", 0)))
 
 
-func _dust(tokens: PackedStringArray) -> Dictionary:
-	var amount: int = maxi(_int_arg(tokens, 1, 1), 1)
-	var result: Dictionary = GearModSystem.debug_grant_resource(GEAR_MOD_RESOURCES.GEAR_MOD_DUST, amount)
-	if not bool(result.get("ok", false)):
-		return _result(false, String(result.get("reason", "dust failed")))
-	return _result(true, "dust +%d %s=%d" % [
-		amount,
-		String(result.get("resource_id", "")),
-		int(result.get("balance", 0)),
-	])
-
-
 func _seed(tokens: PackedStringArray) -> Dictionary:
 	var seed_value: int = maxi(_int_arg(tokens, 1, 1), 1)
 	RNG.set_run_seed(seed_value)
@@ -247,7 +229,7 @@ func _find_node_by_name(root: Node, target_name: String) -> Node:
 
 
 func _help_text() -> String:
-	return "commands: help, stats, spawn <enemy_id> [count], gold <amount>, heal [amount], hp <amount>, damage <amount>, kill_player, kill_enemies, clear_enemies, dust <amount>, seed <int>"
+	return "commands: help, stats, spawn <enemy_id> [count], gold <amount>, heal [amount], hp <amount>, damage <amount>, kill_player, kill_enemies, clear_enemies, seed <int>"
 
 
 func _tokens(raw_command: String) -> PackedStringArray:

@@ -17,13 +17,13 @@
 
 ## 1. 当前优先级（P0）
 
-- [x] F13 默认关卡改为 9×9 无缝模块世界：11×11 模块 JSON、AI candidate/approved 门禁、seed 组图 / 安全布局、`ModuleWorldManager`、3×3 流式激活、迷雾、目标—撤离、run v4 与 `module-world-smoke` 已建立；旧 RoomManager / 线性序列 / 演示房间已删除。
+- [x] F13 默认关卡改为 9×9 无缝模块世界：11×11 模块 JSON、AI candidate/approved 门禁、seed 组图 / 安全布局、`ModuleWorldManager`、3×3 流式激活、迷雾、意识核直接完成、Run v13 与 `module-world-smoke` 已建立；旧 RoomManager / 线性序列 / 撤离模块已删除。
 - [x] F14 敌人共享流场与混合感知：完整 99×99 静态导航 mask、半径 8 / 最多 289 格的局部确定性八方向活动流场、全图守家 / 记忆 AStar waypoint、视线 / 路径 / 1.5 秒记忆分层、冲锋走廊与远程视线门禁、profile schema v3 和专项 smoke 已建立；F13 保持完成状态。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
 
-- [ ] 深化接入强 `SaveManager`：在 F11 Gear Mod meta payload 接入后，补更多 meta 字段回归和正式手动存档迁移 checklist。
+- [ ] 深化接入强 `SaveManager`：在 Meta v3 / Run v13 局内 Gear Mod 接入后，补更多组合字段回归和正式人工存档迁移 checklist。
 - [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG、GameClock、暂停菜单和升级选择面板；后续补遗物、主动道具和正式测试。
 - [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
 - [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。
@@ -34,7 +34,7 @@
 - [ ] 建立 L1 GUT 单测框架，优先覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager`、`ModifierEngine`、`Combat`。
 - [ ] 扩展黄金回放：`golden_basic_run`、`golden_pause_resume`、`golden_full_death` 和 `golden_level_up_choice` 已有运行时摘要 + 扩展稳定帧样本 / 场景语义字段版，runner 已有输入播放与 runtime event 播放首片；后续在遗物运行时 / 协同原语存在后补 `golden_relic_synergy` 等更多场景。
 - [ ] 实现本地化导入与运行时语言切换，确保 `strings.csv` 中 `zh_CN` / `en` 可直接验证。
-- [ ] 建立基础 UI：主菜单、HUD、暂停菜单、设置菜单、升级选择、结算、装备 Mod / 旧局外迁移界面。
+- [ ] 建立基础 UI：主菜单、HUD、暂停菜单、设置菜单、升级选择与最终构筑结算；Gear Mod 不提供局外配置入口。
 - [ ] 建立首批数据内容：扩展到 3~5 个遗物、更多武器 / 主动道具 / 消耗品和 2 种机关，并保持默认角色起始携带引用可校验。
 
 ## 4. 长期积压（P3）
@@ -42,7 +42,8 @@
 - [ ] 在线服务接入（未排期）：用户点名首个功能后，按 `docs/在线服务规划.md` 先重新核验 GodotSteam / Talo 官方来源和版本、决定 Talo Cloud 或官方自托管，再实施 `PlatformServices → GodotSteam` 与规划中的 `OnlineServices → Talo`；不开发自有通用后端，不从 `小服务器玩法备忘` 自动挑选玩法。
 - [ ] 平衡 sim：实现 `AIPlayer` 接口与 headless 批量模拟，输出胜率、存活时长、构筑强度报表。
 - [ ] 其他宽高比适配：当前正式客户端只支持固定 16:9 预设，非 16:9 屏幕加黑边；未来按需为 16:10、4:3、21:9 等比例分别增加固定分辨率预设与 UI / 瞄准 / 玩法视野验收，不做连续任意比例适配。
-- [ ] 装备 Mod 扩展：更多稀有度、套装 / 标签协同、容量成长、可视化筛选、重置 / 退款规则和挑战驱动解锁。
+- [ ] Gear Mod 局内扩展：更多稀有度、套装 / 标签协同、局内奖励来源和挑战型构筑路线。
+- [ ] 设计并实现 Gear Mod 局内手动配置面板；本期只做自动授予 / 升阶，标题页与局外不得配置。
 - [ ] 内容生产流水线：加敌人 / 加遗物 / 加装备 Mod 节点的 schema、模板、自动校验和示例数据。
 - [ ] 音频与美术资源规范落地：Bus 配置、SFX / BGM id、占位美术替换策略。
 - [ ] 发版前完整 L5 手动回归 checklist，覆盖输入设备插拔、语言切换、存档迁移、回放重现和性能预算。
@@ -72,11 +73,11 @@
 - [x] 正式项目 F3 数据 / 契约闭环：`DataLoader`、`tools/validate_data.py`、schema 回归测试和 headless boot 已覆盖正式项目首批数据文件，并新增 F4 最小可玩闭环工作包。
 - [x] 正式项目 F5 暂停 / 存档 / 续局：run roundtrip、备份回退、双坏档隔离、v1 -> v2 迁移、坏档提示、暂停 / 升级 UI 恢复点、升级界面暂停菜单叠层和最终手动存档 checklist 已完成。
 - [x] 正式项目 F6 局外成长首切片：`MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、升级购买、解锁授予、下一局永久 modifiers 和 `meta-smoke` 已完成。
-- [x] F11 装备 Mod / 局外装配规划入口：ADR #115、GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md`、`docs/代码/gear_mod_system.md`、`client/data/README.md` planned schema 已建立；旧 F6 永久升级进入 legacy 迁移范围。
+- [x] F11 历史局外装配首片已完成，后由 ADR #188 整体取代；当前工作包和 GearModSystem 文档已改为纯局内构筑。
 - [x] F11 旧局外成长退役：ADR #117 已删除 `MetaProgressionSystem` autoload、`MetaProgressionPanel`、标题旧入口、死亡旧结算和 `meta-smoke`；ADR #118 已删除旧 `meta_progression.json`、旧 meta 契约、旧文案和旧测试档迁移 / 补偿路径。
-- [x] F11 装备 Mod 数据 / 契约首片：登记 `gear_mod_*` id / slot / rarity / resource / stack rule，新增 `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / `validate_data` schema 和坏样例回归。
-- [x] F11 装备 Mod 运行时首片：新增 `GearModSystem` autoload，支持 `meta.gear_mods` profile、英雄 / 武器两套 loadout、capacity / drain、唯一装备、升级消耗 `gear_mod_dust`、分解返还、`enemy_chaser` 玩家击杀 1% 掉落和开局 modifier snapshot，并新增 `gear-mod-smoke`。
-- [x] F11 装备 Mod 最小 UI：标题菜单进入 `GearModPanel`，支持英雄 / 武器两套配置切换、资源 / 容量 / 详情展示、装备 / 卸下 / 升级 / 分解，并由 `gear-mod-smoke` 覆盖按钮流。
+- [x] F11 Gear Mod 数据升级为 schema v2：公共池、rank 曲线、满阶溢出金币和三敌人掉率进入双端 schema；fusion / dust 契约删除。
+- [x] F11 Gear Mod 运行时改为纯局内：RunLoop 统一授予 / 升阶 / 溢出，Player / Weapon 替换式 Mod 层，Run v13 恢复和 `gear-mod-smoke` 已建立。
+- [x] F11 正式局外 UI 删除：标题入口、GearModPanel 与行模板已移除；开发者测试岛只保留纯内存预览。
 - [x] F12 短刷图默认循环规划入口：ADR #120、`docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD、AI 导航、数据手册、Gameplay Runtime 模块文档和测试策略已同步；默认标准模式改为 8-12 分钟短刷图，并暂时屏蔽局内升级 3 选 1。
 - [x] F13 方向决策已由 ADR #142 更新：`F13-ModularGridWorld.md` 取代 ADR #127 线性手工房间默认方向，ADR #128 和 `F13-HandcraftedRooms.md` 只作历史 / superseded 记录。
 - [x] 正式项目 F7 工作包准备：`docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 已建立为设置 / 本地化 / UI 栈稳定化阶段入口。

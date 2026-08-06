@@ -196,19 +196,19 @@ def main() -> int:
             ],
         ),
         (
-            "module world schema v3 is required",
-            _mutate_json("client/data/module_worlds.json", _set_schema_version(2)),
+            "module world schema v4 is required",
+            _mutate_json("client/data/module_worlds.json", _set_schema_version(3)),
             [
                 "client/data/module_worlds.json:schema_version",
-                "must equal 3",
+                "must equal 4",
             ],
         ),
         (
-            "world event schema v1 is required",
-            _mutate_json("client/data/world_events.json", _set_schema_version(0)),
+            "world event schema v2 is required",
+            _mutate_json("client/data/world_events.json", _set_schema_version(1)),
             [
                 "client/data/world_events.json:schema_version",
-                "must equal 1",
+                "must equal 2",
             ],
         ),
         (
@@ -404,7 +404,7 @@ def main() -> int:
         (
             "candidate module template cannot keep gameplay approval hash",
             _mutate_json("client/data/module_templates.json", _make_sealed_template_keep_approved_hash),
-            ["client/data/module_templates.json:templates[21].approved_gameplay_hash", "must be omitted unless the template is approved"],
+            ["client/data/module_templates.json:templates[20].approved_gameplay_hash", "must be omitted unless the template is approved"],
         ),
         (
             "fallback assignment must contain 81 slots",
@@ -438,6 +438,22 @@ def main() -> int:
             "module placement cell must stay in bounds",
             _mutate_json("client/data/modules/module_start_cross.json", _set_module_placement_out_of_bounds),
             ["client/data/modules/module_start_cross.json:placements[0].cell.x", "must be < 11"],
+        ),
+        (
+            "module reward cache gold must be positive",
+            _mutate_json("client/data/modules/module_resource_cache.json", _set_module_reward_gold_zero),
+            [
+                "client/data/modules/module_resource_cache.json:placements[0].gold_reward_amount",
+                "must be >= 1",
+            ],
+        ),
+        (
+            "module reward cache rejects retired resource rewards",
+            _mutate_json("client/data/modules/module_resource_cache.json", _add_legacy_module_resource_rewards),
+            [
+                "client/data/modules/module_resource_cache.json:placements[0].resource_rewards",
+                "was removed; use gold_reward_amount or Gear Mod pool fields",
+            ],
         ),
         (
             "world event placement requires a registered event id",
@@ -1325,19 +1341,19 @@ def main() -> int:
             ],
         ),
         (
-            "gear mod fusion resource must be registered",
-            _mutate_csv("client/data/gear_mod_fusion_costs.csv", _set_gear_mod_fusion_resource("gear_mod_resource_missing")),
+            "gear mod overflow reward must be positive",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_overflow_gold(0)),
             [
-                "client/data/gear_mod_fusion_costs.csv:line 2.resource_id",
-                "unknown id gear_mod_resource_missing; expected one of gear_mod_resources",
+                "client/data/gear_mods.json:overflow_gold",
+                "must be >= 1",
             ],
         ),
         (
-            "gear mod fusion costs must cover max rank",
-            _mutate_csv("client/data/gear_mod_fusion_costs.csv", _remove_gear_mod_fusion_rank("5")),
+            "gear mod reward pool ids must be registered",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_reward_pool_id("world_event_mod_pool_missing")),
             [
-                "client/data/gear_mod_fusion_costs.csv:common.rank_5",
-                "missing fusion cost for gear mod rarity/rank",
+                "client/data/gear_mods.json:reward_pools[0].id",
+                "unknown id world_event_mod_pool_missing; expected one of world_event_mod_pool_ids",
             ],
         ),
         (
@@ -1453,11 +1469,11 @@ def main() -> int:
             ],
         ),
         (
-            "warzone director schema v2 is required",
-            _mutate_json("client/data/warzone_directors.json", _set_schema_version(1)),
+            "warzone director schema v3 is required",
+            _mutate_json("client/data/warzone_directors.json", _set_schema_version(2)),
             [
                 "client/data/warzone_directors.json:schema_version",
-                "must be >= 2",
+                "must be >= 3",
             ],
         ),
         (
@@ -1493,19 +1509,35 @@ def main() -> int:
             ],
         ),
         (
-            "warzone resource reward must use registered resource",
-            _mutate_json("client/data/warzone_directors.json", _set_warzone_resource_reward("resource_missing")),
+            "warzone legacy resource rewards were removed",
+            _mutate_json("client/data/warzone_directors.json", _add_warzone_legacy_resource_rewards),
             [
-                "client/data/warzone_directors.json:directors[0].interest_points[0].resource_rewards[0].resource_id",
-                "unknown id resource_missing; expected one of gear_mod_resources",
+                "client/data/warzone_directors.json:directors[0].interest_points[0].resource_rewards",
+                "field was removed in schema v3",
             ],
         ),
         (
-            "warzone gear mod reward must reference existing mod",
-            _mutate_json("client/data/warzone_directors.json", _set_warzone_gear_mod_reward("gear_mod_missing")),
+            "warzone mod cache pool must be registered",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_gear_mod_pool("world_event_mod_pool_missing")),
             [
-                "client/data/warzone_directors.json:directors[0].interest_points[0].gear_mod_rewards[0].mod_id",
-                "unknown id gear_mod_missing; expected one of gear_mod_ids",
+                "client/data/warzone_directors.json:directors[0].interest_points[1].gear_mod_pool_id",
+                "unknown id world_event_mod_pool_missing; expected one of world_event_mod_pool_ids",
+            ],
+        ),
+        (
+            "warzone mod cache rolls must be positive",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_gear_mod_rolls(0)),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[1].gear_mod_rolls",
+                "must be >= 1",
+            ],
+        ),
+        (
+            "warzone gold reward must be positive",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_gold_reward(0)),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[0].gold_reward_amount",
+                "must be >= 1",
             ],
         ),
         (
@@ -1525,19 +1557,19 @@ def main() -> int:
             ],
         ),
         (
-            "warzone completion point extraction radius must be positive",
-            _mutate_json("client/data/warzone_directors.json", _set_warzone_completion_extraction_radius(0)),
+            "warzone legacy extraction metadata was removed",
+            _mutate_json("client/data/warzone_directors.json", _add_warzone_legacy_extraction_radius),
             [
                 "client/data/warzone_directors.json:directors[0].interest_points[3].extraction_radius",
-                "must be > 0",
+                "field was removed in schema v3",
             ],
         ),
         (
-            "warzone completion point extraction hold time must be positive",
-            _mutate_json("client/data/warzone_directors.json", _set_warzone_completion_extraction_hold_time(0)),
+            "warzone completion point cannot grant rewards",
+            _mutate_json("client/data/warzone_directors.json", _add_warzone_completion_reward),
             [
-                "client/data/warzone_directors.json:directors[0].interest_points[3].extraction_hold_time",
-                "must be > 0",
+                "client/data/warzone_directors.json:directors[0].interest_points[3]",
+                "run completion point must not define a reward payload",
             ],
         ),
         (
@@ -2338,16 +2370,29 @@ def _set_warzone_interest_point_hazards(value: list[str]) -> JsonMutator:
     return mutate
 
 
-def _set_warzone_resource_reward(value: str) -> JsonMutator:
+def _add_warzone_legacy_resource_rewards(payload: dict[str, Any]) -> None:
+    payload["directors"][0]["interest_points"][0]["resource_rewards"] = [
+        {"resource_id": "gear_mod_dust", "amount": 10}
+    ]
+
+
+def _set_warzone_gear_mod_pool(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["directors"][0]["interest_points"][0]["resource_rewards"] = [{"resource_id": value, "amount": 10}]
+        payload["directors"][0]["interest_points"][1]["gear_mod_pool_id"] = value
 
     return mutate
 
 
-def _set_warzone_gear_mod_reward(value: str) -> JsonMutator:
+def _set_warzone_gear_mod_rolls(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["directors"][0]["interest_points"][0]["gear_mod_rewards"] = [{"mod_id": value, "count": 1}]
+        payload["directors"][0]["interest_points"][1]["gear_mod_rolls"] = value
+
+    return mutate
+
+
+def _set_warzone_gold_reward(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][0]["gold_reward_amount"] = value
 
     return mutate
 
@@ -2366,18 +2411,12 @@ def _set_warzone_interest_point_target_hp(value: int) -> JsonMutator:
     return mutate
 
 
-def _set_warzone_completion_extraction_radius(value: int) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["directors"][0]["interest_points"][3]["extraction_radius"] = value
-
-    return mutate
+def _add_warzone_legacy_extraction_radius(payload: dict[str, Any]) -> None:
+    payload["directors"][0]["interest_points"][3]["extraction_radius"] = 220
 
 
-def _set_warzone_completion_extraction_hold_time(value: int) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["directors"][0]["interest_points"][3]["extraction_hold_time"] = value
-
-    return mutate
+def _add_warzone_completion_reward(payload: dict[str, Any]) -> None:
+    payload["directors"][0]["interest_points"][3]["gold_reward_amount"] = 1
 
 
 def _set_reward_entry_name_key(value: str) -> JsonMutator:
@@ -2740,16 +2779,16 @@ def _set_gear_mod_drop_chance(value: str) -> CsvMutator:
     return mutate
 
 
-def _set_gear_mod_fusion_resource(value: str) -> CsvMutator:
-    def mutate(rows: list[dict[str, str]]) -> None:
-        rows[0]["resource_id"] = value
+def _set_gear_mod_overflow_gold(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["overflow_gold"] = value
 
     return mutate
 
 
-def _remove_gear_mod_fusion_rank(value: str) -> CsvMutator:
-    def mutate(rows: list[dict[str, str]]) -> None:
-        rows[:] = [row for row in rows if row.get("rank") != value]
+def _set_gear_mod_reward_pool_id(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["reward_pools"][0]["id"] = value
 
     return mutate
 
@@ -3273,6 +3312,16 @@ def _set_unknown_module_placement(payload: dict[str, Any]) -> None:
 
 def _set_module_placement_out_of_bounds(payload: dict[str, Any]) -> None:
     payload["placements"][0]["cell"]["x"] = 11
+
+
+def _set_module_reward_gold_zero(payload: dict[str, Any]) -> None:
+    payload["placements"][0]["gold_reward_amount"] = 0
+
+
+def _add_legacy_module_resource_rewards(payload: dict[str, Any]) -> None:
+    payload["placements"][0]["resource_rewards"] = [
+        {"id": "gear_mod_dust", "amount": 1}
+    ]
 
 
 def _set_unknown_world_event_placement_id(payload: dict[str, Any]) -> None:

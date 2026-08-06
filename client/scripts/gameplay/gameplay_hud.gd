@@ -17,6 +17,8 @@ const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
 const UPGRADE_FEEDBACK_TEXT_SHADOW_COLOR: Color = Color(0.05, 0.04, 0.03, 0.92)
+const GEAR_MOD_MIN_DISPLAY_RANK: int = 1
+const GEAR_MOD_MAX_DISPLAY_RANK: int = 6
 const DIFFICULTY_MARKER_NORMAL_RECT: Rect2 = Rect2(-267.0, 189.0, 254.0, 132.0)
 const DIFFICULTY_MARKER_STATS_RECT: Rect2 = Rect2(-718.0, 24.0, 254.0, 132.0)
 const STATS_PANEL_ROWS: Array[Dictionary] = [
@@ -77,8 +79,6 @@ var _upgrade_feedback_label: Label = null
 var _upgrade_feedback_remaining: float = 0.0
 var _last_upgrade_feedback_key: String = "ui_upgrade_applied"
 var _last_upgrade_name_key: String = ""
-var _last_upgrade_resource_key: String = ""
-var _last_upgrade_amount: int = 0
 var _last_feedback_level: int = 1
 var _last_feedback_context: Dictionary = {}
 var _interaction_binding: String = ""
@@ -491,16 +491,26 @@ func show_level_advanced_feedback(level: int) -> void:
 	_show_feedback("ui_level_advanced", "")
 
 
-func show_gear_mod_drop_feedback(name_key: String) -> void:
-	_show_feedback("ui_gear_mod_drop_obtained", name_key)
-
-
-func show_gear_mod_resource_feedback(resource_key: String, amount: int) -> void:
-	_show_resource_feedback("ui_gear_mod_resource_obtained", resource_key, amount)
-
-
-func show_extraction_feedback() -> void:
-	_show_feedback("ui_extraction_available", "")
+func show_gear_mod_drop_feedback(
+	name_key: String,
+	display_rank: int = 1,
+	overflow_gold: int = 0
+) -> void:
+	_last_upgrade_feedback_key = (
+		"ui_gear_mod_overflow_gold"
+		if overflow_gold > 0
+		else "ui_gear_mod_drop_obtained"
+	)
+	_last_upgrade_name_key = name_key
+	_last_feedback_context = {
+		"rank": clampi(
+			display_rank,
+			GEAR_MOD_MIN_DISPLAY_RANK,
+			GEAR_MOD_MAX_DISPLAY_RANK
+		),
+		"gold": maxi(overflow_gold, 0),
+	}
+	_start_feedback()
 
 
 func show_world_event_feedback(
@@ -509,8 +519,6 @@ func show_world_event_feedback(
 ) -> void:
 	_last_upgrade_feedback_key = feedback_key
 	_last_upgrade_name_key = ""
-	_last_upgrade_resource_key = ""
-	_last_upgrade_amount = 0
 	_last_feedback_context = context.duplicate(true)
 	_start_feedback()
 
@@ -562,32 +570,16 @@ func is_gear_mod_drop_feedback_visible() -> bool:
 	return (
 		_upgrade_feedback_label != null
 		and _upgrade_feedback_label.visible
-		and _last_upgrade_feedback_key == "ui_gear_mod_drop_obtained"
-	)
-
-
-func is_gear_mod_resource_feedback_visible() -> bool:
-	return (
-		_upgrade_feedback_label != null
-		and _upgrade_feedback_label.visible
-		and _last_upgrade_feedback_key == "ui_gear_mod_resource_obtained"
+		and _last_upgrade_feedback_key in [
+			"ui_gear_mod_drop_obtained",
+			"ui_gear_mod_overflow_gold",
+		]
 	)
 
 
 func _show_feedback(feedback_key: String, name_key: String) -> void:
 	_last_upgrade_feedback_key = feedback_key
 	_last_upgrade_name_key = name_key
-	_last_upgrade_resource_key = ""
-	_last_upgrade_amount = 0
-	_last_feedback_context.clear()
-	_start_feedback()
-
-
-func _show_resource_feedback(feedback_key: String, resource_key: String, amount: int) -> void:
-	_last_upgrade_feedback_key = feedback_key
-	_last_upgrade_name_key = ""
-	_last_upgrade_resource_key = resource_key
-	_last_upgrade_amount = maxi(amount, 0)
 	_last_feedback_context.clear()
 	_start_feedback()
 
@@ -712,8 +704,6 @@ func _refresh_upgrade_feedback() -> void:
 		return
 	var feedback_values: Dictionary = {
 		"name": tr(_last_upgrade_name_key),
-		"resource": tr(_last_upgrade_resource_key),
-		"amount": _last_upgrade_amount,
 		"level": _last_feedback_level,
 	}
 	for key: Variant in _last_feedback_context.keys():
