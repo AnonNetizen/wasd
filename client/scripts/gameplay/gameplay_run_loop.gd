@@ -25,6 +25,12 @@ enum RunPurpose {
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
+const CONTENT_UNLOCK_PROGRESS_COUNTERS := preload(
+	"res://scripts/contracts/content_unlock_progress_counters.gd"
+)
+const CONTENT_UNLOCK_TYPES := preload(
+	"res://scripts/contracts/content_unlock_types.gd"
+)
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DIFFICULTY_PROGRESSION_SCRIPT := preload(
 	"res://scripts/data/difficulty_progression.gd"
@@ -116,7 +122,7 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 13
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 14
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -156,6 +162,10 @@ var _camera_controller: Node2D = null
 var _character_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _difficulty_progression: DifficultyProgression = null
 var _configured_difficulty_profile_id: String = ""
+var _configured_content_availability: Dictionary = {}
+var _content_availability: Dictionary = {}
+var _content_progress_commits_enabled: bool = true
+var _content_progress_delta: Dictionary = {}
 var _enemy_rows: Dictionary = {}
 var _enemy_reward_config: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
@@ -294,6 +304,28 @@ func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 		_configured_difficulty_profile_id = saved_profile_id
 
 
+## Must be called before the run loop enters the scene tree. Replay playback uses
+## the recording's frozen pool snapshot instead of the local Meta state.
+func configure_content_availability(snapshot_data: Dictionary) -> void:
+	if is_inside_tree():
+		push_error(
+			"[GameplayRunLoop] content availability must be configured before entering tree"
+		)
+		return
+	_configured_content_availability = snapshot_data.duplicate(true)
+
+
+## Test and replay harnesses disable permanent progression writes through this
+## pre-tree switch. Debug test arenas are isolated regardless of this value.
+func configure_content_progress_commits_enabled(enabled: bool) -> void:
+	if is_inside_tree():
+		push_error(
+			"[GameplayRunLoop] progression commits must be configured before entering tree"
+		)
+		return
+	_content_progress_commits_enabled = enabled
+
+
 ## Must be called before the run loop enters the scene tree. Empty selects the
 ## current mode's default profile.
 func configure_difficulty_profile_id(profile_id: String) -> void:
@@ -379,6 +411,7 @@ func activate_prepared_run() -> bool:
 					1.0
 				)
 			),
+			"content_availability": _content_availability.duplicate(true),
 		}
 		if Replay.start_recording(replay_context):
 			Replay.record_decision(
@@ -451,6 +484,8 @@ func create_run_snapshot() -> Dictionary:
 		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
 		"interest_points": _interest_points_snapshot(),
 		"gear_mods": _run_gear_mod_snapshot(),
+		"content_availability": _content_availability.duplicate(true),
+		"content_progress_delta": _content_progress_delta.duplicate(true),
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
@@ -473,6 +508,19 @@ func create_run_snapshot() -> Dictionary:
 
 func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	GameClock.reset()
+	_content_progress_delta = _empty_content_progress_delta()
+	if not _initialize_content_availability(restore_snapshot):
+		_fail_run_start(
+			"content availability snapshot is missing or invalid",
+			not restore_snapshot.is_empty()
+		)
+		return
+	if not restore_snapshot.is_empty():
+		_content_progress_delta = _normalize_content_progress_delta(
+			_dictionary_or_empty(
+				restore_snapshot.get("content_progress_delta", {})
+			)
+		)
 	_next_enemy_spawn_serial = 1
 	_active_world = get_node_or_null("ActiveWorld") as Node2D
 	if _active_world == null:
@@ -550,6 +598,21 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 			else _requested_sub_hero_id
 		)
 	).strip_edges()
+	if (
+		not _is_content_available(
+			CONTENT_UNLOCK_TYPES.CHARACTER,
+			selected_main_hero_id
+		)
+		or not _is_content_available(
+			CONTENT_UNLOCK_TYPES.CHARACTER,
+			selected_sub_hero_id
+		)
+	):
+		_fail_run_start(
+			"hero composition contains locked content",
+			not restore_snapshot.is_empty()
+		)
+		return
 	var characters_payload: Variant = DataLoader.load_json(
 		DataLoader.CHARACTERS_PATH
 	)
@@ -1050,6 +1113,11 @@ func _register_enemy_pools() -> bool:
 		if not raw_enemy_data is Dictionary:
 			continue
 		var enemy_data: Dictionary = raw_enemy_data as Dictionary
+		if not _is_content_available(
+			CONTENT_UNLOCK_TYPES.ENEMY,
+			String(enemy_data.get("id", ""))
+		):
+			continue
 		if not _register_enemy_pool(enemy_data):
 			_rollback_registered_enemy_pools()
 			return false
@@ -1066,6 +1134,11 @@ func _register_enemy_pools_staged() -> bool:
 		if not raw_enemy_data is Dictionary:
 			continue
 		var enemy_data: Dictionary = raw_enemy_data as Dictionary
+		if not _is_content_available(
+			CONTENT_UNLOCK_TYPES.ENEMY,
+			String(enemy_data.get("id", ""))
+		):
+			continue
 		if not _register_enemy_pool(enemy_data):
 			_rollback_registered_enemy_pools()
 			return false
@@ -2050,6 +2123,8 @@ func _update_spawner() -> void:
 
 func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	var requested_id: String = String(wave.get("enemy_id", ""))
+	if not _is_content_available(CONTENT_UNLOCK_TYPES.ENEMY, requested_id):
+		return false
 	if not _enemy_rows.has(requested_id):
 		return false
 	var enemy_data: Dictionary = _enemy_rows[requested_id]
@@ -2299,7 +2374,10 @@ func _choose_world_event_mod(
 	excluded: Array[String]
 ) -> String:
 	var candidates: Array[String] = []
-	for mod_id: String in GearModSystem.reward_pool_ids(pool_id):
+	for mod_id: String in GearModSystem.reward_pool_ids(
+		pool_id,
+		_available_content_ids(CONTENT_UNLOCK_TYPES.GEAR_MOD)
+	):
 		if not excluded.has(mod_id):
 			candidates.append(mod_id)
 	if candidates.is_empty():
@@ -3276,7 +3354,10 @@ func _eligible_first_visit_enemy_pool(
 		var entry: Dictionary = raw_entry as Dictionary
 		if float(entry.get("unlock_time", 0.0)) > elapsed_time:
 			continue
-		enemy_ids.append(String(entry.get("enemy_id", "")))
+		var enemy_id: String = String(entry.get("enemy_id", ""))
+		if not _is_content_available(CONTENT_UNLOCK_TYPES.ENEMY, enemy_id):
+			continue
+		enemy_ids.append(enemy_id)
 		weights.append(float(entry.get("weight", 0.0)))
 	return {
 		"enemy_ids": enemy_ids,
@@ -3394,6 +3475,8 @@ func _spawn_enemy_at(
 	spawn_context: Dictionary = {},
 	fixed_spawn_difficulty: Dictionary = {}
 ) -> bool:
+	if not _is_content_available(CONTENT_UNLOCK_TYPES.ENEMY, enemy_id):
+		return false
 	if not _enemy_rows.has(enemy_id):
 		return false
 	if not module_slot.is_empty() and not _is_module_world_position_walkable(spawn_position):
@@ -4049,7 +4132,10 @@ func _interaction_binding_label() -> String:
 func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
 	var granted_mods: Array[Dictionary] = []
 	var pool_id: String = String(state.get("gear_mod_pool_id", ""))
-	var pool: Array[String] = GearModSystem.reward_pool_ids(pool_id)
+	var pool: Array[String] = GearModSystem.reward_pool_ids(
+		pool_id,
+		_available_content_ids(CONTENT_UNLOCK_TYPES.GEAR_MOD)
+	)
 	var rolls: int = maxi(int(state.get("gear_mod_rolls", 0)), 0)
 	for _index: int in range(rolls):
 		if pool.is_empty():
@@ -4269,6 +4355,7 @@ func _on_enemy_defeated(
 		return
 	if counts_as_kill:
 		_kills += 1
+		_record_enemy_defeated_progress(_enemy)
 		if _hud != null:
 			_hud.call("set_kills", _kills)
 	if drops_rewards:
@@ -4737,6 +4824,7 @@ func _on_player_died() -> void:
 		return
 	var difficulty: Dictionary = _difficulty_snapshot()
 	var build_summary: Dictionary = _run_gear_mod_build_summary()
+	var newly_unlocked: Dictionary = _commit_content_progress(false)
 	_finish_run_replay(false)
 	_clear_run_gear_mods()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
@@ -4746,8 +4834,9 @@ func _on_player_died() -> void:
 		"difficulty": difficulty,
 		"completed": false,
 		"build": build_summary.duplicate(true),
+		"newly_unlocked": newly_unlocked.duplicate(true),
 	})
-	_show_game_over_panel(false, build_summary)
+	_show_game_over_panel(false, build_summary, newly_unlocked)
 
 
 func _complete_run(point_id: String) -> void:
@@ -4756,6 +4845,7 @@ func _complete_run(point_id: String) -> void:
 	_run_completed = true
 	var difficulty: Dictionary = _difficulty_snapshot()
 	var build_summary: Dictionary = _run_gear_mod_build_summary()
+	var newly_unlocked: Dictionary = _commit_content_progress(true)
 	_finish_run_replay(true)
 	_clear_run_gear_mods()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
@@ -4766,8 +4856,9 @@ func _complete_run(point_id: String) -> void:
 		"completed": true,
 		"interest_point_id": point_id,
 		"build": build_summary.duplicate(true),
+		"newly_unlocked": newly_unlocked.duplicate(true),
 	})
-	_show_game_over_panel(true, build_summary)
+	_show_game_over_panel(true, build_summary, newly_unlocked)
 
 
 func _finish_run_replay(completed: bool) -> void:
@@ -4799,7 +4890,11 @@ func _finish_run_replay(completed: bool) -> void:
 		Replay.save_recording(recording)
 
 
-func _show_game_over_panel(completed: bool = false, build_summary: Dictionary = {}) -> void:
+func _show_game_over_panel(
+	completed: bool = false,
+	build_summary: Dictionary = {},
+	newly_unlocked: Dictionary = {}
+) -> void:
 	_game_over_panel = UIManager.push(GAME_OVER_PANEL_SCENE, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
@@ -4808,7 +4903,8 @@ func _show_game_over_panel(completed: bool = false, build_summary: Dictionary = 
 		_kills,
 		_difficulty_elapsed(),
 		completed,
-		build_summary
+		build_summary,
+		newly_unlocked
 	)
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
@@ -4837,7 +4933,8 @@ func _roll_gear_mod_drop(enemy: Node) -> void:
 	var drop_result: Dictionary = GearModSystem.roll_drop_for_enemy(
 		enemy_id,
 		1,
-		forced_roll
+		forced_roll,
+		_available_content_ids(CONTENT_UNLOCK_TYPES.GEAR_MOD)
 	)
 	for raw_drop: Variant in drop_result.get("drops", []):
 		if not raw_drop is Dictionary:
@@ -5038,6 +5135,12 @@ func _restore_run_snapshot(
 		!= RUN_SNAPSHOT_SCHEMA_VERSION
 	):
 		push_error("[GameplayRunLoop] unsupported run snapshot schema")
+		return false
+	if (
+		not snapshot_data.get("content_availability", {}) is Dictionary
+		or not snapshot_data.get("content_progress_delta", {}) is Dictionary
+	):
+		push_error("[GameplayRunLoop] run snapshot content progression is invalid")
 		return false
 	var difficulty_snapshot: Dictionary = _dictionary_or_empty(
 		snapshot_data.get("difficulty", {})
@@ -5259,6 +5362,8 @@ func _grant_run_gear_mod(
 	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
 	if definition.is_empty() or count <= 0:
 		return _debug_result(false, "unknown_gear_mod")
+	if not _is_content_available(CONTENT_UNLOCK_TYPES.GEAR_MOD, mod_id):
+		return _debug_result(false, "locked_gear_mod")
 	var maximum_rank: int = GearModSystem.max_rank(mod_id)
 	var rank: int = int(_run_gear_mod_ranks.get(mod_id, -1))
 	var overflow_gold: int = 0
@@ -5915,11 +6020,14 @@ func _load_waves(target_mode: String) -> Array[Dictionary]:
 	for row: Dictionary in DataLoader.load_csv(DataLoader.SPAWN_WAVES_PATH):
 		if String(row.get("mode_id", "")) != target_mode:
 			continue
+		var enemy_id: String = String(row.get("enemy_id", ""))
+		if not _is_content_available(CONTENT_UNLOCK_TYPES.ENEMY, enemy_id):
+			continue
 		result.append({
 			"id": String(row.get("id", "")),
 			"start_time": String(row.get("start_time", "0.0")).to_float(),
 			"end_time": String(row.get("end_time", "0.0")).to_float(),
-			"enemy_id": String(row.get("enemy_id", "")),
+			"enemy_id": enemy_id,
 			"spawn_interval": String(row.get("spawn_interval", "1.0")).to_float(),
 			"max_alive": String(row.get("max_alive", "0")).to_int(),
 			"spawn_budget": String(row.get("spawn_budget", "0")).to_int(),
@@ -6293,6 +6401,191 @@ func _enemy_rows_array() -> Array[Dictionary]:
 		if raw_row is Dictionary:
 			rows.append((raw_row as Dictionary).duplicate(true))
 	return rows
+
+
+func _initialize_content_availability(restore_snapshot: Dictionary) -> bool:
+	if _is_debug_test_arena():
+		_content_availability = {}
+		return true
+	var source: Dictionary = {}
+	if not restore_snapshot.is_empty():
+		if not restore_snapshot.get("content_availability", {}) is Dictionary:
+			return false
+		source = _dictionary_or_empty(
+			restore_snapshot.get("content_availability", {})
+		)
+	elif not _configured_content_availability.is_empty():
+		source = _configured_content_availability.duplicate(true)
+	else:
+		source = ContentUnlockSystem.build_run_availability_snapshot()
+	_content_availability = _normalize_content_availability(source)
+	return (
+		_available_content_ids(CONTENT_UNLOCK_TYPES.CHARACTER).size() >= 2
+		and not _available_content_ids(CONTENT_UNLOCK_TYPES.GEAR_MOD).is_empty()
+		and not _available_content_ids(CONTENT_UNLOCK_TYPES.ENEMY).is_empty()
+	)
+
+
+func _normalize_content_availability(raw_value: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for content_type: String in CONTENT_UNLOCK_TYPES.VALUES:
+		var ids: Array[String] = []
+		var raw_ids: Variant = raw_value.get(content_type, [])
+		if not raw_ids is Array:
+			result[content_type] = ids
+			continue
+		for raw_id: Variant in raw_ids as Array:
+			var content_id: String = String(raw_id).strip_edges()
+			if content_id.is_empty() or ids.has(content_id):
+				continue
+			ids.append(content_id)
+		ids.sort()
+		result[content_type] = ids
+	return result
+
+
+func _available_content_ids(content_type: String) -> Array[String]:
+	if _is_debug_test_arena():
+		return []
+	var result: Array[String] = []
+	var raw_ids: Variant = _content_availability.get(content_type, [])
+	if not raw_ids is Array:
+		return result
+	for raw_id: Variant in raw_ids as Array:
+		var content_id: String = String(raw_id)
+		if not content_id.is_empty():
+			result.append(content_id)
+	return result
+
+
+func _is_content_available(content_type: String, content_id: String) -> bool:
+	if _is_debug_test_arena():
+		return true
+	return (
+		not content_id.is_empty()
+		and _available_content_ids(content_type).has(content_id)
+	)
+
+
+func _empty_content_progress_delta() -> Dictionary:
+	return {
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_ENDED: 0,
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_COMPLETED: 0,
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.CHARACTER_RUN_COMPLETED: {},
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED_TOTAL: 0,
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED: {},
+	}
+
+
+func _normalize_content_progress_delta(raw_value: Dictionary) -> Dictionary:
+	var result: Dictionary = _empty_content_progress_delta()
+	result[CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_ENDED] = maxi(
+		int(raw_value.get(CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_ENDED, 0)),
+		0
+	)
+	result[CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_COMPLETED] = maxi(
+		int(raw_value.get(CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_COMPLETED, 0)),
+		0
+	)
+	result[CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED_TOTAL] = maxi(
+		int(
+			raw_value.get(
+				CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED_TOTAL,
+				0
+			)
+		),
+		0
+	)
+	for grouped_counter: String in [
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.CHARACTER_RUN_COMPLETED,
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED,
+	]:
+		var normalized_counts: Dictionary = {}
+		var raw_counts: Variant = raw_value.get(grouped_counter, {})
+		if raw_counts is Dictionary:
+			for raw_subject_id: Variant in (raw_counts as Dictionary).keys():
+				var subject_id: String = String(raw_subject_id).strip_edges()
+				var count: int = maxi(
+					int((raw_counts as Dictionary).get(raw_subject_id, 0)),
+					0
+				)
+				if not subject_id.is_empty() and count > 0:
+					normalized_counts[subject_id] = count
+		result[grouped_counter] = normalized_counts
+	return result
+
+
+func _record_enemy_defeated_progress(enemy: Node) -> void:
+	if _is_debug_test_arena():
+		return
+	var enemy_id: String = ""
+	if enemy != null and enemy.has_method("enemy_id"):
+		enemy_id = String(enemy.call("enemy_id"))
+	elif enemy != null and enemy.has_meta("enemy_id"):
+		enemy_id = String(enemy.get_meta("enemy_id"))
+	_content_progress_delta[
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED_TOTAL
+	] = int(
+		_content_progress_delta.get(
+			CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED_TOTAL,
+			0
+		)
+	) + 1
+	if enemy_id.is_empty():
+		return
+	var enemy_counts: Dictionary = _dictionary_or_empty(
+		_content_progress_delta.get(
+			CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED,
+			{}
+		)
+	)
+	enemy_counts[enemy_id] = int(enemy_counts.get(enemy_id, 0)) + 1
+	_content_progress_delta[
+		CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED
+	] = enemy_counts
+
+
+func _commit_content_progress(completed: bool) -> Dictionary:
+	_content_progress_delta[CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_ENDED] = int(
+		_content_progress_delta.get(
+			CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_ENDED,
+			0
+		)
+	) + 1
+	if completed:
+		_content_progress_delta[
+			CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_COMPLETED
+		] = int(
+			_content_progress_delta.get(
+				CONTENT_UNLOCK_PROGRESS_COUNTERS.RUNS_COMPLETED,
+				0
+			)
+		) + 1
+		var hero_counts: Dictionary = _dictionary_or_empty(
+			_content_progress_delta.get(
+				CONTENT_UNLOCK_PROGRESS_COUNTERS.CHARACTER_RUN_COMPLETED,
+				{}
+			)
+		)
+		for hero_id: String in [_main_hero_id, _sub_hero_id]:
+			if not hero_id.is_empty():
+				hero_counts[hero_id] = int(hero_counts.get(hero_id, 0)) + 1
+		_content_progress_delta[
+			CONTENT_UNLOCK_PROGRESS_COUNTERS.CHARACTER_RUN_COMPLETED
+		] = hero_counts
+	if (
+		_is_debug_test_arena()
+		or not _content_progress_commits_enabled
+		or InputService.playback_active()
+	):
+		return {}
+	var result: Dictionary = ContentUnlockSystem.commit_run_progress(
+		_content_progress_delta
+	)
+	if not bool(result.get("saved", false)):
+		push_error("[GameplayRunLoop] content progression commit failed")
+		return {}
+	return _dictionary_or_empty(result.get("newly_unlocked", {}))
 
 
 func _is_debug_test_arena() -> bool:

@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective completion, threat-time combat gates and Run v13 restore.
+## objective completion, threat-time combat gates and Run v14 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -96,9 +96,9 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 13
+		int(fresh_run_snapshot.get("schema_version", 0)) == 14
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v13 should save registered world-event state"
+		"Run v14 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
@@ -955,13 +955,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v13 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v14 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 13, "module run snapshot should use schema v13")
+	_expect(int(snapshot.get("schema_version", 0)) == 14, "module run snapshot should use schema v14")
 	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v13 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
 	_expect(not loaded.is_empty(), "module run v13 should load")
@@ -1010,7 +1010,7 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 				0
 			)
 		) >= 1,
-		"Run v13 restore should preserve active event progress, pin, and fixed wave plan"
+		"Run v14 restore should preserve active event progress, pin, and fixed wave plan"
 	)
 	_expect(
 		is_equal_approx(
@@ -1027,13 +1027,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v13 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v14 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v13 fixture should resume after difficulty comparison"
+		"restored paused Run v14 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")

@@ -91,7 +91,7 @@ FormalClientBoot
 - 玩家可见文本只使用 `ui_loading` 与 `ui_loading_failed`，并同时提供 `zh_CN` / `en`。
 - 加载界面不显示阶段、百分比、资源路径、技术错误或取消按钮。
 - 不增加最低展示时间；准备完成即可移除。
-- 当前 Run v13 envelope 恢复地图、局内 Gear Mod ranks、金币、世界事件、攻击、奖励及武器冷却 / 分层修正状态，不含任何弹药、`pending_loot` 或撤离字段；已有敌人不重抽、不重发。开始 / 重开把可选 difficulty profile id 贯通到 RunLoop，未指定时使用 mode 默认；继续直接恢复保存 profile。旧 Run v12 明确拒绝并只删除 run，Meta v3 保留。当前正式 UI 始终使用标准难度。
+- 当前 Run v14 envelope 恢复地图、冻结内容池、未结算内容进度、局内 Gear Mod ranks、金币、世界事件、攻击、奖励及武器冷却 / 分层修正状态，不含任何弹药、`pending_loot` 或撤离字段；已有敌人不重抽、不重发。开始 / 重开把可选 difficulty profile id 与 `ContentUnlockSystem` 可用池在入树前贯通到 RunLoop，未指定难度时使用 mode 默认；继续直接恢复保存 profile 与内容池。旧 Run v13 明确拒绝并只删除 run，Meta v4 保留。当前正式 UI 始终使用标准难度。
 - `GameState.LOADING` 在准备期间不暂停 SceneTree，但 gameplay 节点必须只在 `PLAYING` 时接受输入和推进 `GameClock`。
 - 资源路径继续来自已校验的角色 / 敌人数据与模块 assignment，不在加载流程中新增裸路径分支。
 

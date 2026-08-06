@@ -103,8 +103,8 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 13,
-		"new runs should use Run schema v13"
+		int(initial_run_snapshot.get("schema_version", 0)) == 14,
+		"new runs should use Run schema v14"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -4811,7 +4811,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			"_restore_run_gear_mods",
 			{"ranks": {"missing_gear_mod": 0}}
 		)),
-		"Run v13 restore should reject unknown Gear Mod ids"
+		"Run v14 restore should reject unknown Gear Mod ids"
 	)
 	_expect(
 		not bool(restored_run_loop.call(
@@ -4822,7 +4822,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 				},
 			}
 		)),
-		"Run v13 restore should reject out-of-range Gear Mod ranks"
+		"Run v14 restore should reject out-of-range Gear Mod ranks"
 	)
 	_expect(
 		bool(restored_run_loop.call(

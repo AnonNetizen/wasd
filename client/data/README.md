@@ -29,6 +29,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改瞄准方向引导镜头或玩家受伤 / 武器后坐力震屏 | `camera_feedback.json` 的 `aim_look` / `player_damage_shake` / `weapon_recoil_shake` | 引导偏移按输入源计算并独立于震屏；噪声随机走 `RNG.camera_fx` |
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
 | 改智能碎片主属性 / 被动 / 两个技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；palette 必须且只能含一个 `primary`。主碎片提供属性、被动、主色和技能 1/2，副碎片提供副色和技能 3/4 |
+| 改内容默认解锁 / 跨局解锁条件 / 图鉴图标 | `content_unlock_rules.json` + `characters.json` / `gear_mods.json` / `enemies.csv` | 首版只支持智能碎片、Gear Mod、心象；规则 id 由内容条目的 `unlock_rule_id` 引用，现有内容全部默认解锁 |
 | 改武器射速 / 后坐力 / 弹道扩散 | `weapons.json` | schema v5；武器 id 文件内唯一，后坐力与基础扩散受根级 `recoil_model` 限制；玩家武器无限射击且禁止遗留 `ammo` 字段，子弹池、元素和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 怪物金币价值 / 中心间距 | `enemies.csv` | `gold_value_multiplier` 只表达怪物相对价值；全局金币公式改 `enemy_rewards.json`；显式攻击参数统一在 `enemy_ai_profiles.json.actions[].attack` |
 | 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
@@ -61,6 +62,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `difficulty_profiles.json` | 已建立 | schema v2：难度双语名称 / 系数、模式级威胁时间曲线、阶段跃升、伤害换算比例和九段名称 |
 | `enemy_rewards.json` | 已建立 | schema v1：敌人金币基础系数、每阶段增长与 `RNG.economy` 随机倍率范围 |
 | `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `content_unlock_rules.json` | 已建立 | schema v1：智能碎片、Gear Mod 与心象的跨局解锁条件；现有 `rules` 为空，全部内容默认解锁 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
 | `weapons.json` | 已建立 | schema v5：武器、后坐力 / 弹道扩散与子弹基础配置；玩家武器无限射击，精确拒绝遗留 `ammo` |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
@@ -205,7 +207,7 @@ user://mods/my_first_mod/
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`weapons.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`level_progression.json`、`reward_choice_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`content_unlock_rules.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`weapons.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`level_progression.json`、`reward_choice_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -398,12 +400,56 @@ JSON 示例：
 | `id` | string | 是 | 内容 id；必须来自对应词表或数据注册表 |
 | `name_key` | string | 是 | 名称本地化 key，译文在 `client/locale/strings.csv` |
 | `desc_key` | string | 视内容而定 | 描述本地化 key，译文在 `client/locale/strings.csv` |
+| `default_unlocked` | bool | 否 | 是否在新档中默认解锁；字段缺失时按 `true`。首版仅智能碎片、Gear Mod 与心象可设为 `false`，且此时必须填写有效 `unlock_rule_id`；技能必须保持 `true` |
+| `unlock_rule_id` | string | 否 | 引用 `content_unlock_rules.json.rules[].id`；默认解锁内容应省略，非默认解锁内容必填 |
+| `codex_icon_path` | string | 否 | 图鉴图标资源路径；必须是存在的 `res://` 资源，缺失时由图鉴使用类型回退图标 |
 | `tags` | array[string] | 视内容而定 | 内容标签；破限内容必须含 `tag_limit_break` |
 | `capabilities` | array[string] | 视内容而定 | 允许突破的默认规则；id 来自词表 §12 |
 | `availability` | object | 否 | 可用条件；需要限制模式时用 tags / 条件声明，由 `game_modes.json` 组合，不在代码写分支 |
 | `base_stats` | object | 视内容而定 | 基础属性，字段来自词表 stat |
 | `modifiers` | array[object] | 遗物常见 | 数值修正，格式见下节 |
 | `behaviors` | array[object] | 行为内容常见 | 行为触发，格式见下节 |
+
+## `content_unlock_rules.json`
+
+首版文件保持空规则，以确保所有现有智能碎片、Gear Mod 与心象继续默认可用：
+
+```json
+{
+  "schema_version": 1,
+  "rules": []
+}
+```
+
+未来规则条目使用以下结构；规则不重复保存目标内容，目标由 `characters[].unlock_rule_id`、`gear_mods.mods[].unlock_rule_id` 或 `enemies.csv.unlock_rule_id` 反向引用：
+
+```json
+{
+  "id": "unlock_rule_example",
+  "mode": "all",
+  "conditions": [
+    {
+      "counter_id": "runs_completed",
+      "target": 1
+    }
+  ]
+}
+```
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | 必须为 `1` | 内容解锁规则数据结构版本 |
+| `rules[]` | array[object] | 可为空；`id` 不重复 | 规则定义列表；空数组表示当前没有任何条件解锁内容 |
+| `rules[].id` | string | 非空 snake_case，文件内唯一 | 稳定规则 id；它是开放数据主键，不生成逐规则常量 |
+| `rules[].mode` | string | 词表 §18-B：`all` / `any` | `all` 要求全部 condition 达标；`any` 要求任一 condition 达标 |
+| `rules[].conditions` | array[object] | 非空 | 同一规则的进度条件；顺序只影响显示，不改变计数 |
+| `rules[].conditions[].counter_id` | string | 词表 §18-C | 跨局进度计数器 |
+| `rules[].conditions[].target` | int | `>= 1` | 达成条件所需的累计次数 |
+| `rules[].conditions[].subject_id` | string | 条件性必填 | `character_run_completed` 必须引用已登记且存在的 character id；`enemy_defeated` 必须引用存在的 enemy id；其他 counter 禁止携带此字段 |
+
+首版可解锁内容类型固定为词表 §18-A 的 `character` / `gear_mod` / `enemy`。内容条目省略 `default_unlocked` 时按 `true`；显式 `false` 必须同时填写存在的 `unlock_rule_id`，而显式或默认 `true` 不应携带规则引用。规则不得闲置：每条 rule 至少由一个非默认解锁内容引用。`codex_icon_path` 只影响图鉴表现，不参与解锁判定。
+
+初始可玩性门禁要求：全局及每个游戏模式的角色池至少保留两个默认解锁智能碎片；全局及每个模式的敌人池至少保留一种默认解锁心象；Gear Mod 全局至少保留一种默认解锁内容，且每个 `reward_pools[]` 至少含一个默认解锁 Mod。单局内新达成的解锁先暂存，到本局结束时统一写入局外进度；规则只读取累计计数，不读取当前帧或未结算的临时状态。
 
 ## `difficulty_profiles.json`
 
@@ -639,8 +685,8 @@ round(
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_value_multiplier,hit_radius,separation_radius
-enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,12,enemy_ai_ranged_spitter,presentation_enemy_rifle,10,88.0,1.0,12.0,8.0
+id,name_key,desc_key,default_unlocked,unlock_rule_id,codex_icon_path,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_value_multiplier,hit_radius,separation_radius
+enemy_spitter,enemy_spitter_name,enemy_spitter_desc,true,,,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,12,enemy_ai_ranged_spitter,presentation_enemy_rifle,10,88.0,1.0,12.0,8.0
 ```
 
 字段说明：
@@ -649,6 +695,10 @@ enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/a
 |------|------|---------------|------|
 | `id` | string | 文件内唯一，非空 | 敌人 id；模式敌人池和后续刷怪表引用此 id |
 | `name_key` | string | `enemy_*_name` | 敌人名称译文 key |
+| `desc_key` | string | `enemy_*_desc` | 心象图鉴描述译文 key；当前五种敌人均必填 |
+| `default_unlocked` | bool | `true` / `false`；缺失默认 `true` | 新档中是否已在图鉴解锁；当前五种敌人全部显式为 `true` |
+| `unlock_rule_id` | string | 可空；非空时必须存在于 `content_unlock_rules.json` | 非默认解锁敌人的规则引用；`default_unlocked=false` 时必填 |
+| `codex_icon_path` | string | 可空；非空时为存在的 `res://` 资源 | 可选图鉴图标；空值使用心象类型回退图标 |
 | `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_enemy` | 内容标签；可被模式 blocklist、刷怪规则或后续内容系统筛选 |
 | `pool_id` | string | 词表 §8 pool id，文件内唯一且等于本行 `id` | 每个敌人独立对象池；禁止复用旧 `enemy_ranged` |
 | `scene_path` | string | `res://scenes/gameplay/actors/enemies/*.tscn`，文件存在且为 `PackedScene` | 专属敌人继承场景；不同内容 id 可以引用同一场景，但不能指向 `enemy_base.tscn` |
@@ -1143,7 +1193,9 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `characters[].id` | string | 词表 §12.1 character id，文件内唯一 | 角色 id；模式池、局外解锁和存档引用此 id |
 | `characters[].scene_path` | string | `res://scenes/gameplay/actors/characters/*.tscn`，文件存在且为 `PackedScene` | 角色专属继承场景；不同角色 id 可复用同一场景，但不能指向 `player_base.tscn` |
 | `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
-| `characters[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续需与跨局解锁 / 装备 Mod 系统的解锁状态保持一致 |
+| `characters[].default_unlocked` | bool | `true` / `false`；缺失默认 `true` | 新存档中是否默认可用；当前两个智能碎片均显式为 `true` |
+| `characters[].unlock_rule_id` | string | 可选；必须存在于 `content_unlock_rules.json` | 非默认解锁智能碎片的规则引用；`default_unlocked=false` 时必填，默认解锁时省略 |
+| `characters[].codex_icon_path` | string | 可选；存在的 `res://` 资源 | 图鉴图标；缺失时使用智能碎片类型回退图标 |
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
 | `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认鼠标瞄准 / 左右朝向 / 按住开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
@@ -1410,7 +1462,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `schema_version` | int | 必须为 `2` | 数据结构版本 |
 | `skills[].id` | string | 词表 §12-C skill id，文件内唯一 | 技能 id；角色、主动道具、敌人或事件系统可复用引用 |
 | `skills[].name_key` / `desc_key` | string | `skill_*_name` / `skill_*_desc` | 技能名称和描述译文 key |
-| `skills[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
+| `skills[].default_unlocked` | bool | 当前必须为 `true` 或省略；省略按 `true` | 技能随所属智能碎片整包解锁，不是独立解锁内容；首版显式 `false` 非法，现有四技能均保持 `true` |
 | `skills[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_skill` | 内容标签；模式 blocklist 和后续构筑筛选可复用 |
 | `skills[].ability_tags` | array[string] | 词表 §12-G ability tag，非空 | 项目版轻量 GAS 的能力语义标签；用于分类、阻断、解锁和后续 cue / AI 查询，不与 content tag 混用 |
 | `skills[].activation` | object | 必填 | 项目版轻量 GAS 的激活条件配置 |
@@ -1558,6 +1610,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       "id": "gear_mod_weapon_damage_test",
       "name_key": "gear_mod_weapon_damage_test_name",
       "desc_key": "gear_mod_weapon_damage_test_desc",
+      "default_unlocked": true,
       "slot": "weapon",
       "rarity": "common",
       "max_rank": 5,
@@ -1579,6 +1632,9 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `reward_pools[].mod_ids` | array[string] | 已存在的 `gear_mod_ids`，非空且不重复 | 公共池内等权候选 |
 | `mods[].id` | string | 词表 §13-A `gear_mod_id` | 装备 Mod id |
 | `mods[].name_key` / `desc_key` | string | `gear_mod_*_name` / `gear_mod_*_desc` | 名称和描述译文 key |
+| `mods[].default_unlocked` | bool | `true` / `false`；缺失默认 `true` | 新档中是否允许该 Mod 进入奖励来源；当前三个 Mod 均显式为 `true` |
+| `mods[].unlock_rule_id` | string | 可选；必须存在于 `content_unlock_rules.json` | 非默认解锁 Mod 的规则引用；`default_unlocked=false` 时必填，默认解锁时省略 |
+| `mods[].codex_icon_path` | string | 可选；存在的 `res://` 资源 | 图鉴图标；缺失时使用 Gear Mod 类型回退图标 |
 | `mods[].slot` | string | 词表 §13-B | modifier 应用到 hero 或 weapon 独立层 |
 | `mods[].rarity` | string | 词表 §13-C | 稀有度；用于奖励展示与后续池权重扩展 |
 | `mods[].max_rank` | int | `>= 0` | 最大 rank；首次获得为 rank 0 / 玩家显示第 1 阶 |

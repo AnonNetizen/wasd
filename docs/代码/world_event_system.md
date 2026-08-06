@@ -1,7 +1,7 @@
 # WorldEventSystem 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/游戏设计文档.md`、`docs/决策记录.md` 与 `client/data/README.md`。
-> 本文档是世界事件运行时、模块摆放、敌人事件上下文与 Run v13 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、SaveManager 与测试策略。
+> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v14 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略。
 
 ## 职责
 
@@ -9,7 +9,7 @@
 - 由场景化 `WorldEventController` 维护事件实例状态、持续事件全局互斥、波次游标、隐藏奖励、祭坛事务和 HUD 状态。
 - 由模块 schema v4 的 `module_place_world_event` 把可交互物摆进 approved 模块；运行时不按事件 id 临时生成模块。
 - 持续事件激活后固定所属模块并继续真实模拟；完成或失败后，残敌转为普通敌人，离开原模块或死亡后解除固定。
-- Run v13 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照与事务进度；不保存 Node 引用。
+- Run v14 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池与事务进度；不保存 Node 引用。
 
 ## 代码位置
 
@@ -63,15 +63,15 @@
 
 ## 快照与幂等
 
-Run v13 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 `pinned_slots`，敌人快照保存 `event_instance_id`、稳定 `target_mode` 和完整金币奖励明细。Controller 保存 `wave_cursor`、`reward_committed`、祭坛尝试 / 成功 / 成功 Mod、血坛使用次数、价格、目标生命、计时和占点双进度，因此恢复不得重发已提交波次、重复扣费、重复献祭、重复发奖励、重复授予 Mod 或重抽既有敌人金币。
+Run v14 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 `pinned_slots`，敌人快照保存 `event_instance_id`、稳定 `target_mode` 和完整金币奖励明细。Controller 保存 `wave_cursor`、`reward_committed`、祭坛尝试 / 成功 / 成功 Mod、血坛使用次数、价格、目标生命、计时和占点双进度；RunLoop 另保存消费前冻结的敌人 / Mod 池，因此恢复不得重发已提交波次、重复扣费、重复献祭、重复发奖励、重复授予 Mod、引入新解锁内容或重抽既有敌人金币。
 
-旧 Run v12 因局内 Gear Mod 与直接通关语义变化明确不兼容；SaveManager 标记 `legacy_run_incompatible`，正式流程删除旧 run 并保留 Meta v3。Replay v4 同样明确拒绝，黄金回放统一重录为 v5。
+旧 Run v13 因冻结内容池与未结算内容进度字段缺失明确不兼容；SaveManager 标记 `legacy_run_incompatible`，正式流程删除旧 run 并保留 Meta v4。Replay v5 同样明确拒绝，黄金回放统一重录为 v6。
 
 ## 扩展点
 
 - 新事件先登记词表 id / kind / state / reward，再扩 `world_events.json` 严格 schema、可复用场景与 Controller 策略。
 - 新模块只通过 Module JSON 的世界事件下拉生成 `{type, cell, world_event_id}`；每模块最多一个世界事件 placement。
-- 改事件波次必须保持激活时一次性固化、独立 `RNG.world_event` 和 Run v13 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
+- 改事件波次必须保持激活时一次性固化、先与冻结敌池求交、独立 `RNG.world_event` 和 Run v14 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
 - 不得把事件复杂状态塞回兴趣点字典，不得让普通环境敌人攻击防御目标，不得直接修改金币或 Meta 背包。
 
 ## 验证
@@ -80,7 +80,7 @@ Run v13 的 `world_events` 块保存 Controller 实例状态与固定波次计�
 - 核心状态机：`py -3 tools/godot_bridge.py world-event-smoke`（`client/tools/world_event_smoke.gd`）。
 - 模块与恢复：正式 / 技术 `module-world-smoke`、`save-smoke`、`loading-smoke`。
 - 战斗：`runtime-smoke`、`l1-smoke`、`actor-scene-smoke`、`vfx-smoke`。
-- 完整变更还需三档 lint、headless boot/editor、四条 Replay v5 golden、文档健康和 pre-commit；中英文布局与局内反馈保持待人工验收并由用户执行。ADR #143 后不自动运行性能 probe。
+- 完整变更还需三档 lint、content-progression、headless boot/editor、四条 Replay v6 golden、文档健康和 pre-commit；中英文布局与局内反馈保持待人工验收并由用户执行。ADR #143 后不自动运行性能 probe。
 
 ## 相关文档
 

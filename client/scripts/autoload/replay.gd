@@ -16,9 +16,12 @@ signal replay_load_failed(path: String, error: String)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
+const CONTENT_UNLOCK_TYPES := preload(
+	"res://scripts/contracts/content_unlock_types.gd"
+)
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 5
-const REPLAY_FILE_SCHEMA_VERSION: int = 5
+const REPLAY_SCHEMA_VERSION: int = 6
+const REPLAY_FILE_SCHEMA_VERSION: int = 6
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
@@ -400,12 +403,52 @@ func _is_valid_recording(recording: Dictionary) -> bool:
 		return false
 	if not recording.has("run_seed") or not recording.has("started_tick") or not recording.has("started_time"):
 		return false
+	if not recording.get("context", {}) is Dictionary:
+		return false
+	var context: Dictionary = recording.get("context", {}) as Dictionary
+	if not _is_valid_content_availability(
+		context.get("content_availability", {})
+	):
+		return false
 	if not recording.get("input_events", []) is Array:
 		return false
 	if not recording.get("decision_events", []) is Array:
 		return false
 	for raw_event: Variant in recording.get("input_events", []) as Array:
 		if not raw_event is Dictionary or not _is_valid_input_event(raw_event as Dictionary):
+			return false
+	return true
+
+
+func _is_valid_content_availability(raw_value: Variant) -> bool:
+	if not raw_value is Dictionary:
+		return false
+	var snapshot: Dictionary = raw_value as Dictionary
+	for content_type: String in CONTENT_UNLOCK_TYPES.VALUES:
+		var raw_ids: Variant = snapshot.get(content_type, [])
+		if not raw_ids is Array:
+			return false
+		var ids: Array[String] = []
+		for raw_id: Variant in raw_ids as Array:
+			if not raw_id is String:
+				return false
+			var content_id: String = String(raw_id).strip_edges()
+			if content_id.is_empty() or ids.has(content_id):
+				return false
+			ids.append(content_id)
+		var sorted_ids: Array[String] = ids.duplicate()
+		sorted_ids.sort()
+		if ids != sorted_ids:
+			return false
+		if (
+			content_type == CONTENT_UNLOCK_TYPES.CHARACTER
+			and ids.size() < 2
+		):
+			return false
+		if (
+			content_type != CONTENT_UNLOCK_TYPES.CHARACTER
+			and ids.is_empty()
+		):
 			return false
 	return true
 

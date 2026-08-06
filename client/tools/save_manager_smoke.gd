@@ -33,6 +33,7 @@ func _run() -> void:
 	_expect_run_v9_reward_incompatibility()
 	_expect_run_v11_incompatibility()
 	_expect_run_v12_incompatibility()
+	_expect_run_v13_incompatibility()
 
 	_cleanup_smoke_files()
 	_finish()
@@ -114,6 +115,10 @@ func _expect_meta_v2_migration() -> void:
 		String(migrated_meta.get("marker", "")) == "meta_v2",
 		"Meta v2->v3 should preserve unrelated profile fields"
 	)
+	_expect(
+		migrated_meta.get("content_progression", null) is Dictionary,
+		"Meta v3->v4 should add sparse content progression"
+	)
 
 
 func _expect_migration_chain() -> void:
@@ -141,6 +146,10 @@ func _expect_migration_chain() -> void:
 	_expect(
 		not migrated_meta.has("gear_mods"),
 		"meta v2->v3 migration should remove retired Gear Mod state"
+	)
+	_expect(
+		migrated_meta.get("content_progression", null) is Dictionary,
+		"meta v3->v4 migration should add sparse content progression"
 	)
 
 	var old_payload: Dictionary = _run_payload("migration", 6)
@@ -171,8 +180,8 @@ func _expect_migration_chain() -> void:
 	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
 	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 13,
-		"run v12->v13 migration should advance the gameplay snapshot schema"
+		int(migrated_payload.get("schema_version", 0)) == 14,
+		"run v13->v14 migration should advance the gameplay snapshot schema"
 	)
 	_expect(
 		migrated_payload.get("world_events", null) is Dictionary,
@@ -223,7 +232,7 @@ func _expect_migration_chain() -> void:
 	_expect(
 		String(preserved_meta.get("marker", "")) == "must_survive_legacy_run_reset"
 		and not preserved_meta.has("gear_mods"),
-		"run migration/reset path must preserve Meta v3 while retired Gear Mods stay removed"
+		"run migration/reset path must preserve Meta v4 while retired Gear Mods stay removed"
 	)
 	_expect(_migrated_steps.has("%s:%d:%d" % [META_KIND, 1, 2]), "meta migration should emit save_migrated for meta 1->2")
 	_expect(_migrated_steps.has("%s:%d:%d" % [META_KIND, 2, 3]), "meta migration should emit save_migrated for meta 2->3")
@@ -274,14 +283,14 @@ func _expect_run_v9_reward_incompatibility() -> void:
 		RUN_KIND
 	)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 13
+		int(migrated_payload.get("schema_version", 0)) == 14
 		and bool(
 			migrated_payload.get(
 				"legacy_run_incompatible",
 				false
 			)
 		),
-		"Run v9 should migrate only to an explicit incompatible v13 marker"
+		"Run v9 should migrate only to an explicit incompatible v14 marker"
 	)
 	_expect(
 		(migrated_payload.get("enemies", []) as Array).is_empty(),
@@ -294,7 +303,7 @@ func _expect_run_v9_reward_incompatibility() -> void:
 	_expect(
 		String(preserved_meta.get("marker", ""))
 		== "preserve_meta_across_v9_reward_reset",
-		"Run v9 incompatibility must preserve the separate Meta v3 save"
+		"Run v9 incompatibility must preserve the separate Meta v4 save"
 	)
 
 
@@ -341,11 +350,11 @@ func _expect_run_v11_incompatibility() -> void:
 		RUN_KIND
 	)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 13
+		int(migrated_payload.get("schema_version", 0)) == 14
 		and bool(
 			migrated_payload.get("legacy_run_incompatible", false)
 		),
-		"Run v11 should migrate only to an explicit incompatible v13 marker"
+		"Run v11 should migrate only to an explicit incompatible v14 marker"
 	)
 	_expect(
 		not migrated_payload.has("ammo_drop_misses")
@@ -374,7 +383,7 @@ func _expect_run_v11_incompatibility() -> void:
 	_expect(
 		String(preserved_meta.get("marker", ""))
 		== "preserve_meta_across_v11_reset",
-		"Run v11 incompatibility must preserve the separate Meta v3 save"
+		"Run v11 incompatibility must preserve the separate Meta v4 save"
 	)
 
 
@@ -421,9 +430,9 @@ func _expect_run_v12_incompatibility() -> void:
 	_write_json(_save_path(), old_envelope)
 	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 13
+		int(migrated_payload.get("schema_version", 0)) == 14
 		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v12 should migrate only to an explicit incompatible v13 marker"
+		"Run v12 should migrate only to an explicit incompatible v14 marker"
 	)
 	for retired_field: String in [
 		"pending_loot",
@@ -444,13 +453,71 @@ func _expect_run_v12_incompatibility() -> void:
 	_expect(
 		String(preserved_meta.get("marker", ""))
 		== "preserve_meta_across_v12_reset",
-		"Run v12 incompatibility must preserve the separate Meta v3 save"
+		"Run v12 incompatibility must preserve the separate Meta v4 save"
+	)
+
+
+func _expect_run_v13_incompatibility() -> void:
+	_cleanup_smoke_files()
+	var meta_payload: Dictionary = {
+		"hero_composition": {
+			"main_hero_id": "character_primary_a",
+			"sub_hero_id": "character_primary_b",
+		},
+		"content_progression": {
+			"unlocked": {},
+			"counters": {"runs_ended": 3},
+		},
+		"marker": "preserve_meta_across_v13_reset",
+	}
+	_expect(
+		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
+		"meta save should exist before explicit Run v13 rejection"
+	)
+	var old_payload: Dictionary = _run_payload("v13", 6)
+	old_payload["schema_version"] = 13
+	old_payload.erase("content_availability")
+	old_payload.erase("content_progress_delta")
+	var old_envelope: Dictionary = {
+		"version": 13,
+		"kind": RUN_KIND,
+		"slot": SMOKE_SLOT,
+		"created_at": "2026-08-06T00:00:00",
+		"updated_at": "2026-08-06T00:00:00",
+		"game_version": "v1.12",
+		"data_hash": SaveManager.call("_payload_hash", old_payload),
+		"payload": old_payload,
+	}
+	_write_json(_save_path(), old_envelope)
+	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
+	_expect(
+		int(migrated_payload.get("schema_version", 0)) == 14
+		and bool(migrated_payload.get("legacy_run_incompatible", false)),
+		"Run v13 should migrate only to an explicit incompatible v14 marker"
+	)
+	_expect(
+		not migrated_payload.has("content_availability")
+		and not migrated_payload.has("content_progress_delta"),
+		"Run v13 migration must not fabricate unlock snapshots or pending progress"
+	)
+	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
+	var preserved_progression: Dictionary = (
+		preserved_meta.get("content_progression", {}) as Dictionary
+	)
+	var preserved_counters: Dictionary = (
+		preserved_progression.get("counters", {}) as Dictionary
+	)
+	_expect(
+		String(preserved_meta.get("marker", ""))
+		== "preserve_meta_across_v13_reset"
+		and int(preserved_counters.get("runs_ended", 0)) == 3,
+		"Run v13 incompatibility must preserve the separate Meta v4 save"
 	)
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 13,
+		"schema_version": 14,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"gold_progression": {
@@ -539,6 +606,16 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 		],
 		"gold_orbs": [],
 		"reward_choice": {},
+		"content_availability": (
+			ContentUnlockSystem.build_run_availability_snapshot()
+		),
+		"content_progress_delta": {
+			"runs_ended": 0,
+			"runs_completed": 0,
+			"character_run_completed": {},
+			"enemy_defeated_total": 0,
+			"enemy_defeated": {},
+		},
 		"ui_restore": {
 			"state": "playing",
 		},

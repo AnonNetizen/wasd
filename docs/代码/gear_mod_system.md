@@ -49,12 +49,12 @@ value = base_value + value_per_rank * clamp(rank, 0, max_rank)
 
 | API | 返回 | 语义 |
 |-----|------|------|
-| `roll_drop_for_enemy(enemy_id, enemy_level := 1, forced_roll := -1.0)` | `Dictionary` | 解释所有匹配掉落行；正式随机走 `RNG.drop`，forced 只供自动测试 |
+| `roll_drop_for_enemy(enemy_id, enemy_level := 1, forced_roll := -1.0, allowed_mod_ids := [])` | `Dictionary` | 先按本局内容快照过滤掉落行，再解释匹配项；正式随机走 `RNG.drop`，forced 只供自动测试 |
 | `mod_definition(mod_id)` | `Dictionary` | 返回定义副本，未知 id 返回空字典 |
 | `rank_modifiers(mod_id, rank)` | `Array[Dictionary]` | 钳制 rank 后解析通用 modifiers |
 | `max_rank(mod_id)` | `int` | 返回定义的最大内部 rank |
 | `overflow_gold()` | `int` | 当前返回 75 |
-| `reward_pool_ids(pool_id)` | `Array[String]` | 返回公共池候选副本 |
+| `reward_pool_ids(pool_id, allowed_mod_ids := [])` | `Array[String]` | 返回与本局内容快照求交后的公共池候选副本；空过滤参数供开发者测试岛访问全部内容 |
 | `resolve_preview_loadout(selections)` | `Dictionary` | 开发者测试岛纯内存预览；无容量 / drain / 存档副作用 |
 
 ## 5. GameplayRunLoop 授予语义
@@ -66,8 +66,8 @@ value = base_value + value_per_rank * clamp(rank, 0, max_rank)
 3. 重复获得依次升至 rank 5 / 第 6 阶。
 4. 第 7 份及以后每份转化为 75 局内金币，reason 为 `gear_mod_overflow`。
 5. 敌人、缓存和世界事件都调用同一个原子授予入口；授予后立即重建 Gear modifier 层。
-6. Run v13 保存 `gear_mods.ranks`。恢复时先恢复实体，再统一调用一次替换式应用，不重抽、不重复发奖。
-7. 胜利、死亡、重开或回标题后随 run 一起清空；Meta v3 不含 Gear Mod。
+6. Run v14 保存 `gear_mods.ranks` 与冻结 `content_availability`。恢复时先恢复同一内容池和实体，再统一调用一次替换式应用，不重抽、不重复发奖。
+7. 胜利、死亡、重开或回标题后随 run 一起清空；Meta v4 只保存 Gear Mod 的横向可用资格，不保存任何本局 rank 或库存。
 
 缓存与事件规则：
 
@@ -81,7 +81,7 @@ value = base_value + value_per_rank * clamp(rank, 0, max_rank)
 
 Player 与 WeaponSystem 必须区分普通、临时和 Gear Mod 层。`set_gear_modifiers()` 的参数替换旧 Gear 层，然后从基础值重建；重复传入同一数组必须得到相同结果，禁止在当前结果上继续相加或相乘。
 
-Player 与 WeaponSystem 的普通 modifier snapshot / restore 语义必须对称。Gear 层不混入普通 modifier snapshot；它由 Run v13 ranks 统一恢复，避免双重应用。
+Player 与 WeaponSystem 的普通 modifier snapshot / restore 语义必须对称。Gear 层不混入普通 modifier snapshot；它由 Run v14 ranks 统一恢复，避免双重应用。
 
 ## 7. UI 与测试
 

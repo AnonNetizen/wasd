@@ -112,7 +112,7 @@ func _create_runtime_input_replay() -> Dictionary:
 	_cleanup_replay_file(INPUT_PLAYBACK_REPLAY_FILE_NAME)
 	var input_events: Array[Dictionary] = _input_playback_events()
 	var recording: Dictionary = {
-		"schema_version": 4,
+		"schema_version": 6,
 		"run_seed": INPUT_PLAYBACK_REPLAY_SEED,
 		"started_tick": 0,
 		"started_time": 0.0,
@@ -125,6 +125,9 @@ func _create_runtime_input_replay() -> Dictionary:
 			"capture_frames": INPUT_PLAYBACK_CAPTURE_FRAMES,
 			"main_hero_id": "character_primary_a",
 			"sub_hero_id": "character_primary_b",
+			"content_availability": (
+				ContentUnlockSystem.build_run_availability_snapshot()
+			),
 		},
 		"input_events": input_events,
 		"decision_events": [],
@@ -249,6 +252,10 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 		"sub_hero_id": String(
 			replay_context.get("sub_hero_id", "character_primary_b")
 		),
+		"content_availability": _dictionary_or_empty(
+			replay_context.get("content_availability", {})
+		),
+		"content_progress_commits_enabled": false,
 	})
 
 	var run_loop: Node = null
@@ -268,6 +275,9 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 				Replay.start_recording({
 					"source": "replay_runner",
 					"scenario": scenario,
+					"content_availability": _dictionary_or_empty(
+						replay_context.get("content_availability", {})
+					),
 				}),
 				"ReplayRunner reward-choice comparison should start decision recording"
 			)

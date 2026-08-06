@@ -16,12 +16,12 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.12"
+const GAME_VERSION: String = "v1.13"
 const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
-	SAVE_KINDS.META: 3,
-	SAVE_KINDS.RUN: 13,
+	SAVE_KINDS.META: 4,
+	SAVE_KINDS.RUN: 14,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -32,6 +32,7 @@ var _last_error: String = ""
 func _ready() -> void:
 	register_migration(SAVE_KINDS.META, 1, 2, Callable(self, "_migrate_meta_v1_to_v2"))
 	register_migration(SAVE_KINDS.META, 2, 3, Callable(self, "_migrate_meta_v2_to_v3"))
+	register_migration(SAVE_KINDS.META, 3, 4, Callable(self, "_migrate_meta_v3_to_v4"))
 	register_migration(SAVE_KINDS.RUN, 1, 2, Callable(self, "_migrate_run_v1_to_v2"))
 	register_migration(SAVE_KINDS.RUN, 2, 3, Callable(self, "_migrate_run_v2_to_v3"))
 	register_migration(SAVE_KINDS.RUN, 3, 4, Callable(self, "_migrate_run_v3_to_v4"))
@@ -44,6 +45,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 10, 11, Callable(self, "_migrate_run_v10_to_v11"))
 	register_migration(SAVE_KINDS.RUN, 11, 12, Callable(self, "_migrate_run_v11_to_v12"))
 	register_migration(SAVE_KINDS.RUN, 12, 13, Callable(self, "_migrate_run_v12_to_v13"))
+	register_migration(SAVE_KINDS.RUN, 13, 14, Callable(self, "_migrate_run_v13_to_v14"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -363,6 +365,25 @@ func _migrate_meta_v2_to_v3(payload: Dictionary) -> Dictionary:
 	return result
 
 
+func _migrate_meta_v3_to_v4(payload: Dictionary) -> Dictionary:
+	var result: Dictionary = _migrate_meta_v2_to_v3(payload)
+	var progression: Dictionary = {}
+	if result.get("content_progression", {}) is Dictionary:
+		progression = (result.get("content_progression", {}) as Dictionary).duplicate(true)
+	if (
+		not progression.has("unlocked")
+		or not progression.get("unlocked") is Dictionary
+	):
+		progression["unlocked"] = {}
+	if (
+		not progression.has("counters")
+		or not progression.get("counters") is Dictionary
+	):
+		progression["counters"] = {}
+	result["content_progression"] = progression
+	return result
+
+
 func _migrate_run_v2_to_v3(payload: Dictionary) -> Dictionary:
 	# v3 adds the F13 room carrier state. Pre-F13 (open-warzone) runs migrate to an empty
 	# room block, which restore reads as "no room carrier" and keeps the open-warzone path.
@@ -519,6 +540,15 @@ func _migrate_run_v12_to_v13(payload: Dictionary) -> Dictionary:
 		"weapon_gear_mods",
 	]:
 		result.erase(retired_field)
+	return result
+
+
+func _migrate_run_v13_to_v14(payload: Dictionary) -> Dictionary:
+	# v13 has no run-owned unlock delta carrier. It cannot prove whether end-of-run
+	# counters were already committed to Meta, so restoring it could double count.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 14
+	result["legacy_run_incompatible"] = true
 	return result
 
 

@@ -11,11 +11,15 @@ const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
 func roll_drop_for_enemy(
 	enemy_id: String,
 	enemy_level: int = 1,
-	forced_roll: float = -1.0
+	forced_roll: float = -1.0,
+	allowed_mod_ids: Array[String] = []
 ) -> Dictionary:
 	var drops: Array[Dictionary] = []
 	var attempts: int = 0
 	for row: Dictionary in _drop_rows_for_enemy(enemy_id, enemy_level):
+		var mod_id: String = String(row.get("mod_id", ""))
+		if not allowed_mod_ids.is_empty() and not allowed_mod_ids.has(mod_id):
+			continue
 		attempts += 1
 		var chance: float = clampf(
 			float(row.get("drop_chance", 0.0)),
@@ -29,7 +33,6 @@ func roll_drop_for_enemy(
 		)
 		if roll > chance:
 			continue
-		var mod_id: String = String(row.get("mod_id", ""))
 		var definition: Dictionary = mod_definition(mod_id)
 		if definition.is_empty():
 			continue
@@ -91,13 +94,20 @@ func overflow_gold() -> int:
 	return maxi(int(_gear_data().get("overflow_gold", 0)), 0)
 
 
-func reward_pool_ids(pool_id: String) -> Array[String]:
+func reward_pool_ids(
+	pool_id: String,
+	allowed_mod_ids: Array[String] = []
+) -> Array[String]:
 	for pool: Dictionary in _typed_dictionary_array(
 		_gear_data().get("reward_pools", [])
 	):
 		if String(pool.get("id", "")) != pool_id:
 			continue
-		return _string_array(pool.get("mod_ids", []))
+		var result: Array[String] = []
+		for mod_id: String in _string_array(pool.get("mod_ids", [])):
+			if allowed_mod_ids.is_empty() or allowed_mod_ids.has(mod_id):
+				result.append(mod_id)
+		return result
 	return []
 
 

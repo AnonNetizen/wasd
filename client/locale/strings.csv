@@ -61,6 +61,31 @@ ui_settings_privacy,隐私,Privacy
 ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD
 ui_title_subtitle,集体无意识,Collective Unconscious
+ui_codex,图鉴,Codex
+ui_codex_title,意识图鉴,Mind Codex
+ui_codex_category_character,智能碎片,Intelligence Fragments
+ui_codex_category_gear_mod,装备 Mod,Gear Mods
+ui_codex_category_enemy,心象,Mindforms
+ui_codex_close,关闭,Close
+ui_codex_locked,???,???
+ui_codex_requirement_progress,解锁要求：{current}/{target},Unlock Requirement: {current}/{target}
+ui_codex_requirement_runs_ended,结算对局：{current}/{target},Runs Ended: {current}/{target}
+ui_codex_requirement_runs_completed,通关对局：{current}/{target},Runs Completed: {current}/{target}
+ui_codex_requirement_character_run_completed,携带 {subject} 通关：{current}/{target},Runs Completed with {subject}: {current}/{target}
+ui_codex_requirement_enemy_defeated_total,心象总清理：{current}/{target},Total Mindforms Cleared: {current}/{target}
+ui_codex_requirement_enemy_defeated,清理 {subject}：{current}/{target},{subject} Cleared: {current}/{target}
+ui_codex_requirement_mode_all,满足全部条件,Meet All Conditions
+ui_codex_requirement_mode_any,满足任一条件,Meet Any Condition
+ui_codex_character_stats,基础属性,Base Stats
+ui_codex_gear_slot,装备槽位,Gear Slot
+ui_codex_gear_rarity,稀有度,Rarity
+ui_codex_gear_rank,阶数：{min_rank}–{max_rank},Tiers: {min_rank}–{max_rank}
+ui_codex_enemy_stats,基础数值,Base Stats
+ui_codex_enemy_reward_value,金币价值倍率,Gold Value Multiplier
+ui_codex_pending_preview,本局暂存：{count} 项新解锁,Pending This Run: {count} New Unlocks
+ui_codex_pending_progress,本局暂存 +{count},Pending +{count}
+ui_codex_slot_weapon,武器,Weapon
+ui_codex_rarity_common,普通,Common
 ui_start,开始,Start
 ui_loading,正在加载…,Loading…
 ui_loading_failed,加载失败，请重试。,Loading failed. Please try again.
@@ -80,6 +105,9 @@ ui_run_summary,清理 {kills} · 时间 {time}s,Cleared {kills} · Time {time}s
 ui_result_build_header,最终构筑,Final Build
 ui_result_no_build,本局未获得 Gear Mod,No Gear Mods acquired this run
 ui_result_gear_mod_line,{name} · 第 {count} 阶,{name} · Tier {count}
+ui_result_new_unlocks_header,新解锁,New Unlocks
+ui_result_new_unlock_line,已解锁：{name},Unlocked: {name}
+ui_result_new_unlocks_summary,本局新增 {count} 项图鉴内容,{count} New Codex Entries This Run
 ui_hud_life,生命,Life
 ui_hud_kills,清理,Cleared
 ui_hud_time,时间,Time
@@ -191,6 +219,7 @@ ui_hero_composition_passive,被动,Passive
 ui_hero_composition_skill,技能,Skill
 ui_hero_composition_sub_note,副智能碎片不提供属性和被动，只提供自身主色与技能 3/4。,The Secondary Fragment provides no stats or passive—only its primary color and Skills 3–4.
 ui_hero_composition_duplicate_hint,相同智能碎片开局组合不可用；局内切换系统完成后可能产生重复组合。,Duplicate starting Fragments are unavailable; repeated combinations may become possible after in-run switching is implemented.
+ui_hero_composition_insufficient_unlocked,至少需要解锁两个智能碎片才能开始。,Unlock at least two Intelligence Fragments to begin.
 ui_debug_test_arena_element,伤害元素,Damage Element
 ui_debug_test_arena_damage_amount,注入伤害,Injected Damage
 ui_debug_test_arena_cast_skill_1,触发技能 1,Cast Skill 1
@@ -217,10 +246,15 @@ passive_primary_b_guard_desc,受到纯主元素 B 伤害时，最终承伤降低
 weapon_basic_blaster_name,基础脉冲枪,Basic Blaster
 weapon_basic_blaster_desc,可靠的鼠标瞄准步枪，按住开火并发射中性子弹,A reliable mouse-aimed rifle that fires neutral rounds while held
 enemy_chaser_name,爆猎者,Burst Hunter
+enemy_chaser_desc,高速贴近清理智能，并在近距离引爆自身的心象。,A Mindform that rushes Cleanup Intelligence and detonates itself at close range.
 enemy_swarm_name,疾行者,Swarm Runner
+enemy_swarm_desc,成群疾行，以迅捷的近战突袭持续施压。,A swift pack hunter that keeps up pressure with rapid melee strikes.
 enemy_stalker_name,潜猎者,Stalker
+enemy_stalker_desc,游移观察目标，锁定方向后发起高速冲撞。,A prowling Mindform that lines up its target before a high-speed charge.
 enemy_bulwark_name,壁垒者,Bulwark
+enemy_bulwark_desc,以厚重身躯守住阵线，蓄势后沿直线冲撞。,A heavily armored Mindform that holds the line before ramming straight ahead.
 enemy_spitter_name,突击枪手,Assault Gunner
+enemy_spitter_desc,在远处游走，以短促点射压制清理智能。,A ranged Mindform that repositions and suppresses Cleanup Intelligence with short bursts.
 hazard_spike_trap_name,尖刺陷阱,Spike Trap
 hazard_fea_12_pulse_name,FEA-12脉冲阵列,FEA-12 Pulse Array
 relic_sharp_rounds_name,锋利弹头,Sharp Rounds

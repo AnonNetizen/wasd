@@ -1357,6 +1357,77 @@ def main() -> int:
             ],
         ),
         (
+            "locked content must reference an unlock rule",
+            _mutate_json(
+                "client/data/gear_mods.json",
+                _lock_first_gear_mod_without_rule,
+            ),
+            [
+                "client/data/content_unlock_rules.json:gear_mod.gear_mod_weapon_damage_test.unlock_rule_id",
+                "locked content must reference an unlock rule",
+            ],
+        ),
+        (
+            "blank enemy default unlock cell stays open",
+            _mutate_csv(
+                "client/data/enemies.csv",
+                _set_first_enemy_default_unlocked(""),
+            ),
+            [],
+        ),
+        (
+            "default content must not reference unlock rules",
+            _mutate_json(
+                "client/data/gear_mods.json",
+                _set_first_gear_mod_unlock_rule("missing_rule"),
+            ),
+            [
+                "client/data/content_unlock_rules.json:gear_mod.gear_mod_weapon_damage_test.unlock_rule_id",
+                "default-unlocked content must not reference an unlock rule",
+            ],
+        ),
+        (
+            "unused unlock rules are rejected",
+            _mutate_json(
+                "client/data/content_unlock_rules.json",
+                _add_unused_content_unlock_rule,
+            ),
+            [
+                "client/data/content_unlock_rules.json:rules.unused_rule",
+                "unlock rule is not referenced by content",
+            ],
+        ),
+        (
+            "skills cannot define independent locked state",
+            _mutate_json(
+                "client/data/skills.json",
+                _lock_first_skill,
+            ),
+            [
+                "client/data/skills.json:skills[0].default_unlocked",
+                "skills inherit their character unlock",
+            ],
+        ),
+        (
+            "skills may omit inherited default unlock state",
+            _mutate_json(
+                "client/data/skills.json",
+                _remove_first_skill_default_unlocked,
+            ),
+            [],
+        ),
+        (
+            "codex icon paths must exist",
+            _mutate_json(
+                "client/data/gear_mods.json",
+                _set_first_gear_mod_codex_icon("res://assets/missing_codex_icon.svg"),
+            ),
+            [
+                "client/data/gear_mods.json:mods[0].codex_icon_path",
+                "resource does not exist",
+            ],
+        ),
+        (
             "hazard must include hazard tag",
             _mutate_csv("client/data/hazards.csv", _set_hazard_tags("")),
             [
@@ -2789,6 +2860,55 @@ def _set_gear_mod_overflow_gold(value: int) -> JsonMutator:
 def _set_gear_mod_reward_pool_id(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["reward_pools"][0]["id"] = value
+
+    return mutate
+
+
+def _lock_first_gear_mod_without_rule(payload: dict[str, Any]) -> None:
+    payload["mods"][0]["default_unlocked"] = False
+    payload["mods"][0].pop("unlock_rule_id", None)
+
+
+def _set_first_gear_mod_unlock_rule(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][0]["unlock_rule_id"] = value
+
+    return mutate
+
+
+def _add_unused_content_unlock_rule(payload: dict[str, Any]) -> None:
+    payload["rules"].append(
+        {
+            "id": "unused_rule",
+            "mode": "all",
+            "conditions": [
+                {
+                    "counter_id": "runs_completed",
+                    "target": 1,
+                }
+            ],
+        }
+    )
+
+
+def _lock_first_skill(payload: dict[str, Any]) -> None:
+    payload["skills"][0]["default_unlocked"] = False
+
+
+def _remove_first_skill_default_unlocked(payload: dict[str, Any]) -> None:
+    payload["skills"][0].pop("default_unlocked", None)
+
+
+def _set_first_enemy_default_unlocked(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["default_unlocked"] = value
+
+    return mutate
+
+
+def _set_first_gear_mod_codex_icon(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][0]["codex_icon_path"] = value
 
     return mutate
 

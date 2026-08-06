@@ -1322,16 +1322,16 @@
     {
       "path": "docs/代码/replay.md",
       "type": "module_doc",
-      "authority": "Replay v5 autoload contract for deterministic normalized intent and reward-choice decision recording, run-local Gear Mod/direct-completion summaries, unsupported-schema rejection, summary diff, and InputService playback override",
+      "authority": "Replay v6 autoload contract for deterministic normalized intent, frozen content availability, run-local Gear Mod/direct-completion summaries, unsupported-schema rejection, summary diff, and Meta-isolated InputService playback",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-08-06",
-      "canonical_for": ["replay", "deterministic_recording", "input_recording", "replay_schema_v5", "replay_v5_only_compatibility", "replay_run_local_mod_summary"],
+      "canonical_for": ["replay", "deterministic_recording", "input_recording", "replay_schema_v6", "replay_v6_only_compatibility", "replay_content_availability", "replay_run_local_mod_summary"],
       "must_read_for": ["replay_change", "input_recording_change", "input_playback_change", "replay_input_schema_change", "replay_gold_difficulty_summary_change", "golden_replay_change"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/difficulty_progression.md", "docs/代码/input_service.md", "docs/代码/guide.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/analytics.md"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/content_unlock_system.md", "docs/代码/difficulty_progression.md", "docs/代码/input_service.md", "docs/代码/guide.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/analytics.md"],
       "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/input_service.gd", "client/scripts/data/difficulty_progression.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/contracts/actions.gd", "client/scripts/contracts/analytics_events.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/replay_input_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tests/replays/"],
       "update_triggers": ["Replay API changes", "replay schema or compatibility changes", "InputService playback bridge changes", "input recording changes", "decision recording changes", "replay persistence changes"],
-      "keywords": ["Replay", "autoload", "Replay v5", "v5 only", "Replay v4 incompatible", "unsupported schema", "bool intent", "vector2 intent", "InputService", "playback override", "record_decision", "determinism", "golden replay", "runtime summary", "difficulty_time", "enemy_health_multiplier", "enemy_damage_multiplier", "gold_balance", "gold_earned_total", "gear_mod_ranks", "Mind Core direct completion", "reward choice decision", "enemy explicit attacks", "golden_pause_resume", "golden_full_death", "golden_reward_choice", "ADR #166", "ADR #169", "ADR #170", "ADR #186", "ADR #188"]
+      "keywords": ["Replay", "autoload", "Replay v6", "v6 only", "Replay v5 incompatible", "content_availability", "ignore local Meta", "unsupported schema", "bool intent", "vector2 intent", "InputService", "playback override", "record_decision", "determinism", "golden replay", "runtime summary", "difficulty_time", "enemy_health_multiplier", "enemy_damage_multiplier", "gold_balance", "gold_earned_total", "gear_mod_ranks", "Mind Core direct completion", "reward choice decision", "enemy explicit attacks", "golden_pause_resume", "golden_full_death", "golden_reward_choice", "ADR #166", "ADR #169", "ADR #170", "ADR #186", "ADR #188", "ADR #189"]
     },
     {
       "path": "docs/代码/localization.md",
@@ -1364,16 +1364,30 @@
     {
       "path": "docs/代码/save_manager.md",
       "type": "module_doc",
-      "authority": "SaveManager autoload contract for Meta v3 / Run v13 run-local Gear Mod ranks, layered modifiers, enemy/world state, standard envelopes, migrations, atomic writes, backup fallback, and broken-save quarantine",
+      "authority": "SaveManager autoload contract for Meta v4 sparse content progression / Run v14 frozen availability and pending progress, run-local Gear Mod ranks, enemy/world state, standard envelopes, migrations, atomic writes, backup fallback, and broken-save quarantine",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-08-06",
-      "canonical_for": ["save_manager", "save_envelope", "save_migration", "run_v13_resume_save", "meta_v3", "run_local_gear_mod_snapshot", "enemy_reward_snapshot", "economy_rng_snapshot", "world_event_snapshot", "difficulty_run_snapshot", "enemy_attack_snapshot"],
-      "must_read_for": ["save_manager_change", "save_schema_change", "run_resume_change", "enemy_reward_save_change", "difficulty_run_snapshot_change", "run_local_gear_mod_persistence"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/enemy_reward_resolver.md", "docs/代码/difficulty_progression.md", "docs/代码/gameplay_runtime.md", "docs/代码/replay.md", "docs/代码/analytics.md", "docs/代码/game_state.md"],
-      "related_code": ["client/scripts/autoload/save_manager.gd", "client/scripts/data/enemy_reward_resolver.gd", "client/scripts/data/difficulty_progression.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/contracts/save_kinds.gd", "client/scripts/autoload/analytics.gd", "client/tools/save_manager_smoke.gd", "client/tools/runtime_smoke.gd", "client/tools/module_world_smoke.gd"],
+      "canonical_for": ["save_manager", "save_envelope", "save_migration", "run_v14_resume_save", "meta_v4", "content_progression_save", "content_availability_snapshot", "run_local_gear_mod_snapshot", "enemy_reward_snapshot", "economy_rng_snapshot", "world_event_snapshot", "difficulty_run_snapshot", "enemy_attack_snapshot"],
+      "must_read_for": ["save_manager_change", "save_schema_change", "run_resume_change", "content_progression_change", "enemy_reward_save_change", "difficulty_run_snapshot_change", "run_local_gear_mod_persistence"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/content_unlock_system.md", "docs/代码/enemy_reward_resolver.md", "docs/代码/difficulty_progression.md", "docs/代码/gameplay_runtime.md", "docs/代码/replay.md", "docs/代码/analytics.md", "docs/代码/game_state.md"],
+      "related_code": ["client/scripts/autoload/save_manager.gd", "client/scripts/autoload/content_unlock_system.gd", "client/scripts/data/enemy_reward_resolver.gd", "client/scripts/data/difficulty_progression.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/contracts/save_kinds.gd", "client/scripts/autoload/analytics.gd", "client/tools/save_manager_smoke.gd", "client/tools/content_progression_smoke.gd", "client/tools/runtime_smoke.gd", "client/tools/module_world_smoke.gd"],
       "update_triggers": ["SaveManager API changes", "save envelope changes", "save kind changes", "migration behavior changes", "atomic write or broken-save behavior changes"],
-      "keywords": ["SaveManager", "autoload", "save_kinds", "Meta v3", "Run v13", "old Run v12 incompatible", "gear_mod_ranks", "layered modifiers", "no pending_loot", "no extraction", "enemy reward snapshot", "RNG.economy state", "world events", "meta", "run", "replay_index", "JSON normalization", "data_hash", "migration", "atomic save", "backup", "broken save", "ADR #188"]
+      "keywords": ["SaveManager", "autoload", "save_kinds", "Meta v4", "Run v14", "Meta v3 migration", "old Run v13 incompatible", "content_progression", "content_availability", "content_progress_delta", "gear_mod_ranks", "layered modifiers", "no pending_loot", "no extraction", "enemy reward snapshot", "RNG.economy state", "world events", "meta", "run", "replay_index", "JSON normalization", "data_hash", "migration", "atomic save", "backup", "broken save", "ADR #188", "ADR #189"]
+    },
+    {
+      "path": "docs/代码/content_unlock_system.md",
+      "type": "module_doc",
+      "authority": "ContentUnlockSystem contract for default-open sparse unlock rules, Meta v4 progression, Run v14 and Replay v6 availability snapshots, atomic run-end commits, and spoiler-safe Codex queries",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-08-06",
+      "canonical_for": ["content_unlock_system", "content_unlock_rules", "default_open_content", "content_progression", "content_availability", "codex_privacy"],
+      "must_read_for": ["content_unlock_change", "content_default_change", "codex_change", "content_pool_filter_change", "content_progression_save_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/data_loader.md", "docs/代码/save_manager.md", "docs/代码/replay.md", "docs/代码/gameplay_runtime.md", "docs/代码/ui_manager.md", "docs/代码/formal_client_boot.md", "client/data/README.md", "client/locale/README.md"],
+      "related_code": ["client/scripts/autoload/content_unlock_system.gd", "client/scripts/autoload/data_loader.gd", "client/scripts/autoload/save_manager.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/ui/codex_panel.gd", "client/scripts/ui/game_over_panel.gd", "client/data/content_unlock_rules.json", "client/scripts/contracts/content_unlock_types.gd", "client/scripts/contracts/content_unlock_rule_modes.gd", "client/scripts/contracts/content_unlock_progress_counters.gd", "client/tools/content_progression_smoke.gd", "client/tools/codex_smoke.gd"],
+      "update_triggers": ["ContentUnlockSystem API changes", "unlock rule schema changes", "default-unlocked semantics change", "Meta/Run/Replay content fields change", "Codex privacy or progress display changes", "content pool filtering changes"],
+      "keywords": ["ContentUnlockSystem", "content unlock", "横向解锁", "default unlocked", "default open", "sparse rules", "content_unlock_rules.json", "all", "any", "runs ended", "runs completed", "character completion", "enemy kills", "Meta v4", "Run v14", "Replay v6", "content_availability", "content_progress_delta", "Codex", "图鉴", "spoiler safe", "???", "ADR #189"]
     },
     {
       "path": "docs/代码/gear_mod_system.md",
@@ -1384,10 +1398,10 @@
       "last_reviewed": "2026-08-06",
       "canonical_for": ["gear_mod_system", "gear_mod_rule_service", "gear_mod_reward_pools", "gear_mod_rank_modifiers", "gear_mod_preview"],
       "must_read_for": ["gear_mod_system_change", "gear_mod_data_schema_change", "gear_mod_drop_change", "gear_mod_preview_change"],
-      "related_docs": ["docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/AI导航.md", "client/data/README.md"],
+      "related_docs": ["docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/content_unlock_system.md", "docs/AI导航.md", "client/data/README.md"],
       "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "tools/godot_bridge.py"],
       "update_triggers": ["GearModSystem API changes", "gear mod schema changes", "reward pool changes", "mod drop behavior changes", "rank curve or overflow changes", "developer preview changes"],
-      "keywords": ["GearModSystem", "Gear Mod", "局内 Mod", "stateless service", "reward pool", "rank 0-5", "overflow gold", "Gear Mod drop feedback", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "RNG.drop", "Run v13", "ADR #188"]
+      "keywords": ["GearModSystem", "Gear Mod", "局内 Mod", "stateless service", "reward pool", "allowed_mod_ids", "content availability", "rank 0-5", "overflow gold", "Gear Mod drop feedback", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "RNG.drop", "Run v14", "ADR #188", "ADR #189"]
     },
     {
       "path": "docs/代码/audio_manager.md",

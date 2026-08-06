@@ -49,7 +49,15 @@ func _run() -> void:
 		"_start_gameplay_run",
 		{},
 		false,
-		hero_composition
+		{
+			"main_hero_id": String(
+				hero_composition.get("main_hero_id", "")
+			),
+			"sub_hero_id": String(
+				hero_composition.get("sub_hero_id", "")
+			),
+			"content_progress_commits_enabled": false,
+		}
 	)
 
 	var run_loop: Node = null
@@ -75,6 +83,9 @@ func _run() -> void:
 			),
 			"sub_hero_id": String(
 				hero_composition.get("sub_hero_id", "")
+			),
+			"content_availability": _dictionary_or_empty(
+				_run_snapshot(run_loop).get("content_availability", {})
 			),
 		}),
 		"GoldenReplayCapture should start its explicit recording while playback isolation is active"

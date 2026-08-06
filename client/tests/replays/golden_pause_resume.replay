@@ -1,11 +1,29 @@
 {
 	"created_at": "golden:golden_pause_resume",
-	"data_fingerprint": "86434bcc45764303e3db13764a8c607f08b50d8e56c3b4f52baee2c30a86fa22",
-	"file_schema_version": 5,
-	"game_version": "v1.12",
+	"data_fingerprint": "83d12d96aceaf0a50ef20f2d9b840433a176258c48d5d9f0a82e5f027d58f3fb",
+	"file_schema_version": 6,
+	"game_version": "v1.13",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
+			"content_availability": {
+				"character": [
+					"character_primary_a",
+					"character_primary_b"
+				],
+				"enemy": [
+					"enemy_bulwark",
+					"enemy_chaser",
+					"enemy_spitter",
+					"enemy_stalker",
+					"enemy_swarm"
+				],
+				"gear_mod": [
+					"gear_mod_weapon_damage_test",
+					"gear_mod_weapon_recoil_damper",
+					"gear_mod_weapon_spread_stabilizer"
+				]
+			},
 			"main_hero_id": "character_primary_a",
 			"scenario": "golden_pause_resume",
 			"source": "golden_replay_capture",
@@ -316,11 +334,11 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 5,
+		"schema_version": 6,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "d2fa6889aba8e1c0bf1e9f6e76e8c0bd585e96a519a44da166db6a99e811b3e9",
+	"recording_hash": "be76b7daf4d886e4ebd5b504a1edb15f9a7467a076bd8f8a5b7742a1b18ce3cc",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,
@@ -489,7 +507,7 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 5,
+		"schema_version": 6,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

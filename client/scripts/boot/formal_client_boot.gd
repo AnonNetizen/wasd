@@ -7,6 +7,11 @@ extends Node
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const ACTOR_SCENE_SMOKE_RUNNER := preload("res://tools/actor_scene_smoke.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
+const CODEX_PANEL_SCENE := preload("res://scenes/ui/codex_panel.tscn")
+const CODEX_SMOKE_RUNNER := preload("res://tools/codex_smoke.gd")
+const CONTENT_PROGRESSION_SMOKE_RUNNER := preload(
+	"res://tools/content_progression_smoke.gd"
+)
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
 const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
@@ -43,6 +48,7 @@ enum PlayerLoadMode {
 var _run_loop: Node = null
 var _open_warzone_launch: bool = false
 var _module_world_technical_slice_launch: bool = false
+var _codex_panel: CanvasLayer = null
 var _debug_console: CanvasLayer = null
 var _hero_composition_panel: CanvasLayer = null
 var _last_main_hero_id: String = ""
@@ -115,7 +121,15 @@ func _ready() -> void:
 		RNG.run_seed(),
 	])
 
-	if _is_actor_scene_smoke_enabled():
+	if _is_content_progression_smoke_enabled():
+		var content_smoke_runner: Node = CONTENT_PROGRESSION_SMOKE_RUNNER.new()
+		content_smoke_runner.name = "ContentProgressionSmoke"
+		add_child(content_smoke_runner)
+	elif _is_codex_smoke_enabled():
+		var codex_smoke_runner: Node = CODEX_SMOKE_RUNNER.new()
+		codex_smoke_runner.name = "CodexSmoke"
+		add_child(codex_smoke_runner)
+	elif _is_actor_scene_smoke_enabled():
 		var actor_scene_smoke_runner: Node = ACTOR_SCENE_SMOKE_RUNNER.new()
 		actor_scene_smoke_runner.name = "ActorSceneSmoke"
 		add_child(actor_scene_smoke_runner)
@@ -241,6 +255,14 @@ func _is_runtime_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
 
 
+func _is_content_progression_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--content-progression-smoke")
+
+
+func _is_codex_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--codex-smoke")
+
+
 func _is_actor_scene_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--actor-scene-smoke")
 
@@ -327,10 +349,26 @@ func _is_vfx_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--vfx-smoke")
 
 
+func _is_automation_progress_isolated() -> bool:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.ends_with("-smoke"):
+			return true
+		if argument in [
+			"--replay-runner",
+			"--capture-golden-replay",
+			"--rng-audit",
+			"--perf-probe",
+			"--startup-probe",
+		]:
+			return true
+	return false
+
+
 func _show_title_menu(notice_key: String = "") -> void:
 	_player_load_in_progress = false
 	_loading_screen = null
 	_hero_composition_panel = null
+	_codex_panel = null
 	_clear_gameplay_runtime()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
 	UIManager.clear(true)
@@ -342,6 +380,7 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"))
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
+	_title_menu.connect("codex_requested", Callable(self, "_on_title_codex_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
@@ -419,6 +458,28 @@ func _mount_gameplay_run(
 		_run_loop.call("configure_restore_snapshot", restore_snapshot)
 	if player_loading_mode and _run_loop.has_method("configure_player_loading_mode"):
 		_run_loop.call("configure_player_loading_mode", true)
+	var content_availability: Variant = hero_composition.get(
+		"content_availability",
+		null
+	)
+	if (
+		content_availability is Dictionary
+		and _run_loop.has_method("configure_content_availability")
+	):
+		_run_loop.call(
+			"configure_content_availability",
+			(content_availability as Dictionary).duplicate(true)
+		)
+	if _run_loop.has_method("configure_content_progress_commits_enabled"):
+		var commits_enabled: bool = bool(
+			hero_composition.get("content_progress_commits_enabled", true)
+		)
+		if _is_automation_progress_isolated():
+			commits_enabled = false
+		_run_loop.call(
+			"configure_content_progress_commits_enabled",
+			commits_enabled
+		)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
 	_run_loop.connect("quit_to_title_requested", Callable(self, "_on_run_quit_to_title_requested"))
 	if player_loading_mode:
@@ -651,6 +712,7 @@ func _is_restore_snapshot_unavailable(reason: String) -> bool:
 	return (
 		reason.begins_with("unknown character id:")
 		or reason.begins_with("invalid hero composition:")
+		or reason == "hero composition contains locked content"
 		or reason == "run snapshot restore failed"
 	)
 
@@ -750,6 +812,28 @@ func _run_save_unavailable_notice_key(payload: Dictionary) -> String:
 
 func _on_title_quit_requested() -> void:
 	get_tree().quit()
+
+
+func _on_title_codex_requested() -> void:
+	if _codex_panel != null and is_instance_valid(_codex_panel):
+		return
+	_codex_panel = UIManager.push(
+		CODEX_PANEL_SCENE,
+		{"source": "title_menu"}
+	) as CanvasLayer
+	if _codex_panel == null:
+		return
+	_codex_panel.connect(
+		"closed_requested",
+		Callable(self, "_on_codex_panel_closed"),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _on_codex_panel_closed() -> void:
+	if UIManager.top() == _codex_panel:
+		UIManager.pop_expected(_codex_panel)
+	_codex_panel = null
 
 
 func _on_title_settings_requested() -> void:

@@ -446,9 +446,27 @@
       "forward",
       "muzzle"
     ],
+    "content_unlock_types": [
+      "character",
+      "gear_mod",
+      "enemy"
+    ],
+    "content_unlock_rule_modes": [
+      "all",
+      "any"
+    ],
+    "content_unlock_progress_counters": [
+      "runs_ended",
+      "runs_completed",
+      "character_run_completed",
+      "enemy_defeated_total",
+      "enemy_defeated"
+    ],
     "locale_prefixes": [
       "ui_",
       "ui_gear_mod_",
+      "ui_codex_",
+      "ui_result_",
       "character_",
       "element_",
       "passive_",

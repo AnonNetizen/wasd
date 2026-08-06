@@ -12,6 +12,15 @@ const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const WORLD_EVENT_IDS := preload("res://scripts/contracts/world_event_ids.gd")
 const WORLD_EVENT_KINDS := preload("res://scripts/contracts/world_event_kinds.gd")
+const CONTENT_UNLOCK_TYPES := preload(
+	"res://scripts/contracts/content_unlock_types.gd"
+)
+const CONTENT_UNLOCK_RULE_MODES := preload(
+	"res://scripts/contracts/content_unlock_rule_modes.gd"
+)
+const CONTENT_UNLOCK_PROGRESS_COUNTERS := preload(
+	"res://scripts/contracts/content_unlock_progress_counters.gd"
+)
 
 signal data_reloaded()
 
@@ -48,6 +57,12 @@ const MODULE_TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GEAR_MODS_PATH: String = "res://data/gear_mods.json"
 const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
 const WORLD_EVENTS_PATH: String = "res://data/world_events.json"
+const CONTENT_UNLOCK_RULES_PATH: String = "res://data/content_unlock_rules.json"
+
+const CONTENT_UNLOCK_SUBJECT_COUNTER_IDS: Array[String] = [
+	CONTENT_UNLOCK_PROGRESS_COUNTERS.CHARACTER_RUN_COMPLETED,
+	CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED,
+]
 
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
 const WEAPON_RECOIL_MAXIMUM: float = 100.0
@@ -213,6 +228,11 @@ func validate_project_data() -> bool:
 	is_valid = _validate_difficulty_profiles(locale_keys) and is_valid
 	var difficulty_profile_ids: Dictionary = _collect_difficulty_profile_ids()
 	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids) and is_valid
+	is_valid = _validate_content_unlock_data(
+		character_ids,
+		gear_mod_ids,
+		enemy_ids
+	) and is_valid
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
@@ -1411,7 +1431,12 @@ func _validate_characters_json(
 		) and is_valid
 		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.name_key" % field, character_dict.get("name_key"), locale_keys) and is_valid
 		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.desc_key" % field, character_dict.get("desc_key"), locale_keys) and is_valid
-		is_valid = _require_bool(CHARACTERS_PATH, "%s.default_unlocked" % field, character_dict.get("default_unlocked")) and is_valid
+		if character_dict.has("default_unlocked"):
+			is_valid = _require_bool(
+				CHARACTERS_PATH,
+				"%s.default_unlocked" % field,
+				character_dict.get("default_unlocked")
+			) and is_valid
 		var tags: Array = _require_array(CHARACTERS_PATH, "%s.tags" % field, character_dict.get("tags"))
 		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
 		if not tags.has("tag_character"):
@@ -2112,8 +2137,24 @@ func _validate_exact_dictionary_keys(
 	data: Dictionary,
 	expected_keys: Array[String]
 ) -> bool:
+	return _validate_dictionary_keys(
+		resource_path,
+		field,
+		data,
+		expected_keys,
+		[]
+	)
+
+
+func _validate_dictionary_keys(
+	resource_path: String,
+	field: String,
+	data: Dictionary,
+	required_keys: Array[String],
+	optional_keys: Array[String]
+) -> bool:
 	var is_valid: bool = true
-	for expected_key: String in expected_keys:
+	for expected_key: String in required_keys:
 		if not data.has(expected_key):
 			is_valid = _schema_fail(
 				resource_path,
@@ -2122,7 +2163,7 @@ func _validate_exact_dictionary_keys(
 			) and is_valid
 	for raw_key: Variant in data.keys():
 		var key: String = String(raw_key)
-		if not expected_keys.has(key):
+		if not required_keys.has(key) and not optional_keys.has(key):
 			is_valid = _schema_fail(
 				resource_path,
 				"%s.%s" % [field, key],
@@ -2139,6 +2180,10 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 		[
 			"id",
 			"name_key",
+			"desc_key",
+			"default_unlocked",
+			"unlock_rule_id",
+			"codex_icon_path",
 			"tags",
 			"pool_id",
 			"scene_path",
@@ -2167,6 +2212,22 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 				is_valid = _schema_fail(ENEMIES_PATH, "%s.id" % field, "unique enemy id") and is_valid
 			seen_enemy_ids[enemy_id] = true
 		is_valid = _require_locale_key(ENEMIES_PATH, "%s.name_key" % field, row.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(
+			ENEMIES_PATH,
+			"%s.desc_key" % field,
+			row.get("desc_key"),
+			locale_keys
+		) and is_valid
+		is_valid = _validate_optional_csv_bool(
+			ENEMIES_PATH,
+			"%s.default_unlocked" % field,
+			row.get("default_unlocked", "")
+		) and is_valid
+		is_valid = _validate_optional_resource_path(
+			ENEMIES_PATH,
+			"%s.codex_icon_path" % field,
+			row.get("codex_icon_path", "")
+		) and is_valid
 		var tags: Array[String] = _parse_tag_list(row.get("tags"))
 		is_valid = _validate_registered_string_array(ENEMIES_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
 		if not tags.has("tag_enemy"):
@@ -2441,7 +2502,20 @@ func _validate_skills_json(locale_keys: Dictionary) -> bool:
 			seen[skill_id] = true
 		is_valid = _require_locale_key(SKILLS_PATH, "%s.name_key" % field, skill_dict.get("name_key"), locale_keys) and is_valid
 		is_valid = _require_locale_key(SKILLS_PATH, "%s.desc_key" % field, skill_dict.get("desc_key"), locale_keys) and is_valid
-		is_valid = _require_bool(SKILLS_PATH, "%s.default_unlocked" % field, skill_dict.get("default_unlocked")) and is_valid
+		if skill_dict.has("default_unlocked"):
+			is_valid = _require_bool(
+				SKILLS_PATH,
+				"%s.default_unlocked" % field,
+				skill_dict.get("default_unlocked")
+			) and is_valid
+			if skill_dict.get("default_unlocked") is bool and not bool(
+				skill_dict.get("default_unlocked")
+			):
+				is_valid = _schema_fail(
+					SKILLS_PATH,
+					"%s.default_unlocked" % field,
+					"true or omitted; skills are not unlockable content"
+				) and is_valid
 		var tags: Array = _require_array(SKILLS_PATH, "%s.tags" % field, skill_dict.get("tags"))
 		is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
 		if not tags.has("tag_skill"):
@@ -2724,11 +2798,12 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 			is_valid = _schema_fail(GEAR_MODS_PATH, field, "Dictionary") and is_valid
 			continue
 		var mod_dict: Dictionary = mod as Dictionary
-		is_valid = _validate_exact_dictionary_keys(
+		is_valid = _validate_dictionary_keys(
 			GEAR_MODS_PATH,
 			field,
 			mod_dict,
-			["id", "name_key", "desc_key", "slot", "rarity", "max_rank", "rank_modifiers"]
+			["id", "name_key", "desc_key", "slot", "rarity", "max_rank", "rank_modifiers"],
+			["default_unlocked", "unlock_rule_id", "codex_icon_path"]
 		) and is_valid
 		var mod_id: String = _require_registered(GEAR_MODS_PATH, "%s.id" % field, mod_dict.get("id"), "gear_mod_ids")
 		if not mod_id.is_empty():
@@ -3262,6 +3337,524 @@ func _validate_difficulty_profiles(locale_keys: Dictionary) -> bool:
 					) and is_valid
 				seen_name_keys[stage_name_key] = true
 	return is_valid
+
+
+func _validate_content_unlock_data(
+	character_ids: Dictionary,
+	gear_mod_ids: Dictionary,
+	enemy_ids: Dictionary
+) -> bool:
+	var rules_data: Variant = load_json(CONTENT_UNLOCK_RULES_PATH)
+	if not rules_data is Dictionary:
+		return _schema_fail(CONTENT_UNLOCK_RULES_PATH, "root", "Dictionary")
+	var rules_payload: Dictionary = rules_data as Dictionary
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		CONTENT_UNLOCK_RULES_PATH,
+		"root",
+		rules_payload,
+		["schema_version", "rules"]
+	)
+	is_valid = _require_exact_int(
+		CONTENT_UNLOCK_RULES_PATH,
+		"schema_version",
+		rules_payload.get("schema_version"),
+		1
+	) and is_valid
+	var rules: Array = _require_array(
+		CONTENT_UNLOCK_RULES_PATH,
+		"rules",
+		rules_payload.get("rules")
+	)
+	var rules_by_id: Dictionary = {}
+	for rule_index: int in range(rules.size()):
+		var rule_field: String = "rules[%d]" % rule_index
+		var raw_rule: Variant = rules[rule_index]
+		if not raw_rule is Dictionary:
+			is_valid = _schema_fail(
+				CONTENT_UNLOCK_RULES_PATH,
+				rule_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var rule: Dictionary = raw_rule as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			CONTENT_UNLOCK_RULES_PATH,
+			rule_field,
+			rule,
+			["id", "mode", "conditions"]
+		) and is_valid
+		var rule_id: String = String(rule.get("id", ""))
+		is_valid = _require_non_empty_string(
+			CONTENT_UNLOCK_RULES_PATH,
+			"%s.id" % rule_field,
+			rule.get("id")
+		) and is_valid
+		if not rule_id.is_empty() and not _is_snake_case_identifier(rule_id):
+			is_valid = _schema_fail(
+				CONTENT_UNLOCK_RULES_PATH,
+				"%s.id" % rule_field,
+				"snake_case id matching ^[a-z][a-z0-9_]*$"
+			) and is_valid
+		if not rule_id.is_empty():
+			if rules_by_id.has(rule_id):
+				is_valid = _schema_fail(
+					CONTENT_UNLOCK_RULES_PATH,
+					"%s.id" % rule_field,
+					"unique unlock rule id"
+				) and is_valid
+			rules_by_id[rule_id] = rule
+		var mode: String = String(rule.get("mode", ""))
+		if not CONTENT_UNLOCK_RULE_MODES.VALUES.has(mode):
+			is_valid = _schema_fail(
+				CONTENT_UNLOCK_RULES_PATH,
+				"%s.mode" % rule_field,
+				"registered content unlock rule mode"
+			) and is_valid
+		var conditions: Array = _require_array(
+			CONTENT_UNLOCK_RULES_PATH,
+			"%s.conditions" % rule_field,
+			rule.get("conditions")
+		)
+		if conditions.is_empty():
+			is_valid = _schema_fail(
+				CONTENT_UNLOCK_RULES_PATH,
+				"%s.conditions" % rule_field,
+				"non-empty Array"
+			) and is_valid
+		for condition_index: int in range(conditions.size()):
+			var condition_field: String = "%s.conditions[%d]" % [
+				rule_field,
+				condition_index,
+			]
+			var raw_condition: Variant = conditions[condition_index]
+			if not raw_condition is Dictionary:
+				is_valid = _schema_fail(
+					CONTENT_UNLOCK_RULES_PATH,
+					condition_field,
+					"Dictionary"
+				) and is_valid
+				continue
+			var condition: Dictionary = raw_condition as Dictionary
+			is_valid = _validate_dictionary_keys(
+				CONTENT_UNLOCK_RULES_PATH,
+				condition_field,
+				condition,
+				["counter_id", "target"],
+				["subject_id"]
+			) and is_valid
+			var counter_id: String = String(condition.get("counter_id", ""))
+			if not CONTENT_UNLOCK_PROGRESS_COUNTERS.VALUES.has(counter_id):
+				is_valid = _schema_fail(
+					CONTENT_UNLOCK_RULES_PATH,
+					"%s.counter_id" % condition_field,
+					"supported content progression counter"
+				) and is_valid
+			is_valid = _require_int(
+				CONTENT_UNLOCK_RULES_PATH,
+				"%s.target" % condition_field,
+				condition.get("target"),
+				1
+			) and is_valid
+			is_valid = _validate_unlock_condition_subject(
+				condition_field,
+				condition,
+				counter_id,
+				character_ids,
+				enemy_ids
+			) and is_valid
+
+	var referenced_rules: Dictionary = {}
+	var characters_data: Variant = load_json(CHARACTERS_PATH)
+	var character_entries: Array = (
+		(characters_data as Dictionary).get("characters", []) as Array
+		if characters_data is Dictionary
+		and (characters_data as Dictionary).get("characters", []) is Array
+		else []
+	)
+	var default_character_ids: Dictionary = {}
+	for index: int in range(character_entries.size()):
+		if not character_entries[index] is Dictionary:
+			continue
+		var character: Dictionary = character_entries[index] as Dictionary
+		var field: String = "characters[%d]" % index
+		var default_unlocked: bool = _json_default_unlocked(character)
+		if default_unlocked:
+			default_character_ids[String(character.get("id", ""))] = true
+		is_valid = _validate_unlock_rule_reference(
+			CHARACTERS_PATH,
+			field,
+			character,
+			default_unlocked,
+			rules_by_id,
+			referenced_rules
+		) and is_valid
+		if character.has("codex_icon_path"):
+			is_valid = _validate_optional_resource_path(
+				CHARACTERS_PATH,
+				"%s.codex_icon_path" % field,
+				character.get("codex_icon_path")
+			) and is_valid
+	if default_character_ids.size() < 2:
+		is_valid = _schema_fail(
+			CHARACTERS_PATH,
+			"characters",
+			"at least two default-unlocked characters"
+		) and is_valid
+
+	var gear_mods_data: Variant = load_json(GEAR_MODS_PATH)
+	var gear_mod_entries: Array = (
+		(gear_mods_data as Dictionary).get("mods", []) as Array
+		if gear_mods_data is Dictionary
+		and (gear_mods_data as Dictionary).get("mods", []) is Array
+		else []
+	)
+	var default_gear_mod_ids: Dictionary = {}
+	for index: int in range(gear_mod_entries.size()):
+		if not gear_mod_entries[index] is Dictionary:
+			continue
+		var gear_mod: Dictionary = gear_mod_entries[index] as Dictionary
+		var field: String = "mods[%d]" % index
+		var default_unlocked: bool = _json_default_unlocked(gear_mod)
+		if default_unlocked:
+			default_gear_mod_ids[String(gear_mod.get("id", ""))] = true
+		is_valid = _validate_unlock_rule_reference(
+			GEAR_MODS_PATH,
+			field,
+			gear_mod,
+			default_unlocked,
+			rules_by_id,
+			referenced_rules
+		) and is_valid
+		if gear_mod.has("codex_icon_path"):
+			is_valid = _validate_optional_resource_path(
+				GEAR_MODS_PATH,
+				"%s.codex_icon_path" % field,
+				gear_mod.get("codex_icon_path")
+			) and is_valid
+
+	var enemy_rows: Array[Dictionary] = load_csv(ENEMIES_PATH)
+	var default_enemy_ids: Dictionary = {}
+	for index: int in range(enemy_rows.size()):
+		var enemy: Dictionary = enemy_rows[index]
+		var field: String = "line %d" % (index + 2)
+		var default_unlocked: bool = _csv_default_unlocked(
+			enemy.get("default_unlocked", "")
+		)
+		if default_unlocked:
+			default_enemy_ids[String(enemy.get("id", ""))] = true
+		is_valid = _validate_unlock_rule_reference(
+			ENEMIES_PATH,
+			field,
+			enemy,
+			default_unlocked,
+			rules_by_id,
+			referenced_rules
+		) and is_valid
+
+	is_valid = _validate_unlock_rule_subject_availability(
+		rules,
+		default_character_ids,
+		default_enemy_ids
+	) and is_valid
+
+	for raw_rule_id: Variant in rules_by_id.keys():
+		var rule_id: String = String(raw_rule_id)
+		if not referenced_rules.has(rule_id):
+			is_valid = _schema_fail(
+				CONTENT_UNLOCK_RULES_PATH,
+				"rules.%s" % rule_id,
+				"rule referenced by locked content"
+			) and is_valid
+
+	is_valid = _validate_initial_content_pools(
+		default_character_ids,
+		default_gear_mod_ids,
+		default_enemy_ids,
+		gear_mods_data
+	) and is_valid
+	_last_schema_counts["content_unlock_rules"] = rules.size()
+	_last_schema_counts["default_unlocked_characters"] = default_character_ids.size()
+	_last_schema_counts["default_unlocked_gear_mods"] = default_gear_mod_ids.size()
+	_last_schema_counts["default_unlocked_enemies"] = default_enemy_ids.size()
+	_last_schema_counts["content_unlock_types"] = CONTENT_UNLOCK_TYPES.VALUES.size()
+	return is_valid
+
+
+func _validate_unlock_condition_subject(
+	field: String,
+	condition: Dictionary,
+	counter_id: String,
+	character_ids: Dictionary,
+	enemy_ids: Dictionary
+) -> bool:
+	var has_subject: bool = condition.has("subject_id")
+	var subject_id: String = String(condition.get("subject_id", ""))
+	if not CONTENT_UNLOCK_SUBJECT_COUNTER_IDS.has(counter_id):
+		if has_subject:
+			return _schema_fail(
+				CONTENT_UNLOCK_RULES_PATH,
+				"%s.subject_id" % field,
+				"omitted for aggregate counter"
+			)
+		return true
+	if subject_id.is_empty():
+		return _schema_fail(
+			CONTENT_UNLOCK_RULES_PATH,
+			"%s.subject_id" % field,
+			"non-empty subject id"
+		)
+	if (
+		counter_id == CONTENT_UNLOCK_PROGRESS_COUNTERS.CHARACTER_RUN_COMPLETED
+		and not character_ids.has(subject_id)
+	):
+		return _schema_fail(
+			CONTENT_UNLOCK_RULES_PATH,
+			"%s.subject_id" % field,
+			"character defined in characters.json"
+		)
+	if (
+		counter_id == CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED
+		and not enemy_ids.has(subject_id)
+	):
+		return _schema_fail(
+			CONTENT_UNLOCK_RULES_PATH,
+			"%s.subject_id" % field,
+			"enemy defined in enemies.csv"
+		)
+	return true
+
+
+func _validate_unlock_rule_reference(
+	resource_path: String,
+	field: String,
+	entry: Dictionary,
+	default_unlocked: bool,
+	rules_by_id: Dictionary,
+	referenced_rules: Dictionary
+) -> bool:
+	var is_valid: bool = true
+	if entry.has("default_unlocked") and resource_path != ENEMIES_PATH:
+		is_valid = _require_bool(
+			resource_path,
+			"%s.default_unlocked" % field,
+			entry.get("default_unlocked")
+		) and is_valid
+	if entry.has("unlock_rule_id") and not entry.get("unlock_rule_id") is String:
+		is_valid = _schema_fail(
+			resource_path,
+			"%s.unlock_rule_id" % field,
+			"string"
+		) and is_valid
+	var rule_id: String = String(entry.get("unlock_rule_id", ""))
+	if not default_unlocked and rule_id.is_empty():
+		is_valid = _schema_fail(
+			resource_path,
+			"%s.unlock_rule_id" % field,
+			"non-empty rule id when default_unlocked is false"
+		) and is_valid
+	if default_unlocked and not rule_id.is_empty():
+		is_valid = _schema_fail(
+			resource_path,
+			"%s.unlock_rule_id" % field,
+			"empty when content is default-unlocked"
+		) and is_valid
+	if not rule_id.is_empty():
+		if not rules_by_id.has(rule_id):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.unlock_rule_id" % field,
+				"rule defined in content_unlock_rules.json"
+			) and is_valid
+		else:
+			referenced_rules[rule_id] = true
+	return is_valid
+
+
+func _validate_unlock_rule_subject_availability(
+	rules: Array,
+	default_character_ids: Dictionary,
+	default_enemy_ids: Dictionary
+) -> bool:
+	var is_valid: bool = true
+	for rule_index: int in range(rules.size()):
+		if not rules[rule_index] is Dictionary:
+			continue
+		var rule: Dictionary = rules[rule_index] as Dictionary
+		var conditions: Variant = rule.get("conditions", [])
+		if not conditions is Array:
+			continue
+		for condition_index: int in range((conditions as Array).size()):
+			if not (conditions as Array)[condition_index] is Dictionary:
+				continue
+			var condition: Dictionary = (
+				(conditions as Array)[condition_index] as Dictionary
+			)
+			var counter_id: String = String(condition.get("counter_id", ""))
+			var subject_id: String = String(condition.get("subject_id", ""))
+			var subject_is_default: bool = true
+			if (
+				counter_id
+				== CONTENT_UNLOCK_PROGRESS_COUNTERS.CHARACTER_RUN_COMPLETED
+			):
+				subject_is_default = default_character_ids.has(subject_id)
+			elif counter_id == CONTENT_UNLOCK_PROGRESS_COUNTERS.ENEMY_DEFEATED:
+				subject_is_default = default_enemy_ids.has(subject_id)
+			if not subject_is_default:
+				is_valid = _schema_fail(
+					CONTENT_UNLOCK_RULES_PATH,
+					"rules[%d].conditions[%d].subject_id"
+					% [rule_index, condition_index],
+					"default-unlocked subject content"
+				) and is_valid
+	return is_valid
+
+
+func _validate_initial_content_pools(
+	default_character_ids: Dictionary,
+	default_gear_mod_ids: Dictionary,
+	default_enemy_ids: Dictionary,
+	gear_mods_data: Variant
+) -> bool:
+	var is_valid: bool = true
+	if default_gear_mod_ids.is_empty():
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			"mods",
+			"at least one default-unlocked Gear Mod"
+		) and is_valid
+	if default_enemy_ids.is_empty():
+		is_valid = _schema_fail(
+			ENEMIES_PATH,
+			"rows",
+			"at least one default-unlocked enemy"
+		) and is_valid
+	if gear_mods_data is Dictionary:
+		var reward_pools: Variant = (gear_mods_data as Dictionary).get(
+			"reward_pools",
+			[]
+		)
+		if reward_pools is Array:
+			for index: int in range((reward_pools as Array).size()):
+				if not (reward_pools as Array)[index] is Dictionary:
+					continue
+				var pool: Dictionary = (reward_pools as Array)[index] as Dictionary
+				var initial_count: int = 0
+				for raw_mod_id: Variant in pool.get("mod_ids", []):
+					if default_gear_mod_ids.has(String(raw_mod_id)):
+						initial_count += 1
+				if initial_count == 0:
+					is_valid = _schema_fail(
+						GEAR_MODS_PATH,
+						"reward_pools[%d].mod_ids" % index,
+						"at least one default-unlocked Gear Mod"
+					) and is_valid
+
+	var game_modes_data: Variant = load_json(GAME_MODES_PATH)
+	if not game_modes_data is Dictionary:
+		return false
+	var modes: Variant = (game_modes_data as Dictionary).get("modes", [])
+	if not modes is Array:
+		return false
+	for mode_index: int in range((modes as Array).size()):
+		if not (modes as Array)[mode_index] is Dictionary:
+			continue
+		var mode: Dictionary = (modes as Array)[mode_index] as Dictionary
+		if not mode.get("resource_pools", {}) is Dictionary:
+			continue
+		var pools: Dictionary = mode.get("resource_pools", {}) as Dictionary
+		var initial_characters: int = _count_initial_pool_entries(
+			pools.get("characters", []),
+			default_character_ids
+		)
+		if initial_characters < 2:
+			is_valid = _schema_fail(
+				GAME_MODES_PATH,
+				"modes[%d].resource_pools.characters" % mode_index,
+				"at least two default-unlocked characters"
+			) and is_valid
+		if _count_initial_pool_entries(
+			pools.get("enemies", []),
+			default_enemy_ids
+		) == 0:
+			is_valid = _schema_fail(
+				GAME_MODES_PATH,
+				"modes[%d].resource_pools.enemies" % mode_index,
+				"at least one default-unlocked enemy"
+			) and is_valid
+
+	var module_worlds_data: Variant = load_json(MODULE_WORLDS_PATH)
+	if module_worlds_data is Dictionary:
+		var worlds: Variant = (module_worlds_data as Dictionary).get("worlds", [])
+		if worlds is Array:
+			for world_index: int in range((worlds as Array).size()):
+				if not (worlds as Array)[world_index] is Dictionary:
+					continue
+				var world: Dictionary = (worlds as Array)[world_index] as Dictionary
+				var first_visit: Variant = world.get(
+					"first_visit_enemy_spawn",
+					{}
+				)
+				if not first_visit is Dictionary:
+					continue
+				var enemy_pool: Variant = (first_visit as Dictionary).get(
+					"enemy_pool",
+					[]
+				)
+				if not enemy_pool is Array:
+					continue
+				var initial_enemy_count: int = 0
+				for raw_entry: Variant in enemy_pool as Array:
+					if not raw_entry is Dictionary:
+						continue
+					var entry: Dictionary = raw_entry as Dictionary
+					var unlock_time: Variant = entry.get("unlock_time")
+					if (
+						(unlock_time is int or unlock_time is float)
+						and float(unlock_time) <= 0.0
+						and default_enemy_ids.has(
+							String(entry.get("enemy_id", ""))
+						)
+					):
+						initial_enemy_count += 1
+				if initial_enemy_count == 0:
+					is_valid = _schema_fail(
+						MODULE_WORLDS_PATH,
+						"worlds[%d].first_visit_enemy_spawn.enemy_pool"
+						% world_index,
+						"at least one 0-second default-unlocked enemy"
+					) and is_valid
+	return is_valid
+
+
+func _count_initial_pool_entries(
+	raw_entries: Variant,
+	default_ids: Dictionary
+) -> int:
+	if not raw_entries is Array:
+		return 0
+	var count: int = 0
+	for raw_entry: Variant in raw_entries as Array:
+		if raw_entry is Dictionary and default_ids.has(
+			String((raw_entry as Dictionary).get("id", ""))
+		):
+			count += 1
+	return count
+
+
+func _json_default_unlocked(entry: Dictionary) -> bool:
+	var value: Variant = entry.get("default_unlocked", true)
+	return bool(value) if value is bool else true
+
+
+func _csv_default_unlocked(value: Variant) -> bool:
+	return String(value).strip_edges().to_lower() != "false"
+
+
+func _is_snake_case_identifier(value: String) -> bool:
+	var pattern := RegEx.new()
+	if pattern.compile("^[a-z][a-z0-9_]*$") != OK:
+		return false
+	return pattern.search(value) != null
 
 
 func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary, difficulty_profile_ids: Dictionary) -> bool:
@@ -4048,6 +4641,30 @@ func _require_csv_number(resource_path: String, field: String, value: Variant, m
 	if parsed == null:
 		return _schema_fail(resource_path, field, "number")
 	return _require_number(resource_path, field, parsed, minimum, maximum, exclusive_minimum)
+
+
+func _validate_optional_csv_bool(
+	resource_path: String,
+	field: String,
+	value: Variant
+) -> bool:
+	var text: String = String(value).strip_edges().to_lower()
+	if text.is_empty() or text == "true" or text == "false":
+		return true
+	return _schema_fail(resource_path, field, "empty, true, or false")
+
+
+func _validate_optional_resource_path(
+	resource_path: String,
+	field: String,
+	value: Variant
+) -> bool:
+	var path: String = String(value).strip_edges()
+	if path.is_empty():
+		return true
+	if not path.begins_with("res://") or not ResourceLoader.exists(path):
+		return _schema_fail(resource_path, field, "empty or existing res:// resource")
+	return true
 
 
 func _validate_stat_value(resource_path: String, field: String, stat: String, value: Variant) -> bool:

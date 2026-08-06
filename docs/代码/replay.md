@@ -12,7 +12,8 @@
 - ADR #165 后每颗玩家弹丸固定消耗一次 `RNG.combat` 并独立抽取扩散角，零扩散也不跳过；震屏只使用 `RNG.camera_fx`，开关震屏不得改变弹道或玩家玩法位置。
 - ADR #166 的难度字段继续保留在 `run_end` decision 和黄金运行时摘要：`difficulty_time`、`difficulty_level`、`enemy_health_multiplier`、`enemy_damage_multiplier`。这些值来自 `DifficultyProgression`，不以 `GameClock.now()` 代替。
 - ADR #170 后敌人显式攻击、爆猎者连锁和玩家击退都由现有输入、`GameClock` 与运行时数据确定，不新增 replay event 或 RNG。爆炸击杀普通敌人的掉落 RNG 按 `runtime_spawn_serial` 稳定顺序消费。
-- ADR #188 将 Replay 升至 v5，记录局内 Gear Mod 与意识核直接完成语义；旧 Replay v4 明确不兼容且不迁移。
+- ADR #188 曾将 Replay 升至 v5，记录局内 Gear Mod 与意识核直接完成语义。
+- ADR #189 将 Replay 升至 v6：`context.content_availability` 保存开局冻结的英雄、Gear Mod 与敌人可用池；播放只消费该快照并忽略本机 Meta。旧 Replay v5 明确不兼容且不迁移。
 - `Replay` 受 `Settings.gameplay.record_replays` 控制；关闭后会清空当前内存录制并拒绝新录制。
 
 ## 阅读方式
@@ -67,12 +68,12 @@
 | `start_recording(context = {})` | 启动上下文 | `bool` | 关闭或已录制时返回 `false` |
 | `stop_recording(reason = "")` | 停止原因 | `Dictionary` | 未录制时返回空字典；成功后发 `replay_recorded` 埋点 |
 | `record_input_action(action_name, pressed, strength = 1.0, participant_id = "player_0")` | action、按下状态、被忽略的旧 strength、参与者 | `bool` | deprecated bool 兼容包装；转交 `record_input_value()`，gameplay 不直接调用 |
-| `record_input_value(action_name, value, participant_id = "player_0")` | action、`bool` 或 `Vector2`、参与者 | `bool` | v5 规范入口；只接受已登记 action，含四技能与冲刺；Vector2 会归一化并保存为 `[x, y]` |
+| `record_input_value(action_name, value, participant_id = "player_0")` | action、`bool` 或 `Vector2`、参与者 | `bool` | v6 规范入口；只接受已登记 action，含四技能与冲刺；Vector2 会归一化并保存为 `[x, y]` |
 | `record_input_event(event, action_names, participant_id = "")` | 原始 Godot event、候选 action、参与者 | `bool` | 测试 / 旧边界兼容，只转成 bool；正式 gameplay 与 UI 不得调用 |
 | `record_decision(event_name, payload = {})` | 关键事件名、payload | `bool` | event 未登记会 `push_error` 并返回 `false` |
 | `save_recording(recording = {}, file_name = "")` | 已完成录制、可选文件名 | `String` | 写入 `user://replays/`，返回路径；文件名会归一化为 `.replay` |
 | `load_recording(path)` | `.replay` 路径 | `Dictionary` | 返回录制 payload；文件无效时返回空字典并设置 `last_error()` |
-| `load_replay_file(path)` | `.replay` 路径 | `Dictionary` | 仅接受 file / recording schema v5；返回完整 envelope并校验 `recording_hash`，旧版或未来版本返回空字典并设置错误 |
+| `load_replay_file(path)` | `.replay` 路径 | `Dictionary` | 仅接受 file / recording schema v6，并校验 `context.content_availability`；返回完整 envelope并校验 `recording_hash`，旧版或未来版本返回空字典并设置错误 |
 | `recording_summary(recording)` | 录制 payload | `Dictionary` | 返回 seed、tick/time、事件数量、停止原因等稳定摘要 |
 | `current_data_fingerprint()` | 无 | `String` | 基于当前 contracts 和 schema counts 的 F8 首片数据指纹 |
 | `replay_root()` | 无 | `String` | 返回 `user://replays` |
@@ -112,7 +113,7 @@
 | `run_seed` | `int` | `RNG.run_seed()` 快照 |
 | `started_tick` / `ended_tick` | `int` | `GameClock.tick()` 快照 |
 | `started_time` / `ended_time` | `float` | `GameClock.now()` 快照 |
-| `context` | `Dictionary` | `GameState` 进入 `PLAYING` 时传入的上下文 |
+| `context` | `Dictionary` | `GameState` 进入 `PLAYING` 时传入的上下文；v6 必须包含稳定排序且非空的 `content_availability` |
 | `input_events` | `Array[Dictionary]` | action 输入事件 |
 | `decision_events` | `Array[Dictionary]` | 关键决策事件 |
 | `dropped_input_events` / `dropped_decision_events` | `int` | 缓冲上限丢弃计数 |
@@ -121,7 +122,7 @@ F8 首片 `.replay` 文件 envelope：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `file_schema_version` | `int` | 文件 envelope 版本，当前为 5 |
+| `file_schema_version` | `int` | 文件 envelope 版本，当前为 6 |
 | `created_at` | `String` | wall time 诊断字段，不参与玩法判定 |
 | `game_version` | `String` | 当前构建 / 设计版本标签，来自 `SaveManager.GAME_VERSION` |
 | `data_fingerprint` | `String` | 当前 contracts + schema counts 的稳定 hash，用于提示数据基线变化 |
@@ -142,6 +143,8 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 | `participant_id` | `String` | 可选；未来多人 / AIPlayer 预留 |
 
 当前 gameplay 输入使用固定 `participant_id=player_0`。`InputService` 对 `move` / `aim` 记录最终归一化 Vector2，对离散 action 记录 bool，并只在值发生变化时写入，避免每帧重复记录。鼠标瞄准因此可与手柄瞄准使用同一 wire，不记录鼠标坐标或设备来源。`replay-runner --rerun-runtime-summary` 通过 playback override 注入这些 intent，播放期间忽略物理 GUIDE 输入；事件可带 `frame` 字段，runner 优先按 frame 调度，以覆盖暂停时 `GameClock.tick` 冻结的场景。
+
+`context.content_availability` 的三个数组分别冻结英雄、Gear Mod 和敌人池。捕获与正式开局都在任何池消费 RNG 前生成快照；播放时 `GameplayRunLoop` 使用回放内快照，禁止读取或提交本机 `ContentUnlockSystem` Meta，因此同一 v6 Replay 不受本机解锁进度影响。
 
 `runtime_events` 是 F8 golden 工具层事件字段，当前用于 `golden_full_death` 的 `defeat_player`，以及 `golden_reward_choice` 的 `request_reward_choice` / `choose_reward_index`。runner 按 `frame` 调度这些事件：full-death 在工具脚本内通过 `Combat.apply_damage()` 触发正式 Player 受伤 / 死亡 / GameState / GameOverPanel 路径；reward choice 调用 `GameplayRunLoop.request_reward_choice()` 发起正式请求，再调用 `RewardChoicePanel.choose_index()` 触发正式选择路径。业务脚本不读取该字段，也不为测试场景添加分支。full-death capture / runner 会在场景前备份 `DEFAULT_SLOT` 的 run/meta payload，临时清空以获得稳定失败页摘要，场景结束后恢复原 payload，避免 headless 工具永久改写本机默认存档。后续若扩展 runtime event，必须继续走正式系统边界，不能直接伪造 `GameState` 或结算数据。
 
@@ -192,11 +195,11 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `python tools/godot_bridge.py --project client replay-input-smoke`；改 golden 时追加 `capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_reward_choice` 以及四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 v5 roundtrip 与旧 v4 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。四条黄金回放覆盖两种主英雄、连续无限射击、四技能、冲刺、暂停 / 恢复、死亡防御状态和通用奖励选择；有意改变确定性行为时才重录并在提交说明中注明影响。
+- 当前 `.replay` 文件 v6 roundtrip、内容池快照校验与旧 v5 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。四条黄金回放覆盖两种主英雄、连续无限射击、四技能、冲刺、暂停 / 恢复、死亡防御状态和通用奖励选择；有意改变确定性行为时才重录并在提交说明中注明影响。
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 5，加载器只接受 v5。旧 v4、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id` 和 difficulty profile id / coefficient。弹道随机与 Gear Mod 掉落由运行时按固定 RNG 子流重算；Player 后坐 / 敌人击退、金币、局内 Gear Mod ranks、未完成奖励选择、敌人状态与世界事件事务属于 Run v13 而不是 replay 输入字段。不能把 run 快照与 replay 输入格式混合。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 6，加载器只接受 v6。旧 v5、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id`、difficulty profile id / coefficient 与 `content_availability`。弹道随机与 Gear Mod 掉落由运行时按固定 RNG 子流重算；Player 后坐 / 敌人击退、金币、局内 Gear Mod ranks、未完成奖励选择、敌人状态、世界事件事务与内容进度增量属于 Run v14 而不是 replay 输入字段。不能把 run 快照与 replay 输入格式混合。
 
 ## 相关文档
 
@@ -208,3 +211,4 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 - `docs/代码/game_state.md`
 - `docs/代码/analytics.md`
 - `docs/代码/input_service.md`
+- `docs/代码/content_unlock_system.md`

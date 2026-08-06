@@ -8,7 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`content_unlock_rules.json`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、金币交易、奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -35,10 +35,11 @@
 | `client/data/visual_effects.json` | 视觉效果 catalog、资源、空间、生命周期、对象池与表现策略 |
 | `client/data/presentation_profiles.json` | 表现 profile 继承、cue、效果 / 音频 / 相机 / 屏幕绑定 |
 | `client/data/enemy_ai_profiles.json` | schema v5 敌人对玩家 AI profile、感知、动作参数、显式攻击参数和动作列表边界 |
-| `client/data/enemies.csv` | 敌人专属场景、独立对象池 / 预热、基础数值、金币价值倍率、通用 tag、AI profile、伤害类型和模式引用边界 |
+| `client/data/enemies.csv` | 敌人专属场景、独立对象池 / 预热、图鉴描述 / 图标、默认解锁、解锁规则、基础数值、金币价值倍率、通用 tag、AI profile、伤害类型和模式引用边界 |
 | `client/data/enemy_rewards.json` | schema v1 敌人金币基础系数、阶段增长和独立随机区间 |
 | `client/data/difficulty_profiles.json` | schema v2 难度名称、难度系数、威胁时间与敌人生命 / 伤害曲线 |
-| `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、drain、修正器和分解返还边界 |
+| `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、图鉴图标、默认解锁、解锁规则和修正器边界 |
+| `client/data/content_unlock_rules.json` | schema v1 稀疏锁定规则；只登记显式锁定内容，支持 `all` / `any` 与五类进度条件 |
 | `client/data/gear_mod_drop_tables.csv` | 装备 Mod 掉落来源、概率和敌人等级条件边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/map_layouts.json` | 有限地图、玩家出生点、PCG 机关规则和人工摆点边界 |
@@ -98,18 +99,20 @@
 - 玩家 mod 不得修改 `_contracts.json` 或生成常量；可在 manifest 中声明 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes` 等少量运行时扩展 id，且必须以 `mod_<mod_id>_` 开头。
 - 当前 F3 schema 覆盖：
   - `player.json`：schema v4 新增 `body`，且 `body` 必须且只能含正数 `radius`；其余根级配置继续包含 `base_stats`、`defense`、`dash`、`energy_drop` 与 `gold_drop`。stat id 必须来自词表，数值范围按 stat 类型校验；`max_hp` 是正数浮点血量，`health_regen` 是非负 HP/s，两个掉落的 `pickup_speed` 必须为正数。遗留 `pickup_orb_speed` 会被明确拒绝，`luck` 保留为暂未生效属性。
-  - `characters.json`：schema v4 角色 id、专属 `scene_path`、表现 profile、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；每个 `palette` 必须且只能含一个合法 HTML 颜色 `primary`，遗留 `secondary` / `accent` 或任何额外键均拒绝。场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
+  - `characters.json`：schema v4 角色 id、专属 `scene_path`、表现 profile、名称 / 描述 key、可选图鉴图标、默认解锁 / 解锁规则、tags、capabilities、控制配置、起始携带引用和角色基础属性；字段缺失等同默认开放。每个 `palette` 必须且只能含一个合法 HTML 颜色 `primary`，遗留 `secondary` / `accent` 或任何额外键均拒绝。场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：schema v5；武器 id、表现 profile、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型与弹体数值。根级和单武器均执行 exact-key 校验，任何遗留 `ammo` 或额外字段都会拒绝。
   - `skills.json`：技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、能量消耗、目标类型、能力缩放声明和效果原语；技能 id、槽位、资源、targeting、effect 和 ability tag 必须来自词表，`skill_effect_damage` 的 `element_id` 交给 `Combat` 校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自生成契约；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `element_id`。
   - `visual_effects.json`：schema v3、唯一 effect id、固定枚举、合法正式资源、预览参数和对象池引用；旧 schema v1/v2 与遗留 `reduced_motion` / `quality_variants` 字段明确拒绝，高频条目必须声明已登记 pool id，catalog 不得指向 editor-only、`output/test_lab` 或裸程序几何。
   - `presentation_profiles.json`：唯一 profile id、父继承无环、cue / anchor 枚举、效果引用与可选音频 / 相机 / 屏幕绑定；首版 `hit_stop_profile_id` 必须为空。
   - `enemy_ai_profiles.json`：schema v5 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、通用移动参数、动作参数和 action id；远程攻击额外必填 `windup/burst_count/shot_interval`。攻击 action 必须携带与类型严格匹配的 `attack` 字典，非攻击 action 禁止携带 `attack`；旧 schema 与遗留攻击字段明确拒绝。
-  - `enemies.csv`：精确表头为敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、表现 profile、生命、移速、有限正数 `gold_value_multiplier`、命中半径和分离半径；`pool_id` 必须唯一且等于敌人 id。旧 `gold_reward`、`contact_damage`、`contact_interval`、`element_id`、`exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
+  - `enemies.csv`：精确表头包含敌人 id、名称 / 描述 key、可选图鉴图标、默认解锁 / 解锁规则、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、表现 profile、生命、移速、有限正数 `gold_value_multiplier`、命中半径和分离半径；`pool_id` 必须唯一且等于敌人 id。旧 `gold_reward`、`contact_damage`、`contact_interval`、`element_id`、`exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `enemy_rewards.json`：schema v1，只允许 `base_coefficient`、`time_growth_per_tier`、`random_multiplier_min`、`random_multiplier_max`；基础系数与随机上下界必须为有限正数，阶段增长必须为有限非负数，且随机下界不得高于上界。
   - `difficulty_profiles.json`：schema v2，每个 profile 必填唯一 `id`、已本地化 `name_key`、有限正数 `difficulty_coefficient`、威胁曲线和九段阶段名。标准 profile 当前系数为 `1.0`；旧 schema v1、缺字段或多余字段均拒绝。
   - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
-  - `gear_mods.json` schema v2：校验公共奖励池、满阶溢出金币与每个 Mod 的 rank 0–5 效果曲线；不接受 inventory、drain、dismantle 或 fusion 字段。
+  - `gear_mods.json` schema v2：校验公共奖励池、满阶溢出金币、可选图鉴图标、默认解锁 / 解锁规则与每个 Mod 的 rank 0–5 效果曲线；不接受 inventory、drain、dismantle 或 fusion 字段。
+  - `content_unlock_rules.json`：schema v1；规则 id 唯一且为 snake_case，mode 只能来自生成的 `all/any` 契约，条件只能使用登记的五类 counter。定向计数器必须携带合法 `subject_id`，聚合计数器禁止携带；锁定内容必须引用有效规则，默认开放内容不得引用规则，规则不得闲置，禁止以锁定内容作为条件对象。`skills.json.default_unlocked=false` 在本阶段非法。
+  - 初始可玩性：至少两个默认开放英雄；每个正式敌池至少有一个 0 秒默认开放敌人；每个正式 Gear Mod 奖励池至少有一个默认开放成员。所有相关池过滤发生在运行时 RNG 消费前。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、表现 profile、伤害、伤害类型、触发间隔、范围和持续时间。
   - `map_layouts.json`：layout id、模式引用、有限地图矩形 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须分别整除 `grid.cell_width/cell_height`。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
@@ -150,6 +153,7 @@
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
 | 改敌人 AI profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改敌人金币 / 难度 profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`enemy_rewards.json`、`enemies.csv`、`difficulty_profiles.json` | `client/data/README.md`、`docs/代码/enemy_reward_resolver.md`、Difficulty / Runtime / Save 文档 | contracts + `validate_data` + schema test + L1/runtime/save/replay |
+| 改内容解锁 schema / 可选字段 | `data_loader.gd`、`validate_data.py`、schema tests、三类内容数据与 `content_unlock_rules.json` | 数据手册、词表、ContentUnlockSystem / Runtime / Save / Replay 文档 | contracts + data/schema + content-progression/codex/runtime/save/replay |
 | 改地图 layout schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改模块世界 / 模板 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/module_world_manager.md`、F13 工作包 | `sync_contracts --check` + `validate_data` + schema test + `module-world-smoke` + `save-smoke` |
 | 改战区导演 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/warzone_director.md`、F10 工作包 | `validate_data` + schema test + `runtime-smoke` + `f9-demo-smoke` |
@@ -173,6 +177,7 @@
 - 改 mod 接口或 `contract_values()` 合并逻辑时跑 `tools/godot_bridge.py --project client l1-smoke`。
 - 改契约 / 数据时跑 `tools/sync_contracts.py --check` 与 `tools/validate_data.py`。
 - F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
+- 内容解锁 schema 变更还必须覆盖默认开放、缺规则 / 闲置规则、非法 subject、锁定条件对象、技能锁定、初始英雄 / 敌池 / Mod 池枯竭，并跑 `content-progression-smoke`。
 
 ## 迁移 / 兼容
 
@@ -183,5 +188,6 @@
 - `docs/游戏设计文档.md` §9.3 / §9.19
 - `docs/词表与契约.md`
 - `docs/代码/mod_loader.md`
+- `docs/代码/content_unlock_system.md`
 - `client/data/README.md`
 - `docs/测试策略.md`

@@ -46,6 +46,7 @@ MODULES_DIR = ROOT / "client" / "data" / "modules"
 GEAR_MODS_JSON = ROOT / "client" / "data" / "gear_mods.json"
 WORLD_EVENTS_JSON = ROOT / "client" / "data" / "world_events.json"
 GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
+CONTENT_UNLOCK_RULES_JSON = ROOT / "client" / "data" / "content_unlock_rules.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
 HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
@@ -155,6 +156,7 @@ def main() -> int:
     _validate_credits(ctx)
     _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids, skill_ids, passive_ids, element_ids)
     character_ids = _collect_character_ids(ctx)
+    _validate_content_unlocks(ctx, character_ids, gear_mod_ids, enemy_ids)
     _validate_level_progression(ctx)
     _validate_reward_choice_pools(ctx)
     difficulty_profile_ids = _validate_difficulty_profiles(ctx)
@@ -740,7 +742,20 @@ def _validate_characters(
         )
         _require_locale_key(ctx, path, f"{field}.name_key", character.get("name_key"))
         _require_locale_key(ctx, path, f"{field}.desc_key", character.get("desc_key"))
-        _require_bool(ctx, path, f"{field}.default_unlocked", character.get("default_unlocked"))
+        if "default_unlocked" in character:
+            _require_bool(
+                ctx,
+                path,
+                f"{field}.default_unlocked",
+                character.get("default_unlocked"),
+            )
+        if "codex_icon_path" in character:
+            _validate_codex_icon_path(
+                ctx,
+                path,
+                f"{field}.codex_icon_path",
+                character.get("codex_icon_path"),
+            )
         tags = _validate_registered_string_list(ctx, path, f"{field}.tags", character.get("tags"), "content_tags", allow_empty=False)
         if "tag_character" not in tags:
             ctx.error(path, f"{field}.tags", "must include tag_character")
@@ -1259,6 +1274,10 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
     required = {
         "id",
         "name_key",
+        "desc_key",
+        "default_unlocked",
+        "unlock_rule_id",
+        "codex_icon_path",
         "tags",
         "pool_id",
         "scene_path",
@@ -1293,6 +1312,19 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
                     ctx.error(path, f"{field}.id", f"duplicate enemy id {enemy_id}")
                 seen_enemy_ids.add(enemy_id)
             _require_locale_key(ctx, path, f"{field}.name_key", row.get("name_key"))
+            _require_locale_key(ctx, path, f"{field}.desc_key", row.get("desc_key"))
+            _parse_csv_bool(
+                ctx,
+                path,
+                f"{field}.default_unlocked",
+                row.get("default_unlocked"),
+            )
+            _validate_codex_icon_path(
+                ctx,
+                path,
+                f"{field}.codex_icon_path",
+                row.get("codex_icon_path", ""),
+            )
             tags = _validate_registered_string_list(ctx, path, f"{field}.tags", _parse_pipe_list(row.get("tags")), "content_tags", allow_empty=False)
             if "tag_enemy" not in tags:
                 ctx.error(path, f"{field}.tags", "must include tag_enemy")
@@ -1571,7 +1603,19 @@ def _validate_skills(ctx: ValidationContext) -> None:
             desc_key,
             _skill_description_tokens(skill),
         )
-        _require_bool(ctx, path, f"{field}.default_unlocked", skill.get("default_unlocked"))
+        if "default_unlocked" in skill:
+            skill_default_unlocked = _require_bool(
+                ctx,
+                path,
+                f"{field}.default_unlocked",
+                skill.get("default_unlocked"),
+            )
+            if skill_default_unlocked is False:
+                ctx.error(
+                    path,
+                    f"{field}.default_unlocked",
+                    "must remain true; skills inherit their character unlock",
+                )
         tags = _validate_registered_string_list(ctx, path, f"{field}.tags", skill.get("tags"), "content_tags", allow_empty=False)
         if "tag_skill" not in tags:
             ctx.error(path, f"{field}.tags", "must include tag_skill")
@@ -1826,13 +1870,28 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         if not isinstance(mod, dict):
             ctx.error(path, field, "must be an object")
             continue
-        if set(mod) != {
-            "id", "name_key", "desc_key", "slot", "rarity", "max_rank", "rank_modifiers"
-        }:
+        required_mod_keys = {
+            "id",
+            "name_key",
+            "desc_key",
+            "slot",
+            "rarity",
+            "max_rank",
+            "rank_modifiers",
+        }
+        optional_mod_keys = {
+            "default_unlocked",
+            "unlock_rule_id",
+            "codex_icon_path",
+        }
+        if (
+            not required_mod_keys.issubset(mod)
+            or set(mod).difference(required_mod_keys | optional_mod_keys)
+        ):
             ctx.error(
                 path,
                 field,
-                "must define exactly id, name_key, desc_key, slot, rarity, max_rank, and rank_modifiers",
+                "must define the base Gear Mod fields and only optional unlock/codex fields",
             )
         mod_id = _require_registered(ctx, path, f"{field}.id", mod.get("id"), "gear_mod_ids")
         if mod_id:
@@ -1841,6 +1900,20 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
             seen.add(mod_id)
         _require_locale_key(ctx, path, f"{field}.name_key", mod.get("name_key"))
         _require_locale_key(ctx, path, f"{field}.desc_key", mod.get("desc_key"))
+        if "default_unlocked" in mod:
+            _require_bool(
+                ctx,
+                path,
+                f"{field}.default_unlocked",
+                mod.get("default_unlocked"),
+            )
+        if "codex_icon_path" in mod:
+            _validate_codex_icon_path(
+                ctx,
+                path,
+                f"{field}.codex_icon_path",
+                mod.get("codex_icon_path"),
+            )
         _require_registered(ctx, path, f"{field}.slot", mod.get("slot"), "gear_mod_slots")
         _require_registered(ctx, path, f"{field}.rarity", mod.get("rarity"), "gear_mod_rarities")
         _require_int(ctx, path, f"{field}.max_rank", mod.get("max_rank"), minimum=0)
@@ -1861,6 +1934,260 @@ def _validate_gear_mod_rank_modifiers(ctx: ValidationContext, path: Path, field:
             ctx.error(path, f"{item_field}.type", "must be add or mult")
         _require_number(ctx, path, f"{item_field}.base_value", modifier.get("base_value"))
         _require_number(ctx, path, f"{item_field}.value_per_rank", modifier.get("value_per_rank"))
+
+
+def _validate_content_unlocks(
+    ctx: ValidationContext,
+    character_ids: set[str],
+    gear_mod_ids: set[str],
+    enemy_ids: set[str],
+) -> None:
+    path = CONTENT_UNLOCK_RULES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _validate_exact_object_keys(
+        ctx, path, "root", data, {"schema_version", "rules"}
+    )
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+
+    entries = _content_unlock_entries(ctx)
+    default_state: dict[str, dict[str, bool]] = {
+        content_type: {
+            content_id: _content_default_unlocked(entry)
+            for content_id, entry in typed_entries.items()
+        }
+        for content_type, typed_entries in entries.items()
+    }
+    expected_ids = {
+        "character": character_ids,
+        "gear_mod": gear_mod_ids,
+        "enemy": enemy_ids,
+    }
+    for content_type, ids in expected_ids.items():
+        if set(entries.get(content_type, {})) != ids:
+            ctx.error(
+                path,
+                content_type,
+                "content definitions must match the registered ids exactly",
+            )
+
+    rules = _require_list(ctx, path, "rules", data.get("rules"))
+    rules_by_id: dict[str, dict[str, Any]] = {}
+    subject_counters = {"character_run_completed", "enemy_defeated"}
+    for rule_index, rule in enumerate(rules):
+        field = f"rules[{rule_index}]"
+        if not isinstance(rule, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        _validate_exact_object_keys(
+            ctx, path, field, rule, {"id", "mode", "conditions"}
+        )
+        rule_id = _require_non_empty_string(ctx, path, f"{field}.id", rule.get("id"))
+        if rule_id:
+            if not LOCALE_KEY_RE.fullmatch(rule_id):
+                ctx.error(path, f"{field}.id", "must be snake_case")
+            elif rule_id in rules_by_id:
+                ctx.error(path, f"{field}.id", f"duplicate unlock rule id {rule_id}")
+            else:
+                rules_by_id[rule_id] = rule
+        _require_registered(
+            ctx,
+            path,
+            f"{field}.mode",
+            rule.get("mode"),
+            "content_unlock_rule_modes",
+        )
+        conditions = _require_list(ctx, path, f"{field}.conditions", rule.get("conditions"))
+        if not conditions:
+            ctx.error(path, f"{field}.conditions", "must be a non-empty array")
+        for condition_index, condition in enumerate(conditions):
+            condition_field = f"{field}.conditions[{condition_index}]"
+            if not isinstance(condition, dict):
+                ctx.error(path, condition_field, "must be an object")
+                continue
+            expected_keys = {"counter_id", "target"}
+            counter_id = condition.get("counter_id")
+            if counter_id in subject_counters:
+                expected_keys.add("subject_id")
+            _validate_exact_object_keys(
+                ctx, path, condition_field, condition, expected_keys
+            )
+            registered_counter = _require_registered(
+                ctx,
+                path,
+                f"{condition_field}.counter_id",
+                counter_id,
+                "content_unlock_progress_counters",
+            )
+            _require_int(
+                ctx,
+                path,
+                f"{condition_field}.target",
+                condition.get("target"),
+                minimum=1,
+            )
+            if registered_counter not in subject_counters:
+                continue
+            subject_type = (
+                "character"
+                if registered_counter == "character_run_completed"
+                else "enemy"
+            )
+            subject_id = _require_non_empty_string(
+                ctx,
+                path,
+                f"{condition_field}.subject_id",
+                condition.get("subject_id"),
+            )
+            if subject_id and subject_id not in entries.get(subject_type, {}):
+                ctx.error(
+                    path,
+                    f"{condition_field}.subject_id",
+                    f"unknown {subject_type} id {subject_id}",
+                )
+            elif subject_id and not default_state[subject_type].get(subject_id, False):
+                ctx.error(
+                    path,
+                    f"{condition_field}.subject_id",
+                    "unlock requirements may only reference default-unlocked content",
+                )
+
+    referenced_rule_ids: set[str] = set()
+    for content_type, typed_entries in entries.items():
+        for content_id, entry in typed_entries.items():
+            field = f"{content_type}.{content_id}"
+            default_unlocked = default_state[content_type][content_id]
+            raw_rule_id = entry.get("unlock_rule_id", "")
+            if not isinstance(raw_rule_id, str):
+                ctx.error(path, f"{field}.unlock_rule_id", "must be a string when present")
+                continue
+            rule_id = raw_rule_id.strip()
+            if default_unlocked and rule_id:
+                ctx.error(
+                    path,
+                    f"{field}.unlock_rule_id",
+                    "default-unlocked content must not reference an unlock rule",
+                )
+            if not default_unlocked and not rule_id:
+                ctx.error(
+                    path,
+                    f"{field}.unlock_rule_id",
+                    "locked content must reference an unlock rule",
+                )
+            if rule_id:
+                referenced_rule_ids.add(rule_id)
+                if rule_id not in rules_by_id:
+                    ctx.error(
+                        path,
+                        f"{field}.unlock_rule_id",
+                        f"unknown unlock rule {rule_id}",
+                    )
+
+    for rule_id in sorted(set(rules_by_id).difference(referenced_rule_ids)):
+        ctx.error(path, f"rules.{rule_id}", "unlock rule is not referenced by content")
+    if sum(default_state.get("character", {}).values()) < 2:
+        ctx.error(path, "characters", "at least two characters must be default unlocked")
+    _validate_default_unlocked_gear_mod_pools(
+        ctx, default_state.get("gear_mod", {})
+    )
+    _validate_default_unlocked_enemy_pools(ctx, default_state.get("enemy", {}))
+
+
+def _content_unlock_entries(
+    ctx: ValidationContext,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    result: dict[str, dict[str, dict[str, Any]]] = {
+        "character": {},
+        "gear_mod": {},
+        "enemy": {},
+    }
+    for content_type, path, root_key in (
+        ("character", CHARACTERS_JSON, "characters"),
+        ("gear_mod", GEAR_MODS_JSON, "mods"),
+    ):
+        data = _load_json(path, ctx)
+        if not isinstance(data, dict) or not isinstance(data.get(root_key), list):
+            continue
+        for entry in data[root_key]:
+            if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+                result[content_type][entry["id"]] = entry
+    for row in _load_csv_rows(ENEMIES_CSV, ctx):
+        enemy_id = row.get("id", "")
+        if enemy_id:
+            result["enemy"][enemy_id] = row
+    return result
+
+
+def _content_default_unlocked(entry: dict[str, Any]) -> bool:
+    value = entry.get("default_unlocked", True)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return not normalized or normalized == "true"
+    return False
+
+
+def _validate_default_unlocked_gear_mod_pools(
+    ctx: ValidationContext,
+    default_state: dict[str, bool],
+) -> None:
+    data = _load_json(GEAR_MODS_JSON, ctx)
+    if not isinstance(data, dict) or not isinstance(data.get("reward_pools"), list):
+        return
+    for pool_index, pool in enumerate(data["reward_pools"]):
+        if not isinstance(pool, dict) or not isinstance(pool.get("mod_ids"), list):
+            continue
+        if not any(default_state.get(str(mod_id), False) for mod_id in pool["mod_ids"]):
+            ctx.error(
+                GEAR_MODS_JSON,
+                f"reward_pools[{pool_index}].mod_ids",
+                "must contain at least one default-unlocked Gear Mod",
+            )
+
+
+def _validate_default_unlocked_enemy_pools(
+    ctx: ValidationContext,
+    default_state: dict[str, bool],
+) -> None:
+    module_data = _load_json(MODULE_WORLDS_JSON, ctx)
+    if isinstance(module_data, dict) and isinstance(module_data.get("worlds"), list):
+        for world_index, world in enumerate(module_data["worlds"]):
+            if not isinstance(world, dict):
+                continue
+            spawn = world.get("first_visit_enemy_spawn")
+            pool = spawn.get("enemy_pool") if isinstance(spawn, dict) else None
+            if not isinstance(pool, list):
+                continue
+            has_default_zero = any(
+                isinstance(entry, dict)
+                and float(entry.get("unlock_time", -1)) == 0.0
+                and default_state.get(str(entry.get("enemy_id", "")), False)
+                for entry in pool
+            )
+            if not has_default_zero:
+                ctx.error(
+                    MODULE_WORLDS_JSON,
+                    f"worlds[{world_index}].first_visit_enemy_spawn.enemy_pool",
+                    "must contain a 0-second default-unlocked enemy",
+                )
+
+    rows_by_mode: dict[str, list[dict[str, str]]] = {}
+    for row in _load_csv_rows(SPAWN_WAVES_CSV, ctx):
+        rows_by_mode.setdefault(row.get("mode_id", ""), []).append(row)
+    for mode_id, rows in rows_by_mode.items():
+        has_default_zero = any(
+            row.get("start_time") in {"0", "0.0"}
+            and default_state.get(row.get("enemy_id", ""), False)
+            for row in rows
+        )
+        if not has_default_zero:
+            ctx.error(
+                SPAWN_WAVES_CSV,
+                mode_id,
+                "must contain a 0-second default-unlocked enemy wave",
+            )
 
 
 def _validate_gear_mod_drop_tables(ctx: ValidationContext, enemy_ids: set[str], gear_mod_ids: set[str]) -> None:
@@ -4609,6 +4936,41 @@ def _require_bool(ctx: ValidationContext, path: Path, field: str, value: Any) ->
         ctx.error(path, field, "must be bool")
         return None
     return value
+
+
+def _parse_csv_bool(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+) -> bool | None:
+    if isinstance(value, str) and not value.strip():
+        return True
+    if not isinstance(value, str) or value.strip().lower() not in {"true", "false"}:
+        ctx.error(path, field, "must be true or false")
+        return None
+    return value.strip().lower() == "true"
+
+
+def _validate_codex_icon_path(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+) -> None:
+    if value in {None, ""}:
+        return
+    if (
+        not isinstance(value, str)
+        or not value.startswith("res://")
+        or "\\" in value
+        or ".." in value.split("/")
+    ):
+        ctx.error(path, field, "must be an empty value or a valid res:// resource path")
+        return
+    resource_path = ROOT / "client" / value.removeprefix("res://")
+    if not resource_path.is_file():
+        ctx.error(path, field, f"resource does not exist: {value}")
 
 
 def _validate_actor_scene_path(

@@ -10,6 +10,9 @@ signal composition_confirmed(main_hero_id: String, sub_hero_id: String)
 const SKILL_DESCRIPTION_FORMATTER := preload(
 	"res://scripts/data/skill_description_formatter.gd"
 )
+const CONTENT_UNLOCK_TYPES := preload(
+	"res://scripts/contracts/content_unlock_types.gd"
+)
 
 var _cancel_button: Button = null
 var _confirm_button: Button = null
@@ -95,11 +98,22 @@ func configure(
 	last_sub_hero_id: String
 ) -> void:
 	_hero_rows = []
+	var availability: Dictionary = _character_availability()
+	var availability_is_authoritative: bool = _variant_is_true(
+		availability.get("authoritative", false),
+		false
+	)
+	var available_ids: Dictionary = availability.get("ids", {}) as Dictionary
 	for row: Dictionary in hero_rows:
-		if not bool(row.get("default_unlocked", true)):
-			continue
 		var hero_id: String = String(row.get("id", ""))
 		if hero_id.is_empty():
+			continue
+		if availability_is_authoritative and not available_ids.has(hero_id):
+			continue
+		if (
+			not availability_is_authoritative
+			and not _variant_is_true(row.get("default_unlocked", true), true)
+		):
 			continue
 		_hero_rows.append(row.duplicate(true))
 	if _main_selector == null or _sub_selector == null:
@@ -205,7 +219,14 @@ func _refresh_selection_state() -> void:
 	var sub_id: String = selected_sub_hero_id()
 	_refresh_duplicate_option_states(main_id, sub_id)
 	if _confirm_button != null:
-		_confirm_button.disabled = main_id.is_empty() or sub_id.is_empty() or main_id == sub_id
+		_confirm_button.disabled = (
+			_hero_rows.size() < 2
+			or main_id.is_empty()
+			or sub_id.is_empty()
+			or main_id == sub_id
+		)
+	if _swap_button != null:
+		_swap_button.disabled = _hero_rows.size() < 2
 	var main_row: Dictionary = _selected_hero_row(_main_selector)
 	var sub_row: Dictionary = _selected_hero_row(_sub_selector)
 	var ability_stats: Dictionary = (
@@ -224,7 +245,61 @@ func _refresh_selection_state() -> void:
 			ability_stats
 		)
 	if _hint_label != null:
-		_hint_label.text = tr("ui_hero_composition_duplicate_hint")
+		_hint_label.text = (
+			tr("ui_hero_composition_insufficient_unlocked")
+			if _hero_rows.size() < 2
+			else tr("ui_hero_composition_duplicate_hint")
+		)
+
+
+func _character_availability() -> Dictionary:
+	var content_source: Node = get_node_or_null("/root/ContentUnlockSystem")
+	if (
+		content_source == null
+		or not content_source.has_method("build_run_availability_snapshot")
+	):
+		return {
+			"authoritative": false,
+			"ids": {},
+		}
+	var snapshot_value: Variant = content_source.call(
+		"build_run_availability_snapshot"
+	)
+	if not snapshot_value is Dictionary:
+		return {
+			"authoritative": false,
+			"ids": {},
+		}
+	var character_ids_value: Variant = (snapshot_value as Dictionary).get(
+		CONTENT_UNLOCK_TYPES.CHARACTER,
+		[]
+	)
+	if not character_ids_value is Array:
+		return {
+			"authoritative": true,
+			"ids": {},
+		}
+	var available_ids: Dictionary = {}
+	for raw_id: Variant in character_ids_value as Array:
+		var character_id: String = String(raw_id)
+		if not character_id.is_empty():
+			available_ids[character_id] = true
+	return {
+		"authoritative": true,
+		"ids": available_ids,
+	}
+
+
+func _variant_is_true(value: Variant, fallback: bool) -> bool:
+	if value is bool:
+		return value
+	if value is String:
+		var normalized: String = String(value).strip_edges().to_lower()
+		if normalized == "true":
+			return true
+		if normalized == "false":
+			return false
+	return fallback
 
 
 func _refresh_duplicate_option_states(

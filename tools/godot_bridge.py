@@ -46,6 +46,14 @@ def main() -> int:
     subparsers.add_parser("l1-smoke", help="Run the F8 temporary L1 infrastructure smoke in headless Godot.")
     subparsers.add_parser("replay-smoke", help="Run the F8 replay file roundtrip smoke in headless Godot.")
     subparsers.add_parser("replay-input-smoke", help="Run the F8 replay gameplay input recording smoke in headless Godot.")
+    subparsers.add_parser(
+        "content-progression-smoke",
+        help="Run isolated content unlock, Meta, Run, and pool-freeze coverage.",
+    )
+    subparsers.add_parser(
+        "codex-smoke",
+        help="Run the title Codex privacy, localization, focus, and back-navigation coverage.",
+    )
     subparsers.add_parser("input-smoke", help="Run the G.U.I.D.E and InputService integration smoke in headless Godot.")
     subparsers.add_parser("rng-audit", help="Run the RNG cross-stream correlation audit in headless Godot.")
     replay_runner_parser = subparsers.add_parser("replay-runner", help="Run the F8 replay summary diff runner in headless Godot.")
@@ -305,6 +313,24 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--replay-input-smoke"],
+            cwd=project,
+        )
+    if args.command in {"content-progression-smoke", "codex-smoke"}:
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        script_name = (
+            "content_progression_smoke.gd"
+            if args.command == "content-progression-smoke"
+            else "codex_smoke.gd"
+        )
+        smoke_script = project / "tools" / script_name
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing smoke script: {_rel(smoke_script)}")
+            return 1
+        smoke_flag = f"--{args.command}"
+        return _run_isolated_command(
+            [str(godot), "--headless", "--path", str(project), "--", smoke_flag],
             cwd=project,
         )
     if args.command == "input-smoke":

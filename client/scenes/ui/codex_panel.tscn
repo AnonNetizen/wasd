@@ -1,0 +1,212 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/codex_panel.gd" id="1_codex"]
+
+[node name="CodexPanel" type="CanvasLayer"]
+script = ExtResource("1_codex")
+
+[node name="Root" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.018, 0.026, 0.045, 0.97)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Panel" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(1240, 820)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Header" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 34
+
+[node name="PendingPreviewLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Header"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 2
+vertical_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 16
+
+[node name="CategoryRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="CharacterButton" type="Button" parent="Root/Center/Panel/Margin/Layout/CategoryRow"]
+custom_minimum_size = Vector2(220, 52)
+layout_mode = 2
+toggle_mode = true
+
+[node name="GearModButton" type="Button" parent="Root/Center/Panel/Margin/Layout/CategoryRow"]
+custom_minimum_size = Vector2(220, 52)
+layout_mode = 2
+toggle_mode = true
+
+[node name="EnemyButton" type="Button" parent="Root/Center/Panel/Margin/Layout/CategoryRow"]
+custom_minimum_size = Vector2(220, 52)
+layout_mode = 2
+toggle_mode = true
+
+[node name="Content" type="HSplitContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 330
+dragger_visibility = 1
+
+[node name="EntryListPanel" type="PanelContainer" parent="Root/Center/Panel/Margin/Layout/Content"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel/Margin/Layout/Content/EntryListPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="EntryList" type="ItemList" parent="Root/Center/Panel/Margin/Layout/Content/EntryListPanel/Margin"]
+custom_minimum_size = Vector2(292, 0)
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true
+fixed_icon_size = Vector2i(40, 40)
+
+[node name="DetailPanel" type="PanelContainer" parent="Root/Center/Panel/Margin/Layout/Content"]
+custom_minimum_size = Vector2(800, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Scroll" type="ScrollContainer" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+
+[node name="DetailLayout" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="IconFrame" type="PanelContainer" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout"]
+custom_minimum_size = Vector2(112, 112)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="IconPlaceholder" type="ColorRect" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout/IconFrame"]
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.15, 0.18, 0.24, 1)
+
+[node name="SilhouetteCenter" type="CenterContainer" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout/IconFrame/IconPlaceholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Silhouette" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout/IconFrame/IconPlaceholder/SilhouetteCenter"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 5
+
+[node name="Head" type="ColorRect" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout/IconFrame/IconPlaceholder/SilhouetteCenter/Silhouette"]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+color = Color(0.045, 0.055, 0.075, 1)
+
+[node name="Body" type="ColorRect" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout/IconFrame/IconPlaceholder/SilhouetteCenter/Silhouette"]
+custom_minimum_size = Vector2(58, 38)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+color = Color(0.045, 0.055, 0.075, 1)
+
+[node name="IconTexture" type="TextureRect" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout/IconFrame"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DetailNameLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout"]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 28
+
+[node name="DetailStatusLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout"]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 18
+
+[node name="DescriptionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 18
+
+[node name="StatsLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 17
+
+[node name="ExtraLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Content/DetailPanel/Scroll/Margin/DetailLayout"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 17
+
+[node name="CloseButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(220, 52)
+layout_mode = 2
+size_flags_horizontal = 4

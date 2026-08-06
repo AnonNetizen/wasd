@@ -27,6 +27,7 @@
 | `client/scripts/autoload/ui_manager.gd` | `UIManager` autoload 脚本 |
 | `client/project.godot` | autoload 注册 |
 | `client/scenes/ui/settings_panel.tscn` | F7 设置面板，通过标题菜单和暂停菜单压栈 |
+| `client/scenes/ui/codex_panel.tscn` | 标题图鉴，通过 `FormalClientBoot` 压栈并以 `request_close()` / `ui_back` 返回 |
 | `client/scenes/ui/loading_screen.tscn` | ADR #157 的全屏玩家加载遮罩，`process_mode=ALWAYS` |
 | 后续 `client/scenes/ui/` | UI 场景归属位置 |
 
@@ -101,12 +102,14 @@ UI 根节点可用两种方式声明暂停请求：
 
 `SettingsPanel` 本身不声明 `pauses_game`：从标题菜单打开时保持 `MAIN_MENU`，从暂停菜单打开时依靠下层 `PauseMenu.pauses_game=true` 维持 `PAUSED`。关闭时只弹出设置面板，下面的标题或暂停菜单保持可见。
 
+`CodexPanel` 本身不声明 `pauses_game`，且只允许从标题菜单压栈；关闭按钮与 `ui_back` 都发出同一关闭请求，由 `FormalClientBoot` 使用 `pop_expected()` 弹出。它实现分类与条目焦点恢复，锁定信息隐私由 `codex-smoke` 守门。
+
 `LoadingScreen` 本身也不声明 `pauses_game`：`FormalClientBoot` 在压栈前显式进入 `GameState.LOADING`。其全屏根 `Control` 使用 `mouse_filter=STOP`，且不提供 `request_close()`；玩家不能取消加载。准备成功时启动层 `pop_expected()` 并等待对应 `ui_removed` 后才激活 gameplay；失败 / 回标题硬切使用 `clear(true)`。
 
 ## 依赖
 
 - 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动；`InputService` 提供 UI action、context 与最近设备族。
-- 下游调用方：标题菜单、暂停菜单、设置菜单、奖励选择、结算面板、Gear Mod 界面。
+- 下游调用方：标题菜单、图鉴、暂停菜单、设置菜单、奖励选择、结算面板、Gear Mod 界面。
 - 禁止依赖：业务代码不得直接 `add_child` UI 弹窗；暂停逻辑不得直接读写 `get_tree().paused`。
 
 ## 扩展点
@@ -125,6 +128,7 @@ UI 根节点可用两种方式声明暂停请求：
 | 新增 UI 元数据 | `ui_manager.gd`、UI 模板 | 本文档、AI 导航 | L1 + L2 |
 | 加暂停菜单 | UI 场景、`GameState`、`UIManager` | 本文档、GameState 文档 | L2 + L5 暂停 checklist |
 | 加设置菜单 | UI 场景、`Settings`、`Localization` | 三份模块文档 | L2 + 手动设置 checklist |
+| 加 / 改标题图鉴 | `codex_panel.gd/.tscn`、`formal_client_boot.gd` | ContentUnlockSystem / Gameplay Runtime / 测试策略 | `codex-smoke` + `ui-manager-smoke` + headless boot |
 | 改标题 / 暂停设置入口 | `title_menu.gd`、`pause_menu.gd`、`formal_client_boot.gd`、`gameplay_run_loop.gd` | Settings / GameplayRuntime 文档 | `settings-smoke` + `runtime-smoke` |
 | 改 UI 栈语义 | `ui_manager.gd` | 本文档、UI Effects、测试策略 | `ui-manager-smoke` + `runtime-smoke` |
 | 改加载遮罩 / 阻断行为 | `loading_screen.tscn/.gd`、`formal_client_boot.gd` | 本文档、Gameplay Loading 文档 | `loading-smoke` + 手动中英文 |
@@ -149,6 +153,7 @@ UI 根节点可用两种方式声明暂停请求：
 - `ui-manager-smoke` 覆盖异步 push/pop、重复 pop、串行 replace 与 immediate clear；`runtime-smoke` 覆盖暂停、设置、保存续局和焦点交互链。
 - 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；自动覆盖包括标题 / 暂停设置入口、`ui_back` 只关闭栈顶、键鼠不显示常驻焦点、手柄导航焦点、context 隔离和 UI bridge 不双触发。
 - 修改 `LoadingScreen` 或玩家加载 UI 栈行为时，追加 `python tools/godot_bridge.py --project client loading-smoke`，并手动检查 `zh_CN` / `en` 文案和旋转动画。
+- 修改 `CodexPanel`、标题图鉴入口、锁定条目或焦点 / 返回时，追加 `python tools/godot_bridge.py --project client codex-smoke`、`ui-manager-smoke` 与 headless boot；中英文 16:9 布局和真实手柄导航保留待人工验收。
 
 ## 迁移 / 兼容
 
@@ -162,4 +167,5 @@ UI 根节点可用两种方式声明暂停请求：
 - `docs/代码/localization.md`
 - `docs/代码/input_service.md`
 - `docs/代码/gameplay_loading.md`
+- `docs/代码/content_unlock_system.md`
 - `docs/测试策略.md`

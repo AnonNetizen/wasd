@@ -9,6 +9,7 @@
     {"id":"active_items","label":"主动道具","group":"内容","path":"res://data/active_items.json","format":"json","sections":[{"path":"active_items","primary_keys":["id"]}]},
     {"id":"camera_feedback","label":"相机反馈","group":"表现","path":"res://data/camera_feedback.json","format":"json"},
     {"id":"characters","label":"智能碎片","group":"内容","path":"res://data/characters.json","format":"json","sections":[{"path":"characters","primary_keys":["id"],"contract_key":"character_ids"}],"locale_fields":["name_key","desc_key"]},
+    {"id":"content_unlock_rules","label":"内容解锁规则","group":"内容","path":"res://data/content_unlock_rules.json","format":"json","sections":[{"path":"rules","primary_keys":["id"]}],"field_rules":[{"path":"conditions[].target","type":"number","min":1}],"references":[{"path":"mode","target":"contract:content_unlock_rule_modes"},{"path":"conditions[].counter_id","target":"contract:content_unlock_progress_counters"}]},
     {"id":"consumables","label":"消耗品","group":"内容","path":"res://data/consumables.json","format":"json","sections":[{"path":"consumables","primary_keys":["id"]}],"locale_fields":["name_key","desc_key"]},
     {"id":"credits","label":"致谢","group":"文本","path":"res://data/credits.json","format":"json","sections":[{"path":"sections","primary_keys":["id"]}]},
     {"id":"difficulty_profiles","label":"难度配置","group":"玩法","path":"res://data/difficulty_profiles.json","format":"json","sections":[{"path":"profiles","primary_keys":["id"]}]},
@@ -29,7 +30,7 @@
     {"id":"weapons","label":"武器","group":"战斗","path":"res://data/weapons.json","format":"json","sections":[{"path":"weapons","primary_keys":["id"]}],"locale_fields":["name_key","desc_key"]},
     {"id":"world_events","label":"世界事件","group":"玩法","path":"res://data/world_events.json","format":"json","sections":[{"path":"events","primary_keys":["id"],"contract_key":"world_event_ids"}],"locale_fields":["name_key","desc_key"]},
 
-    {"id":"enemies","label":"敌人","group":"敌人","path":"res://data/enemies.csv","format":"csv","primary_keys":["id"],"locale_fields":["name_key"]},
+    {"id":"enemies","label":"敌人","group":"敌人","path":"res://data/enemies.csv","format":"csv","primary_keys":["id"],"locale_fields":["name_key","desc_key"]},
     {"id":"gear_mod_drop_tables","label":"装备 Mod 掉落","group":"经济","path":"res://data/gear_mod_drop_tables.csv","format":"csv","primary_keys":["source_enemy_id","mod_id","min_enemy_level","max_enemy_level"]},
     {"id":"hazards","label":"机关","group":"玩法","path":"res://data/hazards.csv","format":"csv","primary_keys":["id"],"locale_fields":["name_key"]},
     {"id":"spawn_waves","label":"开放战区波次","group":"敌人","path":"res://data/spawn_waves.csv","format":"csv","primary_keys":["id"]},

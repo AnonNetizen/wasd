@@ -126,6 +126,24 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("vfx_lifecycles", "## 16-D. 视觉效果生命周期 vfx_lifecycle", "vfx_lifecycles.gd", "VfxLifecycles"),
     ContractSection("vfx_cues", "## 16-E. 视觉表现 cue vfx_cue", "vfx_cues.gd", "VfxCues"),
     ContractSection("vfx_anchors", "## 16-F. 视觉效果挂点 vfx_anchor", "vfx_anchors.gd", "VfxAnchors"),
+    ContractSection(
+        "content_unlock_types",
+        "## 18-A. 可解锁内容类型 content_unlock_type",
+        "content_unlock_types.gd",
+        "ContentUnlockTypes",
+    ),
+    ContractSection(
+        "content_unlock_rule_modes",
+        "## 18-B. 解锁规则组合模式 content_unlock_rule_mode",
+        "content_unlock_rule_modes.gd",
+        "ContentUnlockRuleModes",
+    ),
+    ContractSection(
+        "content_unlock_progress_counters",
+        "## 18-C. 解锁进度计数器 content_unlock_progress_counter",
+        "content_unlock_progress_counters.gd",
+        "ContentUnlockProgressCounters",
+    ),
 )
 
 LOCALE_PREFIXES_HEADING = "## 6. 本地化 key 命名规范"
