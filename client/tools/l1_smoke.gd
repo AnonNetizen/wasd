@@ -25,6 +25,7 @@ const SKILL_DESCRIPTION_FORMATTER := preload(
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
 const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
 const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
+const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
 const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character_default.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const PROJECTILE_BARRIER_SCENE := preload("res://scenes/gameplay/projectile_barrier.tscn")
@@ -107,6 +108,7 @@ func _run() -> void:
 	_expect_weapon_recoil_resolution()
 	_expect_combat_damage_path()
 	await _expect_player_defense_layers()
+	await _expect_hud_overshield_capacity_refresh()
 	await _expect_dash_runtime()
 	await _expect_player_weapon_recoil()
 	await _expect_four_skill_slots_and_efficiency()
@@ -745,6 +747,27 @@ func _expect_hero_composition_resolution() -> void:
 		),
 		"only the main hero should provide base stats"
 	)
+	_expect(
+		is_equal_approx(
+			float(
+				(composition.get("base_stats", {}) as Dictionary).get(
+					STATS.MAX_SHIELD,
+					-1.0
+				)
+			),
+			0.0
+		)
+		and is_equal_approx(
+			float(
+				(swapped_composition.get("base_stats", {}) as Dictionary).get(
+					STATS.MAX_SHIELD,
+					-1.0
+				)
+			),
+			0.0
+		),
+		"both built-in main heroes should start without shield capacity"
+	)
 	var resolved_slots: Dictionary = (
 		composition.get("skill_slots", {}) as Dictionary
 	)
@@ -1001,6 +1024,31 @@ func _expect_player_defense_layers() -> void:
 	)
 	GameState.change_state(GameState.PLAYING, {"source": "l1_defense"})
 
+	player.call("debug_set_shield", 0.0, 250.0)
+	_expect(
+		is_equal_approx(float(player.call("current_overshield")), 200.0),
+		"overshield should cap at maximum life plus maximum shield"
+	)
+	player.call("debug_set_shield", 0.0, 190.0)
+	var capped_overshield_gain: float = float(
+		player.call("add_overshield", 30.0)
+	)
+	_expect(
+		is_equal_approx(capped_overshield_gain, 10.0)
+		and is_equal_approx(
+			float(player.call("current_overshield")),
+			200.0
+		),
+		"overshield gain should report only the amount accepted below the cap"
+	)
+	var over_cap_snapshot: Dictionary = player.call("snapshot") as Dictionary
+	over_cap_snapshot["overshield"] = 250.0
+	player.call("restore_snapshot", over_cap_snapshot)
+	_expect(
+		is_equal_approx(float(player.call("current_overshield")), 200.0),
+		"restored overshield should clamp to the current capacity"
+	)
+
 	player.call("debug_set_life", 100.0)
 	player.call("debug_set_shield", 50.0, 30.0)
 	_apply_damage_to_player(
@@ -1202,6 +1250,27 @@ func _expect_player_defense_layers() -> void:
 	)
 
 	world.queue_free()
+	await get_tree().process_frame
+
+
+func _expect_hud_overshield_capacity_refresh() -> void:
+	var hud: CanvasLayer = GAMEPLAY_HUD_SCENE.instantiate() as CanvasLayer
+	add_child(hud)
+	await get_tree().process_frame
+	hud.call("set_defense", 100.0, 100.0, 0.0, 0.0, 100.0)
+	var overshield_bar: ProgressBar = hud.get_node(
+		"Root/Margin/Layout/Defense/OvershieldBar"
+	) as ProgressBar
+	_expect(
+		is_equal_approx(overshield_bar.max_value, 100.0),
+		"HUD overshield capacity should equal maximum life plus maximum shield"
+	)
+	hud.call("set_life", 80.0, 100.0)
+	_expect(
+		is_equal_approx(overshield_bar.max_value, 100.0),
+		"HUD life refresh should preserve the real zero maximum shield value"
+	)
+	hud.queue_free()
 	await get_tree().process_frame
 
 

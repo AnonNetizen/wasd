@@ -35,7 +35,7 @@
 	  ],
 	  "base_stats": {
 		"max_hp": 500.0,
-		"max_shield": 250.0,
+		"max_shield": 0.0,
 		"max_energy": 140.0,
 		"health_regen": 0.0,
 		"move_speed": 230.0,
@@ -80,7 +80,7 @@
 	  ],
 	  "base_stats": {
 		"max_hp": 600.0,
-		"max_shield": 100.0,
+		"max_shield": 0.0,
 		"max_energy": 100.0,
 		"health_regen": 0.0,
 		"move_speed": 250.0,

@@ -317,7 +317,7 @@ JSON 示例：
 | `base_stats.pickup_range` | float | `px`，`>= 0` | 金币球 / 能量球自动吸附范围 | 收集更轻松 |
 | `base_stats.luck` | float | `>= 0` | 保留幸运值；当前无玩法效果 | 为后续系统保留调参入口 |
 | `defense.shield.recharge_delay` / `recharge_rate` | float | 秒 / Shield/s，`>= 0` | 护盾受损后等待时间与每秒恢复量 | 等待更长会削弱续航；恢复率更高会强化脱战恢复 |
-| `defense.shield.overshield_decay_ratio_per_second` / `overshield_snap_threshold` | float | `0..1` / Shield，`>= 0` | 超额护盾每秒按最大护盾衰减比例，以及低于阈值时归零 | 衰减更高会缩短超额护盾收益 |
+| `defense.shield.overshield_decay_ratio_per_second` / `overshield_snap_threshold` | float | `0..1` / Shield，`>= 0` | 超额护盾以当前值为基数每秒指数衰减，容量固定为当前最大生命与最大护盾之和，低于阈值时归零 | 衰减更高会缩短超额护盾收益 |
 | `defense.armor.coefficient` / `maximum` | float | `> 0` | 护甲减伤曲线系数与参与公式的护甲上限 | 系数更高会降低同值护甲收益；上限更高允许更高护甲参与 |
 | `defense.shield_gate.max_duration` | float | 秒，`>= 0` | 护盾击破时的最长保护窗口 | 更长会降低破盾后被多段瞬杀概率 |
 | `dash.distance` / `speed` / `duration` | float | px / px/s / 秒，均 `> 0` | 冲刺运动参数；`distance` 必须等于 `speed × duration` | 更远 / 更快会提升位移能力 |
@@ -1132,7 +1132,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       ],
       "base_stats": {
         "max_hp": 500.0,
-        "max_shield": 250.0,
+        "max_shield": 0.0,
         "max_energy": 140.0,
         "health_regen": 0.0,
         "move_speed": 230.0,
@@ -1174,7 +1174,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `characters[].skill_resources[].start_ratio` | number | `0..1` | 开局资源比例；当前为 1.0（充满） |
 | `characters[].skill_resources[].regen_per_second` | number | `>= 0`，每秒 | `GameClock` 缩放时间下每秒恢复量；0 表示不自动恢复 |
 | `characters[].base_stats` | object | stat 来自词表 §1，非空 | 角色基础属性；数值范围同 `player.json` stat 校验 |
-| `characters[].base_stats.max_shield` | number | `>= 0` | 主英雄基础护盾 |
+| `characters[].base_stats.max_shield` | number | `>= 0`；当前内置英雄均为 `0.0` | 主英雄基础最大护盾；当前内置英雄开局不拥有普通护盾，后续通过局内 `max_shield` modifier 获得容量与对应护盾 |
 | `characters[].base_stats.armor` | number | `>= 0` | 主英雄基础通用防御 |
 
 `characters.json` 声明英雄场景、主元素、被动、primary-only palette、固定两项英雄技能和资源池。`HeroCompositionResolver` 只采用主英雄的场景、基础属性、被动、起始携带和资源池，并把主英雄技能映射到 `skill_1/2`、子英雄技能映射到 `skill_3/4`；组合 palette 精确输出 `main_primary` 与 `sub_primary`。正式 Shader 用双方颜色绘制两股涡旋，外轮廓 / 湿润边 / 朝向短束使用主色规则；HUD 名称与槽 1/2 使用主色、槽 3/4 使用副色、共享能量保持白色。默认禁止主/子重复；显式允许重复时，后出现的重复技能槽能量消耗与冷却倍率均为 1.5。

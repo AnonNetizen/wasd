@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-05",
+  "updated_at": "2026-08-06",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #186 正式客户端基线保持不变。Test Lab ‘地底涌出信标’首版写实电能圈、火焰烟柱和晶体碎片已因不符合项目史莱姆风被用户否决，并重做为宽瓣软胶膜 / 暗色胶井、固定地面锚点向上生长的 64 px 钝头拉丝胶柱和最多五枚圆润胶滴；Shader 使用深红胶体反边、危险粉红 #ED2F72 主体与窄幅白色湿润高光，1.50 秒破土爆亮后清空。3×、1×、三个相邻出生点、三背景、三阶段、重生成素材 / manifest、专项 smoke 与四阶段截图已同步。正式 client / enemy_spawn_telegraph / VFX catalog / GDD / ADR 均未修改；下一步等待用户人工复验史莱姆风统一度与地底生成语义。",
-  "latest_adr": 186,
+  "current_status": "ADR #187 已将两个内置主智能碎片的基础 max_shield 统一为 0，角色进入对局时不再自带可自然回复的普通护盾；局内通过修正获得 max_shield 后仍按既有规则立即补充等量普通护盾。超量护盾上限统一为 max_life + max_shield，新增、调试设置、快照恢复和属性重建都会按同一容量钳制，HUD 使用相同上限。Run v12、Replay v4、Meta v2、游戏 v1.11、数据 schema、data fingerprint 与四份黄金回放文本均不变。正式开局观感、局内获得护盾后的反馈与超量护盾条可读性待用户人工验收。",
+  "latest_adr": 187,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #187 / 开局护盾归零与超量护盾统一上限：两个内置主智能碎片 base_stats.max_shield 改为 0；Player 以 max_life + max_shield 作为超量护盾容量，并在新增、debug 设置、快照恢复和属性重建路径统一钳制，HUD 同步使用该容量。Run v12、Replay v4、Meta v2、游戏 v1.11、schema、data fingerprint 与四份黄金回放文本不变。",
     "Test Lab 地底涌出信标史莱姆风重做：保留 0–0.45s 蓄能、0.45–1.25s 自底向上涌出、1.25–1.50s 破土和 0.25s 留空时间轴，撤销写实电能圈、火焰烟柱、晶体碎片和微粒火星；改用 18 / 26 px 宽瓣软胶膜、16 px 暗色胶井、64 px 钝头拉丝胶柱和最多五枚大圆胶滴，采用深红胶体反边、#ED2F72 主体与窄幅白色湿润高光。三张 1254×1254 ImageGen 黑底灰度源参照玩家史莱姆重生成并通过 Image.load 外部加载，manifest 保存最终提示词 / 尺寸 / SHA-256 / 三段修订历史；1280×760 场景、专项 smoke 与四张截图已同步，正式 client 未修改。",
     "Test Lab 有机心象 VFX 非几何管线选型实验：新增 A AI 灰度序列帧、B 绘制纹理粒子、C 有机流场遮罩 + 流动 / 溶解 Shader、D 混合合成四候选；共享 #68BCDD / #ED2F72 / 白热、48 px 核心、72 px 外延和 0.48 / 0.64 / 1.20 / 1.44 秒阶段边界。三张 1254×1254 ImageGen 黑底灰度源通过 Image.load 外部加载，manifest 保存提示词 / 尺寸 / SHA-256；2×2 选择墙、2.5× 裁切特写、1× 实战尺寸、三背景、阶段 / 配色 / 聚焦控制、专项 smoke 和四张 1280×760 截图已完成，正式 client 未修改。",
     "ADR #186 / 完全删除弹药与换弹系统：WeaponSystem 只保留战斗门禁、冷却、对象池提交与武器属性；删除弹量 / 换弹 API、ammo_rules、弹匣实体 / 池 / 敌人掉落、RNG.ammo、reload action / binding、HUD / 详细面板 / 世界提示 / locale、专项 runner 和旧框架。weapons v5、binding v3、Run v12、Replay v4、游戏 v1.11；旧 Run v11 / Replay v3 / binding v2 隔离，Meta v2 保留。",
@@ -219,6 +220,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-06",
+      "command": "sync-contracts/check; validate_data; DataLoader schema regression; three-tier lint; L1/runtime/save smoke; Godot 4.7.1 headless boot; four checked-in Replay v4 golden runtime reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; pre-commit run --all-files",
+      "result": "passed for ADR #187 zero built-in starting shield and unified overshield capacity. Both built-in primary compositions resolve MAX_SHIELD=0. L1 verifies a 100 max-life + 100 max-shield player caps overshield at 200, reports only the accepted gain when adding across the cap, clamps over-cap snapshot restore, and preserves the real zero max-shield value when a HUD life refresh rebuilds the overshield bar; runtime and save smoke pass with their expected malformed-save diagnostics. Headless boot parses Player and GameplayHud cleanly. Factual review found and fixed a HUD-only edge where the ProgressBar's render fallback maximum of 1 could temporarily leak into overshield capacity during a life/locale refresh; no unresolved P0/P1/P2 issue remains. All four checked-in Replay v4 goldens rerun successfully with unchanged fingerprint e774ed3a86b7ef747c34105af52da9c21153e157debe3eed304f51b95a7359dc and map hash da44e2109c9dc3cb2868ec8367900a2570692ee4c36574e34305a50216a5c76a; no golden text changed because replay summaries do not contain shield fields. Run v12, Replay v4, Meta v2, game v1.11 and data schemas remain unchanged. Expected negative-fixture and headless shutdown diagnostics remain non-failures. Per ADR #174, formal starting-shield feel, in-run shield acquisition feedback and overshield-bar readability remain pending user manual acceptance."
+    },
     {
       "date": "2026-08-05",
       "command": "Test Lab scene generation and Godot 4.7.1 headless boot; explicit underground-spawn-beacon scene and Test Lab index loads; underground_spawn_beacon_smoke; four 1280x760 captures; three-tier lint; JSON/docs health; embedded-image and forbidden-geometry source scans; git diff check; factual code review; pre-commit run --all-files",
@@ -822,6 +828,7 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #187 将两个内置主智能碎片的基础 max_shield 设为 0；超量护盾容量统一为 max_life + max_shield，并由 Player 所有外部写入 / 重建路径与 HUD 共同遵守。",
     "ADR #186 完整取代 ADR #177：当前武器无限射击且项目不存在弹药、换弹、弹匣掉落、弹药 UI / 提示或旧框架；weapons v5、binding v3、Run v12、Replay v4、游戏 v1.11，Meta v2 保留。",
     "ADR #185 取代 ADR #183 的可选 Visual hook 与旧 Polygon 敌人回退条款：正式 Player / Enemy Visual 必须实现 set_presentation_state(Color, float, Vector2)，ActorPresentationController 不再直写 Body / Outline / EyeOutline，也不接受 outline_alpha 兼容参数。",
     "ADR #181 取代 ADR #172 的敌弹速度、半径、寿命和枪口距离当前口径；ADR #184 进一步取代其局部枪口蓄光及任何默认枪口闪光口径。无提前弹道线和其余点射玩法继续有效。",

@@ -311,7 +311,11 @@ func debug_set_shield(
 	overshield_points: float = 0.0
 ) -> Dictionary:
 	_current_shield = clampf(shield_points, 0.0, _max_shield)
-	_overshield = maxf(overshield_points, 0.0)
+	_overshield = clampf(
+		overshield_points,
+		0.0,
+		_overshield_capacity()
+	)
 	_shield_recharge_delay_remaining = 0.0
 	_shield_gate_remaining = 0.0
 	_emit_shield_changed()
@@ -581,10 +585,17 @@ func set_element_damage_taken_multiplier(
 
 
 func add_overshield(amount: float) -> float:
-	var applied_amount: float = maxf(amount, 0.0)
+	var requested_amount: float = maxf(amount, 0.0)
+	if requested_amount <= 0.0:
+		return 0.0
+	var previous_overshield: float = _overshield
+	_overshield = minf(
+		_overshield + requested_amount,
+		_overshield_capacity()
+	)
+	var applied_amount: float = _overshield - previous_overshield
 	if applied_amount <= 0.0:
 		return 0.0
-	_overshield += applied_amount
 	_emit_shield_changed()
 	return applied_amount
 
@@ -766,7 +777,11 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		0.0,
 		_max_shield
 	)
-	_overshield = maxf(float(snapshot_data.get("overshield", 0.0)), 0.0)
+	_overshield = clampf(
+		float(snapshot_data.get("overshield", 0.0)),
+		0.0,
+		_overshield_capacity()
+	)
 	_shield_recharge_delay_remaining = maxf(
 		float(snapshot_data.get("shield_recharge_delay_remaining", 0.0)),
 		0.0
@@ -947,6 +962,7 @@ func _rebuild_stats(reset_life: bool) -> void:
 		_current_shield += _max_shield - previous_max_shield
 	_life_points = minf(_life_points, _max_life)
 	_current_shield = minf(_current_shield, _max_shield)
+	_overshield = minf(_overshield, _overshield_capacity())
 	_read_runtime_tunables()
 	life_changed.emit(_life_points, _max_life)
 	_emit_shield_changed()
@@ -1005,6 +1021,10 @@ func _decay_overshield(delta: float) -> void:
 		_overshield = 0.0
 	if not is_equal_approx(previous_overshield, _overshield):
 		_emit_shield_changed()
+
+
+func _overshield_capacity() -> float:
+	return maxf(_max_life + _max_shield, 0.0)
 
 
 func _update_dash_timers(delta: float) -> void:

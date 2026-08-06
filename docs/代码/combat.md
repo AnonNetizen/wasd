@@ -42,7 +42,7 @@
 
 护甲公式：`damage_multiplier = 1.0 - armor / (armor + 300)`；护甲校验范围 `0～1200`，最大减伤 80%。
 
-普通护盾受伤后延迟 4 秒，以 25/秒恢复。超量护盾无上限，从获得后立即按当前值 5%/秒指数衰减，低于 1 归零；暂停时两者都不推进。
+当前内置英雄的基础最大护盾为 0，开局没有普通护盾；局内 `max_shield` modifier 增加容量时同步补入对应护盾。普通护盾受伤后延迟 4 秒，以 25/秒恢复。超量护盾上限为当前最大生命与最大护盾之和，获得、属性重算与 Run 恢复都会钳制；之后立即按当前值 5%/秒指数衰减，低于 1 归零。暂停时两者都不推进。
 
 普通护盾从正值被一次攻击击破时触发护盾门：本次溢出全部吞掉，无敌时间为 `0.5 × clamp(shield_before / max_shield, 0, 1)`。超量护盾不增加持续时间；普通护盾原本为零不触发。旧“每次受伤统一 0.7 秒无敌”已删除。
 
@@ -63,6 +63,7 @@
 | `DamageInfo.setup(amount, element_id, source, target, source_team, target_team, flags)` | amount 钳到非负；element 必须来自生成契约 |
 | `Combat.apply_damage(target, info) -> Dictionary` | 目标必须实现 `receive_damage(info)`；无效请求返回明确 reason |
 | `Player.receive_damage(info) -> Dictionary` | 返回实际分层消耗、生命损失、护盾门和击败结果 |
+| `Player.add_overshield(amount) -> float` | 只接收上限内的非负增量，上限为 `max_life + max_shield`，返回实际增加值 |
 | `Enemy.receive_damage(info) -> Dictionary` | armed 早退；普通敌方友伤早退；玩家或合法爆炸来源按 cause 进入统一退场信号 |
 
 `damage_applied(target, info, result)` 在目标完成结算后发出，表现、埋点和归因可订阅，不得复制伤害计算。
@@ -87,7 +88,7 @@
 ## 测试义务
 
 - `sync_contracts.py --check`、`validate_data.py`、schema test 和三档 lint。
-- `l1-smoke` 覆盖三层顺序、空／半／满盾门、恢复、超盾衰减、护甲公式、纯元素抗性、复合不减伤、易伤来源过滤与 DoT。
+- `l1-smoke` 覆盖内置英雄零开局护盾、三层顺序、超盾容量与恢复钳制、空／半／满盾门、恢复、超盾衰减、护甲公式、纯元素抗性、复合不减伤、易伤来源过滤与 DoT。
 - `runtime-smoke`、`save-smoke`、`headless-boot` 和四条 Replay v4 黄金回放覆盖整局与恢复。
 
 ## 迁移边界

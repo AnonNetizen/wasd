@@ -88,6 +88,9 @@ var _interaction_prompt_generation: int = 0
 var _interaction_prompt_visible: bool = false
 var _current_life: float = 0.0
 var _max_life: float = 0.0
+var _current_shield: float = 0.0
+var _max_shield: float = 0.0
+var _current_overshield: float = 0.0
 var _composition_label: Label = null
 var _dash_bar: ProgressBar = null
 var _dash_label: Label = null
@@ -226,7 +229,13 @@ func set_life(current_life: float, max_life: float) -> void:
 	_life_label.text = "%s: %d/%d" % [tr("ui_hud_life"), int(ceilf(_current_life)), int(ceilf(_max_life))]
 	if changed and _value_feedback != null:
 		_value_feedback.play_value(_life_label, current_life >= previous_life)
-	set_defense(current_life, max_life, _shield_bar.value, _shield_bar.max_value, _overshield_bar.value)
+	set_defense(
+		current_life,
+		max_life,
+		_current_shield,
+		_max_shield,
+		_current_overshield
+	)
 
 
 func set_composition(name: String, main_color: Color, sub_color: Color) -> void:
@@ -252,11 +261,14 @@ func set_defense(
 ) -> void:
 	if _health_bar == null:
 		return
+	_current_shield = shield
+	_max_shield = max_shield
+	_current_overshield = overshield
 	_health_bar.max_value = maxf(max_hp, 1.0)
 	_health_bar.value = clampf(hp, 0.0, _health_bar.max_value)
 	_shield_bar.max_value = maxf(max_shield, 1.0)
 	_shield_bar.value = clampf(shield, 0.0, _shield_bar.max_value)
-	var overshield_capacity: float = maxf(maxf(max_shield, overshield), 1.0)
+	var overshield_capacity: float = maxf(max_hp + max_shield, 1.0)
 	_overshield_bar.max_value = overshield_capacity
 	_overshield_bar.value = clampf(overshield, 0.0, overshield_capacity)
 	_defense_label.text = "%d / %d  ·  %d + %d" % [
