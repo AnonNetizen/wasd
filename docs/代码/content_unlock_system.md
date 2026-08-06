@@ -22,9 +22,9 @@
 | `client/data/characters.json` | 智能碎片的可选 `default_unlocked`、`unlock_rule_id`、`codex_icon_path` |
 | `client/data/gear_mods.json` | Gear Mod 的同组可选字段与图鉴详情 |
 | `client/data/enemies.csv` | 敌人双语描述、可选解锁字段和图鉴图标 |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 冻结池、计数增量、死亡 / 通关提交、Run v14 快照 |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 冻结池、计数增量、死亡 / 通关提交、Run v15 快照 |
 | `client/scripts/ui/codex_panel.gd` | 标题图鉴三分类、隐私显示、语言 / 焦点 / 返回 |
-| `client/scripts/autoload/save_manager.gd` | Meta v4 / Run v14 envelope、迁移与旧 Run 拒绝 |
+| `client/scripts/autoload/save_manager.gd` | Meta v4 / Run v15 envelope、迁移与旧 Run 拒绝 |
 | `client/scripts/autoload/replay.gd` | Replay v6 保存并校验冻结池快照 |
 
 ## 3. 数据契约
@@ -99,7 +99,7 @@ content_progression:
 1. 玩家归因击杀增加总击杀和指定敌人击杀。
 2. 死亡增加结算局数；通关还增加通关数和主 / 副碎片各自通关数。
 3. 死亡 / 通关调用一次 `commit_run_progress()`，然后删除 Run 并显示本次新解锁。
-4. 保存退出把快照与增量写入 Run v14；续局继续累计。
+4. 保存退出把快照与增量写入 Run v15；续局继续累计。
 5. 主动放弃或重开只删除 Run，不提交增量。
 6. 本局提交不会改变当前快照；新内容从下一局入池。
 
@@ -136,7 +136,7 @@ Replay v6 的 context 保存同一 `content_availability`。播放时由 harness
 | 新内容意外锁定 | 内容是否误写 `default_unlocked=false` 或无效 `unlock_rule_id` |
 | 达标后当前局立即出现新敌人 / Mod | 消费方是否绕过 RunLoop 冻结快照直接查 Meta |
 | Replay 在不同存档结果不同 | v6 context 是否保存 / 注入 `content_availability` |
-| 续局进度归零 | Run v14 是否包含 `content_progress_delta`，旧 Run 是否被正确拒绝 |
+| 续局进度归零 | Run v15 是否包含 `content_progress_delta`，旧 Run 是否被正确拒绝 |
 | 锁定图鉴泄露真实资料 | `codex_entries()` 是否在门面层脱敏；UI 是否越过 locked gate 读 DataLoader |
 | smoke 改写玩家存档 | bridge 是否使用隔离 user 目录，RunLoop 是否关闭 progression commit |
 

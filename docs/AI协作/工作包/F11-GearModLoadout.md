@@ -22,9 +22,9 @@
 | 层 | 职责 |
 |---|---|
 | `GearModSystem` | 无状态规则服务：定义查询、掉落、公共池、max rank、overflow gold、rank modifier 与测试岛预览 |
-| `GameplayRunLoop` | `{mod_id: rank}` 权威、统一原子授予、HUD 反馈、Run v13 保存 / 恢复、结果页构筑摘要 |
+| `GameplayRunLoop` | `{mod_id: rank}` 权威、统一原子授予、HUD 反馈、Run v15 保存 / 恢复、结果页构筑摘要 |
 | `Player` / `WeaponSystem` | `set_gear_modifiers()` 替换专属 Gear Mod 层；普通奖励与临时 modifier 独立保留 |
-| `SaveManager` | 只保存 Run v13 的局内 ranks；Meta v3 不含 Gear Mod |
+| `SaveManager` | Run v15 保存局内 ranks；Meta v4 只保存 Gear Mod 内容资格，不保存 rank |
 | 开发者测试岛 | 纯内存选择 Mod / rank 并预览，不读写正式 Meta，不解释容量或 drain |
 
 恢复顺序固定为：恢复实体基础状态 → 恢复普通 / 临时 modifier → 从 `gear_mod_ranks` 统一替换 Gear Mod 层一次。重复重建不得累加或连乘漂移。

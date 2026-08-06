@@ -196,11 +196,11 @@ def main() -> int:
             ],
         ),
         (
-            "module world schema v4 is required",
-            _mutate_json("client/data/module_worlds.json", _set_schema_version(3)),
+            "module world schema v5 is required",
+            _mutate_json("client/data/module_worlds.json", _set_schema_version(4)),
             [
                 "client/data/module_worlds.json:schema_version",
-                "must equal 4",
+                "must equal 5",
             ],
         ),
         (
@@ -265,9 +265,9 @@ def main() -> int:
             ],
         ),
         (
-            "module world must be 9x9",
+            "module world must be 7x7",
             _mutate_json("client/data/module_worlds.json", _set_module_world_columns(8)),
-            ["client/data/module_worlds.json:worlds[0].columns", "must equal 9"],
+            ["client/data/module_worlds.json:worlds[0].columns", "must equal 7"],
         ),
         (
             "module world cell size is configurable",
@@ -304,19 +304,39 @@ def main() -> int:
             ],
         ),
         (
-            "fixed slots must cover configured anchors",
-            _mutate_json("client/data/module_worlds.json", _remove_fixed_objective_slot),
-            ["client/data/module_worlds.json:worlds[0].fixed_slots", "must assign configured objective_slot"],
+            "fixed slots must cover configured start",
+            _mutate_json("client/data/module_worlds.json", _remove_fixed_start_slot),
+            ["client/data/module_worlds.json:worlds[0].fixed_slots", "must assign configured start_slot"],
         ),
         (
-            "fixed anchor must use its required role",
-            _mutate_json("client/data/module_worlds.json", _replace_fixed_objective_with_connector),
-            ["client/data/module_worlds.json:worlds[0].fixed_slots", "objective_slot must use role module_role_objective"],
+            "objective spawn must use its required role",
+            _mutate_json("client/data/module_worlds.json", _replace_objective_spawn_with_connector),
+            ["client/data/module_worlds.json:worlds[0].objective_spawn.template_id", "template must use module_role_objective"],
         ),
         (
             "fixed slots require unique critical roles",
             _mutate_json("client/data/module_worlds.json", _add_duplicate_fixed_start_role),
             ["client/data/module_worlds.json:worlds[0].fixed_slots", "must contain exactly one module_role_start"],
+        ),
+        (
+            "objective spawn requires three candidates",
+            _mutate_json("client/data/module_worlds.json", _remove_objective_candidate),
+            ["client/data/module_worlds.json:worlds[0].objective_spawn.candidate_slots", "must contain exactly 3 candidate slots"],
+        ),
+        (
+            "objective spawn candidates must be unique",
+            _mutate_json("client/data/module_worlds.json", _duplicate_objective_candidate),
+            ["client/data/module_worlds.json:worlds[0].objective_spawn.candidate_slots[1]", "duplicate slot 0,0"],
+        ),
+        (
+            "objective spawn candidates stay inside 7x7",
+            _mutate_json("client/data/module_worlds.json", _move_objective_candidate_out_of_bounds),
+            ["client/data/module_worlds.json:worlds[0].objective_spawn.candidate_slots[2].x", "must be < 7"],
+        ),
+        (
+            "objective spawn candidates use only the three required corners",
+            _mutate_json("client/data/module_worlds.json", _move_objective_candidate_inside_bounds),
+            ["client/data/module_worlds.json:worlds[0].objective_spawn.candidate_slots", "must equal the top-left, top-right, and bottom-right corners"],
         ),
         (
             "optional exploration budget is capped",
@@ -404,12 +424,12 @@ def main() -> int:
         (
             "candidate module template cannot keep gameplay approval hash",
             _mutate_json("client/data/module_templates.json", _make_sealed_template_keep_approved_hash),
-            ["client/data/module_templates.json:templates[20].approved_gameplay_hash", "must be omitted unless the template is approved"],
+            ["client/data/module_templates.json:templates[", ".approved_gameplay_hash", "must be omitted unless the template is approved"],
         ),
         (
-            "fallback assignment must contain 81 slots",
+            "fallback assignment must contain 49 slots",
             _mutate_json("client/data/module_worlds.json", _remove_fallback_assignment),
-            ["client/data/module_worlds.json:worlds[0].fallback_assignment", "must contain exactly 81 slot assignments"],
+            ["client/data/module_worlds.json:worlds[0].fallback_assignment", "must contain exactly 49 slot assignments"],
         ),
         (
             "fallback assignment slots must be unique",
@@ -510,7 +530,7 @@ def main() -> int:
         (
             "critical module route must be reachable",
             _mutate_json("client/data/modules/module_objective_core.json", _close_all_module_sockets),
-            ["client/data/module_worlds.json:worlds[0].fallback_assignment", "critical route start -> objective is unreachable"],
+            ["client/data/module_worlds.json:worlds[0].fallback_assignment.objective_candidate[0]", "critical route start -> objective is unreachable"],
         ),
         (
             "unknown character id fails",
@@ -3260,11 +3280,11 @@ def _set_limited_group_flat_template(payload: dict[str, Any]) -> None:
     ] = "module_flat_ground"
 
 
-def _remove_fixed_objective_slot(payload: dict[str, Any]) -> None:
+def _remove_fixed_start_slot(payload: dict[str, Any]) -> None:
     world = payload["worlds"][0]
-    objective_slot = world["objective_slot"]
+    start_slot = world["start_slot"]
     world["fixed_slots"] = [
-        entry for entry in world["fixed_slots"] if entry["slot"] != objective_slot
+        entry for entry in world["fixed_slots"] if entry["slot"] != start_slot
     ]
 
 
@@ -3288,20 +3308,31 @@ def _create_presentation_profile_cycle(payload: dict[str, Any]) -> None:
     payload["profiles"][0]["parent_profile_id"] = "presentation_player_default"
 
 
-def _replace_fixed_objective_with_connector(payload: dict[str, Any]) -> None:
-    world = payload["worlds"][0]
-    objective_slot = world["objective_slot"]
-    for entry in world["fixed_slots"]:
-        if entry["slot"] == objective_slot:
-            entry["template_id"] = "module_connector_cross"
-            entry["rotation"] = 0
-            return
+def _replace_objective_spawn_with_connector(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["objective_spawn"]["template_id"] = "module_connector_cross"
 
 
 def _add_duplicate_fixed_start_role(payload: dict[str, Any]) -> None:
     payload["worlds"][0]["fixed_slots"].append(
         {"slot": {"x": 1, "y": 1}, "template_id": "module_start_cross", "rotation": 0}
     )
+
+
+def _remove_objective_candidate(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["objective_spawn"]["candidate_slots"].pop()
+
+
+def _duplicate_objective_candidate(payload: dict[str, Any]) -> None:
+    candidates = payload["worlds"][0]["objective_spawn"]["candidate_slots"]
+    candidates[1] = dict(candidates[0])
+
+
+def _move_objective_candidate_out_of_bounds(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["objective_spawn"]["candidate_slots"][2]["x"] = 7
+
+
+def _move_objective_candidate_inside_bounds(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["objective_spawn"]["candidate_slots"][2] = {"x": 0, "y": 1}
 
 
 def _set_optional_exploration_max(value: int) -> JsonMutator:

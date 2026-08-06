@@ -122,7 +122,7 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 14
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 15
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -3079,6 +3079,10 @@ func _ensure_module_world_manager() -> void:
 
 func _module_world_map_layout() -> Dictionary:
 	var cell_size: float = maxf(float(_module_world_definition.get("cell_size", 160.0)), 1.0)
+	var world_columns: int = maxi(int(_module_world_definition.get("columns", 0)), 1)
+	var world_rows: int = maxi(int(_module_world_definition.get("rows", 0)), 1)
+	var module_columns: int = maxi(int(_module_world_definition.get("module_columns", 0)), 1)
+	var module_rows: int = maxi(int(_module_world_definition.get("module_rows", 0)), 1)
 	var start_position: Vector2 = Vector2.ZERO
 	var start_slot: Vector2i = _dict_to_vector2i(_module_world_definition.get("start_slot", {}))
 	for placement: Dictionary in _module_world_manager.call("placements_at", start_slot):
@@ -3086,9 +3090,12 @@ func _module_world_map_layout() -> Dictionary:
 			start_position = _dict_to_vector(placement.get("world_position", {}), Vector2.ZERO)
 			break
 	return {
-		"id": String(_module_world_definition.get("id", "module_world_9x9")),
+		"id": String(_module_world_definition.get("id", "module_world_7x7")),
 		"mode_id": GAME_MODES.MODE_STANDARD_SURVIVAL,
-		"bounds": {"width": 99.0 * cell_size, "height": 99.0 * cell_size},
+		"bounds": {
+			"width": float(world_columns * module_columns) * cell_size,
+			"height": float(world_rows * module_rows) * cell_size,
+		},
 		"grid": {"cell_width": cell_size, "cell_height": cell_size},
 		"player_start": _vector_to_dict(start_position),
 		"safe_radius": cell_size * 2.0,
@@ -3669,6 +3676,8 @@ func _refresh_module_world_hud() -> void:
 	if _hud == null or _module_world_manager == null or not _hud.has_method("set_module_world_state"):
 		return
 	var state: Dictionary = {
+		"columns": int(_module_world_definition.get("columns", 0)),
+		"rows": int(_module_world_definition.get("rows", 0)),
 		"visited_slots": _module_world_manager.call("visited_module_coords"),
 		"current_slot": _coord_to_dict(_module_world_manager.call("current_module_coord") as Vector2i),
 		"objective_slot": _coord_to_dict(_module_world_manager.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) as Vector2i),

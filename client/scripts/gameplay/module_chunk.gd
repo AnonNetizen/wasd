@@ -10,7 +10,7 @@ const MODULE_EDGE_DIRECTIONS := preload(
 const MODULE_SIZE: int = 11
 const AUTHORING_CELL_SIZE: float = 160.0
 const AUTHORING_MODULE_SPAN: float = float(MODULE_SIZE - 1) * AUTHORING_CELL_SIZE
-const WORLD_CENTER_GLOBAL_CELL: Vector2i = Vector2i(49, 49)
+const WORLD_CENTER_GLOBAL_CELL: Vector2i = Vector2i(38, 38)
 
 var _module_coord: Vector2i = Vector2i(-1, -1)
 var _rotation: int = 0

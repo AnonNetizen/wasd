@@ -4,7 +4,8 @@ class_name ModuleMinimap
 extends Control
 
 
-const GRID_SIZE: int = 9
+const DEFAULT_COLUMNS: int = 7
+const DEFAULT_ROWS: int = 7
 
 @export_group("Layout")
 @export_range(4.0, 32.0, 1.0) var cell_size: float = 13.0
@@ -23,6 +24,8 @@ const GRID_SIZE: int = 9
 var _visited: Dictionary = {}
 var _current: Vector2i = Vector2i(-1, -1)
 var _objective: Vector2i = Vector2i(-1, -1)
+var _columns: int = DEFAULT_COLUMNS
+var _rows: int = DEFAULT_ROWS
 
 @onready var _selection_feedback: UISelectionFeedback = get_node_or_null(
 	"SelectionFeedback"
@@ -30,16 +33,18 @@ var _objective: Vector2i = Vector2i(-1, -1)
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(
-		padding * 2.0 + GRID_SIZE * cell_size + (GRID_SIZE - 1) * cell_gap,
-		padding * 2.0 + GRID_SIZE * cell_size + (GRID_SIZE - 1) * cell_gap
-	)
+	_refresh_minimum_size()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	queue_redraw()
 
 
 func configure(state: Dictionary) -> void:
 	var previous_current: Vector2i = _current
+	var previous_dimensions := Vector2i(_columns, _rows)
+	_columns = maxi(int(state.get("columns", DEFAULT_COLUMNS)), 1)
+	_rows = maxi(int(state.get("rows", DEFAULT_ROWS)), 1)
+	if Vector2i(_columns, _rows) != previous_dimensions:
+		_refresh_minimum_size()
 	_visited.clear()
 	for raw_slot: Variant in state.get("visited_slots", []):
 		var slot: Vector2i = _slot_from_variant(raw_slot)
@@ -56,12 +61,19 @@ func configure(state: Dictionary) -> void:
 		_selection_feedback.play_selection(self)
 
 
+func _refresh_minimum_size() -> void:
+	custom_minimum_size = Vector2(
+		padding * 2.0 + _columns * cell_size + (_columns - 1) * cell_gap,
+		padding * 2.0 + _rows * cell_size + (_rows - 1) * cell_gap
+	)
+
+
 func _draw() -> void:
 	var panel_rect := Rect2(Vector2.ZERO, size)
 	draw_rect(panel_rect, panel_color, true)
 	draw_rect(panel_rect, border_color, false, border_width)
-	for y: int in range(GRID_SIZE):
-		for x: int in range(GRID_SIZE):
+	for y: int in range(_rows):
+		for x: int in range(_columns):
 			var slot := Vector2i(x, y)
 			var cell_rect := Rect2(
 				Vector2(padding + x * (cell_size + cell_gap), padding + y * (cell_size + cell_gap)),
@@ -92,7 +104,7 @@ func _slot_from_variant(value: Variant) -> Vector2i:
 
 
 func _is_valid_slot(slot: Vector2i) -> bool:
-	return slot.x >= 0 and slot.x < GRID_SIZE and slot.y >= 0 and slot.y < GRID_SIZE
+	return slot.x >= 0 and slot.x < _columns and slot.y >= 0 and slot.y < _rows
 
 
 func _slot_key(slot: Vector2i) -> String:

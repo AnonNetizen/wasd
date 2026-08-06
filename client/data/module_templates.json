@@ -23,6 +23,21 @@
         180,
         270
       ],
+      "approved_gameplay_hash": "7bf42079dbdfd035ecea8ec5038c8a6b97ef58103bbbb931e812d2644d83ced7",
+      "id": "module_start_corner",
+      "path": "res://data/modules/module_start_corner.json",
+      "review_status": "module_review_approved",
+      "role": "module_role_start",
+      "source": "ai",
+      "tags": []
+    },
+    {
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ],
       "approved_gameplay_hash": "84e8e2d3702eca5abad9b42fbfe7aae03b565fa9b179daf5eb7aeb66f53b5384",
       "id": "module_connector_cross",
       "path": "res://data/modules/module_connector_cross.json",

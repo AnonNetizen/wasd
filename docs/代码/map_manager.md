@@ -112,7 +112,7 @@ GameplayRunLoop
 
 ADR #142 的模块大地图（详见 `docs/代码/module_world_manager.md`）把 `MapManager` 当作全图矩形几何 carrier 复用，不分叉边界与格子算法：
 
-- 默认模块模式用世界配置生成单个 99×99 格、15,840×15,840 px 的 bounds，并统一复用 `grid_cell_size()`、`clamp_position()`、`player_start()` 与移动边界注入；跨模块时不重配全图 bounds。
+- 默认模块模式用世界配置生成单个 77×77 格、12,320×12,320 px 的 bounds，并统一复用 `grid_cell_size()`、`clamp_position()`、`player_start()` 与移动边界注入；玩家从左下模块中心开始，跨模块时不重配全图 bounds。
 - 模块模式**不调** `generate_hazard_placements()`，也不解释 `WarzoneDirector` 兴趣点。模块 JSON 的敌人、机关、局内奖励与 `completes_run` 目标由 `GameplayRunLoop` 解释，`ModuleWorldManager` 负责 assignment / 流式状态，`ModuleChunk` 负责合并绘制与碰撞。
 - `--open-warzone` 对照回归仍走旧 `configure()` + `generate_hazard_placements()` 路径；两条 carrier 共享同一份矩形 grid / bounds / clamp 几何 API。
 

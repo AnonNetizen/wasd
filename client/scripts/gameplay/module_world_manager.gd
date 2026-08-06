@@ -1,7 +1,7 @@
 # Doc: docs/代码/module_world_manager.md
 class_name ModuleWorldManager
 extends Node2D
-## Deterministic 9 x 9 module-world assignment, coordinate conversion, fog state and 3 x 3 streaming.
+## Deterministic 7 x 7 module-world assignment, coordinate conversion, fog state and 3 x 3 streaming.
 ## Gameplay entity spawning remains owned by GameplayRunLoop; this manager only streams reusable ModuleChunk nodes.
 
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
@@ -11,13 +11,13 @@ const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const RNG_STREAMS := preload("res://scripts/contracts/rng_streams.gd")
 const ModuleNavigationFieldRuntime := preload("res://scripts/gameplay/module_navigation_field.gd")
 
-const WORLD_COLUMNS: int = 9
-const WORLD_ROWS: int = 9
+const WORLD_COLUMNS: int = 7
+const WORLD_ROWS: int = 7
 const MODULE_COLUMNS: int = 11
 const MODULE_ROWS: int = 11
 const WORLD_CELL_COLUMNS: int = WORLD_COLUMNS * MODULE_COLUMNS
 const WORLD_CELL_ROWS: int = WORLD_ROWS * MODULE_ROWS
-const WORLD_CENTER_GLOBAL_CELL: Vector2i = Vector2i(49, 49)
+const WORLD_CENTER_GLOBAL_CELL: Vector2i = Vector2i(38, 38)
 const MAX_STREAMING_CHUNKS: int = 9
 const MAX_PINNED_CHUNKS: int = 3
 const MAX_ACTIVE_CHUNKS: int = MAX_STREAMING_CHUNKS + MAX_PINNED_CHUNKS
@@ -105,6 +105,13 @@ func build_fallback_assignment() -> bool:
 	_reset_world_state()
 	if not _load_explicit_assignment(_world_def.get("fallback_assignment", []), false):
 		push_error("[ModuleWorldManager] fallback assignment could not be loaded")
+		return false
+	var world_rng_snapshot: Dictionary = RNG.world.snapshot()
+	RNG.world.configure(RNG_STREAMS.WORLD, _assignment_seed())
+	var objective_assigned: bool = _assign_objective_spawn(true)
+	RNG.world.restore_snapshot(world_rng_snapshot)
+	if not objective_assigned:
+		push_error("[ModuleWorldManager] fallback objective spawn could not be selected")
 		return false
 	return _finalize_assignment()
 
@@ -457,9 +464,11 @@ func _build_seeded_assignment() -> bool:
 		return false
 	var world_rng_snapshot: Dictionary = RNG.world.snapshot()
 	RNG.world.configure(RNG_STREAMS.WORLD, _assignment_seed())
-	var generated_all_slots: bool = _assign_limited_template_groups(
-		_world_def.get("limited_template_groups", [])
-	)
+	var generated_all_slots: bool = _assign_objective_spawn(false)
+	if generated_all_slots:
+		generated_all_slots = _assign_limited_template_groups(
+			_world_def.get("limited_template_groups", [])
+		)
 	for row_index: int in range(WORLD_ROWS):
 		if not generated_all_slots:
 			break
@@ -474,6 +483,51 @@ func _build_seeded_assignment() -> bool:
 			break
 	RNG.world.restore_snapshot(world_rng_snapshot)
 	return generated_all_slots
+
+
+func _assign_objective_spawn(replace_existing: bool) -> bool:
+	var objective_spawn: Dictionary = _dictionary_or_empty(
+		_world_def.get("objective_spawn", {})
+	)
+	var template_id: String = String(objective_spawn.get("template_id", ""))
+	var rotation_degrees: int = _normalize_rotation(
+		int(objective_spawn.get("rotation", 0))
+	)
+	var candidates: Array = _array_or_empty(
+		objective_spawn.get("candidate_slots", [])
+	)
+	if template_id.is_empty() or candidates.is_empty():
+		return false
+	if not _templates_by_id.has(template_id):
+		return false
+	var registry_entry: Dictionary = _dictionary_or_empty(
+		_registry_by_id.get(template_id, {})
+	)
+	if (
+		registry_entry.is_empty()
+		or not _is_assignment_template_allowed(registry_entry, false)
+		or not _allowed_rotations(template_id).has(rotation_degrees)
+	):
+		return false
+	# Call the stream method explicitly. Stream.pick() currently resolves its
+	# unqualified randi() call to Godot's global RNG and is not deterministic.
+	var selected_index: int = int(RNG.world.randi() % candidates.size())
+	var selected_candidate: Variant = candidates[selected_index]
+	var module_coord: Vector2i = _coord_from_variant(
+		selected_candidate,
+		INVALID_COORD
+	)
+	if not _is_module_coord_valid(module_coord):
+		return false
+	var slot_key: String = _slot_key(module_coord)
+	if _assignment.has(slot_key) and not replace_existing:
+		return false
+	_assignment[slot_key] = _make_assignment_entry(
+		module_coord,
+		template_id,
+		rotation_degrees
+	)
+	return true
 
 
 func _assign_limited_template_groups(raw_groups: Variant) -> bool:

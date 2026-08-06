@@ -44,7 +44,7 @@
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/map_layouts.json` | 有限地图、玩家出生点、PCG 机关规则和人工摆点边界 |
 | `client/data/warzone_directors.json` | schema v2 敌巢战区导演、固定阶段、巢变异主题、兴趣点和阶段启用 wave 边界 |
-| `client/data/module_worlds.json` / `module_templates.json` / `modules/*.json` | 世界 schema v3、模块 schema v4：9×9 几何、固定锚点、首次进入敌人数 / 预警 / 解锁权重、限量事件模板组、approved 模板池、路线预算、11×11 地形与静态内容摆放 |
+| `client/data/module_worlds.json` / `module_templates.json` / `modules/*.json` | 世界 schema v5、模块 schema v4：7×7 几何、左下起点、三角意识核候选、首次进入敌人数 / 预警 / 解锁权重、限量事件模板组、approved 模板池、路线预算、11×11 地形与静态内容摆放 |
 | `client/data/world_events.json` | schema v1：五类事件、波次、交互半径、奖励、祭坛费用 / 献祭与普通 Mod 池 |
 | `client/data/spawn_waves.csv` | 刷怪波次、模式引用、敌人 / 机关引用、时间窗和强度数值边界 |
 | `client/data/relics.json` | 被动遗物 modifier / behavior 数据边界 |
@@ -117,7 +117,7 @@
   - `map_layouts.json`：layout id、模式引用、有限地图矩形 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须分别整除 `grid.cell_width/cell_height`。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
   - `warzone_directors.json`：schema v2 director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，兴趣点的 `hazard_ids` 必须非空且机关 / 地图引用必须存在；旧导演敌人组合字段会被明确拒绝。
-  - 模块世界：世界必须恰好 9×9、模块必须恰好 11×11；模块 / 局部 / 全局坐标、placement footprint、引用、审核状态、相邻边缘开放格交集、外圈封闭、关键路线和内容预算都 fail-fast。模块 schema v4 新增严格 `module_place_world_event`，拒绝未知事件、重复 placement、越界和多余字段；世界 schema v3 的限量组校验 `pick_distinct`、模板角色、权重和次数，正式 assignment 必须选三种不同事件。默认池只接受 `approved` 模板；`candidate` 只能供人工审核。
+  - 模块世界：世界必须恰好 7×7、模块必须恰好 11×11；起点固定 `(0,6)`，`objective_spawn` 必须精确声明 `(0,0)` / `(6,0)` / `(6,6)` 三个不重复等概率候选。模块 / 局部 / 全局坐标、placement footprint、引用、审核状态、相邻边缘开放格交集、外圈封闭、三个目标覆盖后的关键路线和内容预算都 fail-fast。模块 schema v4 使用严格 `module_place_world_event`；世界 schema v5 的限量组校验 `pick_distinct`、模板角色、权重和次数，正式 assignment 必须选三种不同事件。默认池只接受 `approved` 模板；`candidate` 只能供人工审核。
   - `world_events.json`：schema v1 严格按事件 kind 校验必填 / 多余字段、正时间、概率、递增费用、波次边界、次数、Mod 池引用和防御目标半径；事件 id、kind、state、reward 与 Mod pool 必须来自生成契约。
   - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
   - `active_items.json`：主动道具 id、名称 / 描述 key、默认解锁、`tag_active_item`、冷却充能、初始 / 最大充能和使用效果原语。

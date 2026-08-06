@@ -195,11 +195,11 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `python tools/godot_bridge.py --project client replay-input-smoke`；改 golden 时追加 `capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_reward_choice` 以及四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 v6 roundtrip、内容池快照校验与旧 v5 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。四条黄金回放覆盖两种主英雄、连续无限射击、四技能、冲刺、暂停 / 恢复、死亡防御状态和通用奖励选择；有意改变确定性行为时才重录并在提交说明中注明影响。
+- 当前 `.replay` 文件 v6 roundtrip、内容池快照校验与旧 v5 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。ADR #190 不改变 Replay schema，但 7×7 assignment、三角意识核和 map hash 改变确定性输出，因此四条黄金回放必须按新世界重录并逐条运行时复核；它们继续覆盖两种主英雄、连续无限射击、四技能、冲刺、暂停 / 恢复、死亡防御状态和通用奖励选择。
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 6，加载器只接受 v6。旧 v5、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id`、difficulty profile id / coefficient 与 `content_availability`。弹道随机与 Gear Mod 掉落由运行时按固定 RNG 子流重算；Player 后坐 / 敌人击退、金币、局内 Gear Mod ranks、未完成奖励选择、敌人状态、世界事件事务与内容进度增量属于 Run v14 而不是 replay 输入字段。不能把 run 快照与 replay 输入格式混合。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 6，加载器只接受 v6。旧 v5、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id`、difficulty profile id / coefficient 与 `content_availability`；7×7 assignment 与目标角落由同 seed、数据指纹和 `RNG.world` 重建，不新增 replay 字段。弹道随机与 Gear Mod 掉落由运行时按固定 RNG 子流重算；Player 后坐 / 敌人击退、金币、局内 Gear Mod ranks、未完成奖励选择、敌人状态、世界事件事务与内容进度增量属于 Run v15 而不是 replay 输入字段。不能把 run 快照与 replay 输入格式混合。
 
 ## 相关文档
 

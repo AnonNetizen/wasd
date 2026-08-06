@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.7.1 stable 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F14 敌人导航与感知收口后：正式工程当前使用 Godot 4.7.1 stable，启动场景在数据校验通过后显示标题界面；开始、继续和重开会统一进入 `GameState.LOADING`，显示全屏暗色加载遮罩与旋转图形，完成资源准备后才激活战斗 runtime。若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“装备 Mod”和“设置”入口。当前 runtime 覆盖 F13 9×9 模块世界、五种独立池敌人、向瞄准方向平滑偏移的玩家对局级相机、射击、机关、短局目标 / 撤离、暂停保存续局、Gear Mod 与回放护栏。`loading-smoke`、`runtime-smoke`、`save-smoke` 等覆盖正式入口；`startup-probe` / `perf-probe` 仅在用户明确要求性能测试时运行。项目当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在非 16:9 屏幕上等比缩放、补上下或左右黑边；其他宽高比留作未来按独立固定预设接入的优化项。
+当前阶段为 F14 敌人导航与感知收口后：正式工程当前使用 Godot 4.7.1 stable，启动场景在数据校验通过后显示标题界面；开始、继续和重开会统一进入 `GameState.LOADING`，显示全屏暗色加载遮罩与旋转图形，完成资源准备后才激活战斗 runtime。若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“图鉴”和“设置”入口。当前 runtime 覆盖 F13 7×7 / 49 槽模块世界、左下角出生与三候选角落意识核、五种独立池敌人、向瞄准方向平滑偏移的玩家对局级相机、射击、机关、意识核直接结算、暂停保存续局、局内 Gear Mod、横向内容解锁与回放护栏。`loading-smoke`、`runtime-smoke`、`save-smoke` 等覆盖正式入口；`startup-probe` / `perf-probe` 仅在用户明确要求性能测试时运行。项目当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在非 16:9 屏幕上等比缩放、补上下或左右黑边；其他宽高比留作未来按独立固定预设接入的优化项。
 
 ADR #151 / #152 后，正式输入由固定版本 GUIDE 解释物理设备，项目业务统一消费 `InputService` 的生成 action 与 `move` / `aim` `Vector2` intent；绑定保存到 `user://input_bindings.tres`，设置配置为 v2，Replay file / recording 仅支持 schema v2。输入架构和插件维护分别见 `docs/代码/input_service.md` 与 `docs/代码/guide.md`。
 

@@ -457,7 +457,7 @@ func _pending_run_progress_delta() -> Dictionary:
 		return {}
 	var run: Dictionary = run_payload as Dictionary
 	if (
-		int(run.get("schema_version", 0)) != 14
+		int(run.get("schema_version", 0)) != 15
 		or bool(run.get("legacy_run_incompatible", false))
 	):
 		return {}

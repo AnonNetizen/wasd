@@ -66,7 +66,7 @@ value = base_value + value_per_rank * clamp(rank, 0, max_rank)
 3. 重复获得依次升至 rank 5 / 第 6 阶。
 4. 第 7 份及以后每份转化为 75 局内金币，reason 为 `gear_mod_overflow`。
 5. 敌人、缓存和世界事件都调用同一个原子授予入口；授予后立即重建 Gear modifier 层。
-6. Run v14 保存 `gear_mods.ranks` 与冻结 `content_availability`。恢复时先恢复同一内容池和实体，再统一调用一次替换式应用，不重抽、不重复发奖。
+6. Run v15 保存 `gear_mods.ranks` 与冻结 `content_availability`。恢复时先恢复同一内容池和实体，再统一调用一次替换式应用，不重抽、不重复发奖。
 7. 胜利、死亡、重开或回标题后随 run 一起清空；Meta v4 只保存 Gear Mod 的横向可用资格，不保存任何本局 rank 或库存。
 
 缓存与事件规则：
@@ -81,7 +81,7 @@ value = base_value + value_per_rank * clamp(rank, 0, max_rank)
 
 Player 与 WeaponSystem 必须区分普通、临时和 Gear Mod 层。`set_gear_modifiers()` 的参数替换旧 Gear 层，然后从基础值重建；重复传入同一数组必须得到相同结果，禁止在当前结果上继续相加或相乘。
 
-Player 与 WeaponSystem 的普通 modifier snapshot / restore 语义必须对称。Gear 层不混入普通 modifier snapshot；它由 Run v14 ranks 统一恢复，避免双重应用。
+Player 与 WeaponSystem 的普通 modifier snapshot / restore 语义必须对称。Gear 层不混入普通 modifier snapshot；它由 Run v15 ranks 统一恢复，避免双重应用。
 
 ## 7. UI 与测试
 

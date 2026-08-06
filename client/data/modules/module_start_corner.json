@@ -1,0 +1,173 @@
+{
+  "schema_version": 4,
+  "id": "module_start_corner",
+  "columns": 11,
+  "rows": 11,
+  "terrain_rows": [
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ]
+  ],
+  "placements": [
+    {
+      "type": "module_place_player_start",
+      "cell": {
+        "x": 5,
+        "y": 5
+      }
+    }
+  ],
+  "visual_layers": {
+    "ground": {
+      "default_tile_id": "module_tile_ground_default",
+      "overrides": []
+    },
+    "obstacles": {
+      "default_tile_id": "module_tile_obstacle_default",
+      "overrides": []
+    },
+    "decoration": {
+      "cells": []
+    }
+  }
+}

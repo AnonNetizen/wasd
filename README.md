@@ -1,7 +1,7 @@
 # wasd —— 俯视角射击 Roguelike
 
 > 一款俯视角射击 Roguelike：玩法按 2D 平面移动 / 碰撞 / 射击，`Camera2D` 保持屏幕水平与等比缩放；每局以空 Gear Mod 构筑开始，通过敌人、缓存和世界事件获得 Mod，同类重复自动升阶，清理意识核后立即完成，胜利或死亡后清空全部局内 Mod。
-> **当前状态：正式项目使用 Godot 4.7.1 stable。** 9×9 连续模块世界、开放战区回归路径、局内金币成长、世界事件与 Gear Mod 构筑均已接入；项目不包含撤离、战利品带回或局外 Gear Mod 配置。当前 IP 使用项目代号 `WASD`，正式标题待定。
+> **当前状态：正式项目使用 Godot 4.7.1 stable。** 7×7 连续模块世界、开放战区回归路径、局内金币成长、世界事件与 Gear Mod 构筑均已接入；项目不包含撤离、战利品带回或局外 Gear Mod 配置。当前 IP 使用项目代号 `WASD`，正式标题待定。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 

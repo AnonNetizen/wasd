@@ -16,12 +16,12 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.13"
+const GAME_VERSION: String = "v1.14"
 const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 4,
-	SAVE_KINDS.RUN: 14,
+	SAVE_KINDS.RUN: 15,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -46,6 +46,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 11, 12, Callable(self, "_migrate_run_v11_to_v12"))
 	register_migration(SAVE_KINDS.RUN, 12, 13, Callable(self, "_migrate_run_v12_to_v13"))
 	register_migration(SAVE_KINDS.RUN, 13, 14, Callable(self, "_migrate_run_v13_to_v14"))
+	register_migration(SAVE_KINDS.RUN, 14, 15, Callable(self, "_migrate_run_v14_to_v15"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -548,6 +549,15 @@ func _migrate_run_v13_to_v14(payload: Dictionary) -> Dictionary:
 	# counters were already committed to Meta, so restoring it could double count.
 	var result: Dictionary = payload.duplicate(true)
 	result["schema_version"] = 14
+	result["legacy_run_incompatible"] = true
+	return result
+
+
+func _migrate_run_v14_to_v15(payload: Dictionary) -> Dictionary:
+	# v14 module snapshots encode the retired 9 x 9 world. Restoring them into
+	# the 7 x 7 coordinate system would invalidate assignments and entity cells.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 15
 	result["legacy_run_incompatible"] = true
 	return result
 

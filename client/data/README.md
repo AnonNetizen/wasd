@@ -37,7 +37,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
 | 加 / 改模块模板 | 在 Godot 的 `Module JSON` 中央主编辑区编辑 `modules/<id>.json`，再显式 Validate / Bake | 模块固定 11×11 格；JSON 是人工与 AI 协作主源，生成 TSCN 禁止手改，玩法变化会降为 `candidate` |
-| 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点与意识核目标，其余槽位按 `RNG.world` + run seed 组合；不存在撤离锚点 |
+| 改 7×7 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；左下起点固定，意识核按 `RNG.world` + run seed 等概率选取其余三个角落，其余槽位再组合；不存在撤离锚点 |
 | 改世界事件数值 / 波次 / 祭坛概率 | `world_events.json` | schema v1；事件、Gear Mod 池、波次与祭坛参数严格校验，运行时随机走 `RNG.world_event` |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
@@ -74,7 +74,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
-| `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
+| `module_worlds.json` | 已建立 | F13 模块世界 schema v5：7×7 槽位、11×11 格、左下起点、三角意识核候选、模板池、安全布局和技术首片 |
 | `world_events.json` | 已建立 | 世界事件 schema v2：防御、生存、占点、金币祭坛与血量祭坛；Gear Mod 公共池由 `gear_mods.json` 统一定义 |
 | `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态、批准时 source hash 和可用旋转 |
 | `module_tile_catalog.json` | 已建立 | 稳定 `module_tile_id` 到 Godot TileSet source / atlas / alternative 的编辑期映射 |
@@ -535,7 +535,7 @@ round(
 )
 ```
 
-所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v13 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件奖励不读本文件。
+所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v15 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件奖励不读本文件。
 
 ## `game_modes.json`
 
@@ -997,7 +997,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 | `interest_points[].completes_run` | bool | 可选 | 为 `true` 时领取 / 摧毁后立即删除当前 `run` 存档并显示完成结果面板；完成点不能同时发奖励 |
 | `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 
-`warzone_directors.json` 是开放战区回归路径的数据源。运行时使用 `phases[].wave_ids` 给 Spawner 做阶段 gating；兴趣点奖励统一由 `GameplayRunLoop` 原子结算：金币即时进入局内账本，Mod 缓存从公共池独立抽取并立即写入本局 ranks，完成点直接结束本局。领取状态、目标状态和奖励结果进入 Run v13；恢复后不重抽、不重复发奖。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态。
+`warzone_directors.json` 是开放战区回归路径的数据源。运行时使用 `phases[].wave_ids` 给 Spawner 做阶段 gating；兴趣点奖励统一由 `GameplayRunLoop` 原子结算：金币即时进入局内账本，Mod 缓存从公共池独立抽取并立即写入本局 ranks，完成点直接结束本局。领取状态、目标状态和奖励结果进入 Run v15；恢复后不重抽、不重复发奖。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态。
 
 ## `world_events.json`
 
@@ -1024,11 +1024,11 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 ## `module_worlds.json` / `module_templates.json` / `module_tile_catalog.json` / `modules/*.json`
 
-F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 为每模块单向生成唯一的 `scenes/generated/modules/<id>/rotation_0.tscn`，生成场景禁止手改。allowed rotations 只限制世界 assignment，运行时由 `ModuleChunk` 旋转规范场景根节点，不生成方向副本。
+F13 的正式默认地图是 7×7 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` schema v5 定义世界几何、左下起点、三个意识核候选、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 为每模块单向生成唯一的 `scenes/generated/modules/<id>/rotation_0.tscn`，生成场景禁止手改。allowed rotations 只限制世界 assignment，运行时由 `ModuleChunk` 旋转规范场景根节点，不生成方向副本。
 
 每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v4 中重复存储。相邻非封锁模块旋转后的边缘开放格交集必须非空，不再要求整条 socket 完全一致；世界外圈仍不得越界开放。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。模块 placement 不包含敌人出生点，旧 `module_place_enemy_spawn` 会被 DataLoader、Python 校验器、编辑器与 baker 明确拒绝。世界事件模块使用 `module_place_world_event`，payload 严格只有 `world_event_id`。
 
-正式 `template_pool` 当前只使用已批准模板；`fallback_assignment` 以平地为主。固定起点不触发首次进入遭遇；固定目标与普通非起点槽使用同一套空地刷怪规则。两张资源缓存模块因本次把 dust 改成即时金币而自动降为 candidate，须待人工复核后才能重新进入正式池。
+正式 `template_pool` 当前只使用已批准模板；`fallback_assignment` 以平地为主，并在 runtime 以同一确定性选择覆盖本局意识核角落。固定左下起点不触发首次进入遭遇；选中的目标与普通非起点槽使用同一套空地刷怪规则。`module_start_corner` 的西 / 南封闭、北 / 东居中出口和中心出生已由用户人工批准；两张资源缓存模块因 dust 改为即时金币而自动降为 candidate，仍须待人工复核后才能重新进入正式池。
 
 AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在中央主编辑区中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
 
@@ -1062,20 +1062,23 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `4` | 删除撤离锚点和目标后路线，只保留 start / objective |
-| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v9 的 `module_world` 子快照保存此值 |
-| `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
+| `schema_version` | int | 必须为 `5` | 7×7 世界与三个等概率 objective 候选；无撤离锚点 |
+| `worlds[].id` | string | 唯一、非空；当前 `module_world_7x7` | 世界 id；Run v15 的 `module_world` 子快照保存此值 |
+| `worlds[].columns` / `worlds[].rows` | int | 当前固定 `7` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
 | `worlds[].active_radius` | int | 首版固定 `1` | 当前模块向四周激活的半径；最多 3×3 chunk |
 | `worlds[].seal_outer_edges` | bool | 首版必须 `true` | 外圈有效通道不得朝地图外开放 |
-| `worlds[].start_slot.x` / `worlds[].start_slot.y` | int | `0..8`，固定 `(4,4)` | 起点模块槽位 |
-| `worlds[].objective_slot.x` / `worlds[].objective_slot.y` | int | `0..8` | 目标模块固定槽位 |
-| `worlds[].route_budget.start_to_objective.min_crossings` / `worlds[].route_budget.start_to_objective.max_crossings` | int | 当前固定 `4` | 起点到目标的模块跨越预算 |
-| `worlds[].route_budget.main_route_modules.min` / `worlds[].route_budget.main_route_modules.max` | int | 当前固定 `5` | 主路线模块数预算 |
+| `worlds[].start_slot.x` / `worlds[].start_slot.y` | int | `0..6`，固定 `(0,6)` | 左下起点模块槽位 |
+| `worlds[].objective_spawn.template_id` | string | approved objective 模板；当前 `module_objective_core` | 本局意识核模板 |
+| `worlds[].objective_spawn.rotation` | int | `0/90/180/270`；当前 `0` | 本局意识核模板旋转 |
+| `worlds[].objective_spawn.candidate_slots[].x` | int | 精确覆盖 `0`、`6`、`6`，与 y 组成三个不重复坐标 | 目标候选模块列 |
+| `worlds[].objective_spawn.candidate_slots[].y` | int | 精确覆盖 `0`、`0`、`6`，与 x 组成 `(0,0)` / `(6,0)` / `(6,6)` | 目标候选模块行；按 run seed 等概率抽一个，不支持权重 |
+| `worlds[].route_budget.start_to_objective.min_crossings` / `worlds[].route_budget.start_to_objective.max_crossings` | int | 当前 `6..12` | 覆盖三个候选角落的起点到目标跨越预算 |
+| `worlds[].route_budget.main_route_modules.min` / `worlds[].route_budget.main_route_modules.max` | int | 当前 `7..13` | 主路线模块数预算 |
 | `worlds[].route_budget.optional_exploration_modules.max` | int | 首版 `<= 14` | 可选探索模块预算上限 |
-| `worlds[].fixed_slots[].slot.x` / `worlds[].fixed_slots[].slot.y` | int | `0..8`、不得重复 | 固定关键槽位坐标 |
-| `worlds[].fixed_slots[].template_id` | string | 注册表中存在且 approved；必须各有 1 个 start / objective 角色 | 固定关键模板引用，防止 seeded 世界缺少起点或目标 |
+| `worlds[].fixed_slots[].slot.x` / `worlds[].fixed_slots[].slot.y` | int | `0..6`、不得重复；当前只含 `(0,6)` | 固定关键槽位坐标 |
+| `worlds[].fixed_slots[].template_id` | string | 注册表中存在且 approved；当前为 `module_start_corner` | 固定起点模板；objective 由 `objective_spawn` 注入 |
 | `worlds[].fixed_slots[].rotation` | int | `0/90/180/270` | 固定模板旋转，不允许镜像 |
 | `worlds[].template_pool` | array[string] | 非空，只能引用 `approved` | 普通槽位随机模板池 |
 | `worlds[].limited_template_groups[]` | array[object] | 非空；组 id 与模板引用均不得重复 | 在普通模板填充前执行的限量抽选 |
@@ -1083,10 +1086,10 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `worlds[].limited_template_groups[].entries[].template_id` | string | approved 且角色为 `module_role_world_event` | 当前五种纯平原事件模板等权候选 |
 | `worlds[].limited_template_groups[].entries[].weight` | number | `> 0` | 组内相对抽取权重 |
 | `worlds[].limited_template_groups[].entries[].count_per_floor` | int | `>= 1`，选中总数不得超过自由槽位 | 某候选被选中后放置次数；当前均为 1 |
-| `worlds[].fallback_assignment[].slot.x` / `worlds[].fallback_assignment[].slot.y` | int | 完整覆盖 `0..8` | 固定安全布局槽位 |
+| `worlds[].fallback_assignment[].slot.x` / `worlds[].fallback_assignment[].slot.y` | int | 完整覆盖 `0..6`（49 格） | 固定安全布局槽位；运行时覆盖本局 objective 候选角 |
 | `worlds[].fallback_assignment[].template_id` | string | 注册表中存在且 approved | 固定安全布局模板 |
 | `worlds[].fallback_assignment[].rotation` | int | `0/90/180/270` | 固定安全布局旋转 |
-| `worlds[].technical_slice_assignment[].slot.x` / `worlds[].technical_slice_assignment[].slot.y` | int | 完整覆盖 `0..8` | 中心 3×3 首片与封锁槽位坐标 |
+| `worlds[].technical_slice_assignment[].slot.x` / `worlds[].technical_slice_assignment[].slot.y` | int | 完整覆盖 `0..6`（49 格） | 中心 3×3 首片与外围 40 个封锁槽坐标 |
 | `worlds[].technical_slice_assignment[].template_id` | string | 注册表中存在 | 首片内部模板或 candidate 封锁模板 |
 | `worlds[].technical_slice_assignment[].rotation` | int | `0/90/180/270` | 首片模板旋转 |
 | `first_visit_enemy_spawn.count_min` / `count_max` | int | `1 <= count_min <= count_max`；当前 `4..6` | 首次实际进入非起点槽时确定的敌人数；可用空地不足时运行时裁剪并诊断 |
@@ -1095,7 +1098,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `first_visit_enemy_spawn.enemy_pool[].unlock_time` | number | 非负、按数组非递减，首项为 `0` | 敌种开始参与抽取的 `GameClock` 局内时间 |
 | `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
 
-“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v8 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
+“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v15 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
 
 当前模块敌池按 `unlock_time` 非递减排列：0 秒开放爆猎者 55 与突击枪手 100，60 秒开放群袭者 30，240 秒开放伏击者 15，420 秒开放壁垒者 20。完整权重总和为 220，突击枪手占约 45.5%，是最高权重但不设置每房必出或保底。
 

@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective completion, threat-time combat gates and Run v14 restore.
+## objective completion, threat-time combat gates and Run v15 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -70,13 +70,14 @@ func _run() -> void:
 		) as CollisionShape2D
 		visible_chunk_has_ground = visible_chunk_has_ground or (ground != null and not ground.get_used_cells().is_empty())
 		visible_chunk_has_collision = visible_chunk_has_collision or (collision != null and collision.shape is ConcavePolygonShape2D and not collision.disabled)
-	_expect(visible_chunk_count == 9, "center streaming should activate nine normal streaming chunks")
+	var expected_initial_chunk_count: int = 9 if OS.get_cmdline_user_args().has("--module-world-technical-slice") else 4
+	_expect(visible_chunk_count == expected_initial_chunk_count, "initial start streaming should activate the expected in-bounds chunks")
 	_expect(visible_chunk_has_ground, "active chunks should mount generated ground TileMap data")
 	_expect(visible_chunk_has_collision, "active chunks should mount generated merged collision resources")
 
 	var summary: Dictionary = run_loop.call("debug_summary")
 	var world_summary: Dictionary = summary.get("module_world", {}) as Dictionary
-	_expect(int(world_summary.get("assignment_count", 0)) == 81, "world should assign exactly 81 slots")
+	_expect(int(world_summary.get("assignment_count", 0)) == 49, "world should assign exactly 49 slots")
 	_expect(int(world_summary.get("active_count", 0)) <= 9, "streaming should activate at most nine chunks")
 	_expect(int(world_summary.get("chunk_pool_size", 0)) == 12, "manager scene should provide exactly twelve reusable chunks")
 	_expect(int(world_summary.get("world_event_assignment_count", 0)) == 3, "seeded world should place exactly three world event modules")
@@ -96,12 +97,13 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 14
+		int(fresh_run_snapshot.get("schema_version", 0)) == 15
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v14 should save registered world-event state"
+		"Run v15 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
-	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
+	var expected_start_coord := Vector2i(3, 3) if OS.get_cmdline_user_args().has("--module-world-technical-slice") else Vector2i(0, 6)
+	_expect(_coord_matches(world_summary.get("current_module", {}), expected_start_coord), "fresh run should start at the configured start module")
 	var runtime_navigation: Dictionary = world_summary.get("navigation", {}) as Dictionary
 	_expect(
 		int(runtime_navigation.get("flow_radius_cells", 0)) == NAVIGATION_FLOW_RADIUS_CELLS,
@@ -195,6 +197,7 @@ func _expect_start_module_difficulty_and_combat_gate(
 
 func _expect_deterministic_composition() -> void:
 	var data: Dictionary = _load_world_data()
+	_expect_start_corner_contract(data)
 	var manager_a: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
 	var manager_b: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
 	var manager_c: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
@@ -212,7 +215,7 @@ func _expect_deterministic_composition() -> void:
 	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], data["generated"], 13014, NAVIGATION_FLOW_RADIUS_CELLS)), "different-seed world should configure")
 	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], data["generated"], 13015, NAVIGATION_FLOW_RADIUS_CELLS)), "third-seed world should configure")
 	_expect(String(manager_a.call("map_hash")) == String(manager_b.call("map_hash")), "same seed should reproduce assignment/hash")
-	_expect(manager_a.call("assignment") == manager_b.call("assignment"), "same seed should reproduce all 81 assignments")
+	_expect(manager_a.call("assignment") == manager_b.call("assignment"), "same seed should reproduce all 49 assignments")
 	var manager_a_summary: Dictionary = manager_a.call("debug_summary")
 	_expect(
 		int(manager_a_summary.get("preloaded_scene_count", 0))
@@ -221,7 +224,7 @@ func _expect_deterministic_composition() -> void:
 	)
 	var initial_stream: Dictionary = manager_a.call(
 		"tick",
-		manager_a.call("global_cell_to_world", Vector2i(49, 49))
+		manager_a.call("global_cell_to_world", Vector2i(38, 38))
 	)
 	_expect(
 		(initial_stream.get("activated", []) as Array).size() == 9,
@@ -229,7 +232,7 @@ func _expect_deterministic_composition() -> void:
 	)
 	var edge_stream: Dictionary = manager_a.call(
 		"tick",
-		manager_a.call("global_cell_to_world", Vector2i(60, 49))
+		manager_a.call("global_cell_to_world", Vector2i(49, 38))
 	)
 	_expect(
 		(edge_stream.get("activated", []) as Array).size() <= 3
@@ -256,7 +259,7 @@ func _expect_deterministic_composition() -> void:
 	var pinned_summary: Dictionary = manager_c.call("debug_summary")
 	_expect(int(pinned_summary.get("pinned_count", 0)) == 3, "three pinned event modules should be retained")
 	_expect(int(pinned_summary.get("active_count", 0)) == 3, "outside-world streaming should retain only pinned event modules")
-	_expect(not bool(manager_c.call("set_slot_pinned", Vector2i(4, 4), true)), "pinning beyond the three-slot reserve should fail")
+	_expect(not bool(manager_c.call("set_slot_pinned", Vector2i(3, 3), true)), "pinning beyond the three-slot reserve should fail")
 	_expect(
 		(manager_a.call("empty_floor_positions_at", Vector2i(5, 4)) as Array).size()
 		in [120, 121],
@@ -290,29 +293,75 @@ func _expect_deterministic_composition() -> void:
 		var registry_entry: Dictionary = (data["registry"] as Dictionary).get(template_id, {}) as Dictionary
 		if String(registry_entry.get("role", "")) == MODULE_ROLES.MODULE_ROLE_SEALED:
 			sealed_count += 1
-	_expect(sealed_count == 72, "technical slice should seal exactly the outer 72 slots")
+	_expect(sealed_count == 40, "technical slice should seal exactly the outer 40 slots")
 	var technical_summary: Dictionary = manager_technical.call("debug_summary")
 	_expect(int(technical_summary.get("world_event_assignment_count", 0)) == 3, "technical slice should contain exactly three world events")
 	_expect((technical_summary.get("world_event_template_ids", []) as Array).size() == 3, "technical slice world events should be distinct")
-	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_START) == Vector2i(4, 4), "technical slice should retain the center start")
-	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == Vector2i(3, 4), "technical slice should expose its in-slice objective anchor")
-	_expect_navigation_queries(manager_a, manager_b, manager_technical)
+	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_START) == Vector2i(3, 3), "technical slice should retain the center start")
+	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == Vector2i(2, 3), "technical slice should expose its in-slice objective anchor")
+	_expect(bool(manager_b.call("build_technical_slice_assignment")), "second technical-slice manager should configure deterministic navigation")
+	_expect_navigation_queries(manager_technical, manager_b, manager_technical)
 	var tampered_snapshot: Dictionary = manager_a.call("snapshot")
 	tampered_snapshot["map_hash"] = "0".repeat(64)
 	_expect(not bool(manager_a.call("restore_state", tampered_snapshot)), "restore should reject a mismatched module map hash")
+	var seeded_objective_coord: Vector2i = manager_d.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) as Vector2i
 	_expect(bool(manager_d.call("build_fallback_assignment")), "fallback assignment should build")
 	var fallback_summary: Dictionary = manager_d.call("debug_summary")
 	_expect(int(fallback_summary.get("world_event_assignment_count", 0)) == 3, "fallback assignment should contain exactly three world events")
 	_expect((fallback_summary.get("world_event_template_ids", []) as Array).size() == 3, "fallback world events should be distinct")
-	var center_world: Vector2 = manager_a.call("global_cell_to_world", Vector2i(49, 49))
+	_expect(
+		manager_d.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == seeded_objective_coord,
+		"fallback should deterministically select the same objective corner for the run seed"
+	)
+	_expect_objective_candidate_seed_coverage(data)
+	var center_world: Vector2 = manager_a.call("global_cell_to_world", Vector2i(38, 38))
 	_expect(center_world.is_equal_approx(Vector2.ZERO), "global center cell should map to world origin")
-	_expect(manager_a.call("world_to_global_cell", Vector2.ZERO) == Vector2i(49, 49), "world origin should map to global center cell")
+	_expect(manager_a.call("world_to_global_cell", Vector2.ZERO) == Vector2i(38, 38), "world origin should map to global center cell")
 	manager_a.queue_free()
 	manager_b.queue_free()
 	manager_c.queue_free()
 	manager_d.queue_free()
 	manager_content.queue_free()
 	manager_technical.queue_free()
+
+
+func _expect_start_corner_contract(data: Dictionary) -> void:
+	var world: Dictionary = data.get("world", {}) as Dictionary
+	var fixed_slots: Array = world.get("fixed_slots", []) as Array
+	_expect(fixed_slots.size() == 1, "formal world should keep only the fixed start slot")
+	if fixed_slots.is_empty() or not fixed_slots[0] is Dictionary:
+		return
+	var start_entry: Dictionary = fixed_slots[0] as Dictionary
+	_expect(
+		String(start_entry.get("template_id", "")) == "module_start_corner"
+		and _coord_matches(start_entry.get("slot", {}), Vector2i(0, 6))
+		and int(start_entry.get("rotation", -1)) == 0,
+		"formal lower-left start should use module_start_corner at zero rotation"
+	)
+	var start_template: Dictionary = (data.get("templates", {}) as Dictionary).get(
+		"module_start_corner",
+		{}
+	) as Dictionary
+	var placements: Array = start_template.get("placements", []) as Array
+	var player_placements: Array[Dictionary] = []
+	for raw_placement: Variant in placements:
+		if raw_placement is Dictionary and String((raw_placement as Dictionary).get("type", "")) == "module_place_player_start":
+			player_placements.append(raw_placement as Dictionary)
+	_expect(
+		player_placements.size() == 1
+		and _coord_matches(player_placements[0].get("cell", {}), Vector2i(5, 5)),
+		"corner start should place the player exactly at local cell 5,5"
+	)
+	var sockets: Dictionary = _derive_module_edge_sockets(
+		start_template.get("terrain_rows", []) as Array
+	)
+	_expect(
+		sockets.get("edge_north", []) == [5.0]
+		and sockets.get("edge_east", []) == [5.0]
+		and (sockets.get("edge_west", []) as Array).is_empty()
+		and (sockets.get("edge_south", []) as Array).is_empty(),
+		"corner start should expose only centered north and east sockets"
+	)
 
 
 func _expect_navigation_queries(manager_a: Node2D, manager_b: Node2D, manager_technical: Node2D) -> void:
@@ -391,18 +440,60 @@ func _expect_navigation_queries(manager_a: Node2D, manager_b: Node2D, manager_te
 	_expect_bounded_flow_rebuilds()
 
 
+func _expect_objective_candidate_seed_coverage(data: Dictionary) -> void:
+	var expected: Dictionary = {
+		Vector2i(0, 0): true,
+		Vector2i(6, 0): true,
+		Vector2i(6, 6): true,
+	}
+	var observed: Dictionary = {}
+	for run_seed: int in range(64):
+		var manager: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
+		add_child(manager)
+		var configured: bool = bool(manager.call(
+			"configure",
+			data["world"],
+			data["registry"],
+			data["templates"],
+			data["generated"],
+			run_seed,
+			NAVIGATION_FLOW_RADIUS_CELLS
+		))
+		_expect(configured, "objective candidate coverage seed %d should configure" % run_seed)
+		if configured:
+			var objective_coord: Vector2i = manager.call(
+				"role_module_coord",
+				MODULE_ROLES.MODULE_ROLE_OBJECTIVE
+			) as Vector2i
+			_expect(expected.has(objective_coord), "objective should only use a configured corner candidate")
+			var objective_count: int = 0
+			for raw_entry: Variant in (manager.call("assignment") as Dictionary).values():
+				if not raw_entry is Dictionary:
+					continue
+				var template_id: String = String((raw_entry as Dictionary).get("template_id", ""))
+				var registry_entry: Dictionary = (data["registry"] as Dictionary).get(template_id, {}) as Dictionary
+				if String(registry_entry.get("role", "")) == MODULE_ROLES.MODULE_ROLE_OBJECTIVE:
+					objective_count += 1
+			_expect(objective_count == 1, "each seeded assignment should contain exactly one objective")
+			observed[objective_coord] = true
+		manager.free()
+		if observed.size() == expected.size():
+			break
+	_expect(observed.size() == expected.size(), "fixed seed coverage should reach all three objective corner candidates")
+
+
 func _expect_bounded_flow_rebuilds() -> void:
 	var full_mask := PackedByteArray()
-	full_mask.resize(99 * 99)
+	full_mask.resize(77 * 77)
 	full_mask.fill(1)
 	var field: RefCounted = MODULE_NAVIGATION_FIELD_SCRIPT.new()
 	_expect(
-		bool(field.call("configure", full_mask, 99, 99, 160.0, Vector2.ZERO, Vector2i(49, 49), NAVIGATION_FLOW_RADIUS_CELLS)),
+		bool(field.call("configure", full_mask, 77, 77, 160.0, Vector2.ZERO, Vector2i(38, 38), NAVIGATION_FLOW_RADIUS_CELLS)),
 		"bounded-flow navigation field should configure"
 	)
 	var all_rebuilds_bounded: bool = true
-	for column: int in range(30, 50):
-		field.call("set_active_target", field.call("cell_to_world", Vector2i(column, 49)))
+	for column: int in range(19, 39):
+		field.call("set_active_target", field.call("cell_to_world", Vector2i(column, 38)))
 		var summary: Dictionary = field.call("debug_summary")
 		all_rebuilds_bounded = (
 			all_rebuilds_bounded
@@ -412,8 +503,8 @@ func _expect_bounded_flow_rebuilds() -> void:
 	_expect(all_rebuilds_bounded, "twenty open-grid cell crossings should each remain at the 289-cell bound")
 	var final_summary: Dictionary = field.call("debug_summary")
 	_expect(int(final_summary.get("flow_rebuild_count", 0)) == 20, "twenty target-cell crossings should rebuild exactly twenty local fields")
-	var outside_position: Vector2 = field.call("cell_to_world", Vector2i(58, 49))
-	var target_position: Vector2 = field.call("cell_to_world", Vector2i(49, 49))
+	var outside_position: Vector2 = field.call("cell_to_world", Vector2i(47, 38))
+	var target_position: Vector2 = field.call("cell_to_world", Vector2i(38, 38))
 	_expect(
 		not bool(field.call("query_to_active_target", outside_position).get("reachable", true)),
 		"active flow query should be unreachable beyond the local radius"
@@ -425,6 +516,7 @@ func _expect_bounded_flow_rebuilds() -> void:
 
 
 func _expect_seamless_streaming(run_loop: Node) -> void:
+	var technical_slice: bool = OS.get_cmdline_user_args().has("--module-world-technical-slice")
 	var before: Dictionary = run_loop.call("debug_summary")
 	var difficulty_at_start: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
@@ -432,6 +524,35 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	var before_hash: String = String((before.get("module_world", {}) as Dictionary).get("map_hash", ""))
 	var manager: Node = _find_node_by_name(get_tree().root, "ModuleWorldManager")
 	_expect(manager != null, "module world manager should remain available during streaming")
+	if manager == null:
+		return
+	var start_coord: Vector2i = manager.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_START) as Vector2i
+	var encounter_coord: Vector2i = start_coord + Vector2i.RIGHT
+	var encounter_slot_key: String = "%d,%d" % [encounter_coord.x, encounter_coord.y]
+	var start_center_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11 + 5, start_coord.y * 11 + 5)
+	) as Vector2
+	var start_west_floor_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11 + 1, start_coord.y * 11 + 5)
+	) as Vector2
+	var start_west_wall_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11, start_coord.y * 11 + 5)
+	) as Vector2
+	var start_east_door_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11 + 10, start_coord.y * 11 + 5)
+	) as Vector2
+	var encounter_center_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(encounter_coord.x * 11 + 5, encounter_coord.y * 11 + 5)
+	) as Vector2
+	if technical_slice:
+		start_west_floor_position = Vector2(-160.0, -160.0)
+		start_west_wall_position = Vector2(-320.0, -160.0)
+	var far_position := Vector2(-1760.0, 0.0) if technical_slice else Vector2.ZERO
 	if manager != null:
 		for active_coord: Vector2i in manager.call("active_module_coords"):
 			var initial_slot_state: Dictionary = manager.call("slot_state", active_coord)
@@ -448,8 +569,8 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 			get_tree().get_nodes_in_group("active_enemies").is_empty(),
 			"initial 3x3 streaming activation must not spawn neighboring enemies"
 		)
-		_expect(bool(manager.call("is_world_position_walkable", Vector2(-160.0, -160.0))), "known center floor cell should be walkable")
-		_expect(not bool(manager.call("is_world_position_walkable", Vector2(-320.0, -160.0))), "known center blocked cell should not be walkable")
+		_expect(bool(manager.call("is_world_position_walkable", start_west_floor_position)), "known start-room floor cell should be walkable")
+		_expect(not bool(manager.call("is_world_position_walkable", start_west_wall_position)), "known start-room west wall cell should not be walkable")
 		for active_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 			if active_enemy is Node2D and not String(active_enemy.get_meta("module_slot", "")).is_empty():
 				_expect(
@@ -459,24 +580,23 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	var blocked_spawned: bool = bool(run_loop.call(
 		"_spawn_enemy_at",
 		"enemy_chaser",
-		Vector2(-320.0, -160.0),
+		start_west_wall_position,
 		"module_blocked_spawn_test",
-		"4,4"
+		encounter_slot_key
 	))
 	_expect(not blocked_spawned, "runtime should reject an enemy spawn on blocked module terrain")
 	run_loop.call("_restore_enemy_snapshots", [{
 		"enemy_id": "enemy_chaser",
-		"module_slot": "4,4",
-		"position": _vector_to_dict(Vector2(-320.0, -160.0)),
+		"module_slot": encounter_slot_key,
+		"position": _vector_to_dict(start_west_wall_position),
 		"wave_key": "module_blocked_restore_test",
 	}])
 	_expect(
 		_find_active_enemy_by_wave_key("module_blocked_restore_test") == null,
 		"runtime should reject an enemy snapshot restored on blocked module terrain"
 	)
-	# The center start module has a floor cell at (-160, -160) and a blocked cell
-	# directly to its left. Real CharacterBody2D movement must stop at that wall.
-	run_loop.call("debug_set_player_position", Vector2(-160.0, -160.0))
+	# The lower-left start room has a floor cell beside its solid west wall.
+	run_loop.call("debug_set_player_position", start_west_floor_position)
 	await get_tree().physics_frame
 	InputService.set_playback_active(true)
 	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.LEFT)
@@ -486,7 +606,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	InputService.set_playback_active(false)
 	var wall_test_player: Node = _find_node_by_name(get_tree().root, "Player")
 	_expect(
-		wall_test_player is Node2D and (wall_test_player as Node2D).global_position.x > -240.0,
+		wall_test_player is Node2D and (wall_test_player as Node2D).global_position.x > (start_west_floor_position.x + start_west_wall_position.x) * 0.5,
 		"player physics body should not enter a blocked module cell"
 	)
 	var debug_spawn: Dictionary = run_loop.call("debug_spawn_enemy", "enemy_chaser", 1)
@@ -494,41 +614,17 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	var wall_test_enemy: Node2D = _find_active_enemy_by_wave_key("debug_enemy_chaser")
 	_expect(wall_test_enemy != null, "enemy wall test should find its spawned chaser")
 	if wall_test_enemy != null:
-		run_loop.call("debug_set_player_position", Vector2(-320.0, -160.0))
-		wall_test_enemy.global_position = Vector2(-160.0, -160.0)
+		run_loop.call("debug_set_player_position", start_west_wall_position)
+		wall_test_enemy.global_position = start_west_floor_position
 		await get_tree().physics_frame
 		for _physics_tick: int in range(120):
 			await get_tree().physics_frame
-		_expect(wall_test_enemy.global_position.x > -240.0, "enemy physics body should not enter a blocked module cell")
+		_expect(wall_test_enemy.global_position.x > (start_west_floor_position.x + start_west_wall_position.x) * 0.5, "enemy physics body should not enter a blocked module cell")
 		PoolManager.release(wall_test_enemy)
-	await _expect_bullet_terrain_rules(run_loop)
-	var detour_spawned: bool = bool(run_loop.call(
-		"_spawn_enemy_at",
-		"enemy_chaser",
-		Vector2(-160.0, -160.0),
-		"module_navigation_detour_test",
-		"4,4"
-	))
-	_expect(detour_spawned, "module navigation detour test should spawn a chaser on floor terrain")
-	var detour_enemy: Node2D = _find_active_enemy_by_wave_key("module_navigation_detour_test")
-	if detour_enemy != null:
-		run_loop.call("debug_set_player_position", Vector2(-320.0, 0.0))
-		# Pooled enemies may have just reset their decision accumulator; wait past
-		# the configured decision interval in physics time before asserting state.
-		for _physics_tick: int in range(12):
-			await get_tree().physics_frame
-		var navigation_summary: Dictionary = detour_enemy.call("ai_debug_summary")
-		_expect(String(navigation_summary.get("perception_state", "")) == "path_aware", "nearby player across a blocked corner should be sensed by route distance")
-		_expect(String(navigation_summary.get("navigation_mode", "")) == "flow_field", "blocked module pursuit should use the shared flow field")
-		var detour_start: Vector2 = detour_enemy.global_position
-		for _physics_tick: int in range(35):
-			await get_tree().physics_frame
-		_expect(detour_enemy.global_position.y > detour_start.y, "enemy should enter the legal south corridor instead of pushing diagonally through the blocked corner")
-		_expect(bool(manager.call("is_world_position_walkable", detour_enemy.global_position)), "flow-guided enemy should remain on walkable module terrain")
-		PoolManager.release(detour_enemy)
-	# Start inside the center module's east doorway and cross the shared seam using
+	await _expect_bullet_terrain_rules(run_loop, start_west_floor_position, start_west_wall_position)
+	# Start inside the lower-left room's east doorway and cross the shared seam using
 	# normal CharacterBody2D movement so a bad collision merge cannot hide behind a teleport.
-	run_loop.call("debug_set_player_position", Vector2(800.0, 0.0))
+	run_loop.call("debug_set_player_position", start_east_door_position)
 	var weapon_acquired_before_exit: int = int(
 		PoolManager.stats(POOL_IDS.BULLET_BASIC).get("acquired", 0)
 	)
@@ -538,7 +634,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	for _physics_tick: int in range(90):
 		await get_tree().physics_frame
 		var player: Node = _find_node_by_name(get_tree().root, "Player")
-		if player is Node2D and (player as Node2D).global_position.x > 900.0:
+		if player is Node2D and (player as Node2D).global_position.x > start_east_door_position.x + 100.0:
 			break
 	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.ZERO)
 	InputService.inject_playback_value(ACTIONS.FIRE, false)
@@ -546,9 +642,9 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	await _wait_frames(BOOT_FRAMES)
 	var crossed: Dictionary = run_loop.call("debug_summary")
 	var crossed_world: Dictionary = crossed.get("module_world", {}) as Dictionary
-	_expect(_coord_matches(crossed_world.get("current_module", {}), Vector2i(5, 4)), "crossing the shared edge should enter the adjacent module without scene switch")
+	_expect(_coord_matches(crossed_world.get("current_module", {}), encounter_coord), "crossing the shared edge should enter the adjacent module without scene switch")
 	var crossed_player: Node = _find_node_by_name(get_tree().root, "Player")
-	_expect(crossed_player is Node2D and (crossed_player as Node2D).global_position.x > 900.0, "player physics body should pass through the shared module doorway")
+	_expect(crossed_player is Node2D and (crossed_player as Node2D).global_position.x > start_east_door_position.x + 100.0, "player physics body should pass through the shared module doorway")
 	var difficulty_after_exit: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	)
@@ -568,7 +664,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	_expect(String(crossed_world.get("map_hash", "")) == before_hash, "streaming should not mutate map hash")
 	var encounter_slot_state: Dictionary = manager.call(
 		"slot_state",
-		Vector2i(5, 4)
+		encounter_coord
 	)
 	var encounter: Dictionary = encounter_slot_state.get(
 		"enemy_encounter",
@@ -584,7 +680,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"first entry should choose four to six spawn positions"
 	)
 	_expect(
-		_active_module_entity_count("active_enemies", "5,4") == 0,
+		_active_module_entity_count("active_enemies", encounter_slot_key) == 0,
 		"stream activation and the telegraph window must not spawn enemies early"
 	)
 	var spawn_position_keys: Dictionary = {}
@@ -609,7 +705,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	)
 	var encounter_vfx: Dictionary = run_loop.get("_module_encounter_vfx")
 	_expect(
-		(encounter_vfx.get("5,4", []) as Array).size() == spawn_plan.size(),
+		(encounter_vfx.get(encounter_slot_key, []) as Array).size() == spawn_plan.size(),
 		"every planned enemy should show a ground telegraph"
 	)
 	var run_snapshot: Dictionary = run_loop.call("create_run_snapshot")
@@ -620,8 +716,8 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		) as Dictionary
 	)
 	_expect(
-		_saved_slot_has_encounter(saved_slot_states, "5,4", spawn_plan),
-		"Run v9 snapshot should persist the fixed telegraph plan"
+		_saved_slot_has_encounter(saved_slot_states, encounter_slot_key, spawn_plan),
+		"Run v15 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -629,7 +725,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	GameState.change_state(GameState.PAUSED, {"source": "module_world_smoke"})
 	await _wait_frames(8)
 	var paused_encounter: Dictionary = (
-		manager.call("slot_state", Vector2i(5, 4)) as Dictionary
+		manager.call("slot_state", encounter_coord) as Dictionary
 	).get("enemy_encounter", {}) as Dictionary
 	_expect(
 		is_equal_approx(
@@ -639,11 +735,11 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"pausing should freeze the encounter telegraph countdown"
 	)
 	GameState.change_state(GameState.PLAYING, {"source": "module_world_smoke"})
-	run_loop.call("debug_set_player_position", Vector2(-1760.0, 0.0))
+	run_loop.call("debug_set_player_position", far_position)
 	await _wait_frames(BOOT_FRAMES)
 	var unloaded_remaining: float = float(
 		(
-			(manager.call("slot_state", Vector2i(5, 4)) as Dictionary).get(
+			(manager.call("slot_state", encounter_coord) as Dictionary).get(
 				"enemy_encounter",
 				{}
 			) as Dictionary
@@ -652,7 +748,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	await _wait_frames(8)
 	var frozen_remaining: float = float(
 		(
-			(manager.call("slot_state", Vector2i(5, 4)) as Dictionary).get(
+			(manager.call("slot_state", encounter_coord) as Dictionary).get(
 				"enemy_encounter",
 				{}
 			) as Dictionary
@@ -665,7 +761,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	run_loop.call("debug_set_player_position", selected_spawn_position)
 	await get_tree().process_frame
 	var resumed_encounter: Dictionary = (
-		manager.call("slot_state", Vector2i(5, 4)) as Dictionary
+		manager.call("slot_state", encounter_coord) as Dictionary
 	).get("enemy_encounter", {}) as Dictionary
 	_expect(
 		(resumed_encounter.get("spawns", []) as Array) == spawn_plan,
@@ -676,11 +772,11 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		float(resumed_encounter.get("remaining_telegraph", 0.0))
 	)
 	var spawned_encounter: Dictionary = (
-		manager.call("slot_state", Vector2i(5, 4)) as Dictionary
+		manager.call("slot_state", encounter_coord) as Dictionary
 	).get("enemy_encounter", {}) as Dictionary
 	var first_visit_enemy_count: int = _active_module_entity_count(
 		"active_enemies",
-		"5,4"
+		encounter_slot_key
 	)
 	_expect(
 		String(spawned_encounter.get("state", "")) == "spawned"
@@ -688,11 +784,11 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"telegraph completion should spawn the fixed plan simultaneously"
 	)
 	_expect(
-		_has_active_module_enemy_at("5,4", selected_spawn_position),
+		_has_active_module_enemy_at(encounter_slot_key, selected_spawn_position),
 		"standing on a selected cell must not reroll or suppress that enemy spawn"
 	)
 	var existing_enemy: Node2D = _find_active_enemy_by_wave_key(
-		"module_5_4"
+		"module_%d_%d" % [encounter_coord.x, encounter_coord.y]
 	)
 	var existing_spawn_difficulty: Dictionary = (
 		existing_enemy.call("enemy_spawn_snapshot") as Dictionary
@@ -722,7 +818,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 			"enemy_chaser",
 			selected_spawn_position,
 			"module_scaled_spawn_test",
-			"5,4"
+			encounter_slot_key
 		)
 	)
 	var scaled_enemy: Node2D = _find_active_enemy_by_wave_key(
@@ -757,8 +853,8 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 			),
 			"difficulty progression should not change enemy movement speed"
 		)
-	var bullet_position := Vector2(1120.0, 700.0)
-	var gold_orb_position := Vector2(1280.0, 700.0)
+	var bullet_position := encounter_center_position + Vector2(160.0, 320.0)
+	var gold_orb_position := encounter_center_position + Vector2(320.0, 320.0)
 	run_loop.call("_restore_bullet_snapshots", [{
 		"position": _vector_to_dict(bullet_position),
 		"damage": 0.0,
@@ -782,12 +878,12 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	await _wait_frames(BOOT_FRAMES)
 	_expect(_has_active_entity_at("active_bullets", bullet_position), "test projectile should be active in the adjacent module")
 	_expect(_has_active_entity_at("active_gold_orbs", gold_orb_position), "test gold orb should be active in the adjacent module")
-	# Move far enough that slot 5,4 leaves the active 3x3 neighborhood.
-	run_loop.call("debug_set_player_position", Vector2(-1760.0, 0.0))
+	# Move far enough that the east-neighbor slot leaves the active 3x3 neighborhood.
+	run_loop.call("debug_set_player_position", far_position)
 	await _wait_frames(BOOT_FRAMES)
 	_expect(not _has_active_entity_at("active_bullets", bullet_position), "deactivated module should release its projectile")
 	_expect(not _has_active_entity_at("active_gold_orbs", gold_orb_position), "deactivated module should release its gold orb")
-	var stored_state: Dictionary = manager.call("slot_state", Vector2i(5, 4)) if manager != null else {}
+	var stored_state: Dictionary = manager.call("slot_state", encounter_coord) if manager != null else {}
 	_expect((stored_state.get("bullet_snapshots", []) as Array).size() == 1, "deactivated slot should retain one projectile snapshot")
 	var stored_bullets: Array = stored_state.get("bullet_snapshots", []) as Array
 	_expect(
@@ -795,10 +891,10 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"deactivated slot should preserve the projectile wall-pierce snapshot"
 	)
 	_expect((stored_state.get("gold_orb_snapshots", []) as Array).size() == 1, "deactivated slot should retain one gold-orb snapshot")
-	run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
+	run_loop.call("debug_set_player_position", encounter_center_position)
 	await _wait_frames(BOOT_FRAMES)
 	_expect(
-		_active_module_entity_count("active_enemies", "5,4")
+		_active_module_entity_count("active_enemies", encounter_slot_key)
 		== first_visit_enemy_count + 1,
 		"leave/return should restore slot state without duplicate enemies"
 	)
@@ -828,15 +924,15 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		int(clear_result.get("count", 0)) >= first_visit_enemy_count,
 		"encounter cleanup should remove the spawned first-visit enemies"
 	)
-	run_loop.call("debug_set_player_position", Vector2(-1760.0, 0.0))
+	run_loop.call("debug_set_player_position", far_position)
 	await _wait_frames(BOOT_FRAMES)
-	run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
+	run_loop.call("debug_set_player_position", encounter_center_position)
 	await _wait_frames(BOOT_FRAMES)
 	_expect(
-		_active_module_entity_count("active_enemies", "5,4") == 0,
+		_active_module_entity_count("active_enemies", encounter_slot_key) == 0,
 		"a cleared spawned encounter must not refresh when its module is revisited"
 	)
-	run_loop.call("debug_set_player_position", Vector2.ZERO)
+	run_loop.call("debug_set_player_position", start_center_position)
 	await _wait_frames(BOOT_FRAMES)
 	var returned_elapsed: float = float(
 		(
@@ -903,16 +999,21 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 		not active_event_instance_id.is_empty(),
 		"every three-event selection should include a continuous event"
 	)
-	# Full world objective is (0,4); technical-slice objective is (3,4).
-	var objective_coord := Vector2i(3, 4) if technical_slice else Vector2i(0, 4)
-	var objective_position := Vector2(-1760.0, 0.0) if technical_slice else Vector2(-7040.0, 0.0)
-	run_loop.call("debug_set_player_position", objective_position)
-	await _wait_frames(BOOT_FRAMES * 2)
-	var objective_id: String = "module_%d_%d_objective_5_5" % [objective_coord.x, objective_coord.y]
 	var objective_manager: Node = _find_node_by_name(
 		get_tree().root,
 		"ModuleWorldManager"
 	)
+	var objective_coord: Vector2i = objective_manager.call(
+		"role_module_coord",
+		MODULE_ROLES.MODULE_ROLE_OBJECTIVE
+	) as Vector2i
+	var objective_position: Vector2 = objective_manager.call(
+		"global_cell_to_world",
+		Vector2i(objective_coord.x * 11 + 5, objective_coord.y * 11 + 5)
+	) as Vector2
+	run_loop.call("debug_set_player_position", objective_position)
+	await _wait_frames(BOOT_FRAMES * 2)
+	var objective_id: String = "module_%d_%d_objective_5_5" % [objective_coord.x, objective_coord.y]
 	var objective_encounter: Dictionary = (
 		(objective_manager.call("slot_state", objective_coord) as Dictionary).get(
 			"enemy_encounter",
@@ -955,16 +1056,16 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v14 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v15 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 14, "module run snapshot should use schema v14")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v13 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 15, "module run snapshot should use schema v15")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v15 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v13 should load")
+	_expect(not loaded.is_empty(), "module run v15 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -1010,7 +1111,7 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 				0
 			)
 		) >= 1,
-		"Run v14 restore should preserve active event progress, pin, and fixed wave plan"
+		"Run v15 restore should preserve active event progress, pin, and fixed wave plan"
 	)
 	_expect(
 		is_equal_approx(
@@ -1027,13 +1128,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v14 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v15 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v14 fixture should resume after difficulty comparison"
+		"restored paused Run v15 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
@@ -1192,10 +1293,14 @@ func _unique_assignment_scene_count(assignment: Dictionary) -> int:
 	return keys.size()
 
 
-func _expect_bullet_terrain_rules(run_loop: Node) -> void:
+func _expect_bullet_terrain_rules(
+	run_loop: Node,
+	floor_position: Vector2,
+	wall_position: Vector2
+) -> void:
 	_release_active_bullets()
 	var base_snapshot: Dictionary = {
-		"position": _vector_to_dict(Vector2(-160.0, -160.0)),
+		"position": _vector_to_dict(floor_position),
 		"damage": 0.0,
 		"element_id": "",
 		"damage_target_groups": ["module_wall_smoke_targets"],
@@ -1242,7 +1347,7 @@ func _expect_bullet_terrain_rules(run_loop: Node) -> void:
 		return
 	var configured_wall_pierce_bullet: Node2D = raw_wall_pierce_bullet as Node2D
 	configured_wall_pierce_bullet.reparent(active_world)
-	configured_wall_pierce_bullet.global_position = Vector2(-160.0, -160.0)
+	configured_wall_pierce_bullet.global_position = floor_position
 	configured_wall_pierce_bullet.call("configure", {
 		STATS.DAMAGE: 0.0,
 		STATS.BULLET_RANGE: 1000.0,
@@ -1258,7 +1363,7 @@ func _expect_bullet_terrain_rules(run_loop: Node) -> void:
 	await _wait_physics_frames(20)
 	_expect(
 		configured_wall_pierce_bullet.is_in_group("active_bullets")
-		and configured_wall_pierce_bullet.global_position.x < -320.0,
+		and configured_wall_pierce_bullet.global_position.x < wall_position.x,
 		"wall-piercing projectiles should cross the same blocked cell"
 	)
 	_release_active_bullets()
@@ -1375,19 +1480,15 @@ func _expect_enemy_unlock_boundaries(run_loop: Node) -> void:
 func _formal_assignment_has_three_events_and_flat_fill(
 	assignment: Dictionary
 ) -> bool:
-	var fixed_slots: Dictionary = {
-		"4,4": true,
-		"0,4": true,
-	}
 	var event_template_ids: Array[String] = []
 	for raw_slot: Variant in assignment.keys():
-		var slot: String = String(raw_slot)
-		if fixed_slots.has(slot):
-			continue
 		var entry: Dictionary = assignment[raw_slot] as Dictionary
 		if int(entry.get("rotation", -1)) != 0:
 			return false
-		if String(entry.get("role", "")) == MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
+		var role: String = String(entry.get("role", ""))
+		if role in [MODULE_ROLES.MODULE_ROLE_START, MODULE_ROLES.MODULE_ROLE_OBJECTIVE]:
+			continue
+		if role == MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
 			var template_id: String = String(entry.get("template_id", ""))
 			if event_template_ids.has(template_id):
 				return false

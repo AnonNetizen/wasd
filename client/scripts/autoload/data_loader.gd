@@ -5454,7 +5454,7 @@ func _validate_module_world_data(
 	if not data is Dictionary:
 		return _schema_fail(MODULE_WORLDS_PATH, "root", "Dictionary") and is_valid
 	var payload: Dictionary = data as Dictionary
-	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 4) and is_valid
+	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 5) and is_valid
 	var worlds: Array = _require_array(MODULE_WORLDS_PATH, "worlds", payload.get("worlds"))
 	if worlds.is_empty():
 		is_valid = _schema_fail(MODULE_WORLDS_PATH, "worlds", "non-empty Array") and is_valid
@@ -5474,7 +5474,7 @@ func _validate_module_world_data(
 				is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.id" % field, "unique module world id") and is_valid
 			seen_worlds[world_id] = true
 		for dimension: String in ["columns", "rows"]:
-			is_valid = _require_exact_int(MODULE_WORLDS_PATH, "%s.%s" % [field, dimension], world.get(dimension), 9) and is_valid
+			is_valid = _require_exact_int(MODULE_WORLDS_PATH, "%s.%s" % [field, dimension], world.get(dimension), 7) and is_valid
 		for module_dimension: String in ["module_columns", "module_rows"]:
 			is_valid = _require_exact_int(MODULE_WORLDS_PATH, "%s.%s" % [field, module_dimension], world.get(module_dimension), 11) and is_valid
 		is_valid = _require_number(MODULE_WORLDS_PATH, "%s.cell_size" % field, world.get("cell_size"), 0.0, null, true) and is_valid
@@ -5484,14 +5484,30 @@ func _validate_module_world_data(
 			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.seal_outer_edges" % field, "true") and is_valid
 
 		var anchors: Dictionary = {}
-		for anchor_name: String in ["start_slot", "objective_slot"]:
-			var anchor: Variant = _validate_module_cell(MODULE_WORLDS_PATH, "%s.%s" % [field, anchor_name], world.get(anchor_name), 9, 9)
-			if anchor == null:
-				is_valid = false
-			else:
-				anchors[anchor_name] = anchor
+		var start_anchor: Variant = _validate_module_cell(
+			MODULE_WORLDS_PATH,
+			"%s.start_slot" % field,
+			world.get("start_slot"),
+			7,
+			7
+		)
+		if start_anchor == null:
+			is_valid = false
+		else:
+			anchors["start_slot"] = start_anchor
+		var objective_spawn: Dictionary = _validate_module_objective_spawn(
+			"%s.objective_spawn" % field,
+			world.get("objective_spawn"),
+			templates,
+			start_anchor
+		)
+		is_valid = bool(objective_spawn.get("is_valid", false)) and is_valid
 		var route_result: Dictionary = _validate_module_route_budget("%s.route_budget" % field, world.get("route_budget"))
 		is_valid = bool(route_result.get("is_valid", false)) and is_valid
+		if route_result.get("start_to_objective") != Vector2i(6, 12):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.route_budget.start_to_objective" % field, "6..12 crossings") and is_valid
+		if route_result.get("main_route_modules") != Vector2i(7, 13):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.route_budget.main_route_modules" % field, "7..13 modules") and is_valid
 		var spawn_result: Dictionary = _validate_first_visit_enemy_spawn(
 			"%s.first_visit_enemy_spawn" % field,
 			world.get("first_visit_enemy_spawn"),
@@ -5555,7 +5571,7 @@ func _validate_module_world_data(
 			world.get("limited_template_groups"),
 			templates,
 			required_spawn_cells,
-			81 - (fixed_result.get("assignment", {}) as Dictionary).size()
+			49 - (fixed_result.get("assignment", {}) as Dictionary).size() - 1
 		) and is_valid
 
 		for assignment_name: String in ["fallback_assignment", "technical_slice_assignment"]:
@@ -5590,8 +5606,36 @@ func _validate_module_world_data(
 							"non-start fallback templates with at least %d spawnable floor cells"
 							% required_spawn_cells
 						) and is_valid
-			var world_result: Dictionary = _validate_module_assignment_world("%s.%s" % [field, assignment_name], assignment, templates, anchors, route_result, technical)
-			is_valid = bool(world_result.get("is_valid", false)) and is_valid
+			if technical:
+				var technical_result: Dictionary = _validate_module_assignment_world(
+					"%s.%s" % [field, assignment_name],
+					assignment,
+					templates,
+					anchors,
+					{},
+					true
+				)
+				is_valid = bool(technical_result.get("is_valid", false)) and is_valid
+			else:
+				var candidate_slots: Array = objective_spawn.get("candidate_slots", []) as Array
+				for candidate_index: int in range(candidate_slots.size()):
+					var candidate_assignment: Dictionary = assignment.duplicate(true)
+					var candidate_slot: Vector2i = candidate_slots[candidate_index] as Vector2i
+					candidate_assignment[candidate_slot] = {
+						"template_id": String(objective_spawn.get("template_id", "")),
+						"rotation": int(objective_spawn.get("rotation", 0)),
+					}
+					var candidate_anchors: Dictionary = anchors.duplicate()
+					candidate_anchors["objective_slot"] = candidate_slot
+					var candidate_result: Dictionary = _validate_module_assignment_world(
+						"%s.%s.objective_candidate[%d]" % [field, assignment_name, candidate_index],
+						candidate_assignment,
+						templates,
+						candidate_anchors,
+						route_result,
+						false
+					)
+					is_valid = bool(candidate_result.get("is_valid", false)) and is_valid
 	return is_valid
 
 
@@ -6460,18 +6504,160 @@ func _validate_module_route_budget(field: String, value: Variant) -> Dictionary:
 	return result
 
 
-func _validate_module_assignment_entries(field: String, entries: Array, templates: Dictionary, exact_81: bool, technical: bool) -> Dictionary:
+func _validate_module_objective_spawn(
+	field: String,
+	value: Variant,
+	templates: Dictionary,
+	start_slot: Variant
+) -> Dictionary:
+	var result: Dictionary = {
+		"is_valid": true,
+		"template_id": "",
+		"rotation": 0,
+		"candidate_slots": [],
+	}
+	if not value is Dictionary:
+		result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, field, "Dictionary")
+		return result
+	var spawn: Dictionary = value as Dictionary
+	var expected_keys: Dictionary = {
+		"template_id": true,
+		"rotation": true,
+		"candidate_slots": true,
+	}
+	for raw_key: Variant in spawn.keys():
+		if not expected_keys.has(String(raw_key)):
+			result["is_valid"] = _schema_fail(
+				MODULE_WORLDS_PATH,
+				field,
+				"exactly template_id, rotation, and candidate_slots"
+			) and bool(result["is_valid"])
+	for expected_key: String in expected_keys.keys():
+		if not spawn.has(expected_key):
+			result["is_valid"] = _schema_fail(
+				MODULE_WORLDS_PATH,
+				field,
+				"exactly template_id, rotation, and candidate_slots"
+			) and bool(result["is_valid"])
+	var template_id: String = String(spawn.get("template_id", ""))
+	result["is_valid"] = _require_non_empty_string(
+		MODULE_WORLDS_PATH,
+		"%s.template_id" % field,
+		spawn.get("template_id")
+	) and bool(result["is_valid"])
+	result["template_id"] = template_id
+	var rotation: int = int(spawn.get("rotation", -1)) if _is_int_like(spawn.get("rotation")) else -1
+	if not [0, 90, 180, 270].has(rotation):
+		result["is_valid"] = _schema_fail(
+			MODULE_WORLDS_PATH,
+			"%s.rotation" % field,
+			"one of 0, 90, 180, 270"
+		) and bool(result["is_valid"])
+	else:
+		result["rotation"] = rotation
+	if not templates.has(template_id):
+		result["is_valid"] = _schema_fail(
+			MODULE_WORLDS_PATH,
+			"%s.template_id" % field,
+			"template defined in module_templates.json"
+		) and bool(result["is_valid"])
+	else:
+		var template: Dictionary = templates[template_id] as Dictionary
+		if String(template.get("review_status", "")) != MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED:
+			result["is_valid"] = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.template_id" % field,
+				"approved objective template"
+			) and bool(result["is_valid"])
+		if String(template.get("role", "")) != MODULE_ROLES.MODULE_ROLE_OBJECTIVE:
+			result["is_valid"] = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.template_id" % field,
+				"template using module_role_objective"
+			) and bool(result["is_valid"])
+		var allowed: Dictionary = template.get("allowed_rotations", {}) as Dictionary
+		if rotation >= 0 and not allowed.has(rotation):
+			result["is_valid"] = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.rotation" % field,
+				"rotation allowed by template"
+			) and bool(result["is_valid"])
+	var candidate_values: Array = _require_array(
+		MODULE_WORLDS_PATH,
+		"%s.candidate_slots" % field,
+		spawn.get("candidate_slots")
+	)
+	if candidate_values.size() != 3:
+		result["is_valid"] = _schema_fail(
+			MODULE_WORLDS_PATH,
+			"%s.candidate_slots" % field,
+			"exactly 3 candidate slots"
+		) and bool(result["is_valid"])
+	var seen: Dictionary = {}
+	var candidate_slots: Array[Vector2i] = []
+	for index: int in range(candidate_values.size()):
+		var candidate: Variant = _validate_module_cell(
+			MODULE_WORLDS_PATH,
+			"%s.candidate_slots[%d]" % [field, index],
+			candidate_values[index],
+			7,
+			7
+		)
+		if candidate == null:
+			result["is_valid"] = false
+			continue
+		var candidate_slot: Vector2i = candidate as Vector2i
+		if seen.has(candidate_slot):
+			result["is_valid"] = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.candidate_slots[%d]" % [field, index],
+				"unique slot"
+			) and bool(result["is_valid"])
+			continue
+		seen[candidate_slot] = true
+		candidate_slots.append(candidate_slot)
+		if start_slot is Vector2i and candidate_slot == (start_slot as Vector2i):
+			result["is_valid"] = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.candidate_slots[%d]" % [field, index],
+				"slot not overlapping start_slot"
+			) and bool(result["is_valid"])
+	var expected_candidates: Dictionary = {
+		Vector2i(0, 0): true,
+		Vector2i(6, 0): true,
+		Vector2i(6, 6): true,
+	}
+	if seen.size() != expected_candidates.size():
+		result["is_valid"] = _schema_fail(
+			MODULE_WORLDS_PATH,
+			"%s.candidate_slots" % field,
+			"top-left, top-right, and bottom-right corners"
+		) and bool(result["is_valid"])
+	else:
+		for expected_candidate: Variant in expected_candidates.keys():
+			if not seen.has(expected_candidate):
+				result["is_valid"] = _schema_fail(
+					MODULE_WORLDS_PATH,
+					"%s.candidate_slots" % field,
+					"top-left, top-right, and bottom-right corners"
+				) and bool(result["is_valid"])
+				break
+	result["candidate_slots"] = candidate_slots
+	return result
+
+
+func _validate_module_assignment_entries(field: String, entries: Array, templates: Dictionary, exact_49: bool, technical: bool) -> Dictionary:
 	var is_valid: bool = true
 	var assignment: Dictionary = {}
-	if exact_81 and entries.size() != 81:
-		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly 81 slot assignments") and is_valid
+	if exact_49 and entries.size() != 49:
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly 49 slot assignments") and is_valid
 	for index: int in range(entries.size()):
 		var item_field: String = "%s[%d]" % [field, index]
 		if not entries[index] is Dictionary:
 			is_valid = _schema_fail(MODULE_WORLDS_PATH, item_field, "Dictionary") and is_valid
 			continue
 		var entry: Dictionary = entries[index] as Dictionary
-		var slot: Variant = _validate_module_cell(MODULE_WORLDS_PATH, "%s.slot" % item_field, entry.get("slot"), 9, 9)
+		var slot: Variant = _validate_module_cell(MODULE_WORLDS_PATH, "%s.slot" % item_field, entry.get("slot"), 7, 7)
 		if slot == null:
 			is_valid = false
 			continue
@@ -6493,52 +6679,70 @@ func _validate_module_assignment_entries(field: String, entries: Array, template
 			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.rotation" % item_field, "rotation allowed by template") and is_valid
 		var role: String = String(template.get("role", ""))
 		var approved: bool = String(template.get("review_status", "")) == MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED
-		var inside_slice: bool = (slot as Vector2i).x >= 3 and (slot as Vector2i).x <= 5 and (slot as Vector2i).y >= 3 and (slot as Vector2i).y <= 5
+		var inside_slice: bool = (slot as Vector2i).x >= 2 and (slot as Vector2i).x <= 4 and (slot as Vector2i).y >= 2 and (slot as Vector2i).y <= 4
 		var technical_exception: bool = technical and role == MODULE_ROLES.MODULE_ROLE_SEALED and not inside_slice
 		if not approved and not technical_exception:
 			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "approved template") and is_valid
-		if exact_81 and not technical and role == MODULE_ROLES.MODULE_ROLE_SEALED:
+		if exact_49 and not technical and role == MODULE_ROLES.MODULE_ROLE_SEALED:
 			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "non-sealed fallback template") and is_valid
-		if exact_81 and technical and ((inside_slice and role == MODULE_ROLES.MODULE_ROLE_SEALED) or (not inside_slice and role != MODULE_ROLES.MODULE_ROLE_SEALED)):
-			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "open center 3x3 and sealed outer 72 slots") and is_valid
-	if exact_81 and assignment.size() != 81:
-		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "all 81 unique slots") and is_valid
+		if exact_49 and technical and ((inside_slice and role == MODULE_ROLES.MODULE_ROLE_SEALED) or (not inside_slice and role != MODULE_ROLES.MODULE_ROLE_SEALED)):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "open center 3x3 and sealed outer 40 slots") and is_valid
+	if exact_49 and assignment.size() != 49:
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "all 49 unique slots") and is_valid
 	return {"is_valid": is_valid, "assignment": assignment}
 
 
 func _validate_module_fixed_anchor_roles(field: String, assignment: Dictionary, templates: Dictionary, anchors: Dictionary) -> bool:
 	var is_valid: bool = true
-	for anchor_role: Array in [
-		["start_slot", MODULE_ROLES.MODULE_ROLE_START],
-		["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE],
-	]:
-		var anchor_name: String = String(anchor_role[0])
-		var role_count: int = 0
-		for assigned_value: Variant in assignment.values():
-			var assigned_entry: Dictionary = assigned_value as Dictionary
-			var assigned_template_id: String = String(assigned_entry.get("template_id", ""))
-			if templates.has(assigned_template_id) and String((templates[assigned_template_id] as Dictionary).get("role", "")) == String(anchor_role[1]):
-				role_count += 1
-		if role_count != 1:
-			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly one %s" % String(anchor_role[1])) and is_valid
-		if not anchors.has(anchor_name):
+	var start_count: int = 0
+	var objective_count: int = 0
+	for assigned_value: Variant in assignment.values():
+		var assigned_entry: Dictionary = assigned_value as Dictionary
+		var assigned_template_id: String = String(assigned_entry.get("template_id", ""))
+		if not templates.has(assigned_template_id):
 			continue
-		var anchor: Vector2i = anchors[anchor_name] as Vector2i
-		if not assignment.has(anchor):
-			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "assignment for configured %s" % anchor_name) and is_valid
-			continue
-		var assigned: Dictionary = assignment[anchor] as Dictionary
-		var template_id: String = String(assigned.get("template_id", ""))
-		if templates.has(template_id) and String((templates[template_id] as Dictionary).get("role", "")) != String(anchor_role[1]):
-			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "%s uses %s" % [anchor_name, String(anchor_role[1])]) and is_valid
+		var role: String = String((templates[assigned_template_id] as Dictionary).get("role", ""))
+		if role == MODULE_ROLES.MODULE_ROLE_START:
+			start_count += 1
+		elif role == MODULE_ROLES.MODULE_ROLE_OBJECTIVE:
+			objective_count += 1
+	if start_count != 1:
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly one module_role_start") and is_valid
+	if objective_count != 0:
+		is_valid = _schema_fail(
+			MODULE_WORLDS_PATH,
+			field,
+			"no module_role_objective; objective_spawn selects it"
+		) and is_valid
+	if not anchors.has("start_slot"):
+		return is_valid
+	var anchor: Vector2i = anchors["start_slot"] as Vector2i
+	if not assignment.has(anchor):
+		return _schema_fail(MODULE_WORLDS_PATH, field, "assignment for configured start_slot") and is_valid
+	var assigned: Dictionary = assignment[anchor] as Dictionary
+	var template_id: String = String(assigned.get("template_id", ""))
+	if templates.has(template_id) and String((templates[template_id] as Dictionary).get("role", "")) != MODULE_ROLES.MODULE_ROLE_START:
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "start_slot uses module_role_start") and is_valid
 	return is_valid
 
 
 func _validate_module_assignment_world(field: String, assignment: Dictionary, templates: Dictionary, anchors: Dictionary, route_budget: Dictionary, technical: bool) -> Dictionary:
 	var is_valid: bool = true
-	if assignment.size() != 81:
+	if assignment.size() != 49:
 		return {"is_valid": false}
 	var effective_anchors: Dictionary = anchors.duplicate()
+	for required_role: String in [MODULE_ROLES.MODULE_ROLE_START, MODULE_ROLES.MODULE_ROLE_OBJECTIVE]:
+		var required_role_count: int = 0
+		for assigned_value: Variant in assignment.values():
+			var assigned_entry: Dictionary = assigned_value as Dictionary
+			if _assignment_role(assigned_entry, templates) == required_role:
+				required_role_count += 1
+		if required_role_count != 1:
+			is_valid = _schema_fail(
+				MODULE_WORLDS_PATH,
+				field,
+				"exactly one %s" % required_role
+			) and is_valid
 	if technical:
 		for anchor_role: Array in [["start_slot", MODULE_ROLES.MODULE_ROLE_START], ["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE]]:
 			var role_slots: Array[Vector2i] = []
@@ -6560,8 +6764,8 @@ func _validate_module_assignment_world(field: String, assignment: Dictionary, te
 	var graph: Dictionary = {}
 	for slot_value: Variant in assignment.keys():
 		graph[slot_value] = []
-	for y: int in range(9):
-		for x: int in range(9):
+	for y: int in range(7):
+		for x: int in range(7):
 			var slot := Vector2i(x, y)
 			for neighbor_info: Array in [[Vector2i(x + 1, y), MODULE_EDGE_DIRECTIONS.EDGE_EAST, MODULE_EDGE_DIRECTIONS.EDGE_WEST], [Vector2i(x, y + 1), MODULE_EDGE_DIRECTIONS.EDGE_SOUTH, MODULE_EDGE_DIRECTIONS.EDGE_NORTH]]:
 				var neighbor: Vector2i = neighbor_info[0] as Vector2i

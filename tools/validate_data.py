@@ -3838,7 +3838,7 @@ def _validate_module_world_data(
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 4)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 5)
     worlds = _require_list(ctx, path, "worlds", data.get("worlds"))
     if not worlds:
         ctx.error(path, "worlds", "must be a non-empty array")
@@ -3853,8 +3853,8 @@ def _validate_module_world_data(
             if world_id in seen_worlds:
                 ctx.error(path, f"{field}.id", f"duplicate world id {world_id}")
             seen_worlds.add(world_id)
-        columns = _require_exact_int(ctx, path, f"{field}.columns", world.get("columns"), 9)
-        rows = _require_exact_int(ctx, path, f"{field}.rows", world.get("rows"), 9)
+        columns = _require_exact_int(ctx, path, f"{field}.columns", world.get("columns"), 7)
+        rows = _require_exact_int(ctx, path, f"{field}.rows", world.get("rows"), 7)
         _require_exact_int(ctx, path, f"{field}.module_columns", world.get("module_columns"), 11)
         _require_exact_int(ctx, path, f"{field}.module_rows", world.get("module_rows"), 11)
         _require_number(ctx, path, f"{field}.cell_size", world.get("cell_size"), minimum=0.0, exclusive_minimum=True)
@@ -3862,15 +3862,27 @@ def _validate_module_world_data(
         seal_outer_edges = _require_bool(ctx, path, f"{field}.seal_outer_edges", world.get("seal_outer_edges"))
         if seal_outer_edges is False:
             ctx.error(path, f"{field}.seal_outer_edges", "must be true")
-        if columns != 9 or rows != 9:
+        if columns != 7 or rows != 7:
             continue
 
-        anchors: dict[str, tuple[int, int] | None] = {}
-        for anchor_name in ("start_slot", "objective_slot"):
-            anchors[anchor_name] = _validate_module_cell(
-                ctx, path, f"{field}.{anchor_name}", world.get(anchor_name), 9, 9
+        anchors: dict[str, tuple[int, int] | None] = {
+            "start_slot": _validate_module_cell(
+                ctx, path, f"{field}.start_slot", world.get("start_slot"), 7, 7
             )
+        }
+        objective_spawn = _validate_module_objective_spawn(
+            ctx,
+            path,
+            f"{field}.objective_spawn",
+            world.get("objective_spawn"),
+            templates,
+            anchors["start_slot"],
+        )
         route_budget = _validate_module_route_budget(ctx, path, f"{field}.route_budget", world.get("route_budget"))
+        if route_budget.get("start_to_objective") != (6, 12):
+            ctx.error(path, f"{field}.route_budget.start_to_objective", "must be 6..12 crossings")
+        if route_budget.get("main_route_modules") != (7, 13):
+            ctx.error(path, f"{field}.route_budget.main_route_modules", "must be 7..13 modules")
         required_spawn_cells = _validate_first_visit_enemy_spawn(
             ctx,
             path,
@@ -3881,7 +3893,13 @@ def _validate_module_world_data(
 
         fixed_slots = _require_list(ctx, path, f"{field}.fixed_slots", world.get("fixed_slots"))
         fixed_assignment = _validate_module_assignment_entries(
-            ctx, path, f"{field}.fixed_slots", fixed_slots, templates, exact_81=False, allow_technical_sealed=False
+            ctx,
+            path,
+            f"{field}.fixed_slots",
+            fixed_slots,
+            templates,
+            exact_49=False,
+            allow_technical_sealed=False,
         )
         _validate_module_fixed_anchor_roles(
             ctx, path, f"{field}.fixed_slots", fixed_assignment, templates, anchors
@@ -3927,7 +3945,7 @@ def _validate_module_world_data(
             world.get("limited_template_groups"),
             templates,
             required_spawn_cells,
-            81 - len(fixed_assignment),
+            49 - len(fixed_assignment) - 1,
         )
 
         for assignment_name, technical in (("fallback_assignment", False), ("technical_slice_assignment", True)):
@@ -3938,7 +3956,7 @@ def _validate_module_world_data(
                 f"{field}.{assignment_name}",
                 entries,
                 templates,
-                exact_81=True,
+                exact_49=True,
                 allow_technical_sealed=technical,
             )
             if not technical:
@@ -3953,16 +3971,36 @@ def _validate_module_world_data(
                             "non-start fallback templates need at least "
                             f"{required_spawn_cells} spawnable floor cells",
                         )
-            _validate_module_assignment_world(
-                ctx,
-                path,
-                f"{field}.{assignment_name}",
-                assignment,
-                templates,
-                anchors,
-                route_budget if not technical else {},
-                technical,
-            )
+            if technical:
+                _validate_module_assignment_world(
+                    ctx,
+                    path,
+                    f"{field}.{assignment_name}",
+                    assignment,
+                    templates,
+                    anchors,
+                    {},
+                    True,
+                )
+            else:
+                for candidate_index, candidate in enumerate(objective_spawn.get("candidate_slots", [])):
+                    candidate_assignment = dict(assignment)
+                    candidate_assignment[candidate] = (
+                        objective_spawn.get("template_id", ""),
+                        objective_spawn.get("rotation", 0),
+                    )
+                    candidate_anchors = dict(anchors)
+                    candidate_anchors["objective_slot"] = candidate
+                    _validate_module_assignment_world(
+                        ctx,
+                        path,
+                        f"{field}.{assignment_name}.objective_candidate[{candidate_index}]",
+                        candidate_assignment,
+                        templates,
+                        candidate_anchors,
+                        route_budget,
+                        False,
+                    )
 
 
 def _validate_module_limited_template_groups(
@@ -4609,6 +4647,86 @@ def _validate_module_route_budget(ctx: ValidationContext, path: Path, field: str
     return result
 
 
+def _validate_module_objective_spawn(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    templates: dict[str, dict[str, Any]],
+    start_slot: tuple[int, int] | None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "template_id": "",
+        "rotation": 0,
+        "candidate_slots": [],
+    }
+    if not isinstance(value, dict):
+        ctx.error(path, field, "must be an object")
+        return result
+    if set(value) != {"template_id", "rotation", "candidate_slots"}:
+        ctx.error(path, field, "must define exactly template_id, rotation, and candidate_slots")
+    template_id = _require_non_empty_string(
+        ctx, path, f"{field}.template_id", value.get("template_id")
+    )
+    if template_id is not None:
+        result["template_id"] = template_id
+    rotation = value.get("rotation")
+    if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in (0, 90, 180, 270):
+        ctx.error(path, f"{field}.rotation", "rotation must be one of 0, 90, 180, 270")
+    else:
+        result["rotation"] = rotation
+    template = templates.get(template_id or "")
+    if template_id and template is None:
+        ctx.error(
+            path,
+            f"{field}.template_id",
+            f"template is not defined in module_templates.json: {template_id}",
+        )
+    elif template is not None:
+        if template.get("review_status") != "module_review_approved":
+            ctx.error(path, f"{field}.template_id", "objective template must be approved")
+        if template.get("role") != "module_role_objective":
+            ctx.error(path, f"{field}.template_id", "template must use module_role_objective")
+        if isinstance(rotation, int) and rotation not in template.get("allowed_rotations", set()):
+            ctx.error(path, f"{field}.rotation", f"rotation is not allowed by template {template_id}: {rotation}")
+    candidate_values = _require_list(
+        ctx, path, f"{field}.candidate_slots", value.get("candidate_slots")
+    )
+    if len(candidate_values) != 3:
+        ctx.error(path, f"{field}.candidate_slots", "must contain exactly 3 candidate slots")
+    seen: set[tuple[int, int]] = set()
+    for index, candidate_value in enumerate(candidate_values):
+        candidate = _validate_module_cell(
+            ctx,
+            path,
+            f"{field}.candidate_slots[{index}]",
+            candidate_value,
+            7,
+            7,
+        )
+        if candidate is None:
+            continue
+        if candidate in seen:
+            ctx.error(
+                path,
+                f"{field}.candidate_slots[{index}]",
+                f"duplicate slot {candidate[0]},{candidate[1]}",
+            )
+            continue
+        seen.add(candidate)
+        result["candidate_slots"].append(candidate)
+        if candidate == start_slot:
+            ctx.error(path, f"{field}.candidate_slots[{index}]", "must not overlap start_slot")
+    expected_candidates = {(0, 0), (6, 0), (6, 6)}
+    if seen != expected_candidates:
+        ctx.error(
+            path,
+            f"{field}.candidate_slots",
+            "must equal the top-left, top-right, and bottom-right corners",
+        )
+    return result
+
+
 def _validate_module_assignment_entries(
     ctx: ValidationContext,
     path: Path,
@@ -4616,18 +4734,18 @@ def _validate_module_assignment_entries(
     entries: list[Any],
     templates: dict[str, dict[str, Any]],
     *,
-    exact_81: bool,
+    exact_49: bool,
     allow_technical_sealed: bool,
 ) -> dict[tuple[int, int], tuple[str, int]]:
-    if exact_81 and len(entries) != 81:
-        ctx.error(path, field, "must contain exactly 81 slot assignments")
+    if exact_49 and len(entries) != 49:
+        ctx.error(path, field, "must contain exactly 49 slot assignments")
     assignment: dict[tuple[int, int], tuple[str, int]] = {}
     for index, entry in enumerate(entries):
         item_field = f"{field}[{index}]"
         if not isinstance(entry, dict):
             ctx.error(path, item_field, "must be an object")
             continue
-        slot = _validate_module_cell(ctx, path, f"{item_field}.slot", entry.get("slot"), 9, 9)
+        slot = _validate_module_cell(ctx, path, f"{item_field}.slot", entry.get("slot"), 7, 7)
         template_id = _require_non_empty_string(ctx, path, f"{item_field}.template_id", entry.get("template_id"))
         rotation = entry.get("rotation")
         if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in (0, 90, 180, 270):
@@ -4643,24 +4761,24 @@ def _validate_module_assignment_entries(
                 ctx.error(path, f"{item_field}.rotation", f"rotation is not allowed by template {template_id}: {rotation_value}")
             approved = template["review_status"] == "module_review_approved"
             sealed = template["role"] == "module_role_sealed"
-            technical_exception = allow_technical_sealed and sealed and slot is not None and not (3 <= slot[0] <= 5 and 3 <= slot[1] <= 5)
+            technical_exception = allow_technical_sealed and sealed and slot is not None and not (2 <= slot[0] <= 4 and 2 <= slot[1] <= 4)
             if not approved and not technical_exception:
                 ctx.error(path, f"{item_field}.template_id", f"assignment requires approved template: {template_id}")
-            if exact_81 and not allow_technical_sealed and sealed:
+            if exact_49 and not allow_technical_sealed and sealed:
                 ctx.error(path, f"{item_field}.template_id", "fallback assignment cannot contain sealed templates")
-            if exact_81 and allow_technical_sealed and slot is not None:
-                inside_slice = 3 <= slot[0] <= 5 and 3 <= slot[1] <= 5
+            if exact_49 and allow_technical_sealed and slot is not None:
+                inside_slice = 2 <= slot[0] <= 4 and 2 <= slot[1] <= 4
                 if inside_slice and sealed:
                     ctx.error(path, f"{item_field}.template_id", "technical slice center 3x3 cannot be sealed")
                 elif not inside_slice and not sealed:
-                    ctx.error(path, f"{item_field}.template_id", "technical slice outer 72 slots must be sealed")
+                    ctx.error(path, f"{item_field}.template_id", "technical slice outer 40 slots must be sealed")
         if slot is not None:
             if slot in assignment:
                 ctx.error(path, f"{item_field}.slot", f"duplicate slot {slot[0]},{slot[1]}")
             elif template_id:
                 assignment[slot] = (template_id, rotation_value)
-    if exact_81:
-        expected = {(x, y) for y in range(9) for x in range(9)}
+    if exact_49:
+        expected = {(x, y) for y in range(7) for x in range(7)}
         missing = sorted(expected - set(assignment))
         if missing:
             ctx.error(path, field, f"assignment is missing slots: {missing[:4]}")
@@ -4675,26 +4793,29 @@ def _validate_module_fixed_anchor_roles(
     templates: dict[str, dict[str, Any]],
     anchors: dict[str, tuple[int, int] | None],
 ) -> None:
-    for anchor_name, expected_role in (
-        ("start_slot", "module_role_start"),
-        ("objective_slot", "module_role_objective"),
-    ):
-        role_slots = [
-            role_slot
-            for role_slot, (template_id, _rotation) in assignment.items()
-            if templates.get(template_id, {}).get("role") == expected_role
-        ]
-        if len(role_slots) != 1:
-            ctx.error(path, field, f"must contain exactly one {expected_role}")
-        slot = anchors.get(anchor_name)
-        if slot is None:
-            continue
-        if slot not in assignment:
-            ctx.error(path, field, f"must assign configured {anchor_name}")
-            continue
-        template = templates.get(assignment[slot][0])
-        if template is not None and template["role"] != expected_role:
-            ctx.error(path, field, f"{anchor_name} must use role {expected_role}")
+    start_slots = [
+        role_slot
+        for role_slot, (template_id, _rotation) in assignment.items()
+        if templates.get(template_id, {}).get("role") == "module_role_start"
+    ]
+    if len(start_slots) != 1:
+        ctx.error(path, field, "must contain exactly one module_role_start")
+    objective_slots = [
+        role_slot
+        for role_slot, (template_id, _rotation) in assignment.items()
+        if templates.get(template_id, {}).get("role") == "module_role_objective"
+    ]
+    if objective_slots:
+        ctx.error(path, field, "must not contain module_role_objective; objective_spawn selects it")
+    start_slot = anchors.get("start_slot")
+    if start_slot is None:
+        return
+    if start_slot not in assignment:
+        ctx.error(path, field, "must assign configured start_slot")
+        return
+    template = templates.get(assignment[start_slot][0])
+    if template is not None and template["role"] != "module_role_start":
+        ctx.error(path, field, "start_slot must use role module_role_start")
 
 
 def _validate_module_assignment_world(
@@ -4707,9 +4828,16 @@ def _validate_module_assignment_world(
     route_budget: dict[str, Any],
     technical: bool,
 ) -> None:
-    if len(assignment) != 81:
+    if len(assignment) != 49:
         return
     effective_anchors = dict(anchors)
+    for role in ("module_role_start", "module_role_objective"):
+        role_slots = [
+            slot for slot, (template_id, _rotation) in assignment.items()
+            if templates.get(template_id, {}).get("role") == role
+        ]
+        if len(role_slots) != 1:
+            ctx.error(path, field, f"must contain exactly one {role}")
     if technical:
         for anchor_name, role in (
             ("start_slot", "module_role_start"),
@@ -4735,8 +4863,8 @@ def _validate_module_assignment_world(
             ctx.error(path, field, f"{anchor_name} must use role {expected_role}")
 
     graph: dict[tuple[int, int], set[tuple[int, int]]] = {slot: set() for slot in assignment}
-    for y in range(9):
-        for x in range(9):
+    for y in range(7):
+        for x in range(7):
             slot = (x, y)
             for neighbor, edge, opposite in (((x + 1, y), "edge_east", "edge_west"), ((x, y + 1), "edge_south", "edge_north")):
                 if neighbor not in assignment:

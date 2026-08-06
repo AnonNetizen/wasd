@@ -82,6 +82,7 @@ func _create_smoke_replay() -> Dictionary:
 	GameState.change_state(GameState.PLAYING, {
 		"source": "replay_runner",
 		"scenario": "runner_smoke_basic_run",
+		"content_availability": ContentUnlockSystem.build_run_availability_snapshot(),
 	})
 	for _index: int in range(SMOKE_RECORD_FRAMES):
 		await get_tree().physics_frame

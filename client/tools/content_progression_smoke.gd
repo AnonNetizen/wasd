@@ -143,7 +143,7 @@ func _expect_rule_status_and_pending_delta() -> void:
 	}
 	system.set("_meta_payload", save_manager.meta_payload.duplicate(true))
 	save_manager.run_payload = {
-		"schema_version": 14,
+		"schema_version": 15,
 		"content_progress_delta": {
 			"runs_completed": 1,
 			"enemy_defeated": {"enemy_default": 1},
