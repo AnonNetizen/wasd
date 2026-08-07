@@ -532,7 +532,7 @@ func _interact_gold_shrine(
 						.WORLD_EVENT_REWARD_GEAR_MOD
 					),
 					"mod_id": mod_id,
-					"pending": true,
+					"pending": false,
 					"source": KIND_GOLD_SHRINE,
 					"attempt": runtime.attempts,
 				}

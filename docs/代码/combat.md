@@ -93,7 +93,7 @@
 
 ## 迁移边界
 
-Run v15 保存生命、普通护盾、超量护盾、护盾门、元素被动、玩家敌人击退、Enemy 显式攻击 / armed / 生成序号、锁定金币、局内 Gear Mod、冻结内容池、未结算进度及世界事件目标上下文，不含弹药、`pending_loot` 或撤离字段；旧 Run v14 明确不兼容。Replay v6 记录当前 Roguelike 直接通关语义与冻结内容池，旧 Replay v5 明确拒绝。
+Run v16 保存生命、普通护盾、超量护盾、护盾门、元素被动、玩家敌人击退、Enemy 显式攻击 / armed / 生成序号、锁定金币、局内 Gear Mod ranks、未拾取 Mod、冻结内容池、未结算进度及世界事件目标上下文，不含弹药、`pending_loot` 或撤离字段；Run v15 无损迁移，旧 Run v14 明确不兼容。Replay v6 记录当前 Roguelike 直接通关语义与冻结内容池，旧 Replay v5 明确拒绝。
 
 ## 相关文档
 

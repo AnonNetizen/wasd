@@ -189,7 +189,7 @@ label.text = tr("ui_damage") + str(value)
 
 ### 加一段 HUD 文案
 
-1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。威胁阶段名称使用 `ui_difficulty_stage_<stage>`，跨语言共用同一 key。
+1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。Gear Mod 实体拾取提示使用 `ui_interact_pickup_gear_mod`，必须同时保留 `{binding}`、`{name}`、`{rank}`、`{effect}`；满阶溢出提示改用 `ui_interact_pickup_gear_mod_overflow` 的 `{gold}`。世界事件完成后只显示“Gear Mod 已掉落”，不能提前显示“已获得”。威胁阶段名称使用 `ui_difficulty_stage_<stage>`，跨语言共用同一 key。
    难度 profile 显示名同样使用 `ui_difficulty_*_name`；当前标准 profile 固定引用 `ui_difficulty_standard_name`（“标准 / Standard”），不得把显示名写进 `difficulty_profiles.json`。
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
 3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、清理数、难度时间、威胁阶段、等级、金币余额 / 进度、详细数值、等级 / 奖励反馈和交互提示重画。

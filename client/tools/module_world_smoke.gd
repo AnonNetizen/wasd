@@ -1,10 +1,11 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective completion, threat-time combat gates and Run v15 restore.
+## objective completion, threat-time combat gates and Run v16 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const GEAR_MOD_IDS := preload("res://scripts/contracts/gear_mod_ids.gd")
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
@@ -97,9 +98,9 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 15
+		int(fresh_run_snapshot.get("schema_version", 0)) == 16
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v15 should save registered world-event state"
+		"Run v16 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	var expected_start_coord := Vector2i(3, 3) if OS.get_cmdline_user_args().has("--module-world-technical-slice") else Vector2i(0, 6)
@@ -717,7 +718,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	)
 	_expect(
 		_saved_slot_has_encounter(saved_slot_states, encounter_slot_key, spawn_plan),
-		"Run v15 snapshot should persist the fixed telegraph plan"
+		"Run v16 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -855,6 +856,9 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		)
 	var bullet_position := encounter_center_position + Vector2(160.0, 320.0)
 	var gold_orb_position := encounter_center_position + Vector2(320.0, 320.0)
+	var gear_mod_pickup_position := (
+		encounter_center_position + Vector2(240.0, 320.0)
+	)
 	run_loop.call("_restore_bullet_snapshots", [{
 		"position": _vector_to_dict(bullet_position),
 		"damage": 0.0,
@@ -875,14 +879,34 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"amount": 7,
 		"pickup_speed": 0.0,
 	}])
+	var gear_mod_spawn_result: Dictionary = run_loop.call(
+		"_spawn_gear_mod_pickup",
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
+		gear_mod_pickup_position
+	) as Dictionary
 	await _wait_frames(BOOT_FRAMES)
 	_expect(_has_active_entity_at("active_bullets", bullet_position), "test projectile should be active in the adjacent module")
 	_expect(_has_active_entity_at("active_gold_orbs", gold_orb_position), "test gold orb should be active in the adjacent module")
+	_expect(
+		bool(gear_mod_spawn_result.get("ok", false))
+		and _has_active_entity_at(
+			"active_gear_mod_pickups",
+			gear_mod_pickup_position
+		),
+		"test Gear Mod pickup should be active in the adjacent module"
+	)
 	# Move far enough that the east-neighbor slot leaves the active 3x3 neighborhood.
 	run_loop.call("debug_set_player_position", far_position)
 	await _wait_frames(BOOT_FRAMES)
 	_expect(not _has_active_entity_at("active_bullets", bullet_position), "deactivated module should release its projectile")
 	_expect(not _has_active_entity_at("active_gold_orbs", gold_orb_position), "deactivated module should release its gold orb")
+	_expect(
+		not _has_active_entity_at(
+			"active_gear_mod_pickups",
+			gear_mod_pickup_position
+		),
+		"deactivated module should release its Gear Mod pickup"
+	)
 	var stored_state: Dictionary = manager.call("slot_state", encounter_coord) if manager != null else {}
 	_expect((stored_state.get("bullet_snapshots", []) as Array).size() == 1, "deactivated slot should retain one projectile snapshot")
 	var stored_bullets: Array = stored_state.get("bullet_snapshots", []) as Array
@@ -891,6 +915,16 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"deactivated slot should preserve the projectile wall-pierce snapshot"
 	)
 	_expect((stored_state.get("gold_orb_snapshots", []) as Array).size() == 1, "deactivated slot should retain one gold-orb snapshot")
+	var stored_mod_pickups: Array = stored_state.get(
+		"gear_mod_pickup_snapshots",
+		[]
+	) as Array
+	_expect(
+		stored_mod_pickups.size() == 1
+		and String((stored_mod_pickups[0] as Dictionary).get("mod_id", ""))
+		== GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
+		"deactivated slot should retain the exact Gear Mod pickup snapshot"
+	)
 	run_loop.call("debug_set_player_position", encounter_center_position)
 	await _wait_frames(BOOT_FRAMES)
 	_expect(
@@ -919,6 +953,13 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"returning should restore the projectile wall-pierce snapshot"
 	)
 	_expect(_has_active_entity_at("active_gold_orbs", gold_orb_position), "returning should restore the slot gold orb")
+	_expect(
+		_has_active_entity_at(
+			"active_gear_mod_pickups",
+			gear_mod_pickup_position
+		),
+		"returning should restore the slot Gear Mod pickup"
+	)
 	var clear_result: Dictionary = run_loop.call("debug_clear_enemies")
 	_expect(
 		int(clear_result.get("count", 0)) >= first_visit_enemy_count,
@@ -1056,16 +1097,16 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v15 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v16 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 15, "module run snapshot should use schema v15")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v15 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 16, "module run snapshot should use schema v16")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v16 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v15 should load")
+	_expect(not loaded.is_empty(), "module run v16 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -1111,7 +1152,7 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 				0
 			)
 		) >= 1,
-		"Run v15 restore should preserve active event progress, pin, and fixed wave plan"
+		"Run v16 restore should preserve active event progress, pin, and fixed wave plan"
 	)
 	_expect(
 		is_equal_approx(
@@ -1128,13 +1169,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v15 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v16 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v15 fixture should resume after difficulty comparison"
+		"restored paused Run v16 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")

@@ -1,7 +1,7 @@
 # WorldEventSystem 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/游戏设计文档.md`、`docs/决策记录.md` 与 `client/data/README.md`。
-> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v15 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略。
+> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v16 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略。
 
 ## 职责
 
@@ -9,7 +9,7 @@
 - 由场景化 `WorldEventController` 维护事件实例状态、持续事件全局互斥、波次游标、隐藏奖励、祭坛事务和 HUD 状态。
 - 由模块 schema v4 的 `module_place_world_event` 把可交互物摆进 approved 模块；运行时不按事件 id 临时生成模块。
 - 持续事件激活后固定所属模块并继续真实模拟；完成或失败后，残敌转为普通敌人，离开原模块或死亡后解除固定。
-- Run v15 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池与事务进度；不保存 Node 引用。
+- Run v16 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池、事务进度与未拾取 Mod；不保存 Node 引用。
 
 ## 代码位置
 
@@ -35,7 +35,7 @@
 | 交互 | RunLoop 将兴趣点和世界事件候选按距离统一仲裁，复用 `interact` action |
 | 激活 | Controller 固定所属模块；RunLoop 用 `RNG.world_event` 和激活时难度固化完整敌种 / 位置计划与生命 / 伤害语义 |
 | 推进 | 仅在 `PLAYING` 下通过 `GameClock.delta_scaled()` 推进；玩家离开模块不暂停持续事件 |
-| 终止 | 防御、生存、占点成功后固定从公共普通池等权授予一个局内 Mod；失败不给完成奖励；两者均本局永久耗尽 |
+| 终止 | 防御、生存、占点成功后固定从公共普通池等权生成一个局内 Mod 拾取物；失败不给完成奖励；两者均本局永久耗尽 |
 | 残敌 | 事件敌人改以玩家为主目标，保留事件实例 id 直到死亡或离开原模块，以便安全解除 pin |
 | 恢复 | 先恢复模块 assignment，再注册交互物和防御目标，然后恢复 Controller / 固定波次，最后恢复敌人和子弹 |
 
@@ -49,7 +49,7 @@
 | 金币祭坛 | 初价 30，每次扣费后 `ceil(cost × 1.4)`，50% 成功；失败也扣费涨价，两次成功 Mod 必须不同，费用钳制在 JSON 安全整数上限 |
 | 血量祭坛 | 三次比例 50%/75%/90%，基数为当次最大生命＋最大护盾；原子按超量盾→盾→生命扣除并至少保留 1 生命，立即获得实际献祭值 50% 的向下取整金币 |
 
-防御、生存、占点完成后都固定从 `gear_mods.json` 公共普通池等权获得一个 Mod，并立即通过 `GameplayRunLoop` 的统一原子授予入口升阶和应用，不再进行 70/30 空奖励。金币祭坛成功时同样授予 Mod，最多两次且两次不能重复；血量祭坛只产即时局内金币，不产 Mod。事件敌人仍保留普通击杀金币与个体 Mod 掉落。事件计划只固定敌种、位置和战斗难度语义；每只敌人的普通击杀金币仍在实际生成时按当下威胁阶段与 `RNG.economy` 锁定。
+防御、生存、占点完成后都固定从 `gear_mods.json` 公共普通池等权锁定一个 Mod，并在事件位置上方生成手动拾取实体，不再进行 70/30 空奖励，也不即时升阶。金币祭坛成功时同样生成 Mod，最多两次且两次不能重复；两次分别使用来源左 / 右 28 px 位置，不额外消费 RNG。血量祭坛只产即时局内金币，不产 Mod。事件敌人仍保留普通击杀金币与个体 Mod 掉落。事件计划只固定敌种、位置和战斗难度语义；每只敌人的普通击杀金币仍在实际生成时按当下威胁阶段与 `RNG.economy` 锁定。
 
 ## 敌人事件上下文
 
@@ -63,15 +63,15 @@
 
 ## 快照与幂等
 
-Run v15 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 7×7 assignment / 目标角落与 `pinned_slots`，敌人快照保存 `event_instance_id`、稳定 `target_mode` 和完整金币奖励明细。Controller 保存 `wave_cursor`、`reward_committed`、祭坛尝试 / 成功 / 成功 Mod、血坛使用次数、价格、目标生命、计时和占点双进度；RunLoop 另保存消费前冻结的敌人 / Mod 池，因此恢复不得重发已提交波次、重复扣费、重复献祭、重复发奖励、重复授予 Mod、引入新解锁内容或重抽既有敌人金币。
+Run v16 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 7×7 assignment / 目标角落、`pinned_slots` 与非活动槽未拾取 Mod，顶层 `gear_mod_pickups` 保存活动模块未拾取 Mod，敌人快照保存 `event_instance_id`、稳定 `target_mode` 和完整金币奖励明细。Controller 保存 `wave_cursor`、`reward_committed`、祭坛尝试 / 成功 / 成功 Mod、血坛使用次数、价格、目标生命、计时和占点双进度；恢复不得重发已提交波次、重复扣费、重复献祭、重复生成或授予 Mod、引入新解锁内容或重抽既有敌人金币。
 
-旧 Run v14 因保存 9×9 / 81 槽 assignment、无法无损映射 7×7 世界而明确不兼容；SaveManager 标记 `legacy_run_incompatible`，正式流程删除旧 run 并保留 Meta v4。Replay v5 仍明确拒绝；Replay 格式保持 v6，但黄金回放按新地图重录。
+Run v15 无损迁移到 v16 并补 `gear_mod_pickups=[]`；旧 Run v14 因保存 9×9 / 81 槽 assignment、无法无损映射 7×7 世界而明确不兼容。Replay v5 仍明确拒绝；Replay 格式保持 v6，但因 Gear Mod 数据指纹变化重录黄金回放。
 
 ## 扩展点
 
 - 新事件先登记词表 id / kind / state / reward，再扩 `world_events.json` 严格 schema、可复用场景与 Controller 策略。
 - 新模块只通过 Module JSON 的世界事件下拉生成 `{type, cell, world_event_id}`；每模块最多一个世界事件 placement。
-- 改事件波次必须保持激活时一次性固化、先与冻结敌池求交、独立 `RNG.world_event` 和 Run v15 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
+- 改事件波次必须保持激活时一次性固化、先与冻结敌池求交、独立 `RNG.world_event` 和 Run v16 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
 - 不得把事件复杂状态塞回兴趣点字典，不得让普通环境敌人攻击防御目标，不得直接修改金币或 Meta 背包。
 
 ## 验证

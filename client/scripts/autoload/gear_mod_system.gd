@@ -94,6 +94,38 @@ func overflow_gold() -> int:
 	return maxi(int(_gear_data().get("overflow_gold", 0)), 0)
 
 
+func pickup_config() -> Dictionary:
+	return _dictionary_or_empty(_gear_data().get("pickup", {}))
+
+
+func next_grant_preview(mod_id: String, current_rank: int) -> Dictionary:
+	var definition: Dictionary = mod_definition(mod_id)
+	if definition.is_empty():
+		return {"ok": false, "reason": "unknown_gear_mod"}
+	var maximum_rank: int = max_rank(mod_id)
+	var resolved_current_rank: int = clampi(current_rank, -1, maximum_rank)
+	if resolved_current_rank >= maximum_rank:
+		return {
+			"ok": true,
+			"mod_id": mod_id,
+			"name_key": String(definition.get("name_key", "")),
+			"rank": maximum_rank,
+			"display_rank": maximum_rank + 1,
+			"overflow_gold": overflow_gold(),
+			"modifiers": [],
+		}
+	var next_rank: int = resolved_current_rank + 1
+	return {
+		"ok": true,
+		"mod_id": mod_id,
+		"name_key": String(definition.get("name_key", "")),
+		"rank": next_rank,
+		"display_rank": next_rank + 1,
+		"overflow_gold": 0,
+		"modifiers": rank_modifiers(mod_id, next_rank),
+	}
+
+
 func reward_pool_ids(
 	pool_id: String,
 	allowed_mod_ids: Array[String] = []
@@ -216,6 +248,12 @@ func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
 		if item is Dictionary:
 			result.append((item as Dictionary).duplicate(true))
 	return result
+
+
+func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
+	if raw_value is Dictionary:
+		return (raw_value as Dictionary).duplicate(true)
+	return {}
 
 
 func _string_array(raw_value: Variant) -> Array[String]:

@@ -48,7 +48,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改敌人金币基础系数 / 阶段增长 / 随机范围 | `enemy_rewards.json` | schema v1；实际金币在敌人成功生成时用 `RNG.economy` 锁定，死亡时不重算 |
 | 改开放战区刷怪组合 / 波次 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改金币等级曲线 / 通用奖励候选 | `level_progression.json` / `reward_choice_pools.json` | 等级曲线使用整数有理数；候选数量由调用方指定 2–5，抽取走 `RNG.ui_choice` |
-| 改局内 Gear Mod / 敌人掉率 / 公共池 | `gear_mods.json`、`gear_mod_drop_tables.csv` | Gear Mod 与本地数据包 mod 是不同概念；正式局自动获得、同类升阶并在局终清空，不存在局外装配 |
+| 改局内 Gear Mod / 敌人掉率 / 公共池 | `gear_mods.json`、`gear_mod_drop_tables.csv` | Gear Mod 与本地数据包 mod 是不同概念；奖励先生成 CPU 手动拾取物，交互后同类升阶并在局终清空，不存在局外装配 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；Godot 编辑器插件来源与本地补丁另见 `client/addons/README.md`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
 | 做本地 mod 内容包 | `user://mods/<mod_id>/mod.json` + mod 自带 `data/` patch | 通过 `ModLoader` 声明式追加 JSON / CSV；不改 `client/data/` 原文件，不执行脚本 |
@@ -82,7 +82,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `level_progression.json` | 已建立 | 金币驱动等级曲线：首段成本和整数倍率 |
 | `reward_choice_pools.json` | 已建立 | 通用奖励选项池、权重、等级条件和 modifier 边界 |
-| `gear_mods.json` | JSON | 局内 Gear Mod schema v2：slot、稀有度、rank 曲线、公共奖励池与满阶金币转化 |
+| `gear_mods.json` | JSON | 局内 Gear Mod schema v3：slot、稀有度、rank 曲线、公共奖励池、手动拾取配置与满阶金币转化 |
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；G.U.I.D.E、Xelu prompts 与 Lato 字体分别登记，vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
 | `visual_effects.json` | 已建立 | 视觉效果 catalog：资源、领域、技术标签、空间、生命周期、对象池与预览元数据 |
@@ -535,7 +535,7 @@ round(
 )
 ```
 
-所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v15 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件奖励不读本文件。
+所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / 当前 Run v16 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件奖励不读本文件。
 
 ## `game_modes.json`
 
@@ -997,7 +997,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 | `interest_points[].completes_run` | bool | 可选 | 为 `true` 时领取 / 摧毁后立即删除当前 `run` 存档并显示完成结果面板；完成点不能同时发奖励 |
 | `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 
-`warzone_directors.json` 是开放战区回归路径的数据源。运行时使用 `phases[].wave_ids` 给 Spawner 做阶段 gating；兴趣点奖励统一由 `GameplayRunLoop` 原子结算：金币即时进入局内账本，Mod 缓存从公共池独立抽取并立即写入本局 ranks，完成点直接结束本局。领取状态、目标状态和奖励结果进入 Run v15；恢复后不重抽、不重复发奖。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态。
+`warzone_directors.json` 是开放战区回归路径的数据源。运行时使用 `phases[].wave_ids` 给 Spawner 做阶段 gating；兴趣点奖励统一由 `GameplayRunLoop` 结算：金币即时进入局内账本，Mod 缓存从公共池独立抽取后生成两件已锁定 `mod_id` 的手动拾取实体，完成点直接结束本局。领取状态、目标状态、奖励结果和未拾取实体进入 Run v16；恢复后不重抽、不重复生成或授予。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态。
 
 ## `world_events.json`
 
@@ -1063,7 +1063,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
 | `schema_version` | int | 必须为 `5` | 7×7 世界与三个等概率 objective 候选；无撤离锚点 |
-| `worlds[].id` | string | 唯一、非空；当前 `module_world_7x7` | 世界 id；Run v15 的 `module_world` 子快照保存此值 |
+| `worlds[].id` | string | 唯一、非空；当前 `module_world_7x7` | 世界 id；Run v16 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 当前固定 `7` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
@@ -1098,7 +1098,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `first_visit_enemy_spawn.enemy_pool[].unlock_time` | number | 非负、按数组非递减，首项为 `0` | 敌种开始参与抽取的 `GameClock` 局内时间 |
 | `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
 
-“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v15 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
+“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v16 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
 
 当前模块敌池按 `unlock_time` 非递减排列：0 秒开放爆猎者 55 与突击枪手 100，60 秒开放群袭者 30，240 秒开放伏击者 15，420 秒开放壁垒者 20。完整权重总和为 220，突击枪手占约 45.5%，是最高权重但不设置每房必出或保底。
 
@@ -1603,8 +1603,14 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "overflow_gold": 75,
+  "pickup": {
+    "pool_id": "gear_mod_pickup",
+    "interaction_radius": 72.0,
+    "spawn_vertical_offset": -36.0,
+    "spawn_spread": 28.0
+  },
   "reward_pools": [
     {"id": "world_event_mod_pool_common", "mod_ids": ["gear_mod_weapon_damage_test"]}
   ],
@@ -1629,8 +1635,12 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `2` | 数据结构版本 |
+| `schema_version` | int | 必须为 `3` | 数据结构版本 |
 | `overflow_gold` | int | `>= 1`；当前为 `75` | Mod 已满 rank 后每份重复转化的局内金币 |
+| `pickup.pool_id` | string | 必须为已登记的 `gear_mod_pickup` | 正式通用掉落实体对象池 |
+| `pickup.interaction_radius` | number | `> 0`；当前 `72` | 玩家可按 `interact` 拾取的世界距离 |
+| `pickup.spawn_vertical_offset` | number | 当前 `-36` | 单件奖励相对来源的纵向偏移 |
+| `pickup.spawn_spread` | number | `>= 0`；当前 `28` | 双件奖励的左右对称偏移，不消费 RNG |
 | `reward_pools[].id` | string | `world_event_mod_pool_ids`，唯一且完整覆盖 | 世界事件与缓存共用的 Gear Mod 池 |
 | `reward_pools[].mod_ids` | array[string] | 已存在的 `gear_mod_ids`，非空且不重复 | 公共池内等权候选 |
 | `mods[].id` | string | 词表 §13-A `gear_mod_id` | 装备 Mod id |
@@ -1663,7 +1673,7 @@ enemy_chaser,gear_mod_weapon_damage_test,0.05,1,999
 | `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；高频敌人应按出现率反向校准，不能只比较单体概率 |
 | `min_enemy_level` / `max_enemy_level` | int | `>= 1` | 可选等级区间；未实现敌人等级前可先填宽范围 |
 
-当前基础伤害、后坐力与弹道稳定 Mod 分别由 `enemy_chaser`、`enemy_bulwark`、`enemy_spitter` 以 `5%`、`15%`、`2.5%` 概率掉落。掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出 Gear Mod。不存在 fusion cost、dust、容量、升级或分解数据。
+当前基础伤害、后坐力与弹道稳定 Mod 分别由 `enemy_chaser`、`enemy_bulwark`、`enemy_spitter` 以 `5%`、`15%`、`2.5%` 概率掉落。掉落随机必须走 `RNG.drop`；命中时先锁定 `mod_id`，再生成不吸附、不接触拾取、不限时消失的 CPU 实体，只有现有 `interact` action 成功后才升阶、生效或转化金币。怪物互杀、机关击杀或非玩家归因击杀不产出 Gear Mod。不存在 fusion cost、dust、容量、升级或分解数据。
 
 ## `level_progression.json`
 

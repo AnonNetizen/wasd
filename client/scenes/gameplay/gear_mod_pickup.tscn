@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/gear_mod_pickup.gd" id="1_aaq2b"]
+[ext_resource type="Shader" path="res://shaders/gear_mod_pickup_star_window.gdshader" id="2_d0m1h"]
+[ext_resource type="Texture2D" path="res://assets/icons/gear_mod_pickup_cpu.svg" id="3_u16gj"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_xtnwl"]
+shader = ExtResource("2_d0m1h")
+shader_parameter/animation_time = null
+shader_parameter/viewport_aspect = null
+shader_parameter/star_scale = 1.8
+shader_parameter/outline_texels = 23.8
+shader_parameter/texture_pixel_size = null
+shader_parameter/outline_color = Color(0.407843, 0.737255, 0.866667, 1)
+
+[node name="GearModPickup" type="Node2D" unique_id=1096419766]
+z_index = -8
+script = ExtResource("1_aaq2b")
+
+[node name="Visual" type="Node2D" parent="." unique_id=133407571]
+
+[node name="Icon" type="Sprite2D" parent="Visual" unique_id=1856386102]
+texture_filter = 4
+material = SubResource("ShaderMaterial_xtnwl")
+scale = Vector2(0.084, 0.084)
+texture = ExtResource("3_u16gj")

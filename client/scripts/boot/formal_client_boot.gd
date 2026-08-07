@@ -7,6 +7,9 @@ extends Node
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const ACTOR_SCENE_SMOKE_RUNNER := preload("res://tools/actor_scene_smoke.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
+const GEAR_MOD_PICKUP_CAPTURE_RUNNER := preload(
+	"res://tools/capture_gear_mod_pickup_runtime.gd"
+)
 const CODEX_PANEL_SCENE := preload("res://scenes/ui/codex_panel.tscn")
 const CODEX_SMOKE_RUNNER := preload("res://tools/codex_smoke.gd")
 const CONTENT_PROGRESSION_SMOKE_RUNNER := preload(
@@ -17,6 +20,9 @@ const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
 const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
 const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
+const GEAR_MOD_PICKUP_SMOKE_RUNNER := preload(
+	"res://tools/gear_mod_pickup_smoke.gd"
+)
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const HERO_COMPOSITION_PANEL_SCENE := preload("res://scenes/ui/hero_composition_panel.tscn")
 const INPUT_SMOKE_RUNNER := preload("res://tools/input_smoke.gd")
@@ -214,6 +220,20 @@ func _ready() -> void:
 		var gear_mod_smoke_runner: Node = GEAR_MOD_SMOKE_RUNNER.new()
 		gear_mod_smoke_runner.name = "GearModSmoke"
 		add_child(gear_mod_smoke_runner)
+	elif _is_gear_mod_pickup_smoke_enabled():
+		if data_schema_ok:
+			_open_warzone_launch = true
+			_start_gameplay_run({}, true)
+		var pickup_smoke_runner: Node = GEAR_MOD_PICKUP_SMOKE_RUNNER.new()
+		pickup_smoke_runner.name = "GearModPickupSmoke"
+		add_child(pickup_smoke_runner)
+	elif _is_gear_mod_pickup_capture_enabled():
+		if data_schema_ok:
+			_open_warzone_launch = true
+			_start_gameplay_run({}, true)
+		var capture_runner: Node = GEAR_MOD_PICKUP_CAPTURE_RUNNER.new()
+		capture_runner.name = "GearModPickupCapture"
+		add_child(capture_runner)
 	elif _is_settings_smoke_enabled():
 		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
 		settings_smoke_runner.name = "SettingsSmoke"
@@ -337,6 +357,14 @@ func _is_gear_mod_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--gear-mod-smoke")
 
 
+func _is_gear_mod_pickup_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--gear-mod-pickup-smoke")
+
+
+func _is_gear_mod_pickup_capture_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--capture-gear-mod-pickup")
+
+
 func _is_settings_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--settings-smoke")
 
@@ -356,6 +384,7 @@ func _is_automation_progress_isolated() -> bool:
 		if argument in [
 			"--replay-runner",
 			"--capture-golden-replay",
+			"--capture-gear-mod-pickup",
 			"--rng-audit",
 			"--perf-probe",
 			"--startup-probe",

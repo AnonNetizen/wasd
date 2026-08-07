@@ -148,6 +148,7 @@
       "hit_spark",
       "gold_orb",
       "energy_orb",
+      "gear_mod_pickup",
       "projectile_barrier",
       "vfx_enemy_explosion_telegraph",
       "vfx_enemy_melee_telegraph",

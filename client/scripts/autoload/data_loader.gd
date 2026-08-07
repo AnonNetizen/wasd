@@ -2713,13 +2713,13 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		GEAR_MODS_PATH,
 		"root",
 		payload,
-		["schema_version", "overflow_gold", "reward_pools", "mods"]
+		["schema_version", "overflow_gold", "pickup", "reward_pools", "mods"]
 	)
 	is_valid = _require_exact_int(
 		GEAR_MODS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		2
+		3
 	) and is_valid
 	is_valid = _require_int(
 		GEAR_MODS_PATH,
@@ -2727,6 +2727,58 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		payload.get("overflow_gold"),
 		1
 	) and is_valid
+	var pickup: Variant = payload.get("pickup")
+	if not pickup is Dictionary:
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			"pickup",
+			"Dictionary"
+		) and is_valid
+	else:
+		var pickup_config: Dictionary = pickup as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			GEAR_MODS_PATH,
+			"pickup",
+			pickup_config,
+			[
+				"pool_id",
+				"interaction_radius",
+				"spawn_vertical_offset",
+				"spawn_spread",
+			]
+		) and is_valid
+		var pickup_pool_id: String = _require_registered(
+			GEAR_MODS_PATH,
+			"pickup.pool_id",
+			pickup_config.get("pool_id"),
+			"pool_ids"
+		)
+		is_valid = not pickup_pool_id.is_empty() and is_valid
+		if pickup_pool_id != "gear_mod_pickup":
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"pickup.pool_id",
+				"gear_mod_pickup"
+			) and is_valid
+		is_valid = _require_number(
+			GEAR_MODS_PATH,
+			"pickup.interaction_radius",
+			pickup_config.get("interaction_radius"),
+			0.0,
+			null,
+			true
+		) and is_valid
+		is_valid = _require_number(
+			GEAR_MODS_PATH,
+			"pickup.spawn_vertical_offset",
+			pickup_config.get("spawn_vertical_offset")
+		) and is_valid
+		is_valid = _require_number(
+			GEAR_MODS_PATH,
+			"pickup.spawn_spread",
+			pickup_config.get("spawn_spread"),
+			0.0
+		) and is_valid
 	var reward_pools: Array = _require_array(
 		GEAR_MODS_PATH,
 		"reward_pools",

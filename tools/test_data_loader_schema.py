@@ -1329,6 +1329,46 @@ def main() -> int:
             ],
         ),
         (
+            "gear mod schema v3 is required",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_schema_version(2)),
+            [
+                "client/data/gear_mods.json:schema_version",
+                "must equal 3",
+            ],
+        ),
+        (
+            "gear mod pickup requires exact fields",
+            _mutate_json("client/data/gear_mods.json", _remove_gear_mod_pickup_field("spawn_spread")),
+            [
+                "client/data/gear_mods.json:pickup",
+                "must define exactly pool_id, interaction_radius, spawn_vertical_offset, and spawn_spread",
+            ],
+        ),
+        (
+            "gear mod pickup uses the dedicated pool",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_pickup_field("pool_id", "gold_orb")),
+            [
+                "client/data/gear_mods.json:pickup.pool_id",
+                "must equal gear_mod_pickup",
+            ],
+        ),
+        (
+            "gear mod pickup interaction radius must be positive",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_pickup_field("interaction_radius", 0)),
+            [
+                "client/data/gear_mods.json:pickup.interaction_radius",
+                "must be > 0",
+            ],
+        ),
+        (
+            "gear mod pickup spread cannot be negative",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_pickup_field("spawn_spread", -1)),
+            [
+                "client/data/gear_mods.json:pickup.spawn_spread",
+                "must be >= 0",
+            ],
+        ),
+        (
             "gear mod locale key must exist",
             _mutate_json("client/data/gear_mods.json", _set_gear_mod_name_key("gear_mod_missing_name")),
             [
@@ -2838,6 +2878,27 @@ def _set_mode_enemy(value: str) -> JsonMutator:
 def _set_gear_mod_id(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["mods"][0]["id"] = value
+
+    return mutate
+
+
+def _set_gear_mod_schema_version(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["schema_version"] = value
+
+    return mutate
+
+
+def _remove_gear_mod_pickup_field(field: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["pickup"].pop(field, None)
+
+    return mutate
+
+
+def _set_gear_mod_pickup_field(field: str, value: Any) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["pickup"][field] = value
 
     return mutate
 

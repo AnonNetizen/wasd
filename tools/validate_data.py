@@ -1827,10 +1827,28 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    if set(data) != {"schema_version", "overflow_gold", "reward_pools", "mods"}:
-        ctx.error(path, "root", "must define exactly schema_version, overflow_gold, reward_pools, and mods")
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
+    if set(data) != {"schema_version", "overflow_gold", "pickup", "reward_pools", "mods"}:
+        ctx.error(path, "root", "must define exactly schema_version, overflow_gold, pickup, reward_pools, and mods")
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 3)
     _require_int(ctx, path, "overflow_gold", data.get("overflow_gold"), minimum=1)
+    pickup = data.get("pickup")
+    if not isinstance(pickup, dict):
+        ctx.error(path, "pickup", "must be an object")
+    else:
+        expected_pickup_keys = {
+            "pool_id",
+            "interaction_radius",
+            "spawn_vertical_offset",
+            "spawn_spread",
+        }
+        if set(pickup) != expected_pickup_keys:
+            ctx.error(path, "pickup", "must define exactly pool_id, interaction_radius, spawn_vertical_offset, and spawn_spread")
+        pool_id = _require_registered(ctx, path, "pickup.pool_id", pickup.get("pool_id"), "pool_ids")
+        if pool_id and pool_id != "gear_mod_pickup":
+            ctx.error(path, "pickup.pool_id", "must equal gear_mod_pickup")
+        _require_number(ctx, path, "pickup.interaction_radius", pickup.get("interaction_radius"), minimum=0, exclusive_minimum=True)
+        _require_number(ctx, path, "pickup.spawn_vertical_offset", pickup.get("spawn_vertical_offset"))
+        _require_number(ctx, path, "pickup.spawn_spread", pickup.get("spawn_spread"), minimum=0)
     reward_pools = _require_list(ctx, path, "reward_pools", data.get("reward_pools"))
     seen_pool_ids: set[str] = set()
     for pool_index, pool in enumerate(reward_pools):

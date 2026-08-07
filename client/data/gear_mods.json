@@ -1,6 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "overflow_gold": 75,
+  "pickup": {
+    "pool_id": "gear_mod_pickup",
+    "interaction_radius": 72.0,
+    "spawn_vertical_offset": -36.0,
+    "spawn_spread": 28.0
+  },
   "reward_pools": [
     {
       "id": "world_event_mod_pool_common",

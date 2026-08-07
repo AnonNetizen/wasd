@@ -165,6 +165,8 @@ gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces pr
 ui_gear_mod_drop_obtained,获得 {name} · 第 {rank} 阶,Acquired {name} · Tier {rank}
 ui_gear_mod_overflow_gold,{name} 已满阶，转化为 {gold} 金币,{name} is maxed — converted to {gold} Gold
 ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache
+ui_interact_pickup_gear_mod,按 {binding} 拾取 {name} · 第 {rank} 阶 · {effect},Press {binding} to pick up {name} · Tier {rank} · {effect}
+ui_interact_pickup_gear_mod_overflow,按 {binding} 拾取 {name} · 已满阶 · 转化为 {gold} 金币,Press {binding} to pick up {name} · Max tier · Convert to {gold} Gold
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_run_complete,意识核已清理,Mind Core Cleared
@@ -360,9 +362,9 @@ ui_world_event_status_capture,占领 {progress}/{required}s · 入场 {entry}/{e
 ui_world_event_busy,另一个持续事件正在进行。,Another continuous event is already active.
 ui_world_event_exhausted,这个事件本局已经耗尽。,This event has been exhausted for this run.
 ui_world_event_completed_gold,{name}完成：获得 {amount} 金币。,{name} complete: gained {amount} Gold.
-ui_world_event_completed_mod,{name}完成：装备 Mod 已暂存。,{name} complete: Gear Mod secured as pending loot.
+ui_world_event_completed_mod,{name}完成：Gear Mod 已掉落。,{name} complete: Gear Mod has dropped.
 ui_world_event_failed,{name}失败。,{name} failed.
-ui_world_event_gold_shrine_success,祭坛回应了供奉：装备 Mod 已暂存。,The shrine answered: Gear Mod secured as pending loot.
+ui_world_event_gold_shrine_success,祭坛回应了供奉：Gear Mod 已掉落。,The shrine answered: Gear Mod has dropped.
 ui_world_event_gold_shrine_failure,祭坛吞下了金币，但没有回应。,The shrine consumed the Gold but gave nothing.
 ui_world_event_insufficient_gold,金币不足。,Not enough Gold.
 ui_world_event_blood_shrine_success,献祭完成：获得 {amount} 金币。,Sacrifice complete: gained {amount} Gold.

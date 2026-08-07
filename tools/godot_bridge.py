@@ -101,6 +101,14 @@ def main() -> int:
         help="Run the F13 center-3x3 technical-slice smoke in headless Godot.",
     )
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
+    subparsers.add_parser(
+        "gear-mod-pickup-smoke",
+        help="Run focused Gear Mod manual-pickup coverage in headless Godot.",
+    )
+    subparsers.add_parser(
+        "capture-gear-mod-pickup",
+        help="Capture and probe the formal runtime Gear Mod pickup.",
+    )
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
     subparsers.add_parser("ui-manager-smoke", help="Run the async UIManager lifecycle smoke in headless Godot.")
@@ -508,6 +516,35 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--gear-mod-smoke"],
+            cwd=project,
+        )
+    if args.command == "gear-mod-pickup-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "gear_mod_pickup_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing Gear Mod pickup smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--gear-mod-pickup-smoke"],
+            cwd=project,
+        )
+    if args.command == "capture-gear-mod-pickup":
+        capture_script = project / "tools" / "capture_gear_mod_pickup_runtime.gd"
+        if not capture_script.exists():
+            print(f"[godot-bridge] missing Gear Mod pickup capture script: {_rel(capture_script)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--resolution",
+                "1920x1080",
+                "--path",
+                str(project),
+                "--",
+                "--capture-gear-mod-pickup",
+            ],
             cwd=project,
         )
     if args.command == "settings-smoke":
