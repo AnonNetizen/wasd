@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-06",
+  "updated_at": "2026-08-07",
   "current_phase": "gameplay_integration",
   "current_status": "ADR #190 将正式模块世界改为 7×7 / 49 槽 / 77×77 格：起点固定左下 (0,6)，使用用户已人工批准的宽敞 module_start_corner；意识核按 run seed 等概率位于左上、右上或右下，并固化进 assignment / map hash / Run 快照。世界 schema v5，路线预算 6–12 次跨越，技术首片为中心 3×3 / 外圈 40 格；当前版本为 Meta v4、Run v15、Replay v6、游戏 v1.14，旧 Run v14 只删除 Run，四条 Replay v6 按新地图重录。ADR #189 默认开放解锁 / 标题图鉴继续有效；两个奖励模块仍为 candidate。地图方向、三个目标角、续局稳定与路线手感，以及既有图鉴项待用户人工验收；性能 probe 未运行。",
   "latest_adr": 190,
@@ -9,6 +9,7 @@
     "S"
   ],
   "last_completed": [
+    "Test Lab CPU Gear Mod 透视图标实验：净化用户提供的单闭合路径 CPU SVG 并保留原始 transform 与引脚轮廓；通用 SvgCurveOutlineShape 新增入树前 configure(source_path, border_color, star_scale) 且默认梨实验兼容。新增 360 / 112 / 40 px 三档 #68BCDD 星窗图标、10 / 4 / 2 px 边宽、专项 smoke、像素探针捕获与索引入口；正式 client 未修改。",
     "ADR #190 / 7×7 角落出生模块世界：正式世界改为 49 个 11×11 模块 / 77×77 全局格，左下固定人工批准的 module_start_corner，意识核按 RNG.world 与 run seed 等概率选择左上 / 右上 / 右下并进入 assignment / map hash / Run。世界 schema v5、Run v15、游戏 v1.14；Meta v4 / Replay v6 格式不变，旧 Run v14 只删 Run，四条 Replay v6 按新地图重录。",
     "ADR #189 / 核心内容解锁与图鉴：新增 ContentUnlockSystem、稀疏 content_unlock_rules.json、三类生成契约、Meta v4 / Run v14 / Replay v6 与游戏 v1.13；英雄、Gear Mod、敌人默认开放，锁定规则只显式登记。RunLoop 在 RNG 前冻结池，局终提交增量，续局保存增量，Replay / smoke / 测试岛隔离；标题新增三分类无剧透图鉴，结果页显示非空新解锁，四条 Replay v6 黄金回放已重录。",
     "ADR #188 / Gear Mod 纯局内化与 Roguelike 核心循环：RunLoop 权威保存局内 ranks，敌人 / 缓存 / 五类事件统一授予，Player / Weapon 使用替换式 Mod 层；公共池、三敌人掉率、满阶 75 金币与结果页最终构筑已落地。标题 Gear UI、Meta profile、dust / fusion 和全部撤离 / pending loot 路径删除；Meta v3、Run v13、Replay v5、游戏 v1.12，旧版本明确拒绝。",
@@ -179,6 +180,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
+    "CPU Gear Mod 透视图标待用户人工验收：打开 output/test_lab/scenes/svg_cpu_mod_icon_test.tscn 或查看 output/test_lab/screenshots/svg_cpu_mod_icon_test.png；Space 暂停，D 仅切换放大样本的诊断控制点，R 复原。人工确认 40 / 112 px CPU 可辨、青蓝轮缘清晰、星窗不过暗，且整体更像 Gear Mod 图标而不是敌人或拾取物；确认前不绑定正式 Gear Mod，不修改 Codex 图标管线。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",
     "地底涌出信标史莱姆风版本待用户人工复验：运行 output/test_lab/scenes/underground_spawn_beacon_test.tscn 或查看 underground_spawn_beacon_overview / charge / eruption / breakout 四张截图；用 C 固定 CHARGE / ERUPTION / BREAKOUT，B 切暗底 / 低对比意识层 / 拥挤战斗背景，Space 暂停，R 复位。人工检查宽瓣胶膜、钝头拉丝胶柱和圆润胶滴是否与玩家史莱姆风统一，第一眼是否读成敌人从地底钻出、是否误读为传送 / 攻击范围 / 机关 / 奖励、胶柱是否明确由下向上、1× 和三个相邻点是否仍清楚、最终爆亮是否准确对应生成时刻。用户确认前不得替换正式 ground_telegraph.tscn 或修改 enemy_spawn_telegraph cue / VFX catalog / Run / Replay。",
@@ -225,6 +227,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-07",
+      "command": "Godot 4.7.1 CPU scene generator; explicit svg_cpu_mod_icon_test scene and Test Lab index headless boot; svg_cpu_mod_icon_smoke; original svg_curve_pear_smoke regression; deterministic 1280x760 capture with three-size fill/border pixel probes; sync-contracts check; validate_data and DataLoader schema regression; three-tier lint plus project/semantic lint regressions; current_state JSON parse; scene embedded-image scan; docs health; git diff check; factual diff review; pre-commit run --all-files",
+      "result": "passed for the isolated Test Lab CPU Gear Mod perspective icon experiment. The sanitized source retains one closed CPU pin silhouette path and its authored translate/scale transform with RDF metadata removed. TestLabSvgCurveOutlineShape keeps the pear defaults and adds only the pre-tree configure(source_path, border_color, star_scale) API. All 360/112/40px samples produce one closed Curve2D, one Path2D, one shader-free cyan Line2D and matching 1133-triangle fills; screen border widths are 10/4/2px and star scales are 0.90/1.25/1.80. Pixel probes found visible star-window fill and exact #68BCDD border output at all three sizes, including 40px. Controls, pause, reset and repeated preview updates preserve node count and topology; only the large sample moves, and the original pear smoke remains green. Pre-commit 12/12 passes; factual review found no unresolved regression, formal client and Gear Mod contracts are unchanged, and no performance probe ran. The screenshot is machine implementation evidence only; 40/112px CPU readability, cyan-rim clarity, star-window brightness and Gear Mod rather than enemy/pickup semantics remain pending user manual acceptance."
+    },
     {
       "date": "2026-08-06",
       "command": "sync-contracts/check; validate_data and DataLoader schema regressions including negative fixtures; three-tier lint and lint regressions; headless boot; runtime, full and technical module-world, save, loading, world-event, Gear Mod, settings, content-progression, codex, replay, replay-input and L1 smokes; module-bake-check; four Replay v6 golden captures and per-file runtime reruns; current_state/_kb_index JSON parse; docs health; git diff check; factual code review",

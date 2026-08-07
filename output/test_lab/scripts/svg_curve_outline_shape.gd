@@ -4,12 +4,13 @@ extends Node2D
 const CURVE_IMPORTER_SCRIPT := preload("res://scripts/svg_curve_importer.gd")
 const CONTROLS_OVERLAY_SCRIPT := preload("res://scripts/svg_curve_controls_overlay.gd")
 const PERSPECTIVE_SHADER: Shader = preload("res://shaders/anchored_star_window.gdshader")
-const SVG_SOURCE_PATH: String = "res://assets/svg_curve/pear_source.svg"
+const DEFAULT_SVG_SOURCE_PATH: String = "res://assets/svg_curve/pear_source.svg"
 const TESSELLATION_LENGTH: float = 3.0
 const DEFAULT_BORDER_WIDTH: float = 12.0
 const MIN_BORDER_WIDTH: float = 0.5
 const MAX_BORDER_WIDTH: float = 30.0
-const BORDER_COLOR := Color(0.48, 0.82, 0.58, 1.0)
+const DEFAULT_BORDER_COLOR := Color(0.48, 0.82, 0.58, 1.0)
+const DEFAULT_STAR_SCALE: float = 0.82
 
 var _curves: Array[Curve2D] = []
 var _contour := PackedVector2Array()
@@ -26,10 +27,25 @@ var _expected_fill_area: float = 0.0
 var _mesh_fill_area: float = 0.0
 var _fill_sample_points := PackedVector2Array()
 var _border_sample_points := PackedVector2Array()
+var _svg_source_path: String = DEFAULT_SVG_SOURCE_PATH
+var _border_color: Color = DEFAULT_BORDER_COLOR
+var _star_scale: float = DEFAULT_STAR_SCALE
 
 
 func _ready() -> void:
 	_load_svg_curve()
+
+
+func configure(source_path: String, border_color: Color, star_scale: float) -> void:
+	if is_inside_tree():
+		push_error("SVG curve outline must be configured before entering the scene tree.")
+		return
+	if source_path.is_empty():
+		push_error("SVG curve outline source path must not be empty.")
+		return
+	_svg_source_path = source_path
+	_border_color = border_color
+	_star_scale = clampf(star_scale, 0.05, 2.0)
 
 
 func set_animation_time(time_seconds: float) -> void:
@@ -52,7 +68,7 @@ func border_width() -> float:
 
 
 func border_color() -> Color:
-	return BORDER_COLOR
+	return _border_color
 
 
 func border_line_count() -> int:
@@ -168,9 +184,9 @@ func all_curves_closed() -> bool:
 
 
 func _load_svg_curve() -> void:
-	var svg_source := FileAccess.get_file_as_string(SVG_SOURCE_PATH)
+	var svg_source := FileAccess.get_file_as_string(_svg_source_path)
 	if svg_source.is_empty():
-		push_error("Failed to read SVG curve source: %s" % SVG_SOURCE_PATH)
+		push_error("Failed to read SVG curve source: %s" % _svg_source_path)
 		return
 	var importer := CURVE_IMPORTER_SCRIPT.new() as TestLabSvgCurveImporter
 	var import_result: Dictionary = importer.parse(svg_source)
@@ -186,7 +202,7 @@ func _load_svg_curve() -> void:
 		if curve != null:
 			_curves.append(curve)
 	if _curves.size() != 1:
-		push_error("Single-outline pear source must produce exactly one Curve2D.")
+		push_error("Single-outline SVG source must produce exactly one Curve2D.")
 		return
 
 	_normalize_curve()
@@ -262,7 +278,7 @@ func _build_fill_mesh() -> void:
 	_material = ShaderMaterial.new()
 	_material.shader = PERSPECTIVE_SHADER
 	_material.set_shader_parameter("animation_time", 0.0)
-	_material.set_shader_parameter("star_scale", 0.82)
+	_material.set_shader_parameter("star_scale", _star_scale)
 	_fill_mesh_instance = MeshInstance2D.new()
 	_fill_mesh_instance.name = "CurveInteriorMesh"
 	_fill_mesh_instance.mesh = mesh
@@ -278,7 +294,7 @@ func _build_border_line() -> void:
 	_border_line.name = "AdjustableCurveBorder"
 	_border_line.points = closed_points
 	_border_line.width = DEFAULT_BORDER_WIDTH
-	_border_line.default_color = BORDER_COLOR
+	_border_line.default_color = _border_color
 	_border_line.joint_mode = Line2D.LINE_JOINT_ROUND
 	_border_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 	_border_line.end_cap_mode = Line2D.LINE_CAP_ROUND

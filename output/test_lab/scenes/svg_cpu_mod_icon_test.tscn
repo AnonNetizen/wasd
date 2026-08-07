@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/svg_cpu_mod_icon_test.gd" id="1_6p4mx"]
+
+[node name="SvgCpuModIconTest" type="Node2D" unique_id=1452187506]
+script = ExtResource("1_6p4mx")

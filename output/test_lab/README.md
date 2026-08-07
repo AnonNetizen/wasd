@@ -34,6 +34,7 @@
 - `slime_book_perspective_test.tscn`：沿用史莱姆十字的单一闭合软体骨架、弹簧 / 阻尼 / 邻点保形、位移扩散、面积压力和动态圆角遮罩，但把 20 个静止控制点改排成左右镜像的摊开书本轮廓。顶端书脊凹口、底部书脊尖点、中央书脊线和两条页缘引导线随同一软体形变，帮助宽轮廓读成一本打开但不翻页的书；没有独立页层、翻页状态或 3D 曲面。内部继续直接复用 `anchored_star_window.gdshader`，只从 `SCREEN_UV` 采样固定空间星空。`Space` 暂停整体移动，`F` 压扁，`R` 复原，`A` 切换自动脉冲，`D` 切换骨架，左键冲击页缘，`Esc` 返回索引。`slime_book_perspective_smoke.gd` 检查 20 点单轮廓、书脊特征、左右静止对称、页宽比例、100 点动态 Shader 遮罩、整体位移、局部形变与面积保持；`capture_slime_book_perspective.gd` 以固定步进生成左页受击预览，并分别扫描左右页内部亮像素。书本辨识度、书脊线强弱、透视内容读法和边缘配色仍待用户人工验收。
 - `slime_apple_perspective_test.tscn`：继续复用史莱姆十字的 20 点单闭环软体、动态圆角遮罩与 `anchored_star_window.gdshader`，只把静止轮廓改排成近圆果腹、顶部凹肩、短果柄和一片外伸叶子组成的苹果剪影。果柄与叶片都是同一外轮廓的一部分，不创建独立节点；成品绘制只含四层外轮缘和 Shader 填充，刻意不绘制叶脉、分割线、装饰线、内部标记或继承的调试骨架。`Space` 暂停整体移动，`F` 压扁，`R` 复原，`A` 切换自动脉冲，左键冲击边缘，`Esc` 返回索引。`slime_apple_perspective_smoke.gd` 检查 20 点单轮廓、果腹宽高、凹肩、果柄、叶片、底部圆度、零内部线、100 点 Shader 遮罩、整体位移、局部形变与面积保持；`capture_slime_apple_perspective.gd` 以固定步进生成右侧受击预览，并分别扫描左右果肉内部亮像素。苹果辨识度、叶片大小、轮缘配色与固定空间透视读法仍待用户人工验收。
 - `svg_curve_pear_test.tscn`：按用户提供的第二版梨 SVG 原位替换旧双轮廓来源；净化后的 `assets/svg_curve/pear_source.svg` 保持原 `d` 路径与 `translate(189.226660,627.553395) scale(0.054699,-0.054699)` 坐标变换，只有一个闭合 `<path>`。轻量导入器将它直接转换为一个权威 `Curve2D + Path2D`，固定等距细分同时供内部三角化和边缘生成：内部 `ArrayMesh` 共用 `anchored_star_window.gdshader`，边缘由唯一一个无 Shader 的闭合 `Line2D` 绘制，`Line2D.width` 可在 2–30px 内独立调整而不改变内部拓扑。专用控制层默认显示 SVG 的 30 个唯一锚点和 58 个三次 Bézier 控制柄：黄色为锚点，青色为入柄，粉色为出柄，并以同色辅助线连接所属锚点；导入器为闭合复制的第 31 个末点不会重复显示。整条矢量只做平移以观察 `SCREEN_UV` 固定空间内容，没有内外双轮廓、弹簧、面积压力、质点、局部形变、背景线或非诊断装饰线。`Space` 暂停移动，`Q / E` 调细 / 调粗边缘，`D` 隐藏 / 显示控制层，`R` 复原，`Esc` 返回索引。`svg_curve_pear_smoke.gd` 检查单闭合路径、唯一 Path2D / Line2D / 控制层、锚点 / 控制柄数量、显示切换隔离、填充面积、材质分层、边宽范围、整体位移和零软体依赖；`capture_svg_curve_pear.gd` 先隐藏控制层探测内部与边，再显示控制层分别探测三类点色并生成确定性预览。控制点布局可读性、边宽 / 边色、梨形辨识度和固定空间透视读法仍待用户人工验收。
+- `svg_cpu_mod_icon_test.tscn`：把用户提供的单路径 CPU SVG 净化为 `assets/svg_curve/cpu_mod_source.svg`，保留 `translate(0,800) scale(0.1,-0.1)` 坐标变换和四边引脚轮廓，移除 RDF 元数据。通用 `TestLabSvgCurveOutlineShape.configure(source_path, border_color, star_scale)` 必须在入树前调用；未调用时继续使用梨源、绿色边与原星窗尺度。CPU 实验同时展示 360px 动态放大样本、112px 图鉴详情样本和 40px 列表样本，三档使用项目青色 `#68BCDD` 轮缘与 10 / 4 / 2px 屏幕边宽，小尺寸分别提高星窗尺度到 1.25 / 1.80，避免星点缩成暗块。只有放大样本缓慢平移以暴露 `SCREEN_UV` 固定空间，实际尺寸样本保持原位；控制层默认隐藏且 `D` 只切换放大样本，`Space` 暂停，`R` 复原，`Esc` 返回。专项 smoke 覆盖单闭合 Curve2D、三档拓扑一致、面积 / Shader / Line2D 分层、尺寸 / 边宽 / 星窗参数、控制层隔离、节点稳定和位移边界；捕获脚本对三档内部与青色边缘做像素探针并生成干净预览。该实验不绑定现有 Gear Mod，也不修改正式 `client`；40 / 112px CPU 辨识、星窗明度和 Gear Mod 语义仍待用户人工验收。
 - `bullet_vfx_selection_test.tscn`：六种原创胶质子弹候选的 1280×760 动态选择墙。泪核胶珠、十字胶籽、缺口胶环、圆头胶囊、三瓣胶冠、棱面胶矢统一复用“深色反边 → 胶体外壳 → 深色内馅 → 湿润高光”材质层，只改变轮廓；每种都以完全相同的几何同时展示玩家白色和敌方红色版本。每张卡包含 4× 静态特写，以及玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的 1× 飞行 / 短拖尾 / 命中循环。弹丸只使用整体缩放、轴向压缩和少量相位形变，不复制十字架的完整软体求解，也不创建命中特效子节点。`Space` 暂停，`R` 重置，`D` 显示判定圆，`T` 切换拖尾，`B` 切换纯暗 / 低对比网格 / 低饱和意识层背景，`Esc` 返回索引。`bullet_vfx_selection_smoke.gd` 自动检查六种候选、红白同形、主体边界、红色主面积、固定拖尾上限、命中清尾、无节点累积和确定性重置；`capture_bullet_vfx_selection.gd` 生成总览图。最终辨识度、胶质感、阵营区分、拖尾是否误导判定及十字方案是否像治疗符号均待用户人工选型。
 - `tear_core_bullet_focus_test.tscn`：用户选定 01 泪核胶珠后的 1280×760 专用放大检查场景。左右以同等尺寸超大展示玩家白弹和敌方红弹，标出反边 / 胶体 / 内馅（内核）/ 高光四层配色；底部保留玩家 `r=8 / 520 px/s` 与敌人 `r=5 / 280 px/s` 的 1× 实战飞行和命中循环。`H` 在超大弹体与超大命中效果之间切换；`Space / R / D / T / B / Esc` 分别暂停、重置、判定圆、拖尾、三档背景和返回索引。`tear_core_bullet_focus_smoke.gd` 检查超大红白同形、放大尺寸、真实 r / 速度、轮廓边界、有界拖尾、无节点命中与重置清理；`capture_tear_core_bullet_focus.gd` 生成确定性放大总览图。材质层次、轮廓辨识度、高速读法和红白区分仍待用户人工验收。
 - `tear_core_material_switcher_test.tscn`：锁定泪核轮廓和圆形判定的 1280×760 七材质专场。顶部真实下拉菜单按固定顺序提供胶质基准、水晶玻璃、金属珐琅、哑光陶瓷、能量电浆、墨液烟雾和矿石晶核，默认水晶玻璃；切换时不重建节点，而是同步更新左右超大红白特写及底部玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的飞行 / 拖尾 / 命中样本。所有材质共享泪核几何与阵营主色，内部细节限制在判定圆内；`R` 保留当前材质，`H / D / T / B / Space / Esc` 延续泪核专场控制。`tear_core_material_switcher_smoke.gd` 检查七项菜单与默认项、唯一诊断签名、红白同形、样式同步、真实 r / 速度、主体边界、有界拖尾、命中 / 重置无残留，以及多轮切换节点数稳定；`capture_tear_core_material_switcher.gd` 固定生成默认水晶玻璃总览。材质辨识度、阵营可读性、透明背景干扰、高速读法、拖尾判定误导与下拉操作均待用户人工选型。
@@ -310,6 +311,22 @@ Get-FileHash -LiteralPath 'output/test_lab/screenshots/player_slime_fusion_test.
 
 # 1280×760 固定时间预览；分别探测内部、边色、锚点、入柄与出柄
 & $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_svg_curve_pear.gd
+```
+
+## SVG CPU Gear Mod Icon 验证
+
+以下命令均从仓库根目录运行；`$godot` 指向 Godot 4.7.1 stable 的 console 可执行文件。
+
+```powershell
+# 生成 / 更新轻量场景并显式加载
+& $godot --headless --path output/test_lab --script res://scripts/create_svg_cpu_mod_icon_scene.gd
+& $godot --headless --path output/test_lab --quit-after 2 res://scenes/svg_cpu_mod_icon_test.tscn
+
+# 单闭合 CPU 轮廓、360 / 112 / 40px、10 / 4 / 2px 边宽、星窗参数与控制层隔离
+& $godot --headless --path output/test_lab --script res://tools/svg_cpu_mod_icon_smoke.gd
+
+# 1280×760 干净预览；分别探测三档内部星窗和 #68BCDD 轮缘
+& $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_svg_cpu_mod_icon.gd
 ```
 
 ## Jelly Bullet VFX Selection 验证

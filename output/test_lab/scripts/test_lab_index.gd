@@ -119,6 +119,12 @@ const EXTRA_TEST_SCENES := [
 		"featured": true,
 	},
 	{
+		"button_name": "SvgCpuModIconButton",
+		"label": "SVG CPU Gear Mod Icon",
+		"scene_path": "res://scenes/svg_cpu_mod_icon_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "PlayerSlimeFusionButton",
 		"label": "Dual-Vortex Player Slime Gate",
 		"scene_path": "res://scenes/player_slime_fusion_test.tscn",
