@@ -259,7 +259,7 @@ JSON 示例：
   "base_stats": {
     "max_hp": 600.0,
     "health_regen": 0.0,
-    "move_speed": 240.0,
+    "move_speed": 312.0,
     "player_separation_radius": 25.0,
     "fire_rate": 2.5,
     "damage": 3.5,
@@ -1176,7 +1176,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
         "max_shield": 0.0,
         "max_energy": 140.0,
         "health_regen": 0.0,
-        "move_speed": 230.0,
+        "move_speed": 300.0,
         "armor": 60.0,
         "ability_strength": 1.0,
         "ability_range": 1.0,
