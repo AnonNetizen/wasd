@@ -14,6 +14,7 @@
 - ADR #170 后敌人显式攻击、爆猎者连锁和玩家击退都由现有输入、`GameClock` 与运行时数据确定，不新增 replay event 或 RNG。爆炸击杀普通敌人的掉落 RNG 按 `runtime_spawn_serial` 稳定顺序消费。
 - ADR #188 曾将 Replay 升至 v5，记录局内 Gear Mod 与意识核直接完成语义。
 - ADR #189 将 Replay 升至 v6：`context.content_availability` 保存开局冻结的英雄、Gear Mod 与敌人可用池；播放只消费该快照并忽略本机 Meta。旧 Replay v5 明确不兼容且不迁移。
+- ADR #193 将 Replay 升至 v7：`run_end` 使用无等级 Gear Mod 实例语义，data fingerprint 纳入规范化 Gear Mod 玩法数据；旧 Replay v6 精确拒绝且不迁移。
 - `Replay` 受 `Settings.gameplay.record_replays` 控制；关闭后会清空当前内存录制并拒绝新录制。
 
 ## 阅读方式
@@ -122,10 +123,10 @@ F8 首片 `.replay` 文件 envelope：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `file_schema_version` | `int` | 文件 envelope 版本，当前为 6 |
+| `file_schema_version` | `int` | 文件 envelope 版本，当前为 7 |
 | `created_at` | `String` | wall time 诊断字段，不参与玩法判定 |
 | `game_version` | `String` | 当前构建 / 设计版本标签，来自 `SaveManager.GAME_VERSION` |
-| `data_fingerprint` | `String` | 当前 contracts + schema counts 的稳定 hash，用于提示数据基线变化 |
+| `data_fingerprint` | `String` | contracts、schema counts 与规范化 Gear Mod 玩法 payload 的稳定 hash，用于拒绝玩法数据基线漂移 |
 | `recording_hash` | `String` | 录制 payload 的稳定 hash，读取时强校验 |
 | `recording` | `Dictionary` | 上方内存录制结构 |
 | `summary` | `Dictionary` | seed、tick/time、事件数量、停止原因和可选 `run_summary` 等 runner 可比较摘要 |
@@ -144,7 +145,9 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 当前 gameplay 输入使用固定 `participant_id=player_0`。`InputService` 对 `move` / `aim` 记录最终归一化 Vector2，对离散 action 记录 bool，并只在值发生变化时写入，避免每帧重复记录。鼠标瞄准因此可与手柄瞄准使用同一 wire，不记录鼠标坐标或设备来源。`replay-runner --rerun-runtime-summary` 通过 playback override 注入这些 intent，播放期间忽略物理 GUIDE 输入；事件可带 `frame` 字段，runner 优先按 frame 调度，以覆盖暂停时 `GameClock.tick` 冻结的场景。
 
-`context.content_availability` 的三个数组分别冻结英雄、Gear Mod 和敌人池。捕获与正式开局都在任何池消费 RNG 前生成快照；播放时 `GameplayRunLoop` 使用回放内快照，禁止读取或提交本机 `ContentUnlockSystem` Meta，因此同一 v6 Replay 不受本机解锁进度影响。
+`context.content_availability` 的三个数组分别冻结英雄、Gear Mod 和敌人池。捕获与正式开局都在任何池消费 RNG 前生成快照；播放时 `GameplayRunLoop` 使用回放内快照，禁止读取或提交本机 `ContentUnlockSystem` Meta，因此同一 v7 Replay 不受本机解锁进度影响。
+
+Gear Mod fingerprint payload 由 `DataLoader` 提供规范化副本，包含 schema、拾取配置、奖励池有序数组、每个 Mod 的 id / slot / 固定 modifiers / 默认开放语义，以及掉落表有序行。数组顺序影响运行时 RNG 时必须保留；名称、描述、稀有度、图标和本地化等展示字段不参与指纹。
 
 `runtime_events` 是 F8 golden 工具层事件字段，当前用于 `golden_full_death` 的 `defeat_player`，以及 `golden_reward_choice` 的 `request_reward_choice` / `choose_reward_index`。runner 按 `frame` 调度这些事件：full-death 在工具脚本内通过 `Combat.apply_damage()` 触发正式 Player 受伤 / 死亡 / GameState / GameOverPanel 路径；reward choice 调用 `GameplayRunLoop.request_reward_choice()` 发起正式请求，再调用 `RewardChoicePanel.choose_index()` 触发正式选择路径。业务脚本不读取该字段，也不为测试场景添加分支。full-death capture / runner 会在场景前备份 `DEFAULT_SLOT` 的 run/meta payload，临时清空以获得稳定失败页摘要，场景结束后恢复原 payload，避免 headless 工具永久改写本机默认存档。后续若扩展 runtime event，必须继续走正式系统边界，不能直接伪造 `GameState` 或结算数据。
 
@@ -195,11 +198,11 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `python tools/godot_bridge.py --project client replay-input-smoke`；改 golden 时追加 `capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_reward_choice` 以及四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 v6 roundtrip、内容池快照校验与旧 v5 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。ADR #191 不改变 Replay schema，但 `gear_mods.json` schema v3 改变数据指纹，因此四条黄金回放必须重录并逐条运行时复核；它们继续覆盖两种主英雄、连续无限射击、四技能、冲刺、暂停 / 恢复、死亡防御状态和通用奖励选择。
+- 当前 `.replay` 文件 v7 roundtrip、内容池快照校验与旧 v6 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。ADR #193 改变 Replay wire 与 Gear Mod fingerprint，四条黄金回放必须重录并逐条运行时复核；专项 smoke 另覆盖固定效果和重复实例，现有 golden 不冒充该行为的直接 L3 证据。
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 6，加载器只接受 v6。旧 v5、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id`、difficulty profile id / coefficient 与 `content_availability`；7×7 assignment 与目标角落由同 seed、数据指纹和 `RNG.world` 重建，不新增 replay 字段。弹道随机与 Gear Mod 掉落由运行时按固定 RNG 子流重算；Player 后坐 / 敌人击退、金币、局内 Gear Mod ranks、未拾取 Mod、未完成奖励选择、敌人状态、世界事件事务与内容进度增量属于 Run v16 而不是 replay 输入字段。不能把 run 快照与 replay 输入格式混合。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 7，加载器只接受 v7。旧 v6、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id`、difficulty profile id / coefficient 与 `content_availability`；7×7 assignment 与目标角落由同 seed、数据指纹和 `RNG.world` 重建。弹道随机与 Gear Mod 掉落由运行时按固定 RNG 子流重算；Player 后坐 / 敌人击退、金币、可重复的局内 Gear Mod `mod_ids`、未拾取 Mod、未完成奖励选择、敌人状态、世界事件事务与内容进度增量属于 Run v17 而不是 replay 输入字段。不能把 run 快照与 replay 输入格式混合。
 
 ## 相关文档
 

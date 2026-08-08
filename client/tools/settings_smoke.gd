@@ -531,9 +531,14 @@ func _expect_game_over_locale_refresh() -> void:
 	panel.call("configure", 5, 42.0, false, {
 		"gear_mods": [
 			{
+				"mod_id": "gear_mod_weapon_damage_test",
 				"name_key": "gear_mod_weapon_damage_test_name",
-				"rank": 2,
-				"display_rank": 3,
+				"count": 2,
+			},
+			{
+				"mod_id": "gear_mod_weapon_recoil_test",
+				"name_key": "gear_mod_weapon_damage_test_name",
+				"count": 3,
 			},
 		],
 	})
@@ -548,9 +553,13 @@ func _expect_game_over_locale_refresh() -> void:
 	_expect(
 		summary_label != null
 		and String(summary_label.text).contains(tr("ui_result_build_header"))
-		and String(summary_label.text).contains(tr("gear_mod_weapon_damage_test_name"))
-		and String(summary_label.text).contains("3"),
-		"game-over summary should show the current run build and display rank"
+		and String(summary_label.text).count(
+			tr("gear_mod_weapon_damage_test_name")
+		) == 2
+		and String(summary_label.text).contains("×2")
+		and String(summary_label.text).contains("×3")
+		and not String(summary_label.text).contains("×5"),
+		"game-over summary should keep counts grouped by Mod id"
 	)
 
 	Localization.set_locale("en")
@@ -560,7 +569,12 @@ func _expect_game_over_locale_refresh() -> void:
 	_expect(
 		summary_label != null
 		and String(summary_label.text).contains(tr("ui_result_build_header"))
-		and String(summary_label.text).contains(tr("gear_mod_weapon_damage_test_name")),
+		and String(summary_label.text).count(
+			tr("gear_mod_weapon_damage_test_name")
+		) == 2
+		and String(summary_label.text).contains("×2")
+		and String(summary_label.text).contains("×3")
+		and not String(summary_label.text).contains("×5"),
 		"game-over build summary should refresh to en"
 	)
 	_expect(restart_button != null and String(restart_button.text) == "Restart", "game-over restart button should refresh to en")

@@ -544,14 +544,9 @@ func _refresh_gear_mod_detail(entry: Dictionary) -> void:
 		"ui_codex_rarity_",
 		String(entry.get("rarity", ""))
 	)
-	var max_rank: int = maxi(int(entry.get("max_rank", 0)) + 1, 1)
-	_stats_label.text = "%s\n%s\n%s" % [
+	_stats_label.text = "%s\n%s" % [
 		"%s: %s" % [tr("ui_codex_gear_slot"), slot],
 		"%s: %s" % [tr("ui_codex_gear_rarity"), rarity],
-		tr("ui_codex_gear_rank").format({
-			"min_rank": 1,
-			"max_rank": max_rank,
-		}),
 	]
 
 

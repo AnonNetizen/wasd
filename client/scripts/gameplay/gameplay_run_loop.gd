@@ -126,7 +126,7 @@ const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const GEAR_MOD_PICKUP_POOL_SIZE: int = 128
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 16
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 17
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -188,7 +188,7 @@ var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
 var _main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _reward_choice_panel: CanvasLayer = null
-var _run_gear_mod_ranks: Dictionary = {}
+var _run_gear_mod_ids: Array[String] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
@@ -855,7 +855,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_gold_progression.reset()
 	_reward_choice_controller.clear()
 	_kills = 0
-	_run_gear_mod_ranks.clear()
+	_run_gear_mod_ids.clear()
 	_run_completed = false
 
 	_player_host = _active_world.get_node_or_null("PlayerHost") as Node2D
@@ -4289,41 +4289,30 @@ func _update_gear_mod_pickup_prompt(
 	):
 		return
 	var mod_id: String = pickup.mod_id()
-	var preview: Dictionary = GearModSystem.next_grant_preview(
-		mod_id,
-		int(_run_gear_mod_ranks.get(mod_id, -1))
-	)
-	if not bool(preview.get("ok", false)):
+	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
+	if definition.is_empty():
 		return
-	var prompt_key: String = "ui_interact_pickup_gear_mod"
 	var values: Dictionary = {
-		"name": tr(String(preview.get("name_key", ""))),
-		"rank": int(preview.get("display_rank", 1)),
+		"name": tr(String(definition.get("name_key", ""))),
 		"effect": _format_gear_mod_pickup_effect(
 			mod_id,
-			preview
+			GearModSystem.modifiers(mod_id)
 		),
 	}
-	var overflow_gold: int = int(preview.get("overflow_gold", 0))
-	if overflow_gold > 0:
-		prompt_key = "ui_interact_pickup_gear_mod_overflow"
-		values["gold"] = overflow_gold
 	_hud.call(
 		"show_interaction_prompt",
 		_interaction_binding_label(),
-		prompt_key,
+		"ui_interact_pickup_gear_mod",
 		values
 	)
 
 
 func _format_gear_mod_pickup_effect(
 	mod_id: String,
-	preview: Dictionary
+	modifiers: Array[Dictionary]
 ) -> String:
 	var parts: Array[String] = []
-	for modifier: Dictionary in _typed_dictionary_array(
-		preview.get("modifiers", [])
-	):
+	for modifier: Dictionary in modifiers:
 		var stat: String = String(modifier.get("stat", ""))
 		var stat_label: String = tr("ui_stats_%s" % stat)
 		var modifier_type: String = String(
@@ -5788,70 +5777,48 @@ func _gear_mod_name_key(mod_id: String) -> String:
 
 
 func _run_gear_mod_snapshot() -> Dictionary:
-	return {"ranks": _run_gear_mod_ranks.duplicate(true)}
+	return {"mod_ids": _sorted_run_gear_mod_ids()}
 
 
 func _restore_run_gear_mods(raw_value: Variant) -> bool:
 	if not raw_value is Dictionary:
 		return false
 	var saved_state: Dictionary = raw_value as Dictionary
-	if not saved_state.get("ranks", {}) is Dictionary:
+	if (
+		saved_state.size() != 1
+		or not saved_state.has("mod_ids")
+		or not saved_state.get("mod_ids") is Array
+	):
 		return false
-	var saved_ranks: Dictionary = saved_state.get("ranks", {}) as Dictionary
-	var restored_ranks: Dictionary = {}
-	var mod_ids: Array[String] = []
-	for raw_mod_id: Variant in saved_ranks.keys():
-		mod_ids.append(String(raw_mod_id))
-	mod_ids.sort()
-	for mod_id: String in mod_ids:
-		var maximum_rank: int = GearModSystem.max_rank(mod_id)
-		if maximum_rank < 0:
+	var restored_mod_ids: Array[String] = []
+	for raw_mod_id: Variant in saved_state.get("mod_ids") as Array:
+		if not raw_mod_id is String:
 			return false
-		var rank: int = int(saved_ranks.get(mod_id, -1))
-		if rank < 0 or rank > maximum_rank:
+		var mod_id: String = raw_mod_id as String
+		if (
+			GearModSystem.mod_definition(mod_id).is_empty()
+			or not _is_content_available(
+				CONTENT_UNLOCK_TYPES.GEAR_MOD,
+				mod_id
+			)
+		):
 			return false
-		restored_ranks[mod_id] = rank
-	_run_gear_mod_ranks = restored_ranks
+		restored_mod_ids.append(mod_id)
+	_run_gear_mod_ids = restored_mod_ids
 	return true
 
 
 func _grant_run_gear_mod(
 	mod_id: String,
-	count: int = 1,
 	show_feedback: bool = true
 ) -> Dictionary:
 	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-	if definition.is_empty() or count <= 0:
+	if definition.is_empty():
 		return _debug_result(false, "unknown_gear_mod")
 	if not _is_content_available(CONTENT_UNLOCK_TYPES.GEAR_MOD, mod_id):
 		return _debug_result(false, "locked_gear_mod")
-	var maximum_rank: int = GearModSystem.max_rank(mod_id)
-	var rank: int = int(_run_gear_mod_ranks.get(mod_id, -1))
-	var overflow_gold: int = 0
-	var rank_changed: bool = false
-	for _index: int in range(count):
-		if rank < 0:
-			rank = 0
-			rank_changed = true
-		elif rank < maximum_rank:
-			rank += 1
-			rank_changed = true
-		else:
-			overflow_gold += GearModSystem.overflow_gold()
-	if overflow_gold > 0:
-		var gold_result: Dictionary = add_gold(
-			overflow_gold,
-			GOLD_TRANSACTION_REASONS.GEAR_MOD_OVERFLOW
-		)
-		if not bool(gold_result.get("ok", false)):
-			return {
-				"ok": false,
-				"reason": "overflow_gold_failed",
-				"gold_result": gold_result,
-			}
-	_run_gear_mod_ranks[mod_id] = rank
-	if rank_changed:
-		_apply_run_gear_modifiers()
+	_run_gear_mod_ids.append(mod_id)
+	_apply_run_gear_modifiers()
 	if (
 		show_feedback
 		and _hud != null
@@ -5859,38 +5826,26 @@ func _grant_run_gear_mod(
 	):
 		_hud.call(
 			"show_gear_mod_drop_feedback",
-			String(definition.get("name_key", "")),
-			rank + 1,
-			overflow_gold
+			String(definition.get("name_key", ""))
 		)
 	return {
 		"ok": true,
 		"mod_id": mod_id,
 		"name_key": String(definition.get("name_key", "")),
-		"rank": rank,
-		"display_rank": rank + 1,
-		"overflow_gold": overflow_gold,
 	}
 
 
 func _clear_run_gear_mods() -> void:
-	_run_gear_mod_ranks.clear()
+	_run_gear_mod_ids.clear()
 	_apply_run_gear_modifiers()
 
 
 func _apply_run_gear_modifiers() -> void:
 	var hero_modifiers: Array[Dictionary] = []
 	var weapon_modifiers: Array[Dictionary] = []
-	var mod_ids: Array[String] = []
-	for raw_mod_id: Variant in _run_gear_mod_ranks.keys():
-		mod_ids.append(String(raw_mod_id))
-	mod_ids.sort()
-	for mod_id: String in mod_ids:
+	for mod_id: String in _sorted_run_gear_mod_ids():
 		var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-		var modifiers: Array[Dictionary] = GearModSystem.rank_modifiers(
-			mod_id,
-			int(_run_gear_mod_ranks.get(mod_id, 0))
-		)
+		var modifiers: Array[Dictionary] = GearModSystem.modifiers(mod_id)
 		match String(definition.get("slot", "")):
 			GEAR_MOD_SLOTS.HERO:
 				hero_modifiers.append_array(modifiers)
@@ -5908,19 +5863,26 @@ func _apply_run_gear_modifiers() -> void:
 
 func _run_gear_mod_build_summary() -> Dictionary:
 	var mods: Array[Dictionary] = []
-	var mod_ids: Array[String] = []
-	for raw_mod_id: Variant in _run_gear_mod_ranks.keys():
-		mod_ids.append(String(raw_mod_id))
-	mod_ids.sort()
-	for mod_id: String in mod_ids:
-		var rank: int = int(_run_gear_mod_ranks.get(mod_id, 0))
+	var counts: Dictionary = {}
+	for mod_id: String in _sorted_run_gear_mod_ids():
+		counts[mod_id] = int(counts.get(mod_id, 0)) + 1
+	var summary_mod_ids: Array[String] = []
+	for raw_mod_id: Variant in counts.keys():
+		summary_mod_ids.append(String(raw_mod_id))
+	summary_mod_ids.sort()
+	for mod_id: String in summary_mod_ids:
 		mods.append({
 			"mod_id": mod_id,
 			"name_key": _gear_mod_name_key(mod_id),
-			"rank": rank,
-			"display_rank": rank + 1,
+			"count": int(counts.get(mod_id, 0)),
 		})
 	return {"gear_mods": mods}
+
+
+func _sorted_run_gear_mod_ids() -> Array[String]:
+	var mod_ids: Array[String] = _run_gear_mod_ids.duplicate()
+	mod_ids.sort()
+	return mod_ids
 
 
 func _restore_ui_state(raw_ui_restore: Variant) -> void:

@@ -113,7 +113,7 @@ func _create_runtime_input_replay() -> Dictionary:
 	_cleanup_replay_file(INPUT_PLAYBACK_REPLAY_FILE_NAME)
 	var input_events: Array[Dictionary] = _input_playback_events()
 	var recording: Dictionary = {
-		"schema_version": 6,
+		"schema_version": Replay.REPLAY_SCHEMA_VERSION,
 		"run_seed": INPUT_PLAYBACK_REPLAY_SEED,
 		"started_tick": 0,
 		"started_time": 0.0,

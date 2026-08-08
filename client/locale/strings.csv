@@ -79,7 +79,6 @@ ui_codex_requirement_mode_any,满足任一条件,Meet Any Condition
 ui_codex_character_stats,基础属性,Base Stats
 ui_codex_gear_slot,装备槽位,Gear Slot
 ui_codex_gear_rarity,稀有度,Rarity
-ui_codex_gear_rank,阶数：{min_rank}–{max_rank},Tiers: {min_rank}–{max_rank}
 ui_codex_enemy_stats,基础数值,Base Stats
 ui_codex_enemy_reward_value,金币价值倍率,Gold Value Multiplier
 ui_codex_pending_preview,本局暂存：{count} 项新解锁,Pending This Run: {count} New Unlocks
@@ -104,7 +103,7 @@ ui_cancel,取消,Cancel
 ui_run_summary,清理 {kills} · 时间 {time}s,Cleared {kills} · Time {time}s
 ui_result_build_header,最终构筑,Final Build
 ui_result_no_build,本局未获得 Gear Mod,No Gear Mods acquired this run
-ui_result_gear_mod_line,{name} · 第 {count} 阶,{name} · Tier {count}
+ui_result_gear_mod_line,{name} ×{count},{name} ×{count}
 ui_result_new_unlocks_header,新解锁,New Unlocks
 ui_result_new_unlock_line,已解锁：{name},Unlocked: {name}
 ui_result_new_unlocks_summary,本局新增 {count} 项图鉴内容,{count} New Codex Entries This Run
@@ -157,16 +156,14 @@ ui_stats_spread_angle_max,扩散上限,Spread Cap
 ui_stats_luck,幸运,Luck
 ui_stats_skill_resource,技能资源,Skill Resource
 gear_mod_weapon_damage_test_name,校准膛线,Calibrated Rifling
-gear_mod_weapon_damage_test_desc,提高主武器基础伤害；升级后进一步提高伤害。,Increases primary weapon base damage; upgrades improve the bonus.
+gear_mod_weapon_damage_test_desc,提高主武器基础伤害。,Increases primary weapon base damage.
 gear_mod_weapon_recoil_damper_name,反冲阻尼,Recoil Dampener
 gear_mod_weapon_recoil_damper_desc,降低主武器后坐力。,Reduces primary weapon recoil.
 gear_mod_weapon_spread_stabilizer_name,弹道稳定器,Ballistic Stabilizer
 gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces primary weapon projectile spread.
-ui_gear_mod_drop_obtained,获得 {name} · 第 {rank} 阶,Acquired {name} · Tier {rank}
-ui_gear_mod_overflow_gold,{name} 已满阶，转化为 {gold} 金币,{name} is maxed — converted to {gold} Gold
+ui_gear_mod_drop_obtained,获得 {name},Acquired {name}
 ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache
-ui_interact_pickup_gear_mod,按 {binding} 拾取 {name} · 第 {rank} 阶 · {effect},Press {binding} to pick up {name} · Tier {rank} · {effect}
-ui_interact_pickup_gear_mod_overflow,按 {binding} 拾取 {name} · 已满阶 · 转化为 {gold} 金币,Press {binding} to pick up {name} · Max tier · Convert to {gold} Gold
+ui_interact_pickup_gear_mod,按 {binding} 拾取 {name} · {effect},Press {binding} to pick up {name} · {effect}
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_run_complete,意识核已清理,Mind Core Cleared
@@ -291,8 +288,7 @@ ui_debug_test_arena_seed,种子,Seed
 ui_debug_test_arena_character,角色,Character
 ui_debug_test_arena_weapon,武器,Weapon
 ui_debug_test_arena_primary_skill,主技能,Primary Skill
-ui_debug_test_arena_gear_mods,装备 Mod 与 Rank,Gear Mods and Ranks
-ui_debug_test_arena_rank,Rank,Rank
+ui_debug_test_arena_gear_mods,装备 Mod,Gear Mods
 ui_debug_test_arena_capacity,英雄容量 %d/%d · 武器容量 %d/%d,Hero Capacity %d/%d · Weapon Capacity %d/%d
 ui_debug_test_arena_unavailable_title,仅数据内容（不可用）,Data-only Content (Unavailable)
 ui_debug_test_arena_relics,遗物,Relics

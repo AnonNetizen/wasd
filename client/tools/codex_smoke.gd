@@ -42,6 +42,7 @@ func _run() -> void:
 
 	_expect_scene_nodes(panel)
 	_expect_three_categories(panel)
+	_expect_fixed_gear_mod_detail(panel)
 	_expect_locked_entries_do_not_leak(panel)
 	await _expect_locale_refresh(panel)
 	_expect_focus(panel)
@@ -101,6 +102,22 @@ func _expect_three_categories(panel: Node) -> void:
 			"Codex %s category should list locked and unlocked entries"
 			% entry_type
 		)
+
+
+func _expect_fixed_gear_mod_detail(panel: Node) -> void:
+	panel.call("select_category", CONTENT_UNLOCK_TYPES.GEAR_MOD)
+	panel.call("select_entry", 0)
+	var stats_label: Label = _find_node_by_name(panel, "StatsLabel") as Label
+	var expected_text: String = "%s: %s\n%s: %s" % [
+		tr("ui_codex_gear_slot"),
+		tr("ui_codex_slot_weapon"),
+		tr("ui_codex_gear_rarity"),
+		tr("ui_codex_rarity_common"),
+	]
+	_expect(
+		stats_label != null and stats_label.text == expected_text,
+		"Codex Gear Mod detail should show only slot and rarity"
+	)
 
 
 func _expect_locked_entries_do_not_leak(panel: Node) -> void:
@@ -462,7 +479,13 @@ class MockContentSource:
 						"details": {
 							"slot": "weapon",
 							"rarity": "common",
-							"max_rank": 5,
+							"modifiers": [
+								{
+									"stat": "damage",
+									"type": "mult",
+									"value": 1.2,
+								},
+							],
 						},
 					},
 					_locked_entry(CONTENT_UNLOCK_TYPES.GEAR_MOD),

@@ -36,6 +36,7 @@ func _run() -> void:
 	_expect_run_v13_incompatibility()
 	_expect_run_v14_incompatibility()
 	_expect_run_v15_pickup_migration()
+	_expect_run_v16_gear_mod_rank_incompatibility()
 
 	_cleanup_smoke_files()
 	_finish()
@@ -53,6 +54,10 @@ func _expect_basic_roundtrip() -> void:
 	_expect(int(envelope.get("version", 0)) == SaveManager.current_version(RUN_KIND), "run envelope should use current version")
 	_expect(String(envelope.get("kind", "")) == RUN_KIND, "run envelope kind should match")
 	_expect(String(envelope.get("slot", "")) == SMOKE_SLOT, "run envelope slot should match")
+	_expect(
+		String(envelope.get("game_version", "")) == "v1.16",
+		"run envelope should use game version v1.16"
+	)
 	_expect(String(envelope.get("data_hash", "")).length() == 64, "run envelope should contain sha256 data_hash")
 	_expect(_payloads_match(envelope.get("payload", {}), payload), "run payload should roundtrip with stable hash")
 	_expect(_loaded_versions.has(SaveManager.current_version(RUN_KIND)), "run load should emit save_loaded")
@@ -182,8 +187,8 @@ func _expect_migration_chain() -> void:
 	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
 	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 16,
-		"run migration chain should advance the gameplay snapshot schema to v16"
+		int(migrated_payload.get("schema_version", 0)) == 17,
+		"run migration chain should advance the gameplay snapshot schema to v17"
 	)
 	_expect(
 		migrated_payload.get("world_events", null) is Dictionary,
@@ -253,6 +258,7 @@ func _expect_migration_chain() -> void:
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 13, 14]), "run migration should emit save_migrated for run 13->14")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 14, 15]), "run migration should emit save_migrated for run 14->15")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 15, 16]), "run migration should emit save_migrated for run 15->16")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 16, 17]), "run migration should emit save_migrated for run 16->17")
 
 
 func _expect_run_v9_reward_incompatibility() -> void:
@@ -288,14 +294,14 @@ func _expect_run_v9_reward_incompatibility() -> void:
 		RUN_KIND
 	)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 16
+		int(migrated_payload.get("schema_version", 0)) == 17
 		and bool(
 			migrated_payload.get(
 				"legacy_run_incompatible",
 				false
 			)
 		),
-		"Run v9 should migrate only to an explicit incompatible v16 marker"
+		"Run v9 should migrate only to an explicit incompatible v17 marker"
 	)
 	_expect(
 		(migrated_payload.get("enemies", []) as Array).is_empty(),
@@ -355,11 +361,11 @@ func _expect_run_v11_incompatibility() -> void:
 		RUN_KIND
 	)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 16
+		int(migrated_payload.get("schema_version", 0)) == 17
 		and bool(
 			migrated_payload.get("legacy_run_incompatible", false)
 		),
-		"Run v11 should migrate only to an explicit incompatible v16 marker"
+		"Run v11 should migrate only to an explicit incompatible v17 marker"
 	)
 	_expect(
 		not migrated_payload.has("ammo_drop_misses")
@@ -435,9 +441,9 @@ func _expect_run_v12_incompatibility() -> void:
 	_write_json(_save_path(), old_envelope)
 	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 16
+		int(migrated_payload.get("schema_version", 0)) == 17
 		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v12 should migrate only to an explicit incompatible v16 marker"
+		"Run v12 should migrate only to an explicit incompatible v17 marker"
 	)
 	for retired_field: String in [
 		"pending_loot",
@@ -496,9 +502,9 @@ func _expect_run_v13_incompatibility() -> void:
 	_write_json(_save_path(), old_envelope)
 	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 16
+		int(migrated_payload.get("schema_version", 0)) == 17
 		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v13 should migrate only to an explicit incompatible v16 marker"
+		"Run v13 should migrate only to an explicit incompatible v17 marker"
 	)
 	_expect(
 		not migrated_payload.has("content_availability")
@@ -552,9 +558,9 @@ func _expect_run_v14_incompatibility() -> void:
 	_write_json(_save_path(), old_envelope)
 	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 16
+		int(migrated_payload.get("schema_version", 0)) == 17
 		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v14 should migrate only to an explicit incompatible v16 marker"
+		"Run v14 should migrate only to an explicit incompatible v17 marker"
 	)
 	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
 	var progression: Dictionary = (
@@ -578,7 +584,9 @@ func _expect_run_v15_pickup_migration() -> void:
 	)
 	old_payload["schema_version"] = 15
 	old_payload.erase("gear_mod_pickups")
-	old_payload["gear_mod_ranks"] = {"gear_mod_bulwark": 3}
+	old_payload["gear_mods"] = {
+		"ranks": {"gear_mod_weapon_damage_test": 3},
+	}
 	old_payload["marker"] = "preserve_v15_state"
 	var old_envelope: Dictionary = {
 		"version": 15,
@@ -593,8 +601,8 @@ func _expect_run_v15_pickup_migration() -> void:
 	_write_json(_save_path(), old_envelope)
 	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 16,
-		"Run v15 should migrate losslessly to v16"
+		int(migrated_payload.get("schema_version", 0)) == 17,
+		"Run v15 should migrate through the explicit incompatible v17 boundary"
 	)
 	_expect(
 		(migrated_payload.get("gear_mod_pickups", []) as Array).is_empty(),
@@ -602,15 +610,87 @@ func _expect_run_v15_pickup_migration() -> void:
 	)
 	_expect(
 		String(migrated_payload.get("marker", "")) == "preserve_v15_state"
-		and int((migrated_payload.get("gear_mod_ranks", {}) as Dictionary).get("gear_mod_bulwark", 0)) == 3
-		and not bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v15->v16 should preserve ranks and unrelated run state without marking incompatibility"
+		and int(
+			(
+				(migrated_payload.get("gear_mods", {}) as Dictionary).get(
+					"ranks",
+					{}
+				) as Dictionary
+			).get("gear_mod_weapon_damage_test", 0)
+		) == 3
+		and bool(migrated_payload.get("legacy_run_incompatible", false)),
+		"Run v15 should preserve diagnostic state but become incompatible at v17"
+	)
+
+
+func _expect_run_v16_gear_mod_rank_incompatibility() -> void:
+	_cleanup_smoke_files()
+	var meta_payload: Dictionary = {
+		"content_progression": {
+			"unlocked": {},
+			"counters": {"runs_ended": 5},
+		},
+		"marker": "preserve_meta_across_v16_rank_reset",
+	}
+	_expect(
+		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
+		"meta save should exist before explicit Run v16 rejection"
+	)
+	var old_payload: Dictionary = _run_payload("v16", 9)
+	old_payload["schema_version"] = 16
+	old_payload["gear_mods"] = {
+		"ranks": {
+			"gear_mod_weapon_damage_test": 5,
+			"gear_mod_weapon_recoil_damper": 2,
+		},
+	}
+	var old_envelope: Dictionary = {
+		"version": 16,
+		"kind": RUN_KIND,
+		"slot": SMOKE_SLOT,
+		"created_at": "2026-08-08T00:00:00",
+		"updated_at": "2026-08-08T00:00:00",
+		"game_version": "v1.15",
+		"data_hash": SaveManager.call("_payload_hash", old_payload),
+		"payload": old_payload,
+	}
+	_write_json(_save_path(), old_envelope)
+	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
+	var migrated_gear_mods: Dictionary = (
+		migrated_payload.get("gear_mods", {}) as Dictionary
+	)
+	_expect(
+		int(migrated_payload.get("schema_version", 0)) == 17
+		and bool(migrated_payload.get("legacy_run_incompatible", false)),
+		"Run v16 ranks should migrate only to an explicit incompatible v17 marker"
+	)
+	_expect(
+		migrated_gear_mods.get("ranks", null) is Dictionary
+		and not migrated_gear_mods.has("mod_ids"),
+		"Run v16 migration must not guess a fixed-effect Mod list from ranks"
+	)
+	var parent_boot: Node = get_parent()
+	_expect(
+		String(parent_boot.call("_run_save_unavailable_notice_key", migrated_payload))
+		== "ui_run_save_legacy_incompatible",
+		"Run v16 ranks should select the explicit incompatibility notice"
+	)
+	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
+	var progression: Dictionary = (
+		preserved_meta.get("content_progression", {}) as Dictionary
+	)
+	var counters: Dictionary = progression.get("counters", {}) as Dictionary
+	_expect(
+		String(preserved_meta.get("marker", ""))
+		== "preserve_meta_across_v16_rank_reset"
+		and int(counters.get("runs_ended", 0)) == 5,
+		"Run v16 incompatibility must preserve the separate Meta v4 save"
 	)
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 16,
+		"schema_version": 17,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"gold_progression": {

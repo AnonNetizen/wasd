@@ -159,7 +159,6 @@
       "enemy_drop",
       "event_reward",
       "event_cost",
-      "gear_mod_overflow",
       "debug_command"
     ],
     "reward_choice_triggers": [

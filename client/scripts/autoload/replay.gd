@@ -20,8 +20,8 @@ const CONTENT_UNLOCK_TYPES := preload(
 	"res://scripts/contracts/content_unlock_types.gd"
 )
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 6
-const REPLAY_FILE_SCHEMA_VERSION: int = 6
+const REPLAY_SCHEMA_VERSION: int = 7
+const REPLAY_FILE_SCHEMA_VERSION: int = 7
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
@@ -508,6 +508,9 @@ func _data_fingerprint() -> String:
 	var payload: Dictionary = {
 		"contracts": DataLoader.contracts(),
 		"schema_counts": DataLoader.schema_counts(),
+		"gear_mod_gameplay": (
+			DataLoader.gear_mod_gameplay_fingerprint_payload()
+		),
 	}
 	return _payload_hash(payload)
 

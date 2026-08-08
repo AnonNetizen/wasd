@@ -1,7 +1,7 @@
 # WorldEventSystem 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/游戏设计文档.md`、`docs/决策记录.md` 与 `client/data/README.md`。
-> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v16 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略。
+> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v17 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略。
 
 ## 职责
 
@@ -9,7 +9,7 @@
 - 由场景化 `WorldEventController` 维护事件实例状态、持续事件全局互斥、波次游标、隐藏奖励、祭坛事务和 HUD 状态。
 - 由模块 schema v4 的 `module_place_world_event` 把可交互物摆进 approved 模块；运行时不按事件 id 临时生成模块。
 - 持续事件激活后固定所属模块并继续真实模拟；完成或失败后，残敌转为普通敌人，离开原模块或死亡后解除固定。
-- Run v16 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池、事务进度与未拾取 Mod；不保存 Node 引用。
+- Run v17 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池、事务进度、可重复的局内 Mod `mod_ids` 与未拾取 Mod；不保存 Node 引用。
 
 ## 代码位置
 
@@ -49,7 +49,7 @@
 | 金币祭坛 | 初价 30，每次扣费后 `ceil(cost × 1.4)`，50% 成功；失败也扣费涨价，两次成功 Mod 必须不同，费用钳制在 JSON 安全整数上限 |
 | 血量祭坛 | 三次比例 50%/75%/90%，基数为当次最大生命＋最大护盾；原子按超量盾→盾→生命扣除并至少保留 1 生命，立即获得实际献祭值 50% 的向下取整金币 |
 
-防御、生存、占点完成后都固定从 `gear_mods.json` 公共普通池等权锁定一个 Mod，并在事件位置上方生成手动拾取实体，不再进行 70/30 空奖励，也不即时升阶。金币祭坛成功时同样生成 Mod，最多两次且两次不能重复；两次分别使用来源左 / 右 28 px 位置，不额外消费 RNG。血量祭坛只产即时局内金币，不产 Mod。事件敌人仍保留普通击杀金币与个体 Mod 掉落。事件计划只固定敌种、位置和战斗难度语义；每只敌人的普通击杀金币仍在实际生成时按当下威胁阶段与 `RNG.economy` 锁定。
+防御、生存、占点完成后都固定从 `gear_mods.json` 公共普通池等权锁定一个 Mod，并在事件位置上方生成手动拾取实体，不再进行 70/30 空奖励，也不直接授予。玩家成功执行 `interact` 后才追加一份无等级固定效果实例；重复获得同一 id 时仍逐份乘算。金币祭坛成功时同样生成 Mod，最多两次且两次不能重复；两次分别使用来源左 / 右 28 px 位置，不额外消费 RNG。血量祭坛只产即时局内金币，不产 Mod。事件敌人仍保留普通击杀金币与个体 Mod 掉落。事件计划只固定敌种、位置和战斗难度语义；每只敌人的普通击杀金币仍在实际生成时按当下威胁阶段与 `RNG.economy` 锁定。
 
 ## 敌人事件上下文
 
@@ -63,15 +63,15 @@
 
 ## 快照与幂等
 
-Run v16 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 7×7 assignment / 目标角落、`pinned_slots` 与非活动槽未拾取 Mod，顶层 `gear_mod_pickups` 保存活动模块未拾取 Mod，敌人快照保存 `event_instance_id`、稳定 `target_mode` 和完整金币奖励明细。Controller 保存 `wave_cursor`、`reward_committed`、祭坛尝试 / 成功 / 成功 Mod、血坛使用次数、价格、目标生命、计时和占点双进度；恢复不得重发已提交波次、重复扣费、重复献祭、重复生成或授予 Mod、引入新解锁内容或重抽既有敌人金币。
+Run v17 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 7×7 assignment / 目标角落、`pinned_slots` 与非活动槽未拾取 Mod，顶层 `gear_mod_pickups` 保存活动模块未拾取 Mod，`gear_mods.mod_ids` 保存可重复的已拾取实例，敌人快照保存 `event_instance_id`、稳定 `target_mode` 和完整金币奖励明细。Controller 保存 `wave_cursor`、`reward_committed`、祭坛尝试 / 成功 / 成功 Mod、血坛使用次数、价格、目标生命、计时和占点双进度；恢复不得重发已提交波次、重复扣费、重复献祭、重复生成或授予 Mod、引入新解锁内容或重抽既有敌人金币。
 
-Run v15 无损迁移到 v16 并补 `gear_mod_pickups=[]`；旧 Run v14 因保存 9×9 / 81 槽 assignment、无法无损映射 7×7 世界而明确不兼容。Replay v5 仍明确拒绝；Replay 格式保持 v6，但因 Gear Mod 数据指纹变化重录黄金回放。
+旧 Run v16 及更早版本不转换旧等级语义，续局时直接判定不兼容并只删除 Run，Meta v4 保持不变。Replay v7 纳入规范化 Gear Mod 玩法数据指纹并明确拒绝 v6；四份黄金回放按新版本、指纹与 `mod_ids` 结构重录。
 
 ## 扩展点
 
 - 新事件先登记词表 id / kind / state / reward，再扩 `world_events.json` 严格 schema、可复用场景与 Controller 策略。
 - 新模块只通过 Module JSON 的世界事件下拉生成 `{type, cell, world_event_id}`；每模块最多一个世界事件 placement。
-- 改事件波次必须保持激活时一次性固化、先与冻结敌池求交、独立 `RNG.world_event` 和 Run v16 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
+- 改事件波次必须保持激活时一次性固化、先与冻结敌池求交、独立 `RNG.world_event` 和 Run v17 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
 - 不得把事件复杂状态塞回兴趣点字典，不得让普通环境敌人攻击防御目标，不得直接修改金币或 Meta 背包。
 
 ## 验证
@@ -80,7 +80,7 @@ Run v15 无损迁移到 v16 并补 `gear_mod_pickups=[]`；旧 Run v14 因保存
 - 核心状态机：`py -3 tools/godot_bridge.py world-event-smoke`（`client/tools/world_event_smoke.gd`）。
 - 模块与恢复：正式 / 技术 `module-world-smoke`、`save-smoke`、`loading-smoke`。
 - 战斗：`runtime-smoke`、`l1-smoke`、`actor-scene-smoke`、`vfx-smoke`。
-- 完整变更还需三档 lint、content-progression、headless boot/editor、四条 Replay v6 golden、文档健康和 pre-commit；中英文布局与局内反馈保持待人工验收并由用户执行。ADR #143 后不自动运行性能 probe。
+- 完整变更还需三档 lint、content-progression、headless boot/editor、四条 Replay v7 golden、文档健康和 pre-commit；中英文布局与局内反馈保持待人工验收并由用户执行。ADR #143 后不自动运行性能 probe。
 
 ## 相关文档
 

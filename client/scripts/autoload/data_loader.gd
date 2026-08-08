@@ -253,6 +253,87 @@ func schema_counts() -> Dictionary:
 	return _last_schema_counts.duplicate(true)
 
 
+func gear_mod_gameplay_fingerprint_payload() -> Dictionary:
+	var raw_data: Variant = load_json(GEAR_MODS_PATH)
+	if not raw_data is Dictionary:
+		return {}
+	var data: Dictionary = raw_data as Dictionary
+	var normalized_pickup: Dictionary = {}
+	var raw_pickup: Variant = data.get("pickup", {})
+	if raw_pickup is Dictionary:
+		var pickup: Dictionary = raw_pickup as Dictionary
+		normalized_pickup = {
+			"pool_id": String(pickup.get("pool_id", "")),
+			"interaction_radius": float(pickup.get("interaction_radius", 0.0)),
+			"spawn_vertical_offset": float(pickup.get("spawn_vertical_offset", 0.0)),
+			"spawn_spread": float(pickup.get("spawn_spread", 0.0)),
+		}
+
+	# Array order is gameplay-significant for deterministic pool selection. Keep
+	# source order while normalizing scalar types and excluding display fields.
+	var normalized_reward_pools: Array[Dictionary] = []
+	var raw_reward_pools: Variant = data.get("reward_pools", [])
+	if raw_reward_pools is Array:
+		for raw_pool: Variant in raw_reward_pools as Array:
+			if not raw_pool is Dictionary:
+				continue
+			var pool: Dictionary = raw_pool as Dictionary
+			var normalized_mod_ids: Array[String] = []
+			var raw_mod_ids: Variant = pool.get("mod_ids", [])
+			if raw_mod_ids is Array:
+				for raw_mod_id: Variant in raw_mod_ids as Array:
+					normalized_mod_ids.append(String(raw_mod_id))
+			normalized_reward_pools.append({
+				"id": String(pool.get("id", "")),
+				"mod_ids": normalized_mod_ids,
+			})
+
+	var normalized_mods: Array[Dictionary] = []
+	var raw_mods: Variant = data.get("mods", [])
+	if raw_mods is Array:
+		for raw_mod: Variant in raw_mods as Array:
+			if not raw_mod is Dictionary:
+				continue
+			var mod: Dictionary = raw_mod as Dictionary
+			var normalized_modifiers: Array[Dictionary] = []
+			var raw_modifiers: Variant = mod.get("modifiers", [])
+			if raw_modifiers is Array:
+				for raw_modifier: Variant in raw_modifiers as Array:
+					if not raw_modifier is Dictionary:
+						continue
+					var modifier: Dictionary = raw_modifier as Dictionary
+					normalized_modifiers.append({
+						"stat": String(modifier.get("stat", "")),
+						"type": String(modifier.get("type", "")),
+						"value": float(modifier.get("value", 0.0)),
+					})
+			normalized_mods.append({
+				"id": String(mod.get("id", "")),
+				"slot": String(mod.get("slot", "")),
+				"default_unlocked": bool(mod.get("default_unlocked", true)),
+				"unlock_rule_id": String(mod.get("unlock_rule_id", "")),
+				"modifiers": normalized_modifiers,
+			})
+
+	var normalized_drop_rows: Array[Dictionary] = []
+	for row: Dictionary in load_csv(GEAR_MOD_DROP_TABLES_PATH):
+		normalized_drop_rows.append({
+			"source_enemy_id": String(row.get("source_enemy_id", "")),
+			"mod_id": String(row.get("mod_id", "")),
+			"drop_chance": float(String(row.get("drop_chance", "0"))),
+			"min_enemy_level": int(String(row.get("min_enemy_level", "0"))),
+			"max_enemy_level": int(String(row.get("max_enemy_level", "0"))),
+		})
+
+	return {
+		"schema_version": int(data.get("schema_version", 0)),
+		"pickup": normalized_pickup,
+		"reward_pools": normalized_reward_pools,
+		"mods": normalized_mods,
+		"drop_rows": normalized_drop_rows,
+	}
+
+
 func load_json(resource_path: String) -> Variant:
 	var file: FileAccess = FileAccess.open(resource_path, FileAccess.READ)
 	if file == null:
@@ -2713,19 +2794,13 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		GEAR_MODS_PATH,
 		"root",
 		payload,
-		["schema_version", "overflow_gold", "pickup", "reward_pools", "mods"]
+		["schema_version", "pickup", "reward_pools", "mods"]
 	)
 	is_valid = _require_exact_int(
 		GEAR_MODS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		3
-	) and is_valid
-	is_valid = _require_int(
-		GEAR_MODS_PATH,
-		"overflow_gold",
-		payload.get("overflow_gold"),
-		1
+		4
 	) and is_valid
 	var pickup: Variant = payload.get("pickup")
 	if not pickup is Dictionary:
@@ -2854,7 +2929,7 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 			GEAR_MODS_PATH,
 			field,
 			mod_dict,
-			["id", "name_key", "desc_key", "slot", "rarity", "max_rank", "rank_modifiers"],
+			["id", "name_key", "desc_key", "slot", "rarity", "modifiers"],
 			["default_unlocked", "unlock_rule_id", "codex_icon_path"]
 		) and is_valid
 		var mod_id: String = _require_registered(GEAR_MODS_PATH, "%s.id" % field, mod_dict.get("id"), "gear_mod_ids")
@@ -2866,13 +2941,12 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		is_valid = _require_locale_key(GEAR_MODS_PATH, "%s.desc_key" % field, mod_dict.get("desc_key"), locale_keys) and is_valid
 		is_valid = _require_registered(GEAR_MODS_PATH, "%s.slot" % field, mod_dict.get("slot"), "gear_mod_slots") != "" and is_valid
 		is_valid = _require_registered(GEAR_MODS_PATH, "%s.rarity" % field, mod_dict.get("rarity"), "gear_mod_rarities") != "" and is_valid
-		is_valid = _require_int(GEAR_MODS_PATH, "%s.max_rank" % field, mod_dict.get("max_rank"), 0) and is_valid
-		is_valid = _validate_gear_mod_rank_modifiers("%s.rank_modifiers" % field, mod_dict.get("rank_modifiers")) and is_valid
+		is_valid = _validate_gear_mod_modifiers("%s.modifiers" % field, mod_dict.get("modifiers")) and is_valid
 	_last_schema_counts["gear_mod_reward_pools"] = reward_pools.size()
 	return is_valid
 
 
-func _validate_gear_mod_rank_modifiers(field: String, data: Variant) -> bool:
+func _validate_gear_mod_modifiers(field: String, data: Variant) -> bool:
 	var modifiers: Array = _require_array(GEAR_MODS_PATH, field, data)
 	var is_valid: bool = true
 	if modifiers.is_empty():
@@ -2884,12 +2958,17 @@ func _validate_gear_mod_rank_modifiers(field: String, data: Variant) -> bool:
 			is_valid = _schema_fail(GEAR_MODS_PATH, item_field, "Dictionary") and is_valid
 			continue
 		var modifier_dict: Dictionary = modifier as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			GEAR_MODS_PATH,
+			item_field,
+			modifier_dict,
+			["stat", "type", "value"]
+		) and is_valid
 		is_valid = _require_registered(GEAR_MODS_PATH, "%s.stat" % item_field, modifier_dict.get("stat"), "stats") != "" and is_valid
 		var modifier_type: String = String(modifier_dict.get("type", ""))
 		if modifier_type != "add" and modifier_type != "mult":
 			is_valid = _schema_fail(GEAR_MODS_PATH, "%s.type" % item_field, "add or mult") and is_valid
-		is_valid = _require_number(GEAR_MODS_PATH, "%s.base_value" % item_field, modifier_dict.get("base_value")) and is_valid
-		is_valid = _require_number(GEAR_MODS_PATH, "%s.value_per_rank" % item_field, modifier_dict.get("value_per_rank")) and is_valid
+		is_valid = _require_number(GEAR_MODS_PATH, "%s.value" % item_field, modifier_dict.get("value")) and is_valid
 	return is_valid
 
 
@@ -5408,26 +5487,6 @@ func _collect_world_event_ids() -> Dictionary:
 		if raw_event is Dictionary and (raw_event as Dictionary).get("id") is String:
 			ids[String((raw_event as Dictionary).get("id"))] = true
 	return ids
-
-
-func _collect_gear_mod_rarity_max_ranks() -> Dictionary:
-	var ranks: Dictionary = {}
-	var data: Variant = load_json(GEAR_MODS_PATH)
-	if not data is Dictionary:
-		return ranks
-	var mods: Variant = (data as Dictionary).get("mods")
-	if not mods is Array:
-		return ranks
-	for mod: Variant in mods:
-		if not mod is Dictionary:
-			continue
-		var mod_dict: Dictionary = mod as Dictionary
-		if not mod_dict.get("rarity") is String or not _is_int_like(mod_dict.get("max_rank")):
-			continue
-		var rarity: String = String(mod_dict.get("rarity"))
-		var max_rank: int = _variant_to_int(mod_dict.get("max_rank"))
-		ranks[rarity] = maxi(int(ranks.get(rarity, 0)), max_rank)
-	return ranks
 
 
 func _validate_content_tags(resource_path: String, field: String, value: Variant) -> bool:

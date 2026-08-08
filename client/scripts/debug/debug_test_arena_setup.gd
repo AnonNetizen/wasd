@@ -274,15 +274,15 @@ func _rebuild_mod_rows(selected_mods: Array[Dictionary]) -> void:
 			continue
 		_mod_list.add_child(row)
 		_gear_mod_rows.append(row)
-		var selected_rank: int = -1
+		var is_selected: bool = false
 		for selected: Dictionary in selected_mods:
 			if (
 				String(selected.get("mod_id", ""))
 				== String(definition.get("id", ""))
 			):
-				selected_rank = int(selected.get("rank", 0))
+				is_selected = true
 				break
-		row.configure(definition, selected_rank)
+		row.configure(definition, is_selected)
 		row.selection_changed.connect(_refresh_preview)
 
 

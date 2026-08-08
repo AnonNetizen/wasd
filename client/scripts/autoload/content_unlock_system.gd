@@ -457,7 +457,8 @@ func _pending_run_progress_delta() -> Dictionary:
 		return {}
 	var run: Dictionary = run_payload as Dictionary
 	if (
-		int(run.get("schema_version", 0)) != 15
+		int(run.get("schema_version", 0))
+		!= int(manager.call("current_version", SAVE_KINDS.RUN))
 		or bool(run.get("legacy_run_incompatible", false))
 	):
 		return {}
@@ -607,10 +608,7 @@ func _codex_details(content_type: String, entry: Dictionary) -> Dictionary:
 			return {
 				"slot": String(entry.get("slot", "")),
 				"rarity": String(entry.get("rarity", "")),
-				"max_rank": int(entry.get("max_rank", 0)),
-				"rank_modifiers": _array_copy(
-					entry.get("rank_modifiers", [])
-				),
+				"modifiers": _array_copy(entry.get("modifiers", [])),
 			}
 		CONTENT_UNLOCK_TYPES.ENEMY:
 			return {

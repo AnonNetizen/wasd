@@ -45,7 +45,7 @@ func _run() -> void:
 	RNG.set_run_seed(101)
 
 	_expect_data_contract()
-	_expect_rank_curves()
+	_expect_fixed_modifiers()
 	_expect_preview()
 	_expect_drop_rules()
 	_expect_modifier_layers()
@@ -64,6 +64,14 @@ func _run() -> void:
 
 
 func _expect_data_contract() -> void:
+	var payload: Dictionary = DataLoader.load_json(
+		DataLoader.GEAR_MODS_PATH
+	) as Dictionary
+	_expect(
+		int(payload.get("schema_version", 0)) == 4
+		and not payload.has("overflow_gold"),
+		"Gear Mod schema v4 should not expose overflow conversion data"
+	)
 	var definition: Dictionary = GearModSystem.mod_definition(
 		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
 	)
@@ -78,18 +86,18 @@ func _expect_data_contract() -> void:
 	_expect(
 		not definition.has("base_drain")
 		and not definition.has("drain_per_rank")
-		and not definition.has("dismantle"),
-		"Gear Mod v2 definitions should not expose drain or dismantle"
+		and not definition.has("dismantle")
+		and not definition.has("max_rank")
+		and not definition.has("rank_modifiers"),
+		"Gear Mod definitions should expose neither retired inventory nor rank fields"
 	)
 	_expect(
-		GearModSystem.max_rank(
-			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
-		) == 5,
-		"weapon damage Mod should expose max rank 5"
-	)
-	_expect(
-		GearModSystem.overflow_gold() == 75,
-		"overflow duplicate conversion should be 75 gold"
+		GearModSystem.has_method("modifiers")
+		and not GearModSystem.has_method("rank_modifiers")
+		and not GearModSystem.has_method("max_rank")
+		and not GearModSystem.has_method("overflow_gold")
+		and not GearModSystem.has_method("next_grant_preview"),
+		"GearModSystem should expose only fixed modifiers, without rank or upgrade APIs"
 	)
 	var reward_ids: Array[String] = GearModSystem.reward_pool_ids(
 		WORLD_EVENT_MOD_POOL_IDS.WORLD_EVENT_MOD_POOL_COMMON
@@ -104,73 +112,55 @@ func _expect_data_contract() -> void:
 	)
 
 
-func _expect_rank_curves() -> void:
+func _expect_fixed_modifiers() -> void:
 	_expect_modifier(
-		GearModSystem.rank_modifiers(
-			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-			0
+		GearModSystem.modifiers(
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
 		),
 		STATS.DAMAGE,
-		1.1,
-		"rank 0 damage curve"
+		1.2,
+		"fixed damage modifier"
 	)
 	_expect_modifier(
-		GearModSystem.rank_modifiers(
-			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-			5
+		GearModSystem.modifiers(
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER
 		),
-		STATS.DAMAGE,
-		1.35,
-		"rank 5 damage curve"
+		STATS.RECOIL,
+		0.8,
+		"fixed recoil modifier"
 	)
-	for rank: int in range(6):
-		var expected_value: float = 0.9 - float(rank) * 0.05
-		_expect_modifier(
-			GearModSystem.rank_modifiers(
-				GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER,
-				rank
-			),
-			STATS.RECOIL,
-			expected_value,
-			"recoil rank %d curve" % rank
-		)
-		_expect_modifier(
-			GearModSystem.rank_modifiers(
-				GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER,
-				rank
-			),
-			STATS.SPREAD_ANGLE_MAX,
-			expected_value,
-			"spread rank %d curve" % rank
-		)
+	_expect_modifier(
+		GearModSystem.modifiers(
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER
+		),
+		STATS.SPREAD_ANGLE_MAX,
+		0.8,
+		"fixed spread modifier"
+	)
 
 
 func _expect_preview() -> void:
 	var preview: Dictionary = GearModSystem.resolve_preview_loadout([
-		{
-			"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-			"rank": 99,
-		},
-		{
-			"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-			"rank": 1,
-		},
-		{
-			"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER,
-			"rank": 3,
-		},
+		{"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST},
+		{"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST},
+		{"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER},
+		{"mod_id": "missing_gear_mod"},
 	])
 	var selected: Array = _array_or_empty(preview.get("selected", []))
 	var diagnostics: Array = _array_or_empty(preview.get("diagnostics", []))
 	_expect(
-		selected.size() == 2
-		and int((selected[0] as Dictionary).get("rank", -1)) == 5,
-		"preview should clamp rank and omit duplicate selections"
+		selected.size() == 3
+		and not (selected[0] as Dictionary).has("rank")
+		and String((selected[0] as Dictionary).get("mod_id", ""))
+		== GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
+		and String((selected[1] as Dictionary).get("mod_id", ""))
+		== GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
+		"preview should preserve repeated independent Mod instances without rank"
 	)
 	_expect(
-		_has_reason(diagnostics, "rank_clamped")
-		and _has_reason(diagnostics, "duplicate_unique_mod"),
-		"preview should diagnose clamped rank and duplicate Mod"
+		diagnostics.size() == 1
+		and _has_reason(diagnostics, "unknown_mod"),
+		"preview should reject only the unknown Mod selection"
 	)
 	var modifiers_by_slot: Dictionary = preview.get(
 		"modifiers",
@@ -180,13 +170,13 @@ func _expect_preview() -> void:
 		modifiers_by_slot.get(GEAR_MOD_SLOTS.WEAPON, [])
 	)
 	_expect(
-		_has_modifier(weapon_modifiers, STATS.DAMAGE, 1.35)
+		_modifier_count(weapon_modifiers, STATS.DAMAGE, 1.2) == 2
 		and _has_modifier(
 			weapon_modifiers,
 			STATS.SPREAD_ANGLE_MAX,
-			0.75
+			0.8
 		),
-		"preview should resolve selected rank modifiers without capacity"
+		"preview should preserve one fixed modifier per selected instance"
 	)
 	_expect(
 		not preview.has("capacity") and not preview.has("used_drain"),
@@ -224,13 +214,14 @@ func _expect_modifier_layers() -> void:
 		{"stat": STATS.DAMAGE, "type": "mult", "value": 2.0},
 	])
 	var weapon_gear_modifiers: Array = [
-		{"stat": STATS.DAMAGE, "type": "mult", "value": 1.5},
+		{"stat": STATS.DAMAGE, "type": "mult", "value": 1.2},
+		{"stat": STATS.DAMAGE, "type": "mult", "value": 1.2},
 	]
 	weapon.set_gear_modifiers(weapon_gear_modifiers)
 	weapon.set_gear_modifiers(weapon_gear_modifiers)
 	_expect(
-		is_equal_approx(weapon.stat_value(STATS.DAMAGE), 36.0),
-		"weapon Gear modifier replacement should be idempotent"
+		is_equal_approx(weapon.stat_value(STATS.DAMAGE), 34.56),
+		"repeated Gear Mod instances should multiply once each and replacement should be idempotent"
 	)
 	var weapon_snapshot: Dictionary = weapon.snapshot()
 	_expect(
@@ -243,7 +234,7 @@ func _expect_modifier_layers() -> void:
 	])
 	weapon.restore_snapshot(weapon_snapshot)
 	_expect(
-		is_equal_approx(weapon.stat_value(STATS.DAMAGE), 36.0),
+		is_equal_approx(weapon.stat_value(STATS.DAMAGE), 34.56),
 		"weapon restore should restore ordinary modifiers and preserve Gear layer"
 	)
 	weapon.free()
@@ -319,9 +310,7 @@ func _expect_hud_feedback() -> void:
 	add_child(hud)
 	hud.call(
 		"show_gear_mod_drop_feedback",
-		"gear_mod_weapon_damage_test_name",
-		3,
-		0
+		"gear_mod_weapon_damage_test_name"
 	)
 	var normal_context: Dictionary = hud.get(
 		"_last_feedback_context"
@@ -329,25 +318,9 @@ func _expect_hud_feedback() -> void:
 	_expect(
 		String(hud.get("_last_upgrade_feedback_key"))
 		== "ui_gear_mod_drop_obtained"
-		and int(normal_context.get("rank", 0)) == 3,
-		"Gear Mod HUD feedback should expose the acquired display rank"
-	)
-	hud.call(
-		"show_gear_mod_drop_feedback",
-		"gear_mod_weapon_damage_test_name",
-		6,
-		75
-	)
-	var overflow_context: Dictionary = hud.get(
-		"_last_feedback_context"
-	) as Dictionary
-	_expect(
-		String(hud.get("_last_upgrade_feedback_key"))
-		== "ui_gear_mod_overflow_gold"
-		and int(overflow_context.get("rank", 0)) == 6
-		and int(overflow_context.get("gold", 0)) == 75
+		and normal_context.is_empty()
 		and bool(hud.call("is_gear_mod_drop_feedback_visible")),
-		"max-rank HUD feedback should expose the 75-gold overflow"
+		"Gear Mod HUD feedback should expose acquisition without rank or overflow state"
 	)
 	remove_child(hud)
 	hud.free()
@@ -381,6 +354,25 @@ func _has_modifier(
 		):
 			return true
 	return false
+
+
+func _modifier_count(
+	modifiers: Array,
+	stat_id: String,
+	value: float
+) -> int:
+	var count: int = 0
+	for raw_modifier: Variant in modifiers:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
+		if (
+			String(modifier.get("stat", "")) == stat_id
+			and String(modifier.get("type", "")) == "mult"
+			and is_equal_approx(float(modifier.get("value", 0.0)), value)
+		):
+			count += 1
+	return count
 
 
 func _has_reason(diagnostics: Array, reason: String) -> bool:

@@ -246,16 +246,13 @@ func _build_summary_text() -> String:
 		if not raw_entry is Dictionary:
 			continue
 		var entry: Dictionary = raw_entry as Dictionary
+		var mod_id: String = String(entry.get("mod_id", ""))
 		var mod_name_key: String = String(entry.get("name_key", ""))
-		if mod_name_key.is_empty():
+		if mod_id.is_empty() or mod_name_key.is_empty():
 			continue
-		var display_rank: int = maxi(
-			int(entry.get("display_rank", int(entry.get("rank", 0)) + 1)),
-			1
-		)
 		lines.append(tr("ui_result_gear_mod_line").format({
 			"name": tr(mod_name_key),
-			"count": display_rank,
+			"count": maxi(int(entry.get("count", 1)), 1),
 		}))
 	if lines.is_empty():
 		return tr("ui_result_no_build")

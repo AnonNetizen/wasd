@@ -6,7 +6,7 @@ extends RefCounted
 
 const CONFIG_PATH: String = "user://debug_test_arena.cfg"
 const DEFAULT_SEED: int = 424242
-const SCHEMA_VERSION: int = 2
+const SCHEMA_VERSION: int = 3
 const SECTION: String = "arena"
 
 
@@ -119,6 +119,7 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 	var requested_schema: int = int(
 		raw_config.get("schema_version", SCHEMA_VERSION)
 	)
+	var source_config: Dictionary = raw_config
 	if requested_schema != SCHEMA_VERSION:
 		diagnostics.append({
 			"field": "schema_version",
@@ -126,7 +127,8 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 			"value": requested_schema,
 			"fallback": SCHEMA_VERSION,
 		})
-	var seed: int = int(raw_config.get("seed", DEFAULT_SEED))
+		source_config = {}
+	var seed: int = int(source_config.get("seed", DEFAULT_SEED))
 	if seed <= 0:
 		diagnostics.append({
 			"field": "seed",
@@ -136,9 +138,9 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 		seed = DEFAULT_SEED
 	var main_hero_id: String = _validated_id(
 		String(
-			raw_config.get(
+			source_config.get(
 				"main_hero_id",
-				raw_config.get("character_id", "")
+				source_config.get("character_id", "")
 			)
 		),
 		characters,
@@ -146,7 +148,7 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 		diagnostics
 	)
 	var sub_hero_id: String = _validated_id(
-		String(raw_config.get("sub_hero_id", "")),
+		String(source_config.get("sub_hero_id", "")),
 		characters,
 		"sub_hero_id",
 		diagnostics
@@ -164,19 +166,22 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 			"fallback": sub_hero_id,
 		})
 	var weapon_id: String = _validated_id(
-		String(raw_config.get("weapon_id", "")),
+		String(source_config.get("weapon_id", "")),
 		weapons,
 		"weapon_id",
 		diagnostics
 	)
 	var skill_id: String = _validated_id(
-		String(raw_config.get("primary_skill_id", "")),
+		String(source_config.get("primary_skill_id", "")),
 		skills,
 		"primary_skill_id",
 		diagnostics
 	)
 	var preview: Dictionary = GearModSystem.resolve_preview_loadout(
-		_array_or_empty(raw_config.get("gear_mods", []))
+		_deduplicated_gear_mod_input(
+			_array_or_empty(source_config.get("gear_mods", [])),
+			diagnostics
+		)
 	)
 	diagnostics.append_array(
 		_typed_dictionary_array(preview.get("diagnostics", []))
@@ -233,8 +238,31 @@ func _config_selections(
 	for selection: Dictionary in resolved:
 		result.append({
 			"mod_id": String(selection.get("mod_id", "")),
-			"rank": int(selection.get("rank", 0)),
 		})
+	return result
+
+
+func _deduplicated_gear_mod_input(
+	raw_selections: Array,
+	diagnostics: Array[Dictionary]
+) -> Array:
+	var result: Array = []
+	var seen_mod_ids: Dictionary = {}
+	for raw_selection: Variant in raw_selections:
+		if raw_selection is Dictionary:
+			var mod_id: String = String(
+				(raw_selection as Dictionary).get("mod_id", "")
+			).strip_edges()
+			if not mod_id.is_empty():
+				if seen_mod_ids.has(mod_id):
+					diagnostics.append({
+						"field": "gear_mods",
+						"reason": "duplicate_mod",
+						"value": mod_id,
+					})
+					continue
+				seen_mod_ids[mod_id] = true
+		result.append(raw_selection)
 	return result
 
 

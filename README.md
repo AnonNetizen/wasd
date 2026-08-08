@@ -1,6 +1,6 @@
 # wasd —— 俯视角射击 Roguelike
 
-> 一款俯视角射击 Roguelike：玩法按 2D 平面移动 / 碰撞 / 射击，`Camera2D` 保持屏幕水平与等比缩放；每局以空 Gear Mod 构筑开始，通过敌人、缓存和世界事件获得 Mod，同类重复自动升阶，清理意识核后立即完成，胜利或死亡后清空全部局内 Mod。
+> 一款俯视角射击 Roguelike：玩法按 2D 平面移动 / 碰撞 / 射击，`Camera2D` 保持屏幕水平与等比缩放；每局以空 Gear Mod 构筑开始，通过敌人、缓存和世界事件手动拾取无等级 Mod 实例，重复获得同一 Mod 时逐份乘算，清理意识核后立即完成，胜利或死亡后清空全部局内 Mod。
 > **当前状态：正式项目使用 Godot 4.7.1 stable。** 7×7 连续模块世界、开放战区回归路径、局内金币成长、世界事件与 Gear Mod 构筑均已接入；项目不包含撤离、战利品带回或局外 Gear Mod 配置。当前 IP 使用项目代号 `WASD`，正式标题待定。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
@@ -53,7 +53,7 @@
 | [`docs/词表与契约.md`](docs/词表与契约.md) | 约定字符串白名单（stat/effect/event/key/action） | 写数据或常量时 |
 | [`client/data/README.md`](client/data/README.md) | 完整项目数值配置手册 | 调数值或新增数据字段时 |
 | [`client/locale/README.md`](client/locale/README.md) | 完整项目多语言文案配置手册 | 加文案、改翻译或新增语言时 |
-| [`docs/游戏设计文档.md`](docs/游戏设计文档.md) | 完整 GDD（v1.55；游戏版本 v1.12） | 了解整体设计 |
+| [`docs/游戏设计文档.md`](docs/游戏设计文档.md) | 完整 GDD（v1.59；游戏版本 v1.16） | 了解整体设计 |
 | [`docs/代码文档规范.md`](docs/代码文档规范.md) | 代码变更与对应文档的同步规范 | 写/改代码前 |
 | [`docs/决策记录.md`](docs/决策记录.md) | 既定决策与原因（ADR） | 改动既定约束前 |
 | [`docs/修改建议.md`](docs/修改建议.md) | 待决策的开放问题（D、E、S） | 评估扩展方向时 |
@@ -132,5 +132,5 @@ client/
 第三方来源、外部库和工作人员记录见 [CREDITS.md](CREDITS.md)；游戏内 Credits UI 数据源见 [client/data/credits.json](client/data/credits.json)。
 
 ## 版本
-- 设计文档：**v1.47**（2026-07）
+- 设计文档：**v1.59**（2026-08）
 - 代码：正式项目推进到 F9 内容扩展 / Demo 打磨准备阶段，当前工程基线为 Godot 4.7.1 stable。

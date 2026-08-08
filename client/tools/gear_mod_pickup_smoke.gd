@@ -10,6 +10,7 @@ const PICKUP_SCENE := preload(
 	"res://scenes/gameplay/gear_mod_pickup.tscn"
 )
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const STATS := preload("res://scripts/contracts/stats.gd")
 const WORLD_EVENT_IDS := preload(
 	"res://scripts/contracts/world_event_ids.gd"
 )
@@ -61,7 +62,7 @@ func _run() -> void:
 
 	_expect_asset_contract()
 	_expect_scene_contract()
-	_expect_preview_contract(run_loop)
+	_expect_fixed_modifier_contract()
 	await _expect_interaction_contract(run_loop, player, hud)
 	_expect_world_event_spawn_contract(run_loop)
 	_expect_snapshot_validation_contract(run_loop)
@@ -141,29 +142,17 @@ func _expect_scene_contract() -> void:
 	pickup.queue_free()
 
 
-func _expect_preview_contract(run_loop: Node) -> void:
-	var preview: Dictionary = GearModSystem.next_grant_preview(
-		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-		-1
+func _expect_fixed_modifier_contract() -> void:
+	var modifiers: Array[Dictionary] = GearModSystem.modifiers(
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
 	)
 	_expect(
-		bool(preview.get("ok", false))
-		and int(preview.get("display_rank", 0)) == 1
+		modifiers.size() == 1
 		and is_equal_approx(
-			float(((preview.get("modifiers", []) as Array)[0] as Dictionary).get("value", 0.0)),
-			1.1
+			float(modifiers[0].get("value", 0.0)),
+			1.2
 		),
-		"next grant preview should expose the full first-tier +10% effect"
-	)
-	var overflow_preview: Dictionary = GearModSystem.next_grant_preview(
-		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-		GearModSystem.max_rank(
-			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
-		)
-	)
-	_expect(
-		int(overflow_preview.get("overflow_gold", 0)) == 75,
-		"max-rank preview should expose the 75 gold conversion"
+		"fixed Mod query should expose the full +20% damage effect"
 	)
 	_expect(
 		GearModSystem.pickup_config().get("pool_id", "")
@@ -178,7 +167,7 @@ func _expect_interaction_contract(
 	hud: Node
 ) -> void:
 	_release_active_pickups(run_loop)
-	var start_ranks: Dictionary = _run_ranks(run_loop)
+	var start_mod_ids: Array[String] = _run_mod_ids(run_loop)
 	var far_position: Vector2 = player.global_position + Vector2(100.0, 0.0)
 	var spawn_result: Dictionary = run_loop.call(
 		"_spawn_gear_mod_pickup",
@@ -190,7 +179,7 @@ func _expect_interaction_contract(
 	await _push_action_once(ACTIONS.INTERACT)
 	_expect(
 		_active_pickup_count(run_loop) == 1
-		and _run_ranks(run_loop) == start_ranks,
+		and _run_mod_ids(run_loop) == start_mod_ids,
 		"out-of-range interact should not consume or grant a pickup"
 	)
 	var pickup: GearModPickup = _first_active_pickup(run_loop)
@@ -201,32 +190,38 @@ func _expect_interaction_contract(
 		await get_tree().process_frame
 	_expect(
 		_active_pickup_count(run_loop) == 1
-		and _run_ranks(run_loop) == start_ranks,
+		and _run_mod_ids(run_loop) == start_mod_ids,
 		"standing on a pickup should never collect it automatically"
 	)
 	run_loop.call("_update_gear_mod_pickup_prompt", pickup)
 	var prompt_text: String = _interaction_prompt_text(hud)
 	_expect(
 		prompt_text.contains(tr("gear_mod_weapon_damage_test_name"))
-		and prompt_text.contains("+10%"),
-		"pickup prompt should show name, target tier, and full signed effect: %s"
+		and prompt_text.contains("+20%"),
+		"pickup prompt should show the Mod name and full fixed signed effect: %s"
 		% prompt_text
 	)
 	var first_pickup_result: bool = bool(run_loop.call(
 		"_try_interact_gear_mod_pickup",
 		pickup
 	))
+	var first_mod_ids: Array[String] = _run_mod_ids(run_loop)
 	_expect(
 		first_pickup_result
 		and _active_pickup_count(run_loop) == 0
-		and int(_run_ranks(run_loop).get(
-			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-			-1
-		)) == 0,
-		"interact should collect exactly one normal pickup and grant rank one"
+		and first_mod_ids.size() == start_mod_ids.size() + 1
+		and _mod_id_count(
+			first_mod_ids,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
+		) == _mod_id_count(
+			start_mod_ids,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
+		) + 1,
+		"interact should collect exactly one pickup and append one Mod instance"
 	)
 
 	var origin: Vector2 = player.global_position
+	var mod_ids_before_nearest: Array[String] = _run_mod_ids(run_loop)
 	run_loop.call(
 		"_spawn_gear_mod_pickup",
 		GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER,
@@ -245,29 +240,36 @@ func _expect_interaction_contract(
 	) as GearModPickup
 	if nearest_pickup != null:
 		run_loop.call("_try_interact_gear_mod_pickup", nearest_pickup)
-	var nearest_ranks: Dictionary = _run_ranks(run_loop)
+	var nearest_mod_ids: Array[String] = _run_mod_ids(run_loop)
 	_expect(
 		_active_pickup_count(run_loop) == 1
-		and nearest_ranks.has(
+		and _mod_id_count(
+			nearest_mod_ids,
 			GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER
-		)
-		and not nearest_ranks.has(
+		) == _mod_id_count(
+			mod_ids_before_nearest,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER
+		) + 1
+		and _mod_id_count(
+			nearest_mod_ids,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER
+		) == _mod_id_count(
+			mod_ids_before_nearest,
 			GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER
 		),
 		"one interact press should collect only the nearest of multiple pickups"
 	)
 	_release_active_pickups(run_loop)
 
-	var max_result: Dictionary = run_loop.call(
-		"_grant_run_gear_mod",
-		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
-		5,
-		false
-	) as Dictionary
-	_expect(
-		bool(max_result.get("ok", false))
-		and int(max_result.get("rank", -1)) == 5,
-		"overflow setup should reach the configured maximum rank"
+	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
+	var damage_before_duplicate: float = (
+		float(weapon_system.call("stat_value", STATS.DAMAGE))
+		if weapon_system != null
+		else 0.0
+	)
+	var damage_count_before_duplicate: int = _mod_id_count(
+		_run_mod_ids(run_loop),
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
 	)
 	run_loop.call(
 		"_spawn_gear_mod_pickup",
@@ -276,36 +278,93 @@ func _expect_interaction_contract(
 	)
 	for _index: int in range(2):
 		await get_tree().process_frame
-	var overflow_pickup: GearModPickup = _first_active_pickup(run_loop)
-	if overflow_pickup != null:
-		run_loop.call("_update_gear_mod_pickup_prompt", overflow_pickup)
+	var duplicate_pickup: GearModPickup = _first_active_pickup(run_loop)
+	if duplicate_pickup != null:
+		run_loop.call("_update_gear_mod_pickup_prompt", duplicate_pickup)
 	_expect(
-		_interaction_prompt_text(hud).contains("75"),
-		"max-rank pickup prompt should preview the 75 gold conversion: %s"
+		_interaction_prompt_text(hud).contains("+20%"),
+		"duplicate pickup prompt should show the same fixed effect: %s"
 		% _interaction_prompt_text(hud)
 	)
 	var gold_before: int = int(run_loop.call("gold_balance"))
-	var overflow_collect_result: bool = false
-	if overflow_pickup != null:
-		player.global_position = overflow_pickup.global_position
+	var duplicate_collect_result: bool = false
+	if duplicate_pickup != null:
+		player.global_position = duplicate_pickup.global_position
 		_expect(
-			overflow_pickup.can_player_interact(player),
-			"overflow pickup should be within interaction radius before collection: pickup=%s player=%s radius_config=%s"
+			duplicate_pickup.can_player_interact(player),
+			"duplicate pickup should be within interaction radius before collection: pickup=%s player=%s radius_config=%s"
 			% [
-				str(overflow_pickup.global_position),
+				str(duplicate_pickup.global_position),
 				str(player.global_position),
 				str(GearModSystem.pickup_config()),
 			]
 		)
-		overflow_collect_result = bool(run_loop.call(
+		duplicate_collect_result = bool(run_loop.call(
 			"_try_interact_gear_mod_pickup",
-			overflow_pickup
+			duplicate_pickup
 		))
 	var gold_after: int = int(run_loop.call("gold_balance"))
+	var mod_ids_after_duplicate: Array[String] = _run_mod_ids(run_loop)
+	var damage_after_duplicate: float = (
+		float(weapon_system.call("stat_value", STATS.DAMAGE))
+		if weapon_system != null
+		else 0.0
+	)
 	_expect(
-		overflow_collect_result and gold_after == gold_before + 75,
-		"max-rank pickup should convert to 75 run gold after interaction: collected=%s before=%d after=%d"
-		% [str(overflow_collect_result), gold_before, gold_after]
+		duplicate_collect_result
+		and gold_after == gold_before
+		and _mod_id_count(
+			mod_ids_after_duplicate,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
+		) == damage_count_before_duplicate + 1
+		and weapon_system != null
+		and is_equal_approx(
+			damage_after_duplicate,
+			damage_before_duplicate * 1.2
+		),
+		"duplicate pickup should append an independently multiplying Mod without gold conversion"
+	)
+
+	var ids_before_direct_grant: Array[String] = _run_mod_ids(run_loop)
+	var grant_result: Dictionary = run_loop.call(
+		"_grant_run_gear_mod",
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER,
+		false
+	) as Dictionary
+	var grant_result_keys: Array = grant_result.keys()
+	grant_result_keys.sort()
+	_expect(
+		grant_result_keys == ["mod_id", "name_key", "ok"]
+		and bool(grant_result.get("ok", false))
+		and _run_mod_ids(run_loop).size()
+		== ids_before_direct_grant.size() + 1,
+		"single grant should append exactly one instance and return the minimal result shape"
+	)
+	var gear_mod_snapshot: Dictionary = (
+		run_loop.call("create_run_snapshot") as Dictionary
+	).get("gear_mods", {}) as Dictionary
+	var saved_mod_ids: Array[String] = _string_array(
+		gear_mod_snapshot.get("mod_ids", [])
+	)
+	var sorted_saved_mod_ids: Array[String] = saved_mod_ids.duplicate()
+	sorted_saved_mod_ids.sort()
+	_expect(
+		saved_mod_ids == sorted_saved_mod_ids
+		and _mod_id_count(
+			saved_mod_ids,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
+		) == damage_count_before_duplicate + 1,
+		"run snapshot should use a sorted repeated mod_ids array"
+	)
+	var build_summary: Dictionary = run_loop.call(
+		"_run_gear_mod_build_summary"
+	) as Dictionary
+	_expect(
+		_build_count(
+			build_summary,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
+		) == damage_count_before_duplicate + 1,
+		"build summary should aggregate repeated Mod instances into count"
 	)
 
 	run_loop.call(
@@ -359,7 +418,7 @@ func _expect_interaction_contract(
 
 func _expect_world_event_spawn_contract(run_loop: Node) -> void:
 	_release_active_pickups(run_loop)
-	var ranks_before: Dictionary = _run_ranks(run_loop)
+	var mod_ids_before: Array[String] = _run_mod_ids(run_loop)
 	var event_cases: Array[Dictionary] = [
 		{
 			"event_id": WORLD_EVENT_IDS.WORLD_EVENT_DEFENSE,
@@ -392,7 +451,7 @@ func _expect_world_event_spawn_contract(run_loop: Node) -> void:
 		)
 	_expect(
 		_active_pickup_count(run_loop) == event_cases.size()
-		and _run_ranks(run_loop) == ranks_before,
+		and _run_mod_ids(run_loop) == mod_ids_before,
 		"defense, survival, capture, and gold shrine rewards should spawn pickups without immediate grants"
 	)
 	var split_positions: Array[Vector2] = run_loop.call(
@@ -492,16 +551,45 @@ func _push_action_once(action_id: String) -> void:
 	InputService.set_playback_active(false)
 
 
-func _run_ranks(run_loop: Node) -> Dictionary:
+func _run_mod_ids(run_loop: Node) -> Array[String]:
 	var snapshot_data: Dictionary = run_loop.call(
 		"create_run_snapshot"
 	) as Dictionary
-	return (
+	return _string_array(
 		(snapshot_data.get("gear_mods", {}) as Dictionary).get(
-			"ranks",
-			{}
-		) as Dictionary
-	).duplicate(true)
+			"mod_ids",
+			[]
+		)
+	)
+
+
+func _mod_id_count(mod_ids: Array[String], mod_id: String) -> int:
+	var count: int = 0
+	for candidate_id: String in mod_ids:
+		if candidate_id == mod_id:
+			count += 1
+	return count
+
+
+func _build_count(build_summary: Dictionary, mod_id: String) -> int:
+	for raw_entry: Variant in build_summary.get("gear_mods", []) as Array:
+		if (
+			raw_entry is Dictionary
+			and String((raw_entry as Dictionary).get("mod_id", ""))
+			== mod_id
+		):
+			return int((raw_entry as Dictionary).get("count", 0))
+	return 0
+
+
+func _string_array(raw_value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if not raw_value is Array:
+		return result
+	for raw_item: Variant in raw_value as Array:
+		if raw_item is String:
+			result.append(raw_item as String)
+	return result
 
 
 func _active_pickup_count(run_loop: Node) -> int:

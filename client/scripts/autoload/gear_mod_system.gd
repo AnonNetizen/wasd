@@ -58,72 +58,28 @@ func mod_definition(mod_id: String) -> Dictionary:
 	return {}
 
 
-func rank_modifiers(mod_id: String, rank: int) -> Array[Dictionary]:
+func modifiers(mod_id: String) -> Array[Dictionary]:
 	var definition: Dictionary = mod_definition(mod_id)
 	if definition.is_empty():
 		return []
-	var resolved_rank: int = clampi(rank, 0, max_rank(mod_id))
-	var modifiers: Array[Dictionary] = []
+	var resolved_modifiers: Array[Dictionary] = []
 	for modifier: Dictionary in _typed_dictionary_array(
-		definition.get("rank_modifiers", [])
+		definition.get("modifiers", [])
 	):
 		var stat: String = String(modifier.get("stat", ""))
 		var modifier_type: String = String(modifier.get("type", ""))
 		if stat.is_empty() or not modifier_type in ["add", "mult"]:
 			continue
-		modifiers.append({
+		resolved_modifiers.append({
 			"stat": stat,
 			"type": modifier_type,
-			"value": (
-				float(modifier.get("base_value", 0.0))
-				+ float(modifier.get("value_per_rank", 0.0))
-				* float(resolved_rank)
-			),
+			"value": float(modifier.get("value", 0.0)),
 		})
-	return modifiers
-
-
-func max_rank(mod_id: String) -> int:
-	var definition: Dictionary = mod_definition(mod_id)
-	if definition.is_empty():
-		return -1
-	return maxi(int(definition.get("max_rank", 0)), 0)
-
-
-func overflow_gold() -> int:
-	return maxi(int(_gear_data().get("overflow_gold", 0)), 0)
+	return resolved_modifiers
 
 
 func pickup_config() -> Dictionary:
 	return _dictionary_or_empty(_gear_data().get("pickup", {}))
-
-
-func next_grant_preview(mod_id: String, current_rank: int) -> Dictionary:
-	var definition: Dictionary = mod_definition(mod_id)
-	if definition.is_empty():
-		return {"ok": false, "reason": "unknown_gear_mod"}
-	var maximum_rank: int = max_rank(mod_id)
-	var resolved_current_rank: int = clampi(current_rank, -1, maximum_rank)
-	if resolved_current_rank >= maximum_rank:
-		return {
-			"ok": true,
-			"mod_id": mod_id,
-			"name_key": String(definition.get("name_key", "")),
-			"rank": maximum_rank,
-			"display_rank": maximum_rank + 1,
-			"overflow_gold": overflow_gold(),
-			"modifiers": [],
-		}
-	var next_rank: int = resolved_current_rank + 1
-	return {
-		"ok": true,
-		"mod_id": mod_id,
-		"name_key": String(definition.get("name_key", "")),
-		"rank": next_rank,
-		"display_rank": next_rank + 1,
-		"overflow_gold": 0,
-		"modifiers": rank_modifiers(mod_id, next_rank),
-	}
 
 
 func reward_pool_ids(
@@ -148,10 +104,9 @@ func reward_pool_ids(
 func resolve_preview_loadout(selections: Array) -> Dictionary:
 	var selected: Array[Dictionary] = []
 	var diagnostics: Array[Dictionary] = []
-	var seen_mod_ids: Dictionary = {}
-	var modifiers: Dictionary = {}
+	var modifiers_by_slot: Dictionary = {}
 	for loadout_slot: String in GEAR_MOD_SLOTS.VALUES:
-		modifiers[loadout_slot] = []
+		modifiers_by_slot[loadout_slot] = []
 
 	for raw_selection: Variant in selections:
 		if not raw_selection is Dictionary:
@@ -168,12 +123,6 @@ func resolve_preview_loadout(selections: Array) -> Dictionary:
 				"reason": "unknown_mod",
 			})
 			continue
-		if seen_mod_ids.has(mod_id):
-			diagnostics.append({
-				"mod_id": mod_id,
-				"reason": "duplicate_unique_mod",
-			})
-			continue
 		var loadout_slot: String = String(definition.get("slot", ""))
 		if not GEAR_MOD_SLOTS.VALUES.has(loadout_slot):
 			diagnostics.append({
@@ -181,32 +130,20 @@ func resolve_preview_loadout(selections: Array) -> Dictionary:
 				"reason": "unknown_loadout_slot",
 			})
 			continue
-		var maximum_rank: int = max_rank(mod_id)
-		var requested_rank: int = int(selection.get("rank", 0))
-		var rank: int = clampi(requested_rank, 0, maximum_rank)
-		if rank != requested_rank:
-			diagnostics.append({
-				"mod_id": mod_id,
-				"reason": "rank_clamped",
-				"requested_rank": requested_rank,
-				"rank": rank,
-			})
 		selected.append({
 			"mod_id": mod_id,
-			"rank": rank,
 			"slot": loadout_slot,
 			"name_key": String(definition.get("name_key", "")),
 			"desc_key": String(definition.get("desc_key", "")),
 		})
-		seen_mod_ids[mod_id] = true
-		var slot_modifiers: Array = modifiers[loadout_slot] as Array
-		slot_modifiers.append_array(rank_modifiers(mod_id, rank))
-		modifiers[loadout_slot] = slot_modifiers
+		var slot_modifiers: Array = modifiers_by_slot[loadout_slot] as Array
+		slot_modifiers.append_array(modifiers(mod_id))
+		modifiers_by_slot[loadout_slot] = slot_modifiers
 
 	return {
 		"ok": true,
 		"selected": selected,
-		"modifiers": modifiers,
+		"modifiers": modifiers_by_slot,
 		"diagnostics": diagnostics,
 	}
 

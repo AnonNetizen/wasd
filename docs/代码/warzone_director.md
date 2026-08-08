@@ -48,7 +48,7 @@
 - `interest_points[].claim_radius` / `claim_start_time` 为 F12 领取约束，由 `GameplayRunLoop` 解释；有奖励或 `completes_run=true` 时必须提供正数 `claim_radius`。
 - `interest_points[].requires_interaction` 为可选交互领取标记；为 `true` 时运行时生成贴合地图矩形格的 `InterestPointCache`，玩家进入 `claim_radius` 后按 `interact` action 打开并触发同一套局内奖励。
 - `interest_points[].target_hp` / `target_hit_radius` 为可选可伤害目标数值；存在 `target_hp` 时运行时生成贴合地图矩形格的 `InterestPointTarget`，目标一生成即可被子弹 / `Combat` 摧毁并触发同一套奖励，`claim_start_time` 只继续约束无目标兴趣点的进圈领取。
-- `interest_points[].gold_reward_amount` 为即时局内金币；`gear_mod_pool_id` 必须引用 `gear_mods.json.reward_pools[].id`，`gear_mod_rolls` 表示从该池独立抽取的次数。所有 Mod 都走 `GameplayRunLoop` 统一授予入口。
+- `interest_points[].gold_reward_amount` 为即时局内金币；`gear_mod_pool_id` 必须引用 `gear_mods.json.reward_pools[].id`，`gear_mod_rolls` 表示从该池独立抽取的次数。所有 Mod 都生成手动拾取实体，成功交互后由 `GameplayRunLoop` 单份追加无等级实例；重复 id 不因已持有而过滤。
 - `interest_points[].completes_run` 为可选 bool；为 `true` 时目标领取后立即进入完成结果面板并删除当前 `run` 存档，不再生成撤离区或读条。
 
 ## 公共 API
@@ -107,4 +107,4 @@
 
 ## 迁移 / 兼容
 
-导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v16 的 difficulty 快照恢复。开放战区敌人和 Gear Mod 奖励都先与冻结内容池求交，敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v3 删除旧跨局奖励与撤离元数据；兴趣点领取状态保存于 Run v16 的 `interest_points`，局内 Gear Mod ranks、未拾取实体与内容快照由 RunLoop 单独保存。Run v15 无损迁移；旧 Run v14 明确不兼容，不尝试补发奖励。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步快照接口。
+导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v17 的 difficulty 快照恢复。开放战区敌人和 Gear Mod 奖励都先与冻结内容池求交，敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v3 删除旧跨局奖励与撤离元数据；兴趣点领取状态保存于 Run v17 的 `interest_points`，可重复的局内 Gear Mod `mod_ids`、未拾取实体与内容快照由 RunLoop 单独保存。旧 Run v16 明确不兼容，不尝试补发奖励。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步快照接口。

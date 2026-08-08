@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_full_death",
-	"data_fingerprint": "2a2f73e00f5a2d8079357182b85afc94626fcdd8eb5a575989e9c9ba4b1ab690",
-	"file_schema_version": 6,
-	"game_version": "v1.15",
+	"data_fingerprint": "b35d17c1c75d0f71f20760f843e7d882837c6ef2ecc8d72d157b56c02c0d256d",
+	"file_schema_version": 7,
+	"game_version": "v1.16",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -48,7 +48,7 @@
 					"enemy_damage_multiplier": 1.0,
 					"enemy_health_multiplier": 1.0,
 					"gear_mods": {
-						"ranks": {}
+						"mod_ids": []
 					},
 					"kills": 0,
 					"main_hero_id": "character_primary_b",
@@ -299,11 +299,11 @@
 				"time": 1.25
 			}
 		],
-		"schema_version": 6,
+		"schema_version": 7,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "12dcf215ba33fa8f7cea296af213b1e5c32ca9595d9d9cb512a113e09cd41726",
+	"recording_hash": "95c2139660296089764f077b0c56946e4fc7815045764ba667ccd897d78b2126",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -482,7 +482,7 @@
 			"state": "game_over",
 			"ui_stack": 1
 		},
-		"schema_version": 6,
+		"schema_version": 7,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

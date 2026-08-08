@@ -97,6 +97,10 @@ func _expect_default_availability_and_codex_fallbacks() -> void:
 		system.call("codex_entries", "gear_mod") as Array,
 		"gear_mod_default"
 	)
+	var gear_mod_details: Dictionary = gear_mod_default.get(
+		"details",
+		{}
+	) as Dictionary
 	_expect(
 		String(enemy_default.get("desc_key", "")) == "enemy_default_name",
 		"enemy Codex entry should fall back to name_key when desc_key is missing"
@@ -110,9 +114,8 @@ func _expect_default_availability_and_codex_fallbacks() -> void:
 		and (character_default.get("details", {}) as Dictionary).has(
 			"passive_id"
 		)
-		and (gear_mod_default.get("details", {}) as Dictionary).has(
-			"rank_modifiers"
-		)
+		and gear_mod_details.has("modifiers")
+		and (gear_mod_details.get("modifiers", []) as Array).size() == 1
 		and (enemy_default.get("details", {}) as Dictionary).has("max_hp"),
 		"unlocked Codex entries should normalize details for all three content types"
 	)
@@ -143,7 +146,7 @@ func _expect_rule_status_and_pending_delta() -> void:
 	}
 	system.set("_meta_payload", save_manager.meta_payload.duplicate(true))
 	save_manager.run_payload = {
-		"schema_version": 15,
+		"schema_version": save_manager.current_version("run"),
 		"content_progress_delta": {
 			"runs_completed": 1,
 			"enemy_defeated": {"enemy_default": 1},
@@ -202,7 +205,9 @@ func _expect_rule_status_and_pending_delta() -> void:
 		),
 		"saved Run progress should preview newly qualified unlocks without committing"
 	)
-	save_manager.run_payload["schema_version"] = 13
+	save_manager.run_payload["schema_version"] = (
+		save_manager.current_version("run") - 1
+	)
 	var legacy_status: Dictionary = system.call(
 		"requirement_status",
 		"character",
@@ -323,8 +328,9 @@ func _fixture_system() -> Dictionary:
 				"name_key": "gear_mod_default_name",
 				"slot": "weapon",
 				"rarity": "common",
-				"max_rank": 5,
-				"rank_modifiers": [],
+				"modifiers": [
+					{"stat": "damage", "type": "mult", "value": 1.2},
+				],
 			},
 			"gear_mod_locked": {
 				"id": "gear_mod_locked",
@@ -447,6 +453,11 @@ class FakeSaveManager:
 	var meta_payload: Dictionary = {}
 	var run_payload: Dictionary = {}
 	var save_count: int = 0
+	var run_schema_version: int = 27
+
+
+	func current_version(kind: String) -> int:
+		return run_schema_version if kind == "run" else 0
 
 
 	func has_save(_slot: String, kind: String) -> bool:

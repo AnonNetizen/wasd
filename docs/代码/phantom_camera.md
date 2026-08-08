@@ -216,7 +216,7 @@ GameplayRunLoop (Node2D)
 - 插件自身 Resource 没有项目 JSON schema；本项目可调瞄准引导与震屏参数只来自 `client/data/camera_feedback.json` schema v3，字段说明与校验归 `client/data/README.md` 和 DataLoader 双端 schema 管理。
 - 玩家设置键来自生成常量 `SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE`；插件源码不得裸写项目 setting id。
 - 运行时随机必须走 `RNG.camera_fx`。该子流只影响表现，不得改变 `spawn`、`drop`、`combat`、`world` 等确定性序列。
-- 相机与震屏当前不写入 run snapshot；恢复局内状态后由 RunLoop 将场景预置 Rig 重新绑定到新建 Player。Player 的武器反冲与敌人击退属于两套独立玩法状态并保存在 Run v16；不要保存 Noise 的瞬时 phase，除非未来新增明确回放 / 存档决策。
+- 相机与震屏当前不写入 run snapshot；恢复局内状态后由 RunLoop 将场景预置 Rig 重新绑定到新建 Player。Player 的武器反冲与敌人击退属于两套独立玩法状态并保存在 Run v17；旧 Run v16 及更早版本因 ADR #193 不兼容。不要保存 Noise 的瞬时 phase，除非未来新增明确回放 / 存档决策。
 - 插件 updater 设置固定为 `phantom_camera/updater/updater_mode=0`，不会发出版本查询；升级只能走人工审查。
 
 ## 编辑器工具与 C# 边界

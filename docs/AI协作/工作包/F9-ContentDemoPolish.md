@@ -50,7 +50,7 @@ F9 的核心是“可试玩 Demo 的第一层内容和体验打磨”，不是�
 - **可玩 runtime**：标题进入游戏、默认角色、鼠标瞄准 + 键盘 / 手柄兜底瞄准、按住 `fire` action 开火、玩家受击无敌、相机居中、世界网格参照、失败结算、重开 / 回标题、暂停保存退出与继续游戏都已接入正式场景和 smoke。
 - **可数据化扩展的局内内容**：`characters.json` schema v2 已绑定默认角色专属继承场景，`weapons.json` 已有基础武器，`enemies.csv` 已有五种行为敌人并分别绑定专属继承场景 / 独立池；数值和 AI profile 仍可数据化扩展，静态颜色 / 轮廓由 TSCN 人工调整。
 - **可数据化扩展的成长内容**：`growth.csv` 已覆盖 1~10 级阈值，`growth_pools.json` 当前可直接新增 `kind=stat_modifier` 的属性奖励；运行时已支持 damage、fire_rate、pickup_range 等 modifiers。
-- **可复用的局外成长**：F11 后跨局成长主路线是 `GearModSystem` 的装备 Mod 库存、rank、资源和英雄 / 武器 loadout；旧 F6 永久升级表和旧测试档迁移已按 ADR #118 删除。
+- **历史 F11 评估已被取代**：本段原先设想的 Gear Mod 跨局库存、rank、资源和 loadout 已由 ADR #188 / #193 删除；当前 Gear Mod 仅是本局手动拾取的无等级独立实例，重复 id 逐份乘算，结局清空且 Meta v4 不保存实例。旧 F6 永久升级表和旧测试档迁移仍按 ADR #118 保持删除。
 - **可复用的守门工具**：`validate_data`、`lint_project_rules`、`runtime-smoke`、四条 checked-in golden replay runner 和手动 checklist 是 F9 内容扩展的默认护栏；`perf-probe` 仅保留为用户明确触发的按需工具。
 
 ### 当前不要直接做

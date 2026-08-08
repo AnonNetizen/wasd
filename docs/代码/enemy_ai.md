@@ -9,7 +9,7 @@
 - 普通环境敌人的感知与战斗目标固定为玩家；只有防御世界事件生成上下文可注入专用主目标，且仍把玩家作为可受击附带目标。身体重叠、推挤、贴身移动和中心分离永远不造成伤害。
 - 通过 Utility 评分选择动作，以显式阶段状态机执行前摇、释放和冷却；模块模式消费局部共享流场、全图地形视线与 AStar waypoint。
 - 所有伤害通过 `Combat.apply_damage()`；`Enemy.receive_damage()` 默认拒绝 `team_enemy`，只允许已提交爆猎者的爆炸伤害。
-- 以 `runtime_spawn_serial` 固定连锁爆炸目标结算；敌人金币只在实际生成时由 `RNG.economy` 锁定，Gear Mod 只在玩家归因击杀时由 `RNG.drop` 对本局可用掉落表判定并生成已锁定 `mod_id` 的手动拾取实体，保持模块墙体、全图边界、对象池、Run v16 续局和 Replay v6 可控。
+- 以 `runtime_spawn_serial` 固定连锁爆炸目标结算；敌人金币只在实际生成时由 `RNG.economy` 锁定，Gear Mod 只在玩家归因击杀时由 `RNG.drop` 对本局可用掉落表判定并生成已锁定 `mod_id` 的手动拾取实体，保持模块墙体、全图边界、对象池、Run v17 续局和 Replay v7 可控。
 - 持续状态由 `StatusEffectComponent` 承担，不把沉默、减速、DoT 等状态硬写进 AI profile。
 
 ## 阅读方式
@@ -36,7 +36,7 @@
 | `client/data/enemies.csv` | 基础数值、金币价值倍率、通用内容 tag、对象池和 profile 引用 |
 | `client/scripts/data/enemy_reward_resolver.gd` / `client/data/enemy_rewards.json` | 生成时金币公式、全局系数和计算明细；详见 `docs/代码/enemy_reward_resolver.md` |
 | `client/scripts/contracts/enemy_ai_actions.gd` | 由词表生成的 action 常量 |
-| `client/tools/runtime_smoke.gd` | 五种显式攻击、事件防御目标、远程锁向点射、连锁、金币快照、玩家归因 Mod 实体掉落 / 手动拾取、无弹药掉落、视线、墙体、击退、暂停与 Run v16 恢复 |
+| `client/tools/runtime_smoke.gd` | 五种显式攻击、事件防御目标、远程锁向点射、连锁、金币快照、玩家归因 Mod 实体掉落 / 手动拾取、无弹药掉落、视线、墙体、击退、暂停与 Run v17 恢复 |
 | `tools/validate_data.py` / `tools/test_data_loader_schema.py` | schema v5、精确 attack 字段、远程点射字段与旧 contact / movement 攻击字段负例门禁 |
 
 ## 场景 / 节点结构
@@ -129,7 +129,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 | `ai_debug_summary()` | 无 | `Dictionary` | 额外报告 attack action / 阶段、剩余时间、`burst_shots_remaining`、armed、锁向、倍率后伤害、范围、本次命中和锁定奖励 |
 | `combat_team_id()` | 无 | `String` | 返回 `team_enemy` |
 | `apply_status_effect(effect)` | `StatusEffect` | `bool` | 由统一状态系统调用 |
-| `snapshot()` / `restore_snapshot(data)` | 无 / `Dictionary` | `Dictionary` / `void` | Run v16 攻击阶段、锁向、点射剩余弹数、事件归属 / target mode、命中、armed、生成序号、出生倍率与完整奖励明细恢复；导航派生状态不保存 |
+| `snapshot()` / `restore_snapshot(data)` | 无 / `Dictionary` | `Dictionary` / `void` | Run v17 攻击阶段、锁向、点射剩余弹数、事件归属 / target mode、命中、armed、生成序号、出生倍率与完整奖励明细恢复；导航派生状态不保存 |
 | `convert_to_player_target(player)` | 玩家节点 | `void` | 事件终止后让残敌成为普通敌人；保留事件 id 直到 pin 清理 |
 | `receive_damage(info)` | `DamageInfo` | result dictionary | armed 一律拒绝；普通 `team_enemy` 拒绝，已提交爆炸例外 |
 
@@ -195,14 +195,14 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 - 改 `enemy.gd`：GDScript / semantic lint、headless boot、runtime smoke；模块墙体 / 出生相关追加 module-world smoke。
 - 改基础 / 专属敌人场景或池绑定：追加 `actor-scene-smoke`，验证继承、必需节点、场景颜色 / 几何不被 `configure()` 覆盖，以及五个独立池生成 / 复用不串场景。
 - 改稳定行为、数据指纹或刷怪：重录并回放四条 checked-in golden replay。
-- 改实体状态、金币、Gear Mod 掉落或 run 快照：追加 L1、runtime、gear-mod-pickup、content-progression 与 save / module-world smoke，验证 Run v16 阶段、奖励明细、内容可用池、未拾取实体、事件归属、主目标解析和击退 roundtrip；远程点射覆盖前摇与点射中途的计时 / 剩余弹数一致。
+- 改实体状态、金币、Gear Mod 掉落或 run 快照：追加 L1、runtime、gear-mod-pickup、content-progression 与 save / module-world smoke，验证 Run v17 阶段、奖励明细、内容可用池、未拾取实体、事件归属、主目标解析和击退 roundtrip；远程点射覆盖前摇与点射中途的计时 / 剩余弹数一致。
 - 性能 probe 只在用户明确要求性能测试时运行。
 
 ## 迁移 / 兼容
 
-- 当前 Run schema 为 v13；v9→v10 因缺少敌人奖励明细与 `RNG.economy` state，标记 `legacy_run_incompatible`，其后版本迁移边界见 SaveManager 文档。
-- Run v16 恢复当前 profile 已删除的 action 时清空阶段并在下一决策 tick 重选；合法攻击阶段按剩余时间继续，不得重复提交。
-- `burst_shots_remaining` 继续随 Run v16 保存；字段存在但点射阶段、计时、方向或剩余弹数非法时，清空攻击并应用一次当前远程冷却，防止重复发弹。
+- 当前 Run schema 为 v17；ADR #193 后旧 Run v16 及更早版本统一不兼容，只删除 Run、保留 Meta v4，不转换旧 Gear Mod 等级语义。
+- Run v17 恢复当前 profile 已删除的 action 时清空阶段并在下一决策 tick 重选；合法攻击阶段按剩余时间继续，不得重复提交。
+- `burst_shots_remaining` 继续随 Run v17 保存；字段存在但点射阶段、计时、方向或剩余弹数非法时，清空攻击并应用一次当前远程冷却，防止重复发弹。Replay v7 明确拒绝 v6。
 - schema v1–v4 profile、旧 `sense_radius`、旧 movement 攻击字段与旧 contact CSV 表头必须被双端 validator 拒绝，不做静默忽略。
 
 ## 相关文档

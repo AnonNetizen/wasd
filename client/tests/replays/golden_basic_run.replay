@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_basic_run",
-	"data_fingerprint": "2a2f73e00f5a2d8079357182b85afc94626fcdd8eb5a575989e9c9ba4b1ab690",
-	"file_schema_version": 6,
-	"game_version": "v1.15",
+	"data_fingerprint": "b35d17c1c75d0f71f20760f843e7d882837c6ef2ecc8d72d157b56c02c0d256d",
+	"file_schema_version": 7,
+	"game_version": "v1.16",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -363,11 +363,11 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 6,
+		"schema_version": 7,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "caaa8b28c590a0c1dab45a388d1b467648f699571ad12446a786adc160b6d817",
+	"recording_hash": "eb9f5936c86d24d933f7b4484100e742d46111ccdbb1301a5e79f18d0f1cbf78",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,
@@ -601,7 +601,7 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 6,
+		"schema_version": 7,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

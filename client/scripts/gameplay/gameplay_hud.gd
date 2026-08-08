@@ -17,8 +17,6 @@ const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
 const UPGRADE_FEEDBACK_TEXT_SHADOW_COLOR: Color = Color(0.05, 0.04, 0.03, 0.92)
-const GEAR_MOD_MIN_DISPLAY_RANK: int = 1
-const GEAR_MOD_MAX_DISPLAY_RANK: int = 6
 const DIFFICULTY_MARKER_NORMAL_RECT: Rect2 = Rect2(-267.0, 189.0, 254.0, 132.0)
 const DIFFICULTY_MARKER_STATS_RECT: Rect2 = Rect2(-718.0, 24.0, 254.0, 132.0)
 const STATS_PANEL_ROWS: Array[Dictionary] = [
@@ -491,26 +489,8 @@ func show_level_advanced_feedback(level: int) -> void:
 	_show_feedback("ui_level_advanced", "")
 
 
-func show_gear_mod_drop_feedback(
-	name_key: String,
-	display_rank: int = 1,
-	overflow_gold: int = 0
-) -> void:
-	_last_upgrade_feedback_key = (
-		"ui_gear_mod_overflow_gold"
-		if overflow_gold > 0
-		else "ui_gear_mod_drop_obtained"
-	)
-	_last_upgrade_name_key = name_key
-	_last_feedback_context = {
-		"rank": clampi(
-			display_rank,
-			GEAR_MOD_MIN_DISPLAY_RANK,
-			GEAR_MOD_MAX_DISPLAY_RANK
-		),
-		"gold": maxi(overflow_gold, 0),
-	}
-	_start_feedback()
+func show_gear_mod_drop_feedback(name_key: String) -> void:
+	_show_feedback("ui_gear_mod_drop_obtained", name_key)
 
 
 func show_world_event_feedback(
@@ -570,10 +550,7 @@ func is_gear_mod_drop_feedback_visible() -> bool:
 	return (
 		_upgrade_feedback_label != null
 		and _upgrade_feedback_label.visible
-		and _last_upgrade_feedback_key in [
-			"ui_gear_mod_drop_obtained",
-			"ui_gear_mod_overflow_gold",
-		]
+		and _last_upgrade_feedback_key == "ui_gear_mod_drop_obtained"
 	)
 
 

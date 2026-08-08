@@ -22,10 +22,10 @@
 | `client/data/characters.json` | 智能碎片的可选 `default_unlocked`、`unlock_rule_id`、`codex_icon_path` |
 | `client/data/gear_mods.json` | Gear Mod 的同组可选字段与图鉴详情 |
 | `client/data/enemies.csv` | 敌人双语描述、可选解锁字段和图鉴图标 |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 冻结池、计数增量、死亡 / 通关提交、Run v16 快照 |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 冻结池、计数增量、死亡 / 通关提交、Run v17 快照 |
 | `client/scripts/ui/codex_panel.gd` | 标题图鉴三分类、隐私显示、语言 / 焦点 / 返回 |
-| `client/scripts/autoload/save_manager.gd` | Meta v4 / Run v16 envelope、迁移与旧 Run 拒绝 |
-| `client/scripts/autoload/replay.gd` | Replay v6 保存并校验冻结池快照 |
+| `client/scripts/autoload/save_manager.gd` | Meta v4 / Run v17 envelope、迁移与旧 Run 拒绝 |
+| `client/scripts/autoload/replay.gd` | Replay v7 保存并校验冻结池快照 |
 
 ## 3. 数据契约
 
@@ -99,13 +99,13 @@ content_progression:
 1. 玩家归因击杀增加总击杀和指定敌人击杀。
 2. 死亡增加结算局数；通关还增加通关数和主 / 副碎片各自通关数。
 3. 死亡 / 通关调用一次 `commit_run_progress()`，然后删除 Run 并显示本次新解锁。
-4. 保存退出把快照与增量写入 Run v16；续局继续累计。
+4. 保存退出把快照与增量写入 Run v17；续局继续累计。
 5. 主动放弃或重开只删除 Run，不提交增量。
 6. 本局提交不会改变当前快照；新内容从下一局入池。
 
 ## 7. Replay 与隔离
 
-Replay v6 的 context 保存同一 `content_availability`。播放时由 harness 在 RunLoop 挂树前注入该快照，忽略本机 Meta，并关闭长期进度提交；v5 和其他未知版本明确拒绝。
+Replay v7 的 context 保存同一 `content_availability`。播放时由 harness 在 RunLoop 挂树前注入该快照，忽略本机 Meta，并关闭长期进度提交；v6 和其他未知版本明确拒绝。
 
 开发者测试岛始终访问全部内容，且不读写正式 Meta / Run。所有 smoke 使用隔离 user 目录或显式关闭 RunLoop 提交；测试失败也不得污染玩家进度。
 
@@ -113,7 +113,7 @@ Replay v6 的 context 保存同一 `content_availability`。播放时由 harness
 
 - 入口只在标题菜单，位于设置与退出之间，通过 `UIManager.push/pop` 管理。
 - 分类固定为智能碎片、Gear Mod、敌人；不维护“已解锁但未发现”。
-- 已开放智能碎片显示基础属性、被动和绑定技能；Mod 显示 slot、rarity、rank 曲线；敌人显示描述和核心战斗属性。
+- 已开放智能碎片显示基础属性、被动和绑定技能；Mod 显示 slot、rarity 与固定 modifiers，不显示等级范围；敌人显示描述和核心战斗属性。
 - 锁定条目只显示 `???`、通用剪影、条件语义和 `current/target`。真实 name / desc / icon / stats 必须在 `ContentUnlockSystem.codex_entries()` 层就被移除，不能只依赖控件隐藏。
 - 保存退出 Run 的 pending 以“本局暂存 +N”附加到对应条件，不参与 current、规则 complete 或当前池。
 - `Localization.locale_changed` 触发就地刷新；`ui_back` 和关闭按钮统一 pop，键鼠 / 手柄焦点由 `UIManager` 恢复。
@@ -136,7 +136,7 @@ Replay v6 的 context 保存同一 `content_availability`。播放时由 harness
 | 新内容意外锁定 | 内容是否误写 `default_unlocked=false` 或无效 `unlock_rule_id` |
 | 达标后当前局立即出现新敌人 / Mod | 消费方是否绕过 RunLoop 冻结快照直接查 Meta |
 | Replay 在不同存档结果不同 | v6 context 是否保存 / 注入 `content_availability` |
-| 续局进度归零 | Run v16 是否包含 `content_progress_delta`，旧 Run 是否被正确迁移或拒绝 |
+| 续局进度归零 | Run v17 是否包含 `content_progress_delta`，旧 Run 是否被正确迁移或拒绝 |
 | 锁定图鉴泄露真实资料 | `codex_entries()` 是否在门面层脱敏；UI 是否越过 locked gate 读 DataLoader |
 | smoke 改写玩家存档 | bridge 是否使用隔离 user 目录，RunLoop 是否关闭 progression commit |
 
@@ -145,6 +145,6 @@ Replay v6 的 context 保存同一 `content_availability`。播放时由 harness
 - `content-progression-smoke`：默认开放、规则校验、all / any、定向计数、幂等解锁、Meta v4、死亡 / 通关提交、保存续局、放弃丢弃、池冻结、Replay / 测试隔离。
 - `codex-smoke`：标题入口、三分类、锁定脱敏、要求和 pending、完整详情、语言刷新、焦点与返回。
 - 改敌池 / Mod 池过滤时追加 runtime、Gear Mod、world-event、完整 / 技术 module-world。
-- 改存档 / Replay 字段时追加 save、loading、replay、replay-input、四条 Replay v6 黄金回放与 headless editor / boot。
+- 改存档 / Replay 字段时追加 save、loading、replay、replay-input、四条 Replay v7 黄金回放与 headless editor / boot。
 
 人工验收只由用户执行：16:9 中英文布局、键鼠 / 真实手柄导航、锁定无剧透、结算提示和下一局内容池变化。

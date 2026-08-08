@@ -52,7 +52,7 @@ difficulty_level = tier + 1
 | `advance(delta)` | 已经 `GameClock.delta_scaled()` 的秒数 | void | 禁用、非正数或非有限值不推进 |
 | `current_snapshot()` | 无 | Dictionary | 返回 profile id / name key、difficulty coefficient、elapsed、tier、progress、既有生命系数、等级、阶段名 key 和两倍率 |
 | `enemy_spawn_snapshot()` | 无 | Dictionary | 生成敌人时取得的不可变出生倍率 |
-| `snapshot()` | 无 | Dictionary | Run v16 保存 schema/profile/name/difficulty coefficient/elapsed/enabled |
+| `snapshot()` | 无 | Dictionary | Run v17 保存 schema/profile/name/difficulty coefficient/elapsed/enabled |
 | `restore_snapshot(saved)` | 快照 | bool | schema/profile/elapsed 不匹配则拒绝 |
 
 ## 运行流程
@@ -62,7 +62,7 @@ difficulty_level = tier + 1
 3. 模块首次进入计划仍在进房时固化敌种和位置；预警倒计时结束后，敌人在真正 `PoolManager.acquire()` 时取得最新 `enemy_spawn_snapshot()`。
 4. `Enemy.configure(..., spawn_difficulty)` 把生命倍率应用到最大生命，把伤害倍率应用到全部显式攻击伤害并保存倍率；攻击几何、时序和击退保持数据原值。
 5. 成功取得敌人对象池实体后，RunLoop 以当下 tier 与 profile 难度系数解析并锁定金币奖励。世界事件仍按激活时快照固定生命 / 伤害，但后续波次金币严格读取各敌人实际生成时的 tier。
-6. 已生成敌人不订阅 progression，也不会在跨级时重算。模块卸载和 Run v16 续局从敌人快照恢复同一生命 / 伤害 / 金币结果；恢复不消费 `RNG.economy`。
+6. 已生成敌人不订阅 progression，也不会在跨级时重算。模块卸载和 Run v17 续局从敌人快照恢复同一生命 / 伤害 / 金币结果；恢复不消费 `RNG.economy`。
 7. HUD、详细面板、GameOverPanel、GameState 结果 payload 和 Replay 的 run-end / runtime summary 都使用难度时间。
 
 ## 战斗门禁
@@ -74,10 +74,9 @@ difficulty_level = tier + 1
 
 ## 存档与回放
 
-- Run v16 保存顶层 `difficulty` 的 profile / name / difficulty coefficient / elapsed，并在每个敌人快照保存 `spawn_health_multiplier` / `spawn_damage_multiplier` 与完整奖励明细；同时保存显式攻击阶段、事件敌人上下文、冻结内容池与未拾取 Gear Mod，恢复时不得重复提交伤害、波次、奖励随机、掉落实体或 Gear Mod 授予。
-- Run v9 没有敌人奖励快照和 `RNG.economy` 状态，v9→v10 标记 `legacy_run_incompatible`；启动层只删除 run，Meta v2 保留。
-- Run v5 无法推断玩家在起点停留的时间，也无法还原已有敌人的出生倍率，因此 v5→v6 标记 `legacy_run_incompatible`，启动层只删除 run；Meta v2 和 Gear Mod 不受影响。
-- Replay 文件和 recording 保持 v3。数据 schema count 会让 profile 变化进入 data fingerprint；四条 golden 的 `run_summary` 增加难度时间、等级和两倍率。
+- Run v17 保存顶层 `difficulty` 的 profile / name / difficulty coefficient / elapsed，并在每个敌人快照保存 `spawn_health_multiplier` / `spawn_damage_multiplier` 与完整奖励明细；同时保存显式攻击阶段、事件敌人上下文、冻结内容池与未拾取 Gear Mod，恢复时不得重复提交伤害、波次、奖励随机、掉落实体或 Gear Mod 授予。
+- ADR #193 后旧 Run v16 及更早版本统一标记不兼容；启动层只删除 Run、保留 Meta v4，不转换旧 Gear Mod 等级语义。
+- Replay 文件和 recording 均为 v7，并明确拒绝 v6。数据 schema count 会让 profile 变化进入 data fingerprint；四条 golden 的 `run_summary` 保留难度时间、等级和两倍率。
 
 ## 扩展点
 

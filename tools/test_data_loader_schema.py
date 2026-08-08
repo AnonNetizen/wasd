@@ -1329,11 +1329,11 @@ def main() -> int:
             ],
         ),
         (
-            "gear mod schema v3 is required",
-            _mutate_json("client/data/gear_mods.json", _set_gear_mod_schema_version(2)),
+            "gear mod schema v4 is required",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_schema_version(3)),
             [
                 "client/data/gear_mods.json:schema_version",
-                "must equal 3",
+                "must equal 4",
             ],
         ),
         (
@@ -1380,7 +1380,7 @@ def main() -> int:
             "gear mod modifier stat must be registered",
             _mutate_json("client/data/gear_mods.json", _set_gear_mod_modifier_stat("stat_missing")),
             [
-                "client/data/gear_mods.json:mods[0].rank_modifiers[0].stat",
+                "client/data/gear_mods.json:mods[0].modifiers[0].stat",
                 "unknown id stat_missing; expected one of stats",
             ],
         ),
@@ -1401,11 +1401,43 @@ def main() -> int:
             ],
         ),
         (
-            "gear mod overflow reward must be positive",
-            _mutate_json("client/data/gear_mods.json", _set_gear_mod_overflow_gold(0)),
+            "gear mod legacy overflow reward is rejected",
+            _mutate_json("client/data/gear_mods.json", _add_gear_mod_legacy_overflow_gold),
             [
-                "client/data/gear_mods.json:overflow_gold",
-                "must be >= 1",
+                "client/data/gear_mods.json:root.overflow_gold",
+                "is not allowed",
+            ],
+        ),
+        (
+            "gear mod legacy max rank is rejected",
+            _mutate_json("client/data/gear_mods.json", _add_gear_mod_legacy_max_rank),
+            [
+                "client/data/gear_mods.json:mods[0].max_rank",
+                "is not allowed",
+            ],
+        ),
+        (
+            "gear mod legacy rank modifiers are rejected",
+            _mutate_json("client/data/gear_mods.json", _add_gear_mod_legacy_rank_modifiers),
+            [
+                "client/data/gear_mods.json:mods[0].rank_modifiers",
+                "is not allowed",
+            ],
+        ),
+        (
+            "gear mod legacy base value is rejected",
+            _mutate_json("client/data/gear_mods.json", _add_gear_mod_legacy_base_value),
+            [
+                "client/data/gear_mods.json:mods[0].modifiers[0].base_value",
+                "is not allowed",
+            ],
+        ),
+        (
+            "gear mod legacy value per rank is rejected",
+            _mutate_json("client/data/gear_mods.json", _add_gear_mod_legacy_value_per_rank),
+            [
+                "client/data/gear_mods.json:mods[0].modifiers[0].value_per_rank",
+                "is not allowed",
             ],
         ),
         (
@@ -2912,7 +2944,7 @@ def _set_gear_mod_name_key(value: str) -> JsonMutator:
 
 def _set_gear_mod_modifier_stat(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["mods"][0]["rank_modifiers"][0]["stat"] = value
+        payload["mods"][0]["modifiers"][0]["stat"] = value
 
     return mutate
 
@@ -2931,11 +2963,31 @@ def _set_gear_mod_drop_chance(value: str) -> CsvMutator:
     return mutate
 
 
-def _set_gear_mod_overflow_gold(value: int) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["overflow_gold"] = value
+def _add_gear_mod_legacy_overflow_gold(payload: dict[str, Any]) -> None:
+    payload["overflow_gold"] = 75
 
-    return mutate
+
+def _add_gear_mod_legacy_max_rank(payload: dict[str, Any]) -> None:
+    payload["mods"][0]["max_rank"] = 5
+
+
+def _add_gear_mod_legacy_rank_modifiers(payload: dict[str, Any]) -> None:
+    payload["mods"][0]["rank_modifiers"] = [
+        {
+            "stat": "damage",
+            "type": "mult",
+            "base_value": 1.1,
+            "value_per_rank": 0.05,
+        }
+    ]
+
+
+def _add_gear_mod_legacy_base_value(payload: dict[str, Any]) -> None:
+    payload["mods"][0]["modifiers"][0]["base_value"] = 1.1
+
+
+def _add_gear_mod_legacy_value_per_rank(payload: dict[str, Any]) -> None:
+    payload["mods"][0]["modifiers"][0]["value_per_rank"] = 0.05
 
 
 def _set_gear_mod_reward_pool_id(value: str) -> JsonMutator:

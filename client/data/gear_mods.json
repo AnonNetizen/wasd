@@ -1,6 +1,5 @@
 {
-  "schema_version": 3,
-  "overflow_gold": 75,
+  "schema_version": 4,
   "pickup": {
     "pool_id": "gear_mod_pickup",
     "interaction_radius": 72.0,
@@ -25,13 +24,11 @@
       "default_unlocked": true,
       "slot": "weapon",
       "rarity": "common",
-      "max_rank": 5,
-      "rank_modifiers": [
+      "modifiers": [
         {
           "stat": "damage",
           "type": "mult",
-          "base_value": 1.1,
-          "value_per_rank": 0.05
+          "value": 1.2
         }
       ]
     },
@@ -42,13 +39,11 @@
       "default_unlocked": true,
       "slot": "weapon",
       "rarity": "common",
-      "max_rank": 5,
-      "rank_modifiers": [
+      "modifiers": [
         {
           "stat": "recoil",
           "type": "mult",
-          "base_value": 0.9,
-          "value_per_rank": -0.05
+          "value": 0.8
         }
       ]
     },
@@ -59,13 +54,11 @@
       "default_unlocked": true,
       "slot": "weapon",
       "rarity": "common",
-      "max_rank": 5,
-      "rank_modifiers": [
+      "modifiers": [
         {
           "stat": "spread_angle_max",
           "type": "mult",
-          "base_value": 0.9,
-          "value_per_rank": -0.05
+          "value": 0.8
         }
       ]
     }

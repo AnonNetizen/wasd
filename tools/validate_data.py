@@ -1827,10 +1827,14 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    if set(data) != {"schema_version", "overflow_gold", "pickup", "reward_pools", "mods"}:
-        ctx.error(path, "root", "must define exactly schema_version, overflow_gold, pickup, reward_pools, and mods")
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 3)
-    _require_int(ctx, path, "overflow_gold", data.get("overflow_gold"), minimum=1)
+    _validate_exact_object_keys(
+        ctx,
+        path,
+        "root",
+        data,
+        {"schema_version", "pickup", "reward_pools", "mods"},
+    )
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 4)
     pickup = data.get("pickup")
     if not isinstance(pickup, dict):
         ctx.error(path, "pickup", "must be an object")
@@ -1894,23 +1898,19 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
             "desc_key",
             "slot",
             "rarity",
-            "max_rank",
-            "rank_modifiers",
+            "modifiers",
         }
         optional_mod_keys = {
             "default_unlocked",
             "unlock_rule_id",
             "codex_icon_path",
         }
-        if (
-            not required_mod_keys.issubset(mod)
-            or set(mod).difference(required_mod_keys | optional_mod_keys)
+        for missing_key in sorted(required_mod_keys.difference(mod)):
+            ctx.error(path, f"{field}.{missing_key}", "is required")
+        for unexpected_key in sorted(
+            set(mod).difference(required_mod_keys | optional_mod_keys)
         ):
-            ctx.error(
-                path,
-                field,
-                "must define the base Gear Mod fields and only optional unlock/codex fields",
-            )
+            ctx.error(path, f"{field}.{unexpected_key}", "is not allowed")
         mod_id = _require_registered(ctx, path, f"{field}.id", mod.get("id"), "gear_mod_ids")
         if mod_id:
             if mod_id in seen:
@@ -1934,11 +1934,10 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
             )
         _require_registered(ctx, path, f"{field}.slot", mod.get("slot"), "gear_mod_slots")
         _require_registered(ctx, path, f"{field}.rarity", mod.get("rarity"), "gear_mod_rarities")
-        _require_int(ctx, path, f"{field}.max_rank", mod.get("max_rank"), minimum=0)
-        _validate_gear_mod_rank_modifiers(ctx, path, f"{field}.rank_modifiers", mod.get("rank_modifiers"))
+        _validate_gear_mod_modifiers(ctx, path, f"{field}.modifiers", mod.get("modifiers"))
 
 
-def _validate_gear_mod_rank_modifiers(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+def _validate_gear_mod_modifiers(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
     modifiers = _require_list(ctx, path, field, data)
     if not modifiers:
         ctx.error(path, field, "must be a non-empty array")
@@ -1947,11 +1946,17 @@ def _validate_gear_mod_rank_modifiers(ctx: ValidationContext, path: Path, field:
         if not isinstance(modifier, dict):
             ctx.error(path, item_field, "must be an object")
             continue
+        _validate_exact_object_keys(
+            ctx,
+            path,
+            item_field,
+            modifier,
+            {"stat", "type", "value"},
+        )
         _require_registered(ctx, path, f"{item_field}.stat", modifier.get("stat"), "stats")
         if modifier.get("type") not in {"add", "mult"}:
             ctx.error(path, f"{item_field}.type", "must be add or mult")
-        _require_number(ctx, path, f"{item_field}.base_value", modifier.get("base_value"))
-        _require_number(ctx, path, f"{item_field}.value_per_rank", modifier.get("value_per_rank"))
+        _require_number(ctx, path, f"{item_field}.value", modifier.get("value"))
 
 
 def _validate_content_unlocks(
@@ -3778,24 +3783,6 @@ def _validate_world_event_mod_pool_reference(
     pool_id = _require_registered(ctx, path, field, value, "world_event_mod_pool_ids")
     if pool_id and pool_id not in mod_pool_ids:
         ctx.error(path, field, f"mod pool is not defined in gear_mods.json: {pool_id}")
-
-
-def _collect_gear_mod_rarity_max_ranks(ctx: ValidationContext) -> dict[str, int]:
-    data = _load_json(GEAR_MODS_JSON, ctx)
-    if not isinstance(data, dict):
-        return {}
-    mods = data.get("mods")
-    if not isinstance(mods, list):
-        return {}
-    max_ranks: dict[str, int] = {}
-    for item in mods:
-        if not isinstance(item, dict):
-            continue
-        rarity = item.get("rarity")
-        max_rank = item.get("max_rank")
-        if isinstance(rarity, str) and isinstance(max_rank, int) and not isinstance(max_rank, bool):
-            max_ranks[rarity] = max(max_ranks.get(rarity, 0), max_rank)
-    return max_ranks
 
 
 def _validate_content_tags(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:

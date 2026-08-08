@@ -38,7 +38,7 @@
 | `client/data/enemies.csv` | 敌人专属场景、独立对象池 / 预热、图鉴描述 / 图标、默认解锁、解锁规则、基础数值、金币价值倍率、通用 tag、AI profile、伤害类型和模式引用边界 |
 | `client/data/enemy_rewards.json` | schema v1 敌人金币基础系数、阶段增长和独立随机区间 |
 | `client/data/difficulty_profiles.json` | schema v2 难度名称、难度系数、威胁时间与敌人生命 / 伤害曲线 |
-| `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、图鉴图标、默认解锁、解锁规则和修正器边界 |
+| `client/data/gear_mods.json` | 无等级装备 Mod 定义、槽位、稀有度、固定 modifiers、图鉴图标、默认解锁、解锁规则和修正器边界 |
 | `client/data/content_unlock_rules.json` | schema v1 稀疏锁定规则；只登记显式锁定内容，支持 `all` / `any` 与五类进度条件 |
 | `client/data/gear_mod_drop_tables.csv` | 装备 Mod 掉落来源、概率和敌人等级条件边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
@@ -108,9 +108,9 @@
   - `enemies.csv`：精确表头包含敌人 id、名称 / 描述 key、可选图鉴图标、默认解锁 / 解锁规则、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、表现 profile、生命、移速、有限正数 `gold_value_multiplier`、命中半径和分离半径；`pool_id` 必须唯一且等于敌人 id。旧 `gold_reward`、`contact_damage`、`contact_interval`、`element_id`、`exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `enemy_rewards.json`：schema v1，只允许 `base_coefficient`、`time_growth_per_tier`、`random_multiplier_min`、`random_multiplier_max`；基础系数与随机上下界必须为有限正数，阶段增长必须为有限非负数，且随机下界不得高于上界。
   - `difficulty_profiles.json`：schema v2，每个 profile 必填唯一 `id`、已本地化 `name_key`、有限正数 `difficulty_coefficient`、威胁曲线和九段阶段名。标准 profile 当前系数为 `1.0`；旧 schema v1、缺字段或多余字段均拒绝。
-  - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
+  - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度与固定 `{stat,type,value}` modifier；id、slot、rarity 均来自词表 §13-A~§13-C。数据不接受 rank、tier、upgrade、drain、分解或融合字段。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
-  - `gear_mods.json` schema v2：校验公共奖励池、满阶溢出金币、可选图鉴图标、默认解锁 / 解锁规则与每个 Mod 的 rank 0–5 效果曲线；不接受 inventory、drain、dismantle 或 fusion 字段。
+  - `gear_mods.json` schema v4：校验拾取配置、有序公共奖励池、可选图鉴图标、默认解锁 / 解锁规则与每个 Mod 的固定效果；明确拒绝 `overflow_gold`、`max_rank`、`rank_modifiers`、`base_value`、`value_per_rank`、inventory、drain、dismantle 或 fusion 字段。
   - `content_unlock_rules.json`：schema v1；规则 id 唯一且为 snake_case，mode 只能来自生成的 `all/any` 契约，条件只能使用登记的五类 counter。定向计数器必须携带合法 `subject_id`，聚合计数器禁止携带；锁定内容必须引用有效规则，默认开放内容不得引用规则，规则不得闲置，禁止以锁定内容作为条件对象。`skills.json.default_unlocked=false` 在本阶段非法。
   - 初始可玩性：至少两个默认开放英雄；每个正式敌池至少有一个 0 秒默认开放敌人；每个正式 Gear Mod 奖励池至少有一个默认开放成员。所有相关池过滤发生在运行时 RNG 消费前。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、表现 profile、伤害、伤害类型、触发间隔、范围和持续时间。

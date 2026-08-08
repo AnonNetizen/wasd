@@ -103,8 +103,8 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 16,
-		"new runs should use Run schema v16"
+		int(initial_run_snapshot.get("schema_version", 0)) == 17,
+		"new runs should use Run schema v17"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -388,7 +388,7 @@ func _run() -> void:
 
 	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
 	_expect(enemy != null, "at least one chaser enemy should be in active_enemies")
-	var ranks_before_forced_drop: Dictionary = _run_gear_mod_ranks(run_loop)
+	var mod_ids_before_forced_drop: Array[String] = _run_gear_mod_ids(run_loop)
 	var pickups_before_forced_drop: int = _active_gear_mod_pickup_count(run_loop)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
@@ -414,15 +414,15 @@ func _run() -> void:
 		_expect(not enemy.is_in_group("active_enemies"), "defeated enemies should leave the live enemy group during feedback")
 		_expect(_pool_stat(POOL_IDS.HIT_SPARK, "acquired") > 0, "enemy damage should acquire hit spark feedback")
 		_expect(_pool_stat(POOL_IDS.DAMAGE_NUMBER, "acquired") > 0, "enemy damage should acquire damage number feedback")
-		var ranks_after_drop_spawn: Dictionary = _run_gear_mod_ranks(run_loop)
+		var mod_ids_after_drop_spawn: Array[String] = _run_gear_mod_ids(run_loop)
 		_expect(
 			_active_gear_mod_pickup_count(run_loop)
 			== pickups_before_forced_drop + 1,
 			"forced player-attributed enemy defeat should spawn one Gear Mod pickup"
 		)
 		_expect(
-			ranks_after_drop_spawn == ranks_before_forced_drop,
-			"enemy Gear Mod drops should not advance rank before interaction"
+			mod_ids_after_drop_spawn == mod_ids_before_forced_drop,
+			"enemy Gear Mod drops should not grant an instance before interaction"
 		)
 		var enemy_drop: Node2D = _first_active_gear_mod_pickup(run_loop)
 		_expect(enemy_drop != null, "enemy Gear Mod pickup should remain active until interacted")
@@ -431,14 +431,17 @@ func _run() -> void:
 			for _frame: int in range(BOOT_FRAMES):
 				await get_tree().process_frame
 			_expect(
-				_run_gear_mod_ranks(run_loop) == ranks_before_forced_drop,
+				_run_gear_mod_ids(run_loop) == mod_ids_before_forced_drop,
 				"contact with a Gear Mod pickup should not grant it automatically"
 			)
 			await _push_action_once(ACTIONS.INTERACT)
-			var ranks_after_forced_drop: Dictionary = _run_gear_mod_ranks(run_loop)
+			var mod_ids_after_forced_drop: Array[String] = _run_gear_mod_ids(
+				run_loop
+			)
 			_expect(
-				ranks_after_forced_drop != ranks_before_forced_drop,
-				"interact should grant the enemy Gear Mod pickup"
+				mod_ids_after_forced_drop.size()
+				== mod_ids_before_forced_drop.size() + 1,
+				"interact should grant one enemy Gear Mod instance"
 			)
 			var gear_mod_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 			_expect(
@@ -500,11 +503,7 @@ func _run() -> void:
 	player.call("debug_heal", float(player.call("max_life")))
 	if player.has_method("debug_set_shield"):
 		player.call("debug_set_shield", 0.0, 0.0)
-	var build_ranks_before_death: Dictionary = _run_gear_mod_ranks(run_loop)
-	var build_mod_ids: Array[String] = []
-	for raw_mod_id: Variant in build_ranks_before_death.keys():
-		build_mod_ids.append(String(raw_mod_id))
-	build_mod_ids.sort()
+	var build_mod_ids: Array[String] = _run_gear_mod_ids(run_loop)
 	var expected_build_name: String = ""
 	if not build_mod_ids.is_empty():
 		expected_build_name = tr(String(
@@ -540,7 +539,7 @@ func _run() -> void:
 		"player death result panel should list the current run build: %s" % game_over_summary_text
 	)
 	_expect(
-		_run_gear_mod_ranks(run_loop).is_empty(),
+		_run_gear_mod_ids(run_loop).is_empty(),
 		"player death should clear the in-memory run Gear Mod state"
 	)
 	var game_over_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
@@ -4289,7 +4288,7 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 		]
 	)
 
-	var ranks_before_mod_cache: Dictionary = _run_gear_mod_ranks(run_loop)
+	var mod_ids_before_mod_cache: Array[String] = _run_gear_mod_ids(run_loop)
 	var pickups_before_mod_cache: int = _active_gear_mod_pickup_count(run_loop)
 	GameClock.restore_snapshot({
 		"elapsed": 240.0,
@@ -4312,19 +4311,25 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	_expect(bool(mod_claimed_state.get("claimed", false)), "interact should open the mod cache")
 	var mod_reward: Dictionary = mod_claimed_state.get("reward_result", {}) as Dictionary
 	var dropped_mods: Array = mod_reward.get("gear_mods", []) as Array
-	var ranks_after_mod_cache_spawn: Dictionary = _run_gear_mod_ranks(run_loop)
+	var mod_ids_after_mod_cache_spawn: Array[String] = _run_gear_mod_ids(
+		run_loop
+	)
 	_expect(
 		dropped_mods.size() == 2
 		and _active_gear_mod_pickup_count(run_loop)
 		== pickups_before_mod_cache + 2
-		and ranks_after_mod_cache_spawn == ranks_before_mod_cache,
+		and mod_ids_after_mod_cache_spawn == mod_ids_before_mod_cache,
 		"mod cache should spawn two Gear Mod pickups without granting them: reward=%s before=%s after=%s"
-		% [dropped_mods, ranks_before_mod_cache, ranks_after_mod_cache_spawn]
+		% [
+			dropped_mods,
+			mod_ids_before_mod_cache,
+			mod_ids_after_mod_cache_spawn,
+		]
 	)
 	await _push_action_once(ACTIONS.INTERACT)
-	var ranks_after_mod_cache: Dictionary = _run_gear_mod_ranks(run_loop)
+	var mod_ids_after_mod_cache: Array[String] = _run_gear_mod_ids(run_loop)
 	_expect(
-		ranks_after_mod_cache != ranks_before_mod_cache
+		mod_ids_after_mod_cache.size() == mod_ids_before_mod_cache.size() + 1
 		and _active_gear_mod_pickup_count(run_loop)
 		== pickups_before_mod_cache + 1,
 		"one interact press should collect only the nearest Mod cache pickup"
@@ -4345,10 +4350,12 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	var resource_state: Dictionary = points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(resource_state.get("claimed", false)), "run snapshot should persist claimed interest point state")
 	var gear_mod_state: Dictionary = snapshot.get("gear_mods", {}) as Dictionary
-	var saved_ranks: Dictionary = gear_mod_state.get("ranks", {}) as Dictionary
+	var saved_mod_ids: Array[String] = _string_array(
+		gear_mod_state.get("mod_ids", [])
+	)
 	_expect(
-		saved_ranks == ranks_after_mod_cache,
-		"run snapshot should persist run-scoped Gear Mod ranks"
+		saved_mod_ids == mod_ids_after_mod_cache,
+		"run snapshot should persist run-scoped Gear Mod instances"
 	)
 	_expect(
 		(snapshot.get("gear_mod_pickups", []) as Array).size()
@@ -4655,9 +4662,12 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			paused_run_snapshot.get("rng", {}) as Dictionary
 		).get("streams", {}) as Dictionary
 	).get("economy", {}) as Dictionary
-	var saved_gear_mod_ranks: Dictionary = (
-		paused_run_snapshot.get("gear_mods", {}) as Dictionary
-	).get("ranks", {}) as Dictionary
+	var saved_gear_mod_ids: Array[String] = _string_array(
+		(paused_run_snapshot.get("gear_mods", {}) as Dictionary).get(
+			"mod_ids",
+			[]
+		)
+	)
 	var saved_gear_mod_pickups: Array = (
 		paused_run_snapshot.get("gear_mod_pickups", []) as Array
 	).duplicate(true)
@@ -4849,12 +4859,15 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var restored_points: Dictionary = restored_snapshot.get("interest_points", {}) as Dictionary
 	var restored_resource_state: Dictionary = restored_points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(restored_resource_state.get("claimed", false)), "continue should restore claimed interest point state")
-	var restored_gear_mod_ranks: Dictionary = (
-		restored_snapshot.get("gear_mods", {}) as Dictionary
-	).get("ranks", {}) as Dictionary
+	var restored_gear_mod_ids: Array[String] = _string_array(
+		(restored_snapshot.get("gear_mods", {}) as Dictionary).get(
+			"mod_ids",
+			[]
+		)
+	)
 	_expect(
-		restored_gear_mod_ranks == saved_gear_mod_ranks,
-		"continue should restore exact run-scoped Gear Mod ranks"
+		restored_gear_mod_ids == saved_gear_mod_ids,
+		"continue should restore exact run-scoped Gear Mod instances"
 	)
 	_expect(
 		(restored_snapshot.get("gear_mod_pickups", []) as Array)
@@ -4864,27 +4877,23 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(
 		not bool(restored_run_loop.call(
 			"_restore_run_gear_mods",
-			{"ranks": {"missing_gear_mod": 0}}
+			{"mod_ids": ["missing_gear_mod"]}
 		)),
-		"Run v16 restore should reject unknown Gear Mod ids"
+		"run restore should reject unknown Gear Mod ids"
 	)
 	_expect(
 		not bool(restored_run_loop.call(
 			"_restore_run_gear_mods",
-			{
-				"ranks": {
-					GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST: 6,
-				},
-			}
+			{"mod_ids": [GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST, 1]}
 		)),
-		"Run v16 restore should reject out-of-range Gear Mod ranks"
+		"run restore should reject non-string Gear Mod ids"
 	)
 	_expect(
 		bool(restored_run_loop.call(
 			"_restore_run_gear_mods",
-			{"ranks": saved_gear_mod_ranks}
+			{"mod_ids": saved_gear_mod_ids}
 		)),
-		"valid Gear Mod ranks should remain restorable after rejection checks"
+		"valid repeated Gear Mod ids should remain restorable after rejection checks"
 	)
 	restored_run_loop.call("_apply_run_gear_modifiers")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
@@ -4896,7 +4905,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var restored_pickup: Node2D = _first_active_gear_mod_pickup(
 		restored_run_loop
 	)
-	var ranks_before_restored_pickup: Dictionary = _run_gear_mod_ranks(
+	var mod_ids_before_restored_pickup: Array[String] = _run_gear_mod_ids(
 		restored_run_loop
 	)
 	var pickup_count_before_resume_interact: int = (
@@ -4912,8 +4921,8 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		_expect(
 			_active_gear_mod_pickup_count(restored_run_loop)
 			== pickup_count_before_resume_interact - 1
-			and _run_gear_mod_ranks(restored_run_loop)
-			!= ranks_before_restored_pickup,
+			and _run_gear_mod_ids(restored_run_loop).size()
+			== mod_ids_before_restored_pickup.size() + 1,
 			"a restored Gear Mod pickup should remain collectable after continue"
 		)
 	return {
@@ -5092,12 +5101,22 @@ func _run_save_path() -> String:
 	return SaveManager.save_root().path_join(SaveManager.DEFAULT_SLOT).path_join("%s.save" % SAVE_KINDS.RUN)
 
 
-func _run_gear_mod_ranks(run_loop: Node) -> Dictionary:
+func _run_gear_mod_ids(run_loop: Node) -> Array[String]:
 	if run_loop == null or not run_loop.has_method("create_run_snapshot"):
-		return {}
+		return []
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot") as Dictionary
 	var gear_mods: Dictionary = snapshot.get("gear_mods", {}) as Dictionary
-	return (gear_mods.get("ranks", {}) as Dictionary).duplicate(true)
+	return _string_array(gear_mods.get("mod_ids", []))
+
+
+func _string_array(raw_value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if not raw_value is Array:
+		return result
+	for raw_item: Variant in raw_value as Array:
+		if raw_item is String:
+			result.append(raw_item as String)
+	return result
 
 
 func _expect_game_over_buttons(game_over_panel: Node) -> void:
@@ -5148,7 +5167,7 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 		"completion result panel should show the empty current run build: %s" % completion_summary_text
 	)
 	_expect(
-		_run_gear_mod_ranks(restarted_run_loop).is_empty(),
+		_run_gear_mod_ids(restarted_run_loop).is_empty(),
 		"Mind Core completion should clear the in-memory run Gear Mod state"
 	)
 	var completion_restart_button: Button = _find_node_by_name(completion_panel, "RestartButton") as Button

@@ -78,17 +78,86 @@ func _run() -> void:
 	)
 
 	var config_manager: RefCounted = CONFIG_SCRIPT.new()
+	var legacy: Dictionary = config_manager.call(
+		"normalize_config",
+		{
+			"schema_version": 2,
+			"seed": 159159,
+			"main_hero_id": "character_primary_a",
+			"sub_hero_id": "character_primary_b",
+			"weapon_id": "weapon_basic_blaster",
+			"primary_skill_id": "skill_deploy_projectile_barrier",
+			"gear_mods": [
+				{"mod_id": "gear_mod_weapon_damage_test"},
+			],
+		}
+	) as Dictionary
+	_check(
+		int(legacy.get("seed", 0)) == CONFIG_SCRIPT.DEFAULT_SEED
+		and (legacy.get("gear_mods", []) as Array).is_empty(),
+		"v2 config resets instead of carrying legacy selections into v3"
+	)
+	var legacy_schema_rejected: bool = false
+	for raw_diagnostic: Variant in legacy.get("diagnostics", []) as Array:
+		if (
+			raw_diagnostic is Dictionary
+			and String(
+				(raw_diagnostic as Dictionary).get("reason", "")
+			) == "unsupported_schema"
+		):
+			legacy_schema_rejected = true
+			break
+	_check(legacy_schema_rejected, "v2 config records schema rejection")
+
+	var duplicate_mods: Dictionary = config_manager.call(
+		"normalize_config",
+		{
+			"schema_version": CONFIG_SCRIPT.SCHEMA_VERSION,
+			"gear_mods": [
+				{"mod_id": "gear_mod_weapon_damage_test"},
+				{"mod_id": "gear_mod_weapon_damage_test"},
+			],
+		}
+	) as Dictionary
+	var duplicate_diagnostic_found: bool = false
+	for raw_diagnostic: Variant in duplicate_mods.get(
+		"diagnostics",
+		[]
+	) as Array:
+		if (
+			raw_diagnostic is Dictionary
+			and String(
+				(raw_diagnostic as Dictionary).get("reason", "")
+			) == "duplicate_mod"
+		):
+			duplicate_diagnostic_found = true
+			break
+	_check(
+		(duplicate_mods.get("gear_mods", []) as Array).size() == 1
+		and (
+			(
+				duplicate_mods.get("modifier_preview", {})
+				as Dictionary
+			).get("selected", []) as Array
+		).size() == 1,
+		"v3 config deduplicates repeated Mod ids instead of exposing quantity"
+	)
+	_check(
+		duplicate_diagnostic_found,
+		"v3 config records duplicate Mod diagnostics"
+	)
+
 	var invalid: Dictionary = config_manager.call(
 		"normalize_config",
 		{
-			"schema_version": 99,
+			"schema_version": CONFIG_SCRIPT.SCHEMA_VERSION,
 			"seed": 0,
 			"main_hero_id": "missing_main_hero",
 			"sub_hero_id": "missing_sub_hero",
 			"weapon_id": "missing_weapon",
 			"primary_skill_id": "missing_skill",
 			"gear_mods": [
-				{"mod_id": "missing_mod", "rank": 99},
+				{"mod_id": "missing_mod"},
 			],
 		}
 	) as Dictionary
@@ -114,10 +183,7 @@ func _run() -> void:
 			"weapon_id": "weapon_basic_blaster",
 			"primary_skill_id": "skill_deploy_projectile_barrier",
 			"gear_mods": [
-				{
-					"mod_id": "gear_mod_weapon_damage_test",
-					"rank": 2,
-				},
+				{"mod_id": "gear_mod_weapon_damage_test"},
 			],
 		}
 	) as Dictionary
@@ -130,31 +196,11 @@ func _run() -> void:
 		(preview.get("selected", []) as Array).size() == 1,
 		"pure Gear Mod preview resolves selection"
 	)
-	var constrained_preview: Dictionary = GearModSystem.resolve_preview_loadout(
-		[
-			{
-				"mod_id": "gear_mod_weapon_damage_test",
-				"rank": 99,
-			},
-			{
-				"mod_id": "gear_mod_weapon_damage_test",
-				"rank": 1,
-			},
-		]
-	)
-	var constrained_selected: Array = constrained_preview.get(
-		"selected",
-		[]
-	) as Array
+	var saved_mods: Array = config.get("gear_mods", []) as Array
 	_check(
-		constrained_selected.size() == 1
-		and int(
-			(constrained_selected[0] as Dictionary).get("rank", -1)
-		) == 5
-		and (
-			constrained_preview.get("diagnostics", []) as Array
-		).size() >= 2,
-		"Gear Mod preview clamps rank and enforces unique_by_id"
+		saved_mods.size() == 1
+		and (saved_mods[0] as Dictionary).keys() == ["mod_id"],
+		"v3 developer config stores only the selected Gear Mod id"
 	)
 
 	_verify_setup_panel(initial_setup, config)
@@ -676,6 +722,10 @@ func _verify_setup_panel(
 		and bool(summary.get("active_items_disabled", false))
 		and bool(summary.get("consumables_disabled", false)),
 		"data-only content remains visibly disabled"
+	)
+	_check(
+		setup.find_child("RankSpin", true, false) == null,
+		"Gear Mod rows expose selection only"
 	)
 
 

@@ -5,12 +5,10 @@ const VALUES: Array[String] = [
 	"enemy_drop",
 	"event_reward",
 	"event_cost",
-	"gear_mod_overflow",
 	"debug_command",
 ]
 
 const ENEMY_DROP: String = "enemy_drop"
 const EVENT_REWARD: String = "event_reward"
 const EVENT_COST: String = "event_cost"
-const GEAR_MOD_OVERFLOW: String = "gear_mod_overflow"
 const DEBUG_COMMAND: String = "debug_command"
