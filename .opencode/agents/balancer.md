@@ -26,9 +26,9 @@ permission:
 
 ### 1. 跑黄金回放回归
 
-- 目标：验证当前代码下 `tests/replays/golden_*.replay` 是否仍能完整复现。
-- 工具：`tools/replay_runner.gd`（待落地）。
-- 命令：`godot --headless -- script tools/replay_runner.gd tests/replays/golden_basic_run.replay`。
+- 目标：验证当前代码下 `client/tests/replays/golden_*.replay` 是否仍能完整复现。
+- 工具：`client/tools/replay_runner.gd` + `tools/godot_bridge.py`。
+- 命令：`py -3 tools/godot_bridge.py --project client replay-regression`。
 - 输出：通过 / fail（首个 diff 帧 + 字段）。
 - 如发现 diff：先确认是否“有意改变”，是则提示用户重录黄金，否则报告 bug 位置。
 
@@ -48,8 +48,8 @@ permission:
 ## 常用命令速查
 
 ```bash
-godot --headless -- script tools/replay_runner.gd <replay_file>
-godot --headless -- script tools/replay_runner.gd tests/replays/golden_*.replay
+py -3 tools/godot_bridge.py --project client replay-runner --replay-file <replay_file> --rerun-runtime-summary
+py -3 tools/godot_bridge.py --project client replay-regression
 godot --headless -- script tools/sim.gd --runs 1000
 godot --headless -- script tools/perf_probe.gd --duration 60
 ```

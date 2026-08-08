@@ -157,8 +157,14 @@ func _run() -> void:
 		"runtime should derive an eight-cell flow radius from current EnemyAI sight data"
 	)
 
-	print("[ModuleWorldSmoke] stage=composition")
-	_expect_deterministic_composition()
+	var technical_slice: bool = OS.get_cmdline_user_args().has(
+		"--module-world-technical-slice"
+	)
+	if technical_slice:
+		print("[ModuleWorldSmoke] stage=composition skipped=technical-companion")
+	else:
+		print("[ModuleWorldSmoke] stage=composition")
+		_expect_deterministic_composition()
 	_expect_enemy_unlock_boundaries(run_loop)
 	print("[ModuleWorldSmoke] stage=streaming")
 	await _expect_seamless_streaming(run_loop)

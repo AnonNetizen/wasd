@@ -83,6 +83,6 @@ python tools/godot_bridge.py --project client save-smoke
 
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
-`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、三个意识核候选角、49 槽 / 77×77 坐标、流式恢复、迷雾、意识核直接完成、Run v18 子快照，以及刷怪笼 10 秒触发、离开清零、多实例独立计时、同向坐标、冻结敌池 / 固定 RNG、动态占位重试、普通奖励链和保存恢复不重抽。旧 Run v17 及更早版本因 ADR #194 不兼容，只删除 Run 并保留 Meta v4；`module-world-technical-slice-smoke` 继续覆盖中心 3×3 / 外圈 40 槽封锁的完整流程。
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、三个意识核候选角、49 槽 / 77×77 坐标、流式恢复、迷雾、意识核直接完成、Run v18 子快照，以及刷怪笼 10 秒触发、离开清零、多实例独立计时、同向坐标、冻结敌池 / 固定 RNG、动态占位重试、普通奖励链和保存恢复不重抽。旧 Run v17 及更早版本因 ADR #194 不兼容，只删除 Run 并保留 Meta v4。ADR #195 后 `module-world-technical-slice-smoke` 是 full 的伴随验证：仍以独立进程覆盖中心 3×3 / 外圈 40 槽封锁、技术 streaming / cage / objective / restore，但不重复 full 已执行的多 manager 确定性组合段；需要技术首片证据时必须先有同轮 full PASS。
 
 `module_resource_cache` 与 `module_crossroads` 因奖励从旧 dust 改为局内金币后 gameplay hash 变化，烘焙器已自动降为 `module_review_candidate`。AI 不得重新批准；在人工玩法复核前，它们不会进入正式 approved 池，技术切片临时使用 `module_flat_ground`。

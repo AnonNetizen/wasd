@@ -5,46 +5,46 @@ extends Node
 
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
-const ACTOR_SCENE_SMOKE_RUNNER := preload("res://tools/actor_scene_smoke.gd")
+const ACTOR_SCENE_SMOKE_SCRIPT_PATH: String = "res://tools/actor_scene_smoke.gd"
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
-const GEAR_MOD_PICKUP_CAPTURE_RUNNER := preload(
+const GEAR_MOD_PICKUP_CAPTURE_SCRIPT_PATH: String = (
 	"res://tools/capture_gear_mod_pickup_runtime.gd"
 )
 const CODEX_PANEL_SCENE := preload("res://scenes/ui/codex_panel.tscn")
-const CODEX_SMOKE_RUNNER := preload("res://tools/codex_smoke.gd")
-const CONTENT_PROGRESSION_SMOKE_RUNNER := preload(
+const CODEX_SMOKE_SCRIPT_PATH: String = "res://tools/codex_smoke.gd"
+const CONTENT_PROGRESSION_SMOKE_SCRIPT_PATH: String = (
 	"res://tools/content_progression_smoke.gd"
 )
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
-const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
+const F9_DEMO_SMOKE_SCRIPT_PATH: String = "res://tools/f9_demo_smoke.gd"
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
-const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
-const GEAR_MOD_PICKUP_SMOKE_RUNNER := preload(
+const GEAR_MOD_SMOKE_SCRIPT_PATH: String = "res://tools/gear_mod_smoke.gd"
+const GEAR_MOD_PICKUP_SMOKE_SCRIPT_PATH: String = (
 	"res://tools/gear_mod_pickup_smoke.gd"
 )
-const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
+const GOLDEN_REPLAY_CAPTURE_SCRIPT_PATH: String = "res://tools/golden_replay_capture.gd"
 const HERO_COMPOSITION_PANEL_SCENE := preload("res://scenes/ui/hero_composition_panel.tscn")
-const INPUT_SMOKE_RUNNER := preload("res://tools/input_smoke.gd")
-const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
+const INPUT_SMOKE_SCRIPT_PATH: String = "res://tools/input_smoke.gd"
+const L1_SMOKE_SCRIPT_PATH: String = "res://tools/l1_smoke.gd"
 const LOADING_SCREEN_SCENE := preload("res://scenes/ui/loading_screen.tscn")
-const LOADING_SMOKE_RUNNER := preload("res://tools/loading_smoke.gd")
-const MODULE_WORLD_SMOKE_RUNNER := preload("res://tools/module_world_smoke.gd")
-const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
+const LOADING_SMOKE_SCRIPT_PATH: String = "res://tools/loading_smoke.gd"
+const MODULE_WORLD_SMOKE_SCRIPT_PATH: String = "res://tools/module_world_smoke.gd"
+const RUNTIME_SMOKE_SCRIPT_PATH: String = "res://tools/runtime_smoke.gd"
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
-const UI_MANAGER_SMOKE_RUNNER := preload("res://tools/ui_manager_smoke.gd")
-const VFX_SMOKE_RUNNER := preload("res://tools/vfx_smoke.gd")
-const PERF_PROBE_RUNNER := preload("res://tools/perf_probe.gd")
+const UI_MANAGER_SMOKE_SCRIPT_PATH: String = "res://tools/ui_manager_smoke.gd"
+const VFX_SMOKE_SCRIPT_PATH: String = "res://tools/vfx_smoke.gd"
+const PERF_PROBE_SCRIPT_PATH: String = "res://tools/perf_probe.gd"
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
-const REPLAY_INPUT_SMOKE_RUNNER := preload("res://tools/replay_input_smoke.gd")
-const REPLAY_RUNNER := preload("res://tools/replay_runner.gd")
-const REPLAY_SMOKE_RUNNER := preload("res://tools/replay_smoke.gd")
-const RNG_AUDIT_RUNNER := preload("res://tools/rng_audit.gd")
+const REPLAY_INPUT_SMOKE_SCRIPT_PATH: String = "res://tools/replay_input_smoke.gd"
+const REPLAY_RUNNER_SCRIPT_PATH: String = "res://tools/replay_runner.gd"
+const REPLAY_SMOKE_SCRIPT_PATH: String = "res://tools/replay_smoke.gd"
+const RNG_AUDIT_SCRIPT_PATH: String = "res://tools/rng_audit.gd"
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
-const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
-const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
+const SAVE_SMOKE_SCRIPT_PATH: String = "res://tools/save_manager_smoke.gd"
+const SETTINGS_SMOKE_SCRIPT_PATH: String = "res://tools/settings_smoke.gd"
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
-const STARTUP_PROBE_RUNNER := preload("res://tools/startup_probe.gd")
+const STARTUP_PROBE_SCRIPT_PATH: String = "res://tools/startup_probe.gd"
 
 enum PlayerLoadMode {
 	NEW_RUN,
@@ -128,63 +128,49 @@ func _ready() -> void:
 	])
 
 	if _is_content_progression_smoke_enabled():
-		var content_smoke_runner: Node = CONTENT_PROGRESSION_SMOKE_RUNNER.new()
-		content_smoke_runner.name = "ContentProgressionSmoke"
-		add_child(content_smoke_runner)
+		_install_dynamic_runner(
+			CONTENT_PROGRESSION_SMOKE_SCRIPT_PATH,
+			"ContentProgressionSmoke"
+		)
 	elif _is_codex_smoke_enabled():
-		var codex_smoke_runner: Node = CODEX_SMOKE_RUNNER.new()
-		codex_smoke_runner.name = "CodexSmoke"
-		add_child(codex_smoke_runner)
+		_install_dynamic_runner(CODEX_SMOKE_SCRIPT_PATH, "CodexSmoke")
 	elif _is_actor_scene_smoke_enabled():
-		var actor_scene_smoke_runner: Node = ACTOR_SCENE_SMOKE_RUNNER.new()
-		actor_scene_smoke_runner.name = "ActorSceneSmoke"
-		add_child(actor_scene_smoke_runner)
+		_install_dynamic_runner(
+			ACTOR_SCENE_SMOKE_SCRIPT_PATH,
+			"ActorSceneSmoke"
+		)
 	elif _is_l1_smoke_enabled():
-		var l1_smoke_runner: Node = L1_SMOKE_RUNNER.new()
-		l1_smoke_runner.name = "L1Smoke"
-		add_child(l1_smoke_runner)
+		_install_dynamic_runner(L1_SMOKE_SCRIPT_PATH, "L1Smoke")
 	elif _is_replay_smoke_enabled():
-		var replay_smoke_runner: Node = REPLAY_SMOKE_RUNNER.new()
-		replay_smoke_runner.name = "ReplaySmoke"
-		add_child(replay_smoke_runner)
+		_install_dynamic_runner(REPLAY_SMOKE_SCRIPT_PATH, "ReplaySmoke")
 	elif _is_replay_runner_enabled():
-		var replay_runner: Node = REPLAY_RUNNER.new()
-		replay_runner.name = "ReplayRunner"
-		add_child(replay_runner)
+		_install_dynamic_runner(REPLAY_RUNNER_SCRIPT_PATH, "ReplayRunner")
 	elif _is_replay_input_smoke_enabled():
-		var replay_input_smoke_runner: Node = REPLAY_INPUT_SMOKE_RUNNER.new()
-		replay_input_smoke_runner.name = "ReplayInputSmoke"
-		add_child(replay_input_smoke_runner)
+		_install_dynamic_runner(
+			REPLAY_INPUT_SMOKE_SCRIPT_PATH,
+			"ReplayInputSmoke"
+		)
 	elif _is_input_smoke_enabled():
-		var input_smoke_runner: Node = INPUT_SMOKE_RUNNER.new()
-		input_smoke_runner.name = "InputSmoke"
-		add_child(input_smoke_runner)
+		_install_dynamic_runner(INPUT_SMOKE_SCRIPT_PATH, "InputSmoke")
 	elif _is_loading_smoke_enabled():
 		if data_schema_ok:
 			_show_title_menu()
-		var loading_smoke_runner: Node = LOADING_SMOKE_RUNNER.new()
-		loading_smoke_runner.name = "LoadingSmoke"
-		add_child(loading_smoke_runner)
+		_install_dynamic_runner(LOADING_SMOKE_SCRIPT_PATH, "LoadingSmoke")
 	elif _is_rng_audit_enabled():
-		var rng_audit_runner: Node = RNG_AUDIT_RUNNER.new()
-		rng_audit_runner.name = "RNGAudit"
-		add_child(rng_audit_runner)
+		_install_dynamic_runner(RNG_AUDIT_SCRIPT_PATH, "RNGAudit")
 	elif _is_golden_replay_capture_enabled():
-		var golden_capture_runner: Node = GOLDEN_REPLAY_CAPTURE_RUNNER.new()
-		golden_capture_runner.name = "GoldenReplayCapture"
-		add_child(golden_capture_runner)
+		_install_dynamic_runner(
+			GOLDEN_REPLAY_CAPTURE_SCRIPT_PATH,
+			"GoldenReplayCapture"
+		)
 	elif _is_perf_probe_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
-		var perf_probe_runner: Node = PERF_PROBE_RUNNER.new()
-		perf_probe_runner.name = "PerfProbe"
-		add_child(perf_probe_runner)
+		_install_dynamic_runner(PERF_PROBE_SCRIPT_PATH, "PerfProbe")
 	elif _is_startup_probe_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
-		var startup_probe_runner: Node = STARTUP_PROBE_RUNNER.new()
-		startup_probe_runner.name = "StartupProbe"
-		add_child(startup_probe_runner)
+		_install_dynamic_runner(STARTUP_PROBE_SCRIPT_PATH, "StartupProbe")
 	elif _is_debug_tools_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -196,56 +182,48 @@ func _ready() -> void:
 		if data_schema_ok:
 			_open_warzone_launch = true
 			_start_gameplay_run({}, true)
-		var f9_demo_smoke_runner: Node = F9_DEMO_SMOKE_RUNNER.new()
-		f9_demo_smoke_runner.name = "F9DemoSmoke"
-		add_child(f9_demo_smoke_runner)
+		_install_dynamic_runner(F9_DEMO_SMOKE_SCRIPT_PATH, "F9DemoSmoke")
 	elif _is_module_world_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
-		var module_world_smoke_runner: Node = MODULE_WORLD_SMOKE_RUNNER.new()
-		module_world_smoke_runner.name = "ModuleWorldSmoke"
-		add_child(module_world_smoke_runner)
+		_install_dynamic_runner(
+			MODULE_WORLD_SMOKE_SCRIPT_PATH,
+			"ModuleWorldSmoke"
+		)
 	elif _is_runtime_smoke_enabled():
 		if data_schema_ok:
 			_open_warzone_launch = true
 			_start_gameplay_run({}, true)
-		var smoke_runner: Node = RUNTIME_SMOKE_RUNNER.new()
-		smoke_runner.name = "RuntimeSmoke"
-		add_child(smoke_runner)
+		_install_dynamic_runner(RUNTIME_SMOKE_SCRIPT_PATH, "RuntimeSmoke")
 	elif _is_save_smoke_enabled():
-		var save_smoke_runner: Node = SAVE_SMOKE_RUNNER.new()
-		save_smoke_runner.name = "SaveManagerSmoke"
-		add_child(save_smoke_runner)
+		_install_dynamic_runner(SAVE_SMOKE_SCRIPT_PATH, "SaveManagerSmoke")
 	elif _is_gear_mod_smoke_enabled():
-		var gear_mod_smoke_runner: Node = GEAR_MOD_SMOKE_RUNNER.new()
-		gear_mod_smoke_runner.name = "GearModSmoke"
-		add_child(gear_mod_smoke_runner)
+		_install_dynamic_runner(GEAR_MOD_SMOKE_SCRIPT_PATH, "GearModSmoke")
 	elif _is_gear_mod_pickup_smoke_enabled():
 		if data_schema_ok:
 			_open_warzone_launch = true
 			_start_gameplay_run({}, true)
-		var pickup_smoke_runner: Node = GEAR_MOD_PICKUP_SMOKE_RUNNER.new()
-		pickup_smoke_runner.name = "GearModPickupSmoke"
-		add_child(pickup_smoke_runner)
+		_install_dynamic_runner(
+			GEAR_MOD_PICKUP_SMOKE_SCRIPT_PATH,
+			"GearModPickupSmoke"
+		)
 	elif _is_gear_mod_pickup_capture_enabled():
 		if data_schema_ok:
 			_open_warzone_launch = true
 			_start_gameplay_run({}, true)
-		var capture_runner: Node = GEAR_MOD_PICKUP_CAPTURE_RUNNER.new()
-		capture_runner.name = "GearModPickupCapture"
-		add_child(capture_runner)
+		_install_dynamic_runner(
+			GEAR_MOD_PICKUP_CAPTURE_SCRIPT_PATH,
+			"GearModPickupCapture"
+		)
 	elif _is_settings_smoke_enabled():
-		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
-		settings_smoke_runner.name = "SettingsSmoke"
-		add_child(settings_smoke_runner)
+		_install_dynamic_runner(SETTINGS_SMOKE_SCRIPT_PATH, "SettingsSmoke")
 	elif _is_ui_manager_smoke_enabled():
-		var ui_manager_smoke_runner: Node = UI_MANAGER_SMOKE_RUNNER.new()
-		ui_manager_smoke_runner.name = "UIManagerSmoke"
-		add_child(ui_manager_smoke_runner)
+		_install_dynamic_runner(
+			UI_MANAGER_SMOKE_SCRIPT_PATH,
+			"UIManagerSmoke"
+		)
 	elif _is_vfx_smoke_enabled():
-		var vfx_smoke_runner: Node = VFX_SMOKE_RUNNER.new()
-		vfx_smoke_runner.name = "VfxSmoke"
-		add_child(vfx_smoke_runner)
+		_install_dynamic_runner(VFX_SMOKE_SCRIPT_PATH, "VfxSmoke")
 	elif _module_world_technical_slice_launch:
 		if data_schema_ok:
 			_start_gameplay_run()

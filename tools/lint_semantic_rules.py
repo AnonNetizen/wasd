@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CLIENT_DIR = ROOT / "client"
 SCRIPTS_DIR = CLIENT_DIR / "scripts"
 CONTRACTS_DIR = SCRIPTS_DIR / "contracts"
+FULL_SCAN_PATHS = {
+    "docs/词表与契约.md",
+    "tools/lint_semantic_rules.py",
+}
 
 IGNORE_PARTS = {"draft", "DRAFT", ".git", "__pycache__"}
 NON_LONG_TERM_PARTS = {"contracts", "tests", "test", "templates", "debug", "dev_tools"}
@@ -159,9 +163,10 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="Run third-tier advisory semantic lint.")
     parser.add_argument("--strict", action="store_true", help="return non-zero when warnings are found")
+    parser.add_argument("paths", nargs="*", help="optional changed GDScript paths; omitted means full scan")
     args = parser.parse_args(argv)
 
-    warnings = run_checks()
+    warnings = run_checks(args.paths)
     if warnings:
         for warning in sorted(warnings, key=lambda item: (_rel(item.path), item.line_number, item.rule)):
             print(warning.format())
@@ -172,11 +177,11 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def run_checks() -> list[AdvisoryWarning]:
+def run_checks(paths: list[str] | None = None) -> list[AdvisoryWarning]:
     warnings: list[AdvisoryWarning] = []
     contract_symbols = _contract_symbols()
 
-    for path in _gdscript_paths():
+    for path in _gdscript_paths(paths):
         lines = path.read_text(encoding="utf-8").splitlines()
         warnings.extend(_check_special_id_branches(path, lines))
         warnings.extend(_check_autoload_bypass(path, lines))
@@ -193,10 +198,50 @@ def _configure_utf8_output() -> None:
             stream.reconfigure(encoding="utf-8")
 
 
-def _gdscript_paths() -> list[Path]:
+def _gdscript_paths(arguments: list[str] | None = None) -> list[Path]:
     if not CLIENT_DIR.exists():
         return []
-    return sorted(path for path in CLIENT_DIR.rglob("*.gd") if not _is_ignored(path))
+    if not arguments or _requires_full_scan(arguments):
+        return _all_gdscript_paths()
+
+    paths: list[Path] = []
+    for argument in arguments:
+        path = _argument_path(argument)
+        if path.suffix.lower() != ".gd" or not path.is_file():
+            continue
+        if not _is_relative_to(path, CLIENT_DIR) or _is_ignored(path):
+            continue
+        paths.append(path.resolve())
+    return sorted(set(paths))
+
+
+def _all_gdscript_paths() -> list[Path]:
+    return sorted(
+        path.resolve()
+        for path in CLIENT_DIR.rglob("*.gd")
+        if not _is_ignored(path)
+    )
+
+
+def _requires_full_scan(arguments: list[str]) -> bool:
+    for argument in arguments:
+        relative = _argument_relative_path(argument)
+        if relative in FULL_SCAN_PATHS or relative.startswith("client/scripts/contracts/"):
+            return True
+    return False
+
+
+def _argument_path(argument: str) -> Path:
+    path = Path(argument)
+    return path if path.is_absolute() else ROOT / path
+
+
+def _argument_relative_path(argument: str) -> str:
+    path = _argument_path(argument)
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def _check_special_id_branches(path: Path, lines: list[str]) -> list[AdvisoryWarning]:

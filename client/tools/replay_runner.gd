@@ -10,6 +10,7 @@ const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const ARG_ALLOW_DATA_FINGERPRINT_MISMATCH: String = "--allow-data-fingerprint-mismatch"
 const ARG_EXPECTATION_FILE: String = "--expectation-file"
+const ARG_KEEP_GOING: String = "--keep-going"
 const ARG_REPLAY_FILE: String = "--replay-file"
 const ARG_RERUN_RUNTIME_SUMMARY: String = "--rerun-runtime-summary"
 const FLOAT_TOLERANCE: float = 0.0001
@@ -34,7 +35,12 @@ func _ready() -> void:
 func _run() -> void:
 	await get_tree().process_frame
 
-	var replay_path: String = _argument_value(ARG_REPLAY_FILE)
+	var replay_paths: Array[String] = _argument_values(ARG_REPLAY_FILE)
+	if replay_paths.size() > 1:
+		await _run_replay_batch(replay_paths)
+		return
+
+	var replay_path: String = replay_paths[0] if not replay_paths.is_empty() else ""
 	var expected_summary: Dictionary = {}
 	var cleanup_replay_after_run: bool = false
 	if replay_path.is_empty():
@@ -52,11 +58,54 @@ func _run() -> void:
 		_finish(replay_path, {}, cleanup_replay_after_run)
 		return
 
+	var actual_summary: Dictionary = await _validate_replay(
+		replay_path,
+		expected_summary
+	)
+	_finish(replay_path, actual_summary, cleanup_replay_after_run)
+
+
+func _run_replay_batch(replay_paths: Array[String]) -> void:
+	var completed_count: int = 0
+	for replay_path: String in replay_paths:
+		var failure_count_before: int = _failures.size()
+		var actual_summary: Dictionary = await _validate_replay(replay_path, {})
+		var replay_passed: bool = _failures.size() == failure_count_before
+		if replay_passed:
+			print(
+				"[ReplayRunner] replay passed; file=%s summary=%s"
+				% [replay_path, JSON.stringify(actual_summary)]
+			)
+		else:
+			print("[ReplayRunner] replay failed; file=%s" % replay_path)
+		completed_count += 1
+		await _reset_between_replays()
+		if not replay_passed and not _has_argument(ARG_KEEP_GOING):
+			break
+
+	if _failures.is_empty():
+		print(
+			"[ReplayRunner] regression passed; files=%d"
+			% completed_count
+		)
+		get_tree().quit(0)
+		return
+
+	print(
+		"[ReplayRunner] regression failed; completed=%d failures=%d first=%s"
+		% [completed_count, _failures.size(), _failures[0]]
+	)
+	get_tree().quit(1)
+
+
+func _validate_replay(
+	replay_path: String,
+	expected_summary: Dictionary
+) -> Dictionary:
 	var envelope: Dictionary = Replay.load_replay_file(replay_path)
 	if envelope.is_empty():
 		_expect(false, "ReplayRunner should load replay file: %s" % Replay.last_error())
-		_finish(replay_path, {}, cleanup_replay_after_run)
-		return
+		return {}
 
 	var recording: Dictionary = envelope.get("recording", {}) as Dictionary
 	var actual_summary: Dictionary = Replay.recording_summary(recording)
@@ -69,7 +118,7 @@ func _run() -> void:
 		if not actual_run_summary.is_empty():
 			actual_summary["run_summary"] = actual_run_summary
 	_compare_summaries(expected_summary, actual_summary)
-	_finish(replay_path, actual_summary, cleanup_replay_after_run)
+	return actual_summary
 
 
 func _create_smoke_replay() -> Dictionary:
@@ -768,12 +817,35 @@ func _format_value(value: Variant) -> String:
 	return JSON.stringify(value)
 
 
+func _reset_between_replays() -> void:
+	_release_input_actions()
+	InputService.set_playback_active(false)
+	Replay.set_enabled(false)
+	Replay.clear_recording()
+	UIManager.clear(true)
+	var boot_node: Node = get_parent()
+	if boot_node != null and boot_node.has_method("_clear_gameplay_runtime"):
+		boot_node.call("_clear_gameplay_runtime")
+	GameState.change_state(
+		GameState.MAIN_MENU,
+		{"source": "replay_runner_batch_reset"}
+	)
+	_runtime_save_backups.clear()
+	await get_tree().process_frame
+
+
 func _argument_value(flag: String) -> String:
+	var values: Array[String] = _argument_values(flag)
+	return values[0] if not values.is_empty() else ""
+
+
+func _argument_values(flag: String) -> Array[String]:
+	var values: Array[String] = []
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	for index: int in range(args.size()):
 		if args[index] == flag and index + 1 < args.size():
-			return args[index + 1]
-	return ""
+			values.append(args[index + 1])
+	return values
 
 
 func _has_argument(flag: String) -> bool:

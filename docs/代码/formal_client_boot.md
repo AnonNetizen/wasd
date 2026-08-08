@@ -10,6 +10,7 @@
 - F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示标题界面，并在玩家开始游戏、继续 run 存档、重开、打开设置、打开图鉴或 smoke 模式下编排对应流程。ADR #117 后旧局外升级标题入口和 `meta-smoke` 已删除；ADR #189 后图鉴只从标题菜单进入。
 - ADR #157 后负责正式玩家入口的统一加载编排、重入保护、成功激活和失败回退；不负责 `GameplayRunLoop` 内部资源准备细节，也不处理应用冷启动。
 - ADR #160 后不负责开发者测试岛的入口、CLI、配装、服务隔离或 runtime 生命周期；测试岛只能直接运行独立 debug scene。
+- ADR #195 后正式场景仍预加载生产依赖，但 `client/tools/*.gd` runner 只保存资源路径并在命中对应 CLI 时由 `_install_dynamic_runner()` 加载；普通启动和单项 smoke 不再解析全部测试脚本。
 - 不负责长期主菜单视觉包装、输入重绑定 UI 或业务数据解释。
 
 ## 阅读方式
@@ -48,7 +49,7 @@
 | `client/tools/f9_demo_smoke.gd` | `--f9-demo-smoke` 下挂载的 F9 Demo / FEA-12 机关 smoke |
 | `client/tools/loading_smoke.gd` | `--loading-smoke` 下覆盖真实开始 / 继续 / 重开、重入保护和失败回退 |
 | `client/tools/replay_smoke.gd` | `--replay-smoke` 下挂载的 F8 Replay 文件 roundtrip smoke |
-| `client/tools/replay_runner.gd` | `--replay-runner` 下挂载的 F8 Replay summary diff runner，可读取指定 `.replay` 和可选 expectation JSON |
+| `client/tools/replay_runner.gd` | `--replay-runner` 下按需动态加载的 F8 Replay summary diff runner，可读取一个或多个 `.replay` 和可选 expectation JSON |
 | `client/tools/replay_input_smoke.gd` | `--replay-input-smoke` 下挂载的 F8 gameplay 输入录制 smoke |
 | `client/tools/input_smoke.gd` | `--input-smoke` 下挂载的 GUIDE / InputService 集成 smoke |
 | `client/tools/golden_replay_capture.gd` | `--capture-golden-replay` 下挂载的 F8 golden capture 工具，固定 seed 生成 `golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 或 `golden_reward_choice.replay` |
@@ -96,7 +97,7 @@ FormalClientBoot
 | F13 首帧可玩 probe（按需） | 仅在用户明确要求性能测试时，`--startup-probe` 在正式主场景 `_ready()` 首行输出 `BOOT_BEGIN`，启动默认模块载体，进入 `PLAYING` 且找到 `GameplayRunLoop` 后输出 `PLAYABLE` 并退出；Bridge 以两 marker 间单调时钟执行 2 秒硬门槛，进程冷启动另作诊断 | `client/tools/startup_probe.gd`、`tools/godot_bridge.py startup-probe` |
 | F8 / F9 L1 smoke | `--l1-smoke` 启动时只挂载 `L1Smoke`，验证 `RNG`、`GameClock`、`GameState`、`SaveManager`、`Combat`、`ModLoader` 和 `PlatformServices` 的最小基础设施行为 | `client/tools/l1_smoke.gd` |
 | F8 Replay smoke | `--replay-smoke` 启动时只挂载 `ReplaySmoke`，验证 Replay 最小录制、`.replay` 保存 / 读取、摘要对比和 data fingerprint | `client/tools/replay_smoke.gd` |
-| F8 Replay runner | `--replay-runner` 启动时只挂载 `ReplayRunner`，读取 `.replay` 并比较 envelope summary 或外部 expectation JSON；未传文件时生成临时 smoke replay 自测 runner；带 `--rerun-runtime-summary` 时会按 replay seed 启动 `GameplayRunLoop`、按 tick/frame 播放 `input_events` 与工具层 `runtime_events` 并比较 `run_summary`，未传文件时生成临时输入播放 smoke replay | `client/tools/replay_runner.gd` |
+| F8 Replay runner | `--replay-runner` 启动时动态加载 `ReplayRunner`。单文件入口保持原 summary / expectation 与 runtime rerun 语义；重复传入 `--replay-file` 时在同一进程串行执行，每条之间清理 InputService、Replay、UI、RunLoop 与对象池状态，默认 fail-fast，`--keep-going` 才收集全部失败 | `client/tools/replay_runner.gd`、`tools/godot_bridge.py replay-regression` |
 | F8 Replay input smoke | `--replay-input-smoke` 启动时只挂载 `ReplayInputSmoke`，启动真实 `GameplayRunLoop` 并确认移动 / 瞄准 / pause / ui_back 输入录制到 `Replay.input_events` | `client/tools/replay_input_smoke.gd` |
 | 输入系统 smoke | `--input-smoke` 启动时只挂载 `InputSmoke`，验证 GUIDE 映射、context、设备提示、重绑定捕获和 InputService 物理 tick 边沿 | `client/tools/input_smoke.gd` |
 | F8 golden capture | `--capture-golden-replay` 启动时只挂载 `GoldenReplayCapture`，由工具设置固定 seed、启动 `GameplayRunLoop`、采样 180 帧并写入 `client/tests/replays/golden_basic_run.replay`；可用 `--golden-scenario golden_pause_resume` 生成暂停 / 恢复输入场景，`--golden-scenario golden_full_death` 生成正式 Combat 死亡 / 失败页场景，或 `--golden-scenario golden_reward_choice` 显式请求 3 个通用奖励候选并记录选择 decision | `client/tools/golden_replay_capture.gd` |

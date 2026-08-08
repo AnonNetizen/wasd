@@ -69,6 +69,20 @@ def main() -> int:
         action="store_true",
         help="Rerun the replay seed through GameplayRunLoop and compare run_summary.",
     )
+    replay_regression_parser = subparsers.add_parser(
+        "replay-regression",
+        help="Run all checked-in golden replays serially in one isolated Godot process.",
+    )
+    replay_regression_parser.add_argument(
+        "--keep-going",
+        action="store_true",
+        help="Continue after a failed replay so all per-file results are reported.",
+    )
+    replay_regression_parser.add_argument(
+        "--allow-data-fingerprint-mismatch",
+        action="store_true",
+        help="Diagnostic only: allow golden fingerprints to differ from current data.",
+    )
     capture_golden_parser = subparsers.add_parser("capture-golden-replay", help="Capture the checked-in F8 golden replay baseline.")
     capture_golden_parser.add_argument(
         "--golden-scenario",
@@ -382,9 +396,37 @@ def main() -> int:
             user_args.append("--allow-data-fingerprint-mismatch")
         if args.rerun_runtime_summary:
             user_args.append("--rerun-runtime-summary")
-        return _run_command(
+        return _run_isolated_command(
             [str(godot), "--headless", "--path", str(project), "--", *user_args],
             cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+            success_markers=("[ReplayRunner] passed;",),
+        )
+    if args.command == "replay-regression":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        runner_script = project / "tools" / "replay_runner.gd"
+        if not runner_script.exists():
+            print(f"[godot-bridge] missing Replay runner script: {_rel(runner_script)}")
+            return 1
+        replay_root = project / "tests" / "replays"
+        replay_files = sorted(replay_root.glob("golden_*.replay"))
+        if not replay_files:
+            print(f"[godot-bridge] no golden replays found under {_rel(replay_root)}")
+            return 1
+        user_args = ["--replay-runner", "--rerun-runtime-summary"]
+        for replay_file in replay_files:
+            user_args.extend(["--replay-file", str(replay_file.resolve())])
+        if args.keep_going:
+            user_args.append("--keep-going")
+        if args.allow_data_fingerprint_mismatch:
+            user_args.append("--allow-data-fingerprint-mismatch")
+        return _run_isolated_command(
+            [str(godot), "--headless", "--path", str(project), "--", *user_args],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+            success_markers=("[ReplayRunner] regression passed;",),
         )
     if args.command == "capture-golden-replay":
         if not (project / "project.godot").exists():

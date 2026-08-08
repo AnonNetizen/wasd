@@ -85,7 +85,8 @@
 ### 1.E 本地 pre-commit hook ⭐⭐⭐
 **配置（已落地）**：`.pre-commit-config.yaml`
 
-- 本地安装 `pre-commit` 后，commit 前跑 Stage 1 本地门禁：contract sync、data validate、DataLoader schema 回归、三档 lint、lint 回归、Steamworks Lab toolchain 单元回归、docs health、staged whitespace fix/check；模块 JSON / Dock / catalog / baker / 共享 TileSet / 生成场景变化时额外条件式运行无写入 `module-bake-check`，普通提交不启动 Godot。
+- 本地安装 `pre-commit` 后，commit 前跑 Stage 1 本地门禁。contract sync、data validate、项目规则、docs health 与 staged whitespace 保持低成本完整性守门；DataLoader schema 回归、增量 GDScript / semantic lint、lint 回归、Steamworks Lab toolchain 单元回归和 `module-bake-check` 按关联路径触发。普通 UI / GDScript 提交不运行无关 schema / 工具自测或 Godot；CI 仍无参数全量运行全部 Stage 1 脚本。
+- `test_data_loader_schema.py` 默认最多 4 路并行执行隔离 case，`--jobs 1` 用于稳定诊断；两个 GDScript lint 传文件时增量扫描，无参数时保持全量兼容。
 - 第三档 `lint_semantic_rules.py` 仍默认非阻塞；其 regression test 是硬门禁。
 - 没装 pre-commit 时，按 `docs/AI协作/实时验证回路.md` 的等价命令手动运行。
 
@@ -187,7 +188,7 @@
 ### 4.M 回放回归测试（CI 跑黄金样例）⭐⭐
 **workflow（拟建）**：`.github/workflows/replay-regression.yml`
 
-- 用 `barichello/godot-ci` headless 模式跑 `tools/replay_runner.gd <golden_files>`
+- 用 Godot headless 环境调用 `python tools/godot_bridge.py --project client replay-regression`，在一个隔离进程内稳定排序并串行运行全部 `client/tests/replays/golden_*.replay`
 - 任意黄金回放产生 diff → 失败，输出首个 diff 帧 + 字段
 - 数值/原语改动后**强制更新或确认**黄金样例
 - 与 GDD 9.9 的"黄金回放"配套

@@ -173,7 +173,7 @@ Gear Mod fingerprint payload 由 `DataLoader` 提供规范化副本，包含 sch
 - 接入输入：新增输入只允许由 `InputService` 记录生成 action 和归一化 bool / Vector2 值；gameplay、UI 和 GUIDE 不得各自重复写回放。
 - 接入奖励选择：trigger id、pool id、候选 id、候选数量和玩家选择通过 `record_decision()` 写入；`luck` 不进入结果判定。
 - 增加真实重放：后续 `play(file)` / 对照 diff 应只消费录制内容，不读取业务模块私有状态；当前 `replay-smoke` 覆盖文件 roundtrip，`replay-runner` 覆盖 envelope / summary diff、输入播放首片和首条运行时摘要 golden。
-- 增加黄金回放：`golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 与 `golden_reward_choice.replay` 已由 `golden_replay_capture.gd` 生成并入库，可通过对应 `replay-runner --replay-file ... --rerun-runtime-summary` 对照运行时摘要与稳定帧样本；后续在更多运行时能力存在后再补 `golden_relic_synergy` 等场景。
+- 增加黄金回放：`golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 与 `golden_reward_choice.replay` 已由 `golden_replay_capture.gd` 生成并入库；权威全量入口为 `python tools/godot_bridge.py --project client replay-regression`，按文件名排序后在一个隔离 `user://` 的 Godot 进程中串行对照运行时摘要与稳定帧样本。单文件 `replay-runner --replay-file ... --rerun-runtime-summary` 只用于定位。
 
 ## 常见改动入口
 
@@ -185,7 +185,7 @@ Gear Mod fingerprint payload 由 `DataLoader` 提供规范化副本，包含 sch
 | 接入落盘 / 摘要对照 | `replay.gd`、`client/tools/replay_runner.gd` | 本文档、测试策略、CI 规划 | L1 + L2 + L3 |
 | 接入黄金回放 | `client/tests/replays/` 与工具脚本 | 本文档、测试策略 | `capture-golden-replay`、L3 replay runner |
 | 调整 replay 文件 schema | `replay.gd`、`client/tools/replay_smoke.gd` | 本文档、测试策略、F8 工作包 | `python tools/godot_bridge.py --project client replay-smoke` |
-| 调整 runner diff 规则 | `client/tools/replay_runner.gd`、`tools/godot_bridge.py` | 本文档、测试策略、F8 工作包 | `python tools/godot_bridge.py --project client replay-runner` |
+| 调整 runner diff / 批处理规则 | `client/tools/replay_runner.gd`、`tools/godot_bridge.py` | 本文档、测试策略、F8 工作包 | 单文件 runner + `python tools/godot_bridge.py --project client replay-regression` |
 | 调整 gameplay 输入录制 | `input_service.gd`、`replay.gd`、`replay_runner.gd` | 本文档、InputService / Gameplay Runtime、测试策略、F8 工作包 | `input-smoke` + `replay-input-smoke` + 四条 replay runner |
 
 ## 故障排查
@@ -199,9 +199,9 @@ Gear Mod fingerprint payload 由 `DataLoader` 提供规范化副本，包含 sch
 
 ## 测试义务
 
-- 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `python tools/godot_bridge.py --project client replay-input-smoke`；改 golden 时追加 `capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_reward_choice` 以及四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
+- 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `replay-input-smoke`。改 golden 时追加四种 capture 命令与一次 `replay-regression`；默认 fail-fast，需要完整失败集合才追加 `--keep-going`。`--allow-data-fingerprint-mismatch` 仅供诊断，不能作为权威通过。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 v8 roundtrip、placement payload、内容池快照校验与旧 v7 / 未来版本拒绝由 `replay-smoke` 覆盖；summary diff、四技能 / 冲刺输入播放、组合 / placement 决策与稳定帧样本 diff 由 `replay-runner` 覆盖。ADR #194 改变 Replay wire 与 Gear Mod fingerprint，四条黄金回放必须重录并逐条运行时复核；专项 smoke 直接覆盖棋盘与拾取事务，现有 golden 不冒充这些行为的 L3 证据。
+- 当前 `.replay` 文件 v8 roundtrip、placement payload、内容池快照校验与旧 v7 / 未来版本拒绝由 `replay-smoke` 覆盖；summary diff、四技能 / 冲刺输入播放、组合 / placement 决策与稳定帧样本 diff 由 `replay-runner` 覆盖。批量入口每条之间释放输入、Replay、UI、RunLoop 和对象池状态并回到 `MAIN_MENU`。专项 smoke 直接覆盖棋盘、拾取事务和 Godot Control 鼠标命中；现有 golden 只记录语义 placement，不记录原始鼠标轨迹，不得冒充这些行为的 L3 证据。
 
 ## 迁移 / 兼容
 

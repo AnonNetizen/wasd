@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import argparse
+import concurrent.futures
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -24,7 +27,20 @@ CsvMutator = Callable[[list[dict[str, str]]], None]
 RepoMutator = Callable[[Path], None]
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Run isolated DataLoader schema regression cases."
+    )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=min(4, os.cpu_count() or 1),
+        help="maximum parallel validator processes (default: min(4, CPU count))",
+    )
+    args = parser.parse_args(argv)
+    if args.jobs < 1:
+        parser.error("--jobs must be at least 1")
+
     cases: list[tuple[str, RepoMutator | None, list[str]]] = [
         ("golden data passes", None, []),
         (
@@ -2160,12 +2176,17 @@ def main() -> int:
         failures.append(difficulty_curve_failure)
     else:
         print("[data-loader-schema-test] difficulty curve boundaries: passed")
-    for name, mutator, expected_fragments in cases:
-        failure = _run_case(name, mutator, expected_fragments)
-        if failure:
-            failures.append(failure)
-        else:
-            print(f"[data-loader-schema-test] {name}: passed")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
+        results = executor.map(_run_case_from_tuple, cases)
+        for (name, _mutator, _expected_fragments), failure in zip(
+            cases,
+            results,
+            strict=True,
+        ):
+            if failure:
+                failures.append(failure)
+            else:
+                print(f"[data-loader-schema-test] {name}: passed")
 
     if failures:
         for failure in failures:
@@ -2174,6 +2195,13 @@ def main() -> int:
 
     print("data loader schema tests passed")
     return 0
+
+
+def _run_case_from_tuple(
+    case: tuple[str, RepoMutator | None, list[str]],
+) -> str | None:
+    name, mutator, expected_fragments = case
+    return _run_case(name, mutator, expected_fragments)
 
 
 def _run_difficulty_curve_cases() -> str | None:

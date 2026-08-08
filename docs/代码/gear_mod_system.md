@@ -99,7 +99,7 @@ Replay v8 的 data fingerprint 包含规范化 Gear Mod 玩法数据：schema、
 - Codex 只显示 slot、rarity 和固定描述，不显示等级范围。
 - 开发者测试岛每个 Mod 只有启用开关和显式坐标，不提供 rank / count / 移动控件；独立配置 schema v4 使用 `{mod_id,x,y}` 且同一 Mod ID 最多一项，旧 v3 直接重置。没有 ModuleWorld 时 map 行为不激活。
 
-`gear-mod-smoke` 覆盖 13 格掩码、四邻 / 对角 / 越界 / 占用、重复实例、核心、石头、解锁幂等、移动授权和固定效果；`gear-mod-pickup-smoke` 覆盖确认 / 取消原子性、满盘留地、65536/65537、预占与非法快照。runtime / input / UI / world-event / module-world / save / replay smoke 覆盖非暂停输入锁、刷怪笼 10 秒与锁定计划、Run v18 和 Replay v8 确定性。
+`gear-mod-smoke` 覆盖 13 格掩码、四邻 / 对角 / 越界 / 占用、重复实例、核心、石头、解锁幂等、移动授权和固定效果；`gear-mod-pickup-smoke` 覆盖确认 / 取消原子性、满盘留地、65536/65537、预占、非法快照以及真实 viewport 鼠标 hover / 点击棋盘格 / 点击确认。纯面板 `mouse_filter`、命中层级或鼠标路由修改只需该完整 pickup smoke、一次最终 file-scoped hook 与待人工验收；只有实际改到 InputService、UIManager、领域事务、Run 或 Replay 时才追加对应专项，golden 不记录原始鼠标命中。
 
 ## 8. 迁移与兼容
 

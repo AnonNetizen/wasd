@@ -14,6 +14,10 @@ CLIENT_DIR = ROOT / "client"
 
 IGNORE_PARTS = {"draft", "DRAFT", ".git"}
 CONTRACTS_DIR = CLIENT_DIR / "scripts" / "contracts"
+FULL_SCAN_PATHS = {
+    "docs/词表与契约.md",
+    "tools/lint_gdscript_rules.py",
+}
 
 AMBIGUOUS_INFERENCE_RE = re.compile(
     r"\b(?:var|const)\s+[A-Za-z_][A-Za-z0-9_]*\s*:=\s*.*"
@@ -66,11 +70,11 @@ class LintError:
         return f"[gdscript-lint] {_rel(self.path)}:{self.line_number}: {self.rule}: {self.message}"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     _configure_utf8_output()
 
     errors: list[LintError] = []
-    for path in _gdscript_paths():
+    for path in _gdscript_paths(sys.argv[1:] if argv is None else argv):
         lines = path.read_text(encoding="utf-8").splitlines()
         errors.extend(_check_section_order(path, lines))
         errors.extend(_check_ambiguous_inference(path, lines))
@@ -92,16 +96,51 @@ def _configure_utf8_output() -> None:
             stream.reconfigure(encoding="utf-8")
 
 
-def _gdscript_paths() -> list[Path]:
+def _gdscript_paths(arguments: list[str] | None = None) -> list[Path]:
     if not CLIENT_DIR.exists():
         return []
 
+    if not arguments or _requires_full_scan(arguments):
+        return _all_gdscript_paths()
+
     paths: list[Path] = []
-    for path in CLIENT_DIR.rglob("*.gd"):
-        if _is_ignored(path):
+    for argument in arguments:
+        path = _argument_path(argument)
+        if path.suffix.lower() != ".gd" or not path.is_file():
             continue
-        paths.append(path)
-    return sorted(paths)
+        if not _is_relative_to(path, CLIENT_DIR) or _is_ignored(path):
+            continue
+        paths.append(path.resolve())
+    return sorted(set(paths))
+
+
+def _all_gdscript_paths() -> list[Path]:
+    return sorted(
+        path.resolve()
+        for path in CLIENT_DIR.rglob("*.gd")
+        if not _is_ignored(path)
+    )
+
+
+def _requires_full_scan(arguments: list[str]) -> bool:
+    for argument in arguments:
+        relative = _argument_relative_path(argument)
+        if relative in FULL_SCAN_PATHS or relative.startswith("client/scripts/contracts/"):
+            return True
+    return False
+
+
+def _argument_path(argument: str) -> Path:
+    path = Path(argument)
+    return path if path.is_absolute() else ROOT / path
+
+
+def _argument_relative_path(argument: str) -> str:
+    path = _argument_path(argument)
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def _check_section_order(path: Path, lines: list[str]) -> list[LintError]:

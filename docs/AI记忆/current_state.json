@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-08",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #194 已把无等级 Gear Mod 改为与正式地图同坐标的 7×7 空间棋盘：中心核心派生主英雄被动，初始解锁 13 格；地面实例只有在拾取配置中确认到合法四邻格后才生效。schema v5 严格区分 effect / map / grid，新增刷怪笼和石头；Tab 查看与拾取面板不暂停世界但完整锁定角色 intent。Meta v4、Run v18、Replay v8、游戏 v1.17，旧 Run v17 / Replay v7 明确拒绝。玩家基础移速既有工作区改动继续独立且不纳入本功能提交；1920×1080 中英文、真实键鼠 / 手柄焦点、战斗可读性和配置手感待用户人工验收，性能 probe 未运行。",
-  "latest_adr": 194,
+  "current_status": "ADR #195 已把本地验证改为目标 smoke → 一次路径感知 hook：schema / lint / Steamworks 工具自测只在相关路径变化时触发，250 个 schema case 默认 4 路隔离并行，FormalClientBoot 按需加载 runner，四条 golden 用单进程 replay-regression，Module World technical 不重复 full 的组合段。ADR #194 的 7×7 Gear Mod 棋盘、Meta v4、Run v18、Replay v8 与游戏 v1.17 均不变；鼠标修复自动 smoke 已通过，1920×1080 中英文、真实键鼠 / 手柄焦点、战斗可读性和配置手感待用户人工验收，性能 probe 未运行。",
+  "latest_adr": 195,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #195 / 路径感知验证提速：pre-commit 只对相关路径运行 schema / lint / Steamworks 工具自测；schema 默认最多 4 路隔离并行且保留 --jobs 1；FormalClientBoot 按需加载 runner；四条 golden 由 replay-regression 单进程隔离串行；Module World technical 跳过 full 已覆盖的确定性组合段。",
     "ADR #194 / 7×7 Gear Mod 空间棋盘：新增 GearModBoard、中心核心与 13 格初始掩码；拾取采用非暂停的预占 / 确认 / 取消事务，effect / map / grid 严格分型并加入刷怪笼 / 石头。Run v18 保存坐标实例与地图计划，Replay v8 记录 gear_mod_placement，Debug Test Arena v4 使用显式坐标；无等级和固定效果边界继续有效。",
     "ADR #193 / 删除 Gear Mod 等级：gear_mods 升 schema v4 并只保留固定 modifiers；RunLoop 以可重复 mod_ids 管理无等级实例，每次拾取只追加一份，重复逐份乘算，结果页仅聚合数量。删除 rank / 升级 / 满阶 / 溢出 / 批量授予与测试岛等级 / 数量入口；Meta v4 不变，Run v17 / Replay v7 / 游戏 v1.16，旧 v16 等级局与 Replay v6 明确拒绝且不迁移。",
     "ADR #192 / 风险分层验证：每项任务重新分级，简单已有数值调参只走 L0 快路径和一次 file-scoped pre-commit；昂贵门禁去重，共享同一 client 缓存 / user 目录的 Godot 命令串行；超时清理本次子进程；golden 先审输入与稳定摘要覆盖，拒绝时间 / tick / hash 噪声重录。",
@@ -231,6 +232,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-08",
+      "command": "path-aware hook routing checks; incremental and full GDScript/semantic lint; DataLoader schema regression with --jobs 1 and default parallelism; ui-manager, Gear Mod, pickup, full/technical ModuleWorld and formal headless boot; replay-regression batch plus four isolated single-file reruns; JSON/docs health/diff checks; factual code review",
+      "result": "passed for ADR #195 validation optimization. Schema regression preserved all 250 ordered isolated cases and dropped from 185.89s serial to 46.05s parallel (75.2%); four Replay v8 goldens produced matching summaries and dropped from 40.75s across four processes to 23.00s in one isolated batch (43.6%). Three-run hot medians dropped from about 10.54s to 6.56s for ui-manager-smoke and 8.11s to 6.00s for gear-mod-smoke; gear-mod-pickup-smoke, full/technical ModuleWorld and formal headless boot passed. Route probes confirmed unrelated UI paths skip schema/linter/Steamworks self-tests while relevant paths retain them; full no-argument lint behavior remains available. No golden was rewritten, no performance/startup probe or L5/manual acceptance ran, and the separate client/data README/characters/player worktree changes remained excluded."
+    },
     {
       "date": "2026-08-08",
       "command": "sync-contracts check; validate_data; full DataLoader schema regression; three-tier lint and lint self-tests; Gear Mod, pickup, input, runtime, save, Replay, Replay-input, full/technical ModuleWorld and formal headless boot; four Replay v8 golden runtime-summary reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; staged-file pre-commit",

@@ -135,7 +135,7 @@ UI 根节点可用两种方式声明暂停请求：
 | 改标题 / 暂停设置入口 | `title_menu.gd`、`pause_menu.gd`、`formal_client_boot.gd`、`gameplay_run_loop.gd` | Settings / GameplayRuntime 文档 | `settings-smoke` + `runtime-smoke` |
 | 改 UI 栈语义 | `ui_manager.gd` | 本文档、UI Effects、测试策略 | `ui-manager-smoke` + `runtime-smoke` |
 | 改加载遮罩 / 阻断行为 | `loading_screen.tscn/.gd`、`formal_client_boot.gd` | 本文档、Gameplay Loading 文档 | `loading-smoke` + 手动中英文 |
-| 改 Gear Mod 棋盘面板 | `gear_mod_board_panel.tscn/.gd`、`gear_mod_grid_view.gd`、RunLoop、InputService | Gear Mod / Gameplay / Input 文档 | `gear-mod-pickup-smoke` + `input-smoke` + `ui-manager-smoke` + headless boot |
+| 改 Gear Mod 棋盘面板 | `gear_mod_board_panel.tscn/.gd`、`gear_mod_grid_view.gd`、HUD Root、RunLoop | Gear Mod / Gameplay / Input 文档 | 纯命中 / 鼠标路由跑 `gear-mod-pickup-smoke`；改 UI 栈或 InputService 才追加对应专项 |
 
 ## 故障排查
 
@@ -158,7 +158,7 @@ UI 根节点可用两种方式声明暂停请求：
 - 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；自动覆盖包括标题 / 暂停设置入口、`ui_back` 只关闭栈顶、键鼠不显示常驻焦点、手柄导航焦点、context 隔离和 UI bridge 不双触发。
 - 修改 `LoadingScreen` 或玩家加载 UI 栈行为时，追加 `python tools/godot_bridge.py --project client loading-smoke`，并手动检查 `zh_CN` / `en` 文案和旋转动画。
 - 修改 `CodexPanel`、标题图鉴入口、锁定条目或焦点 / 返回时，追加 `python tools/godot_bridge.py --project client codex-smoke`、`ui-manager-smoke` 与 headless boot；中英文 16:9 布局和真实手柄导航保留待人工验收。
-- 修改 `GearModBoardPanel` 时追加 Gear Mod、Input、UIManager、runtime 和 headless 自动门禁；1920×1080 中英文布局、真实键鼠 / 手柄焦点、战斗中可读性与操作手感只保留为待人工验收。
+- 修改 `GearModBoardPanel` 的纯 `mouse_filter`、命中层级或鼠标路由时，跑已有完整 `gear-mod-pickup-smoke` 和一次最终 file-scoped pre-commit；只有同时改到 InputService、UIManager 栈或 gameplay 事务时才追加对应 smoke。1920×1080 中英文布局、真实键鼠 / 手柄焦点、战斗中可读性与操作手感只保留为待人工验收。
 
 ## 迁移 / 兼容
 

@@ -27,14 +27,13 @@ repos:
         entry: python tools/test_data_loader_schema.py
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(tools/(test_data_loader_schema|validate_data|sync_contracts)\.py|client/scripts/autoload/data_loader\.gd|client/scripts/contracts/.*\.gd|client/data/difficulty_profiles\.json|docs/词表与契约\.md)$
 
       - id: lint-gdscript-rules
         name: Run first-tier GDScript project lint
         entry: python tools/lint_gdscript_rules.py
         language: system
-        pass_filenames: false
-        always_run: true
+        files: ^(client/.*\.gd|tools/lint_gdscript_rules\.py|docs/词表与契约\.md)$
 
       - id: lint-project-rules
         name: Run second-tier project rules lint
@@ -48,28 +47,27 @@ repos:
         entry: python tools/test_project_rules_lint.py
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^tools/(lint_project_rules|test_project_rules_lint)\.py$
 
       - id: lint-semantic-rules
         name: Run third-tier semantic advisory lint
         entry: python tools/lint_semantic_rules.py
         language: system
-        pass_filenames: false
-        always_run: true
+        files: ^(client/.*\.gd|tools/lint_semantic_rules\.py|docs/词表与契约\.md)$
 
       - id: test-semantic-rules-lint
         name: Run semantic advisory lint regression tests
         entry: python tools/test_semantic_rules_lint.py
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^tools/(lint_semantic_rules|test_semantic_rules_lint)\.py$
 
       - id: test-steamworks-lab-toolchain
         name: Run Steamworks Lab toolchain regression tests
         entry: python tools/test_steamworks_lab_toolchain.py
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(tools/(steamworks_lab_toolchain|test_steamworks_lab_toolchain)\.py|output/steamworks_lab/steam_appid\.txt)$
 
       - id: docs-health-check
         name: Run docs health check
