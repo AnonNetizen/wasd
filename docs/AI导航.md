@@ -109,7 +109,7 @@
 | `docs/AI协作/上下文预算.md` | 不同复杂度 / 任务类型该读哪些文件 |
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
-| `docs/AI协作/实时验证回路.md` | pre-commit hook + 本地秒级反馈设计 |
+| `docs/AI协作/实时验证回路.md` | 目标秒级快检 + 分钟级完整 pre-commit + Godot 串行 / 超时收尾设计 |
 | `docs/AI协作/文档健康检查.md` | 文档健康检查范围、命令和失败解释 |
 | `docs/AI协作/工具适配指南.md` | 各 AI 工具（Codex / OpenCode / Claude Code / Aider / Cursor / Windsurf / ChatGPT 等）的接入配法 |
 | `docs/AI协作/ECC工具吸收清单.md` | ECC 全工具面逐项筛选、吸收和拒绝结论；同类外部 agent-harness 大仓扫库参考 |
@@ -218,6 +218,7 @@
 | **拆分复杂 / 专业任务给 subagent** | 项目默认授权支持 subagent 的平台主动调度 `.codebuddy/agents/` / `.codex/agents/` / `.opencode/agents/` / `.claude/agents/` 下对应角色；只读小任务或直接实现更高效时不必强行拆分；平台不支持或外层工具策略限制时，把同名 `.md` 当 prompt 模板读 |
 | **评估 / 吸收外部 AI 工具仓库** | 先用 `ai-resource-curator`，读 `docs/AI协作/AI技能资源评估.md` 与 `docs/AI协作/上下文预算.md`；ECC 这类大仓按 `docs/AI协作/ECC工具吸收清单.md` 的 README / 全工具面清单 / 候选全文读取流程执行；默认不安装外部 hooks、MCP、CLI、dashboard、plugin 或 vendor tree |
 | **提交 / 收尾大更改** | 按 `AGENTS.md` 的 AI Git 提交策略：大更改默认自动 commit，细微改动不提交；大型代码改动提交前按 `docs/AI协作/代码审核流程.md` 追加工具先行的事实型 code review；提交前看 `git status --short` / `git diff` / `git log --oneline -10`，只 stage 本次任务文件 |
+| **调整已有数值字段** | 读 `docs/AI协作/任务模板/调数值.md` 与 `docs/测试策略.md` §7。按当前任务重新分级：不改 schema / 契约 / 加载 / 存档时先跑 `validate_data`，交付前只跑一次本次文件的 pre-commit；只有现有专项 / replay 确实覆盖目标变量时才追加，移速等手感留给用户 L5，不自动跑 Godot boot、runtime、性能或无语义 golden 重录 |
 | **写/改测试** | 看 `docs/测试策略.md`：L0~L5 金字塔 + 各层必测清单 + 里程碑要求 + 测试义务表 |
 
 ## 5. 核心系统模块

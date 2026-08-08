@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-07",
+  "updated_at": "2026-08-08",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #191 已把所有 Gear Mod 奖励接为池化 CPU 手动拾取实体：敌人、缓存和世界事件在奖励产生时锁定 mod_id，只生成掉落；玩家靠近后按 interact，每次只处理最近一件，接触不自动拾取。未拾取实体不吸附、不限时，跨模块卸载和暂停续局保留；成功拾取后才升阶或满阶转 75 金币。gear_mods schema v3、Run v16、游戏 v1.15，Meta v4 / Replay wire v6 不变；Run v15 无损迁移，四条 Replay 因数据指纹变化重录。正式 1920×1080 中英文、键鼠 / 真实手柄和战斗背景辨识待用户人工验收；性能 probe 未运行。",
-  "latest_adr": 191,
+  "current_status": "ADR #192 已把 AI 验证改为按当前任务风险与真实覆盖分层：简单已有数值字段走 L0 快路径与一次 file-scoped pre-commit，昂贵门禁去重；同项目 Godot 命令默认串行，超时先清理本次子进程；黄金回放先确认输入和稳定摘要覆盖变量，只在稳定语义或 data fingerprint 改变时重录。玩家基础移速已按约 30% 调整为默认 312、角色 300 / 325，数据自动校验通过，实际移动手感待用户人工验收。ADR #191 的 Gear Mod 手动拾取、Meta v4、Run v16、Replay v6、游戏 v1.15 继续有效；性能 probe 未运行。",
+  "latest_adr": 192,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #192 / 风险分层验证：每项任务重新分级，简单已有数值调参只走 L0 快路径和一次 file-scoped pre-commit；昂贵门禁去重，共享同一 client 缓存 / user 目录的 Godot 命令串行；超时清理本次子进程；golden 先审输入与稳定摘要覆盖，拒绝时间 / tick / hash 噪声重录。",
     "ADR #191 / Gear Mod 手动拾取：正式 CPU SVG 以 40 px、2 px #68BCDD 轮缘和 star_scale 1.8 接入池化 GearModPickup；敌人、缓存、三类持续事件与金币祭坛只生成已锁定 mod_id 的实体，最近交互仲裁每次只拾一件，成功后才升阶或满阶转 75 金币。Run v16 保存活动及非活动模块未拾取物，v15 无损迁移；Meta v4 / Replay v6 wire 不变，游戏 v1.15。",
     "Test Lab CPU Gear Mod 透视图标实验：净化用户提供的单闭合路径 CPU SVG 并保留原始 transform 与引脚轮廓；通用 SvgCurveOutlineShape 新增入树前 configure(source_path, border_color, star_scale) 且默认梨实验兼容。新增 360 / 112 / 40 px 三档 #68BCDD 星窗图标、10 / 4 / 2 px 边宽、专项 smoke、像素探针捕获与索引入口；正式 client 未修改。",
     "ADR #190 / 7×7 角落出生模块世界：正式世界改为 49 个 11×11 模块 / 77×77 全局格，左下固定人工批准的 module_start_corner，意识核按 RNG.world 与 run seed 等概率选择左上 / 右上 / 右下并进入 assignment / map hash / Run。世界 schema v5、Run v15、游戏 v1.14；Meta v4 / Replay v6 格式不变，旧 Run v14 只删 Run，四条 Replay v6 按新地图重录。",
@@ -228,6 +229,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-08",
+      "command": "current_state and _kb_index JSON parse; file-scoped pre-commit for ADR #192 documentation set",
+      "result": "passed for ADR #192 documentation synchronization. Test strategy, CI plan, AI navigation, code documentation rules, knowledge index, numeric-tuning template, realtime validation loop, PowerShell/Godot tooling guidance, ADR, project memory and session log agree on current-task risk grading, expensive-gate deduplication, serial same-project Godot execution, exact timeout child cleanup and replay coverage review. No Godot boot, runtime, replay, performance or manual test was run for this documentation task."
+    },
     {
       "date": "2026-08-07",
       "command": "sync-contracts check; validate_data and DataLoader schema regressions including Gear Mod v3 pickup negatives; three-tier lint and lint regressions; JSON parse; docs health; git diff check; gear-mod-pickup, Gear Mod, runtime, world-event, full/technical module-world, save, loading, content-progression, replay, replay-input and input smokes; Godot 4.7.1 headless editor/boot; formal 1920x1080 capture with CPU fill/cyan-rim probes; four Replay v6 golden captures and per-file runtime reruns; factual diff review; pre-commit run --all-files",
@@ -861,6 +867,7 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #192：AI 不得沿用上一项任务的验证矩阵；简单已有数值字段调整走 L0 快路径与一次 file-scoped pre-commit。昂贵门禁去重，同项目 Godot 默认串行，超时先清理本次子进程；golden 只有在真实覆盖变量且稳定语义或 data fingerprint 改变时才重录。",
     "ADR #191：所有 Gear Mod 奖励使用池化 CPU 实体手动拾取，当前 Meta v4、Run v16、Replay v6、游戏 v1.15；Run v15 无损迁移，旧 Run v14 仍只删 Run，四条 Replay v6 因 gear_mods 数据指纹变化重录。ADR #190 的 7×7 角落世界继续有效。",
     "ADR #189：英雄、Gear Mod、敌人使用默认开放稀疏规则；ContentUnlockSystem 是规则、Meta 状态与图鉴查询唯一门面。当前仍为 Meta v4 / Replay v6，Run 已由 ADR #190 升至 v15。已发布默认开放内容不得无显式 Meta 迁移改为锁定。",
     "ADR #187 将两个内置主智能碎片的基础 max_shield 设为 0；超量护盾容量统一为 max_life + max_shield，并由 Player 所有外部写入 / 重建路径与 HUD 共同遵守。",

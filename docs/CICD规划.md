@@ -5,7 +5,7 @@
 >
 > 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`；本地 `.pre-commit-config.yaml` 已复用同一批 Stage 1 脚本，并追加 Steamworks Lab toolchain 单元回归、模块相关路径条件式只读 `module-bake-check` 与 staged whitespace fix/check。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康检查和 whitespace diff；本地还守 Steamworks Lab console / 隔离 / App ID，以及模块 JSON v3、tile catalog、审核 hash 和生成 TSCN 规范指纹。常规 CI 暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
-> **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。ADR #143 后性能测试只由用户当次明确触发，不进入默认 CI 或 pre-commit。
+> **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。ADR #143 后性能测试只由用户当次明确触发，不进入默认 CI 或 pre-commit。ADR #192 只改变本地验证编排、不改变本页 CI / hook 内容：每项任务先跑目标快检，交付前仍跑一次对应 pre-commit；完整门禁不得无诊断目的地重复。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 CI/CD 路线图权威；改 workflow / hook / health-check 设计时，常见联动为 `docs/测试策略.md`、`docs/AI协作/实时验证回路.md`、`CONTRIBUTING.md`、规则自检清单、`docs/AI记忆/项目记忆.md`。
 
@@ -23,7 +23,7 @@
 | **元规则 19/20/24**：新规则/决策/设计/代码契约变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
 | **刷宝构筑平衡敏感** | 数值、掉落权重、词条和效果原语改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
 
-> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `test_data_loader_schema.py` / `lint_gdscript_rules.py` / `lint_project_rules.py` / `lint_semantic_rules.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用；`test_steamworks_lab_toolchain.py` 当前作为不启动 Godot 的本地专用附加门禁。
+> **本地实时验证回路**：与 CI 配套，先通过目标脚本提供秒级反馈，再由 pre-commit 跑可能达到分钟级的完整 Stage 1 门禁，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `test_data_loader_schema.py` / `lint_gdscript_rules.py` / `lint_project_rules.py` / `lint_semantic_rules.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用；`test_steamworks_lab_toolchain.py` 当前作为不启动 Godot 的本地专用附加门禁。
 > **代码审核流程**：详见 `docs/AI协作/代码审核流程.md`。Reviewer 先看 pre-commit / lint / test / docs 输出，再审当前 diff；第三档 semantic advisory warning 必须人工归类为 fix / accept / defer。
 
 ---
