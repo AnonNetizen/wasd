@@ -161,7 +161,33 @@ gear_mod_weapon_recoil_damper_name,反冲阻尼,Recoil Dampener
 gear_mod_weapon_recoil_damper_desc,降低主武器后坐力。,Reduces primary weapon recoil.
 gear_mod_weapon_spread_stabilizer_name,弹道稳定器,Ballistic Stabilizer
 gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces primary weapon projectile spread.
+gear_mod_map_spawner_cage_name,刷怪笼,Spawner Cage
+gear_mod_map_spawner_cage_desc,站在对应地图模块时每连续停留 10 秒生成 1 个本层随机敌人；离开后重新计时。,Spawns one random current-layer enemy for every 10 continuous seconds spent in the matching map module; leaving resets the timer.
+gear_mod_grid_rock_name,石头,Rock
+gear_mod_grid_rock_desc,只占用格子并参与连接；没有其他效果。,Occupies its cell and maintains connections; it has no other effect.
 ui_gear_mod_drop_obtained,获得 {name},Acquired {name}
+ui_gear_mod_board_title,Gear Mod 配置,Gear Mod Board
+ui_gear_mod_board_place_title,放置新 Gear Mod,Place New Gear Mod
+ui_gear_mod_board_page,地图与 Mod,Map & Mods
+ui_gear_mod_attributes_page,详细属性,Attributes
+ui_gear_mod_board_map_title,7×7 地图,7×7 Map
+ui_gear_mod_board_mod_title,7×7 Mod 棋盘,7×7 Mod Board
+ui_gear_mod_board_player_marker,你,P
+ui_gear_mod_board_core_short,核,C
+ui_gear_mod_board_core,核心,Core
+ui_gear_mod_board_core_type,核心 · 角色被动,Core · Hero Passive
+ui_gear_mod_board_core_chain_hint,核心只显示现有角色被动；效果仍由原有被动链执行，不会重复应用。,The core only represents the existing hero passive; the original passive chain remains authoritative and is not applied twice.
+ui_gear_mod_board_empty,空格,Empty Cell
+ui_gear_mod_board_coord,坐标 ({x}·{y}),Cell ({x}·{y})
+ui_gear_mod_kind_effect,效果 Mod,Effect Mod
+ui_gear_mod_kind_map,地图 Mod,Map Mod
+ui_gear_mod_kind_grid,格子 Mod,Grid Mod
+ui_gear_mod_board_behavior_active,在对应地图模块内触发声明式地图行为。,Activates its declared map behavior in the matching map module.
+ui_gear_mod_board_occupy_only,仅占用此格并参与四邻连接。,Only occupies this cell and participates in orthogonal connections.
+ui_gear_mod_board_place_legal,这个格子可以放置。确认后立即生效。,This cell is a valid placement. Confirm to apply it immediately.
+ui_gear_mod_board_place_illegal,请选择已解锁、为空且与现有 Mod 四邻相接的格子。,Choose an unlocked empty cell orthogonally adjacent to the current board.
+ui_gear_mod_board_hold_hint,按住 Tab 查看；松开后关闭。战斗仍在继续。,Hold Tab to inspect; release to close. Combat continues while this panel is open.
+ui_gear_mod_board_no_space,当前没有可放置的 Mod 格子；拾取物保留在地面。,There is no valid Mod cell; the pickup remains on the ground.
 ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache
 ui_interact_pickup_gear_mod,按 {binding} 拾取 {name} · {effect},Press {binding} to pick up {name} · {effect}
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown

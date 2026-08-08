@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_pause_resume",
-	"data_fingerprint": "b35d17c1c75d0f71f20760f843e7d882837c6ef2ecc8d72d157b56c02c0d256d",
-	"file_schema_version": 7,
-	"game_version": "v1.16",
+	"data_fingerprint": "5fc30d06b63dd7213e8b8fb17eac1ccc30790350f2a2b297c408f1f19f6b2396",
+	"file_schema_version": 8,
+	"game_version": "v1.17",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -19,6 +19,8 @@
 					"enemy_swarm"
 				],
 				"gear_mod": [
+					"gear_mod_grid_rock",
+					"gear_mod_map_spawner_cage",
 					"gear_mod_weapon_damage_test",
 					"gear_mod_weapon_recoil_damper",
 					"gear_mod_weapon_spread_stabilizer"
@@ -334,11 +336,11 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 7,
+		"schema_version": 8,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "85ccfb6238185ff429ce687aa4a2e1db860188cc7b9adac6fe7d482ce0fce3bc",
+	"recording_hash": "8eafb5cadd9114d9663ea363eb1486f0be8ff4e5f06e57e1ec266551c899846c",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,
@@ -507,7 +509,7 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 7,
+		"schema_version": 8,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

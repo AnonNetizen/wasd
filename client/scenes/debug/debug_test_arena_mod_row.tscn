@@ -14,3 +14,25 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 vertical_alignment = 1
+
+[node name="XLabel" type="Label" parent="."]
+layout_mode = 2
+text = "X"
+vertical_alignment = 1
+
+[node name="XSpin" type="SpinBox" parent="."]
+custom_minimum_size = Vector2(78, 0)
+layout_mode = 2
+max_value = 6.0
+update_on_text_changed = true
+
+[node name="YLabel" type="Label" parent="."]
+layout_mode = 2
+text = "Y"
+vertical_alignment = 1
+
+[node name="YSpin" type="SpinBox" parent="."]
+custom_minimum_size = Vector2(78, 0)
+layout_mode = 2
+max_value = 6.0
+update_on_text_changed = true

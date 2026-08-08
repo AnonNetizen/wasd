@@ -107,4 +107,4 @@
 
 ## 迁移 / 兼容
 
-导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v17 的 difficulty 快照恢复。开放战区敌人和 Gear Mod 奖励都先与冻结内容池求交，敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v3 删除旧跨局奖励与撤离元数据；兴趣点领取状态保存于 Run v17 的 `interest_points`，可重复的局内 Gear Mod `mod_ids`、未拾取实体与内容快照由 RunLoop 单独保存。旧 Run v16 明确不兼容，不尝试补发奖励。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步快照接口。
+导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v18 的 difficulty 快照恢复。开放战区敌人和 Gear Mod 奖励都先与冻结内容池求交，敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v3 删除旧跨局奖励与撤离元数据；兴趣点领取状态保存于 Run v18 的 `interest_points`，Gear Mod 棋盘 placements、地图行为状态、带 ID 未拾取实体与内容快照由 RunLoop 单独保存。旧 Run v17 明确不兼容，不尝试补发奖励。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步快照接口。

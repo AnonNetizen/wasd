@@ -71,7 +71,8 @@
       "save_corrupted",
       "run_suspended",
       "run_resumed",
-      "pool_overflow"
+      "pool_overflow",
+      "gear_mod_placement"
     ],
     "settings_keys": [
       "general.locale",
@@ -303,7 +304,9 @@
     "gear_mod_ids": [
       "gear_mod_weapon_damage_test",
       "gear_mod_weapon_recoil_damper",
-      "gear_mod_weapon_spread_stabilizer"
+      "gear_mod_weapon_spread_stabilizer",
+      "gear_mod_map_spawner_cage",
+      "gear_mod_grid_rock"
     ],
     "gear_mod_slots": [
       "hero",
@@ -311,6 +314,21 @@
     ],
     "gear_mod_rarities": [
       "common"
+    ],
+    "gear_mod_kinds": [
+      "effect",
+      "map",
+      "grid"
+    ],
+    "gear_mod_map_behaviors": [
+      "periodic_enemy_spawn"
+    ],
+    "gear_mod_grid_behaviors": [
+      "occupy_only"
+    ],
+    "gear_mod_placement_outcomes": [
+      "placed",
+      "cancelled"
     ],
     "save_kinds": [
       "meta",

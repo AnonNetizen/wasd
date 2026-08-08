@@ -48,7 +48,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改敌人金币基础系数 / 阶段增长 / 随机范围 | `enemy_rewards.json` | schema v1；实际金币在敌人成功生成时用 `RNG.economy` 锁定，死亡时不重算 |
 | 改开放战区刷怪组合 / 波次 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改金币等级曲线 / 通用奖励候选 | `level_progression.json` / `reward_choice_pools.json` | 等级曲线使用整数有理数；候选数量由调用方指定 2–5，抽取走 `RNG.ui_choice` |
-| 改局内 Gear Mod / 敌人掉率 / 公共池 | `gear_mods.json`、`gear_mod_drop_tables.csv` | Gear Mod 与本地数据包 mod 是不同概念；奖励先生成 CPU 手动拾取物，交互后追加无等级实例并在局终清空，不存在局外装配 |
+| 改局内 Gear Mod / 棋盘 / 敌人掉率 / 公共池 | `gear_mods.json`、`gear_mod_drop_tables.csv` | Gear Mod 与本地数据包 mod 是不同概念；奖励先生成 CPU 手动拾取物，交互后只在 7×7 棋盘合法格确认放置并于局终清空，不存在局外装配 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；Godot 编辑器插件来源与本地补丁另见 `client/addons/README.md`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
 | 做本地 mod 内容包 | `user://mods/<mod_id>/mod.json` + mod 自带 `data/` patch | 通过 `ModLoader` 声明式追加 JSON / CSV；不改 `client/data/` 原文件，不执行脚本 |
@@ -82,7 +82,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `level_progression.json` | 已建立 | 金币驱动等级曲线：首段成本和整数倍率 |
 | `reward_choice_pools.json` | 已建立 | 通用奖励选项池、权重、等级条件和 modifier 边界 |
-| `gear_mods.json` | JSON | 局内 Gear Mod schema v4：slot、稀有度、固定 modifiers、公共奖励池与手动拾取配置 |
+| `gear_mods.json` | JSON | 局内 Gear Mod schema v5：固定 7×7 棋盘、严格 effect / map / grid 类型、公共奖励池与拾取放置配置 |
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；G.U.I.D.E、Xelu prompts 与 Lato 字体分别登记，vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
 | `visual_effects.json` | 已建立 | 视觉效果 catalog：资源、领域、技术标签、空间、生命周期、对象池与预览元数据 |
@@ -1603,7 +1603,19 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 4,
+  "schema_version": 5,
+  "board": {
+    "width": 7,
+    "height": 7,
+    "center": {"x": 3, "y": 3},
+    "initial_unlocked_cells": [
+      {"x": 3, "y": 1},
+      {"x": 2, "y": 2}, {"x": 3, "y": 2}, {"x": 4, "y": 2},
+      {"x": 1, "y": 3}, {"x": 2, "y": 3}, {"x": 3, "y": 3}, {"x": 4, "y": 3}, {"x": 5, "y": 3},
+      {"x": 2, "y": 4}, {"x": 3, "y": 4}, {"x": 4, "y": 4},
+      {"x": 3, "y": 5}
+    ]
+  },
   "pickup": {
     "pool_id": "gear_mod_pickup",
     "interaction_radius": 72.0,
@@ -1619,6 +1631,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       "name_key": "gear_mod_weapon_damage_test_name",
       "desc_key": "gear_mod_weapon_damage_test_desc",
       "default_unlocked": true,
+      "kind": "effect",
       "slot": "weapon",
       "rarity": "common",
       "modifiers": [
@@ -1633,7 +1646,10 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `4` | 数据结构版本 |
+| `schema_version` | int | 必须为 `5` | 数据结构版本；旧 v4 无坐标与类型行为，不能继续使用 |
+| `board.width` / `board.height` | int | 都必须为 `7` | 与正式 7×7 模块地图同坐标，不允许旋转或镜像 |
+| `board.center.x` / `board.center.y` | int | 都必须为 `3` | 固定核心坐标；核心从主英雄被动派生，不是普通 Mod 定义 |
+| `board.initial_unlocked_cells[].x` / `board.initial_unlocked_cells[].y` | int | 各为 `0..6`，不重复 | 初始 13 格掩码；逐行为 `0,1,3,5,3,1,0`，且必须包含中心 |
 | `pickup.pool_id` | string | 必须为已登记的 `gear_mod_pickup` | 正式通用掉落实体对象池 |
 | `pickup.interaction_radius` | number | `> 0`；当前 `72` | 玩家可按 `interact` 拾取的世界距离 |
 | `pickup.spawn_vertical_offset` | number | 当前 `-36` | 单件奖励相对来源的纵向偏移 |
@@ -1642,21 +1658,30 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `reward_pools[].mod_ids` | array[string] | 已存在的 `gear_mod_ids`，非空且不重复 | 公共池内等权候选 |
 | `mods[].id` | string | 词表 §13-A `gear_mod_id` | 装备 Mod id |
 | `mods[].name_key` / `desc_key` | string | `gear_mod_*_name` / `gear_mod_*_desc` | 名称和描述译文 key |
-| `mods[].default_unlocked` | bool | `true` / `false`；缺失默认 `true` | 新档中是否允许该 Mod 进入奖励来源；当前三个 Mod 均显式为 `true` |
+| `mods[].default_unlocked` | bool | `true` / `false`；缺失默认 `true` | 新档中是否允许该 Mod 进入奖励来源；当前五个 Mod 均显式为 `true` |
 | `mods[].unlock_rule_id` | string | 可选；必须存在于 `content_unlock_rules.json` | 非默认解锁 Mod 的规则引用；`default_unlocked=false` 时必填，默认解锁时省略 |
 | `mods[].codex_icon_path` | string | 可选；存在的 `res://` 资源 | 图鉴图标；缺失时使用 Gear Mod 类型回退图标 |
-| `mods[].slot` | string | 词表 §13-B | modifier 应用到 hero 或 weapon 独立层 |
-| `mods[].rarity` | string | 词表 §13-C | 稀有度；用于奖励展示与后续池权重扩展 |
-| `mods[].modifiers[]` | array[object] | stat 来自词表 §1；每项严格为 `{stat,type,value}` | 每份 Mod 的固定效果；同 id 重复实例逐份应用 |
+| `mods[].kind` | string | `effect` / `map` / `grid` | 严格判别类型；三类字段不得混用 |
+| `mods[].slot` | string | 仅 `effect`；词表 §13-B | modifier 应用到 hero 或 weapon 独立层 |
+| `mods[].rarity` | string | 词表 §13-C | 仅展示 / 图鉴分类，不参与效果、掉率权重或 Replay 指纹 |
+| `mods[].modifiers[]` | array[object] | 仅 `effect`；stat 来自词表 §1；每项严格为 `{stat,type,value}` | 每份 Mod 的固定全局效果；同 id 重复实例逐份应用 |
 | `modifiers[].value` | number | 由 modifier 类型决定；`mult` 用 `1.0` 表示不变 | 固定效果值，不随拾取次数变化 |
+| `mods[].map_behavior.id` | string | 仅 `map`；当前 `periodic_enemy_spawn` | 在棋盘同坐标模块内执行的声明式地图行为 |
+| `mods[].map_behavior.interval_seconds` | number | `> 0`；当前 `10.0` | 连续停留达到该缩放时间后锁定一次生成计划 |
+| `mods[].map_behavior.reset_on_module_exit` | bool | 当前必须为 `true` | 离开对应模块立即清空累计时间和未执行计划 |
+| `mods[].map_behavior.current_layer_only` | bool | 当前必须为 `true` | 候选只取本局冻结池与当前威胁时间开放池的交集 |
+| `mods[].map_behavior.normal_rewards` | bool | 当前必须为 `true` | 生成敌人沿用普通击杀、金币、掉落和内容进度链 |
+| `mods[].grid_behavior.id` | string | 仅 `grid`；当前 `occupy_only` | 只占格并参与四邻连接，不产生属性或地图效果 |
 
-当前普通武器 Mod 包含基础伤害、后坐力和弹道扩散三类固定修正：伤害 `1.20`，后坐力与扩散上限均为 `0.80`。同 id 可重复获得，每份 modifier 逐份参与计算；数据、运行时和工具不得增加 rank、tier、升级、满阶或溢出补偿字段。描述文案不重复写死数值，运行时通过通用 modifier 摘要显示实际百分比。所有掉落都必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
+当前普通武器 Mod 包含基础伤害、后坐力和弹道扩散三类固定修正：伤害 `1.20`，后坐力与扩散上限均为 `0.80`。`gear_mod_map_spawner_cage` 是地图测试 Mod，`gear_mod_grid_rock` 是纯占格测试 Mod。每份 Mod 都有唯一正整数 `instance_id` 并占一个格；新实例只可在已解锁、为空、与核心或现有实例四邻相接的格确认放置。数据、运行时和工具不得增加 rank、tier、升级、满阶或溢出补偿字段。所有掉落都必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
 
 ## `gear_mod_drop_tables.csv`
 
 ```csv
 source_enemy_id,mod_id,drop_chance,min_enemy_level,max_enemy_level
 enemy_chaser,gear_mod_weapon_damage_test,0.05,1,999
+enemy_stalker,gear_mod_map_spawner_cage,0.025,1,999
+enemy_swarm,gear_mod_grid_rock,0.05,1,999
 ```
 
 字段说明：
@@ -1668,7 +1693,7 @@ enemy_chaser,gear_mod_weapon_damage_test,0.05,1,999
 | `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；高频敌人应按出现率反向校准，不能只比较单体概率 |
 | `min_enemy_level` / `max_enemy_level` | int | `>= 1` | 可选等级区间；未实现敌人等级前可先填宽范围 |
 
-当前基础伤害、后坐力与弹道稳定 Mod 分别由 `enemy_chaser`、`enemy_bulwark`、`enemy_spitter` 以 `5%`、`15%`、`2.5%` 概率掉落。掉落随机必须走 `RNG.drop`；命中时先锁定 `mod_id`，再生成不吸附、不接触拾取、不限时消失的 CPU 实体，只有现有 `interact` action 成功后才追加一份并生效。奖励来源不按当前持有状态过滤，重复 id 仍是有效实例。怪物互杀、机关击杀或非玩家归因击杀不产出 Gear Mod。不存在 rank、tier、fusion cost、dust、容量、升级、溢出补偿或分解数据。
+当前基础伤害、后坐力与弹道稳定 Mod 分别由 `enemy_chaser`、`enemy_bulwark`、`enemy_spitter` 以 `5%`、`15%`、`2.5%` 概率掉落；刷怪笼由 `enemy_stalker` 以 `2.5%` 掉落，石头由 `enemy_swarm` 以 `5%` 掉落。掉落随机必须走 `RNG.drop`；命中时先锁定 `mod_id` 与 `instance_id`，再生成不吸附、不接触拾取、不限时消失的 CPU 实体。玩家交互后进入非暂停放置事务，确认合法坐标才应用并移除实体，取消或无合法格时实体保留。奖励来源不按当前持有状态过滤，重复 id 仍是有效实例。怪物互杀、机关击杀或非玩家归因击杀不产出 Gear Mod。不存在 rank、tier、fusion cost、dust、容量、升级、溢出补偿或分解数据。
 
 ## `level_progression.json`
 

@@ -103,8 +103,8 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 17,
-		"new runs should use Run schema v17"
+		int(initial_run_snapshot.get("schema_version", 0)) == 18,
+		"new runs should use Run schema v18"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -435,13 +435,17 @@ func _run() -> void:
 				"contact with a Gear Mod pickup should not grant it automatically"
 			)
 			await _push_action_once(ACTIONS.INTERACT)
+			var forced_drop_placement: Dictionary = (
+				_confirm_pending_gear_mod_first_legal(run_loop)
+			)
 			var mod_ids_after_forced_drop: Array[String] = _run_gear_mod_ids(
 				run_loop
 			)
 			_expect(
-				mod_ids_after_forced_drop.size()
+				bool(forced_drop_placement.get("ok", false))
+				and mod_ids_after_forced_drop.size()
 				== mod_ids_before_forced_drop.size() + 1,
-				"interact should grant one enemy Gear Mod instance"
+				"placement confirm should grant one enemy Gear Mod instance"
 			)
 			var gear_mod_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 			_expect(
@@ -3922,47 +3926,57 @@ func _position_inside_map_boundary(run_loop: Node, position: Vector2, inset_exte
 
 
 func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
-	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
-	_expect(hud != null, "GameplayHud should exist for stats panel smoke")
-	if hud == null or not hud.has_method("is_stats_panel_visible"):
-		return
-	_expect(not bool(hud.call("is_stats_panel_visible")), "stats panel should start hidden")
+	_expect(
+		_find_node_by_name(get_tree().root, "GearModBoardPanel") == null,
+		"Gear Mod board panel should start closed"
+	)
 	var state_before: StringName = GameState.current()
 	var tick_before: int = GameClock.tick()
 	InputService.set_playback_active(true)
 	InputService.inject_playback_value(ACTIONS.SHOW_STATS_PANEL, true)
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
-	_expect(bool(hud.call("is_stats_panel_visible")), "holding stats panel action should show the HUD panel")
-	_expect(GameState.current() == state_before and GameState.is_state(GameState.PLAYING), "holding stats panel action should keep gameplay state")
-	_expect(GameClock.tick() > tick_before, "holding stats panel action should not freeze gameplay time")
-	var title_label: Label = _find_node_by_name(hud, "TitleLabel") as Label
-	var damage_value_label: Label = _find_node_by_name(hud, "DamageValueLabel") as Label
-	var health_regen_value_label: Label = _find_node_by_name(hud, "HealthRegenValueLabel") as Label
-	var gold_balance_value_label: Label = _find_node_by_name(hud, "GoldBalanceValueLabel") as Label
-	var gold_total_value_label: Label = _find_node_by_name(hud, "GoldEarnedTotalValueLabel") as Label
-	var level_progress_value_label: Label = _find_node_by_name(hud, "LevelProgressValueLabel") as Label
-	var luck_value_label: Label = _find_node_by_name(hud, "LuckValueLabel") as Label
-	var gold_progress_label: Label = _find_node_by_name(hud, "GoldProgressLabel") as Label
-	_expect(title_label != null and String(title_label.text) == tr("ui_stats_panel_title"), "stats panel title should use localized text")
-	_expect(damage_value_label != null and not String(damage_value_label.text).is_empty(), "stats panel should show current damage")
-	_expect(health_regen_value_label != null and String(health_regen_value_label.text).contains("/s"), "stats panel should show current health regen")
-	_expect(gold_balance_value_label != null, "stats panel should show gold balance")
-	_expect(gold_total_value_label != null, "stats panel should show total gold earned")
-	_expect(level_progress_value_label != null, "stats panel should show current level progress")
-	_expect(luck_value_label != null, "stats panel should retain luck")
-	_expect(
-		gold_progress_label != null
-		and String(gold_progress_label.text).contains("·"),
-		"persistent HUD should show gold balance and level progress together"
+	var panel: Node = _find_node_by_name(
+		get_tree().root,
+		"GearModBoardPanel"
 	)
+	_expect(
+		panel != null,
+		"holding stats action should open the Gear Mod board inspect panel"
+	)
+	_expect(
+		GameState.current() == state_before
+		and GameState.is_state(GameState.PLAYING),
+		"Gear Mod inspect panel should keep gameplay state"
+	)
+	_expect(
+		GameClock.tick() > tick_before,
+		"Gear Mod inspect panel should not freeze gameplay time"
+	)
+	_expect(
+		InputService.non_pausing_ui_capture_active(),
+		"Gear Mod inspect panel should own non-pausing UI input capture"
+	)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.RIGHT)
+	_expect(
+		InputService.vector(ACTIONS.MOVE).is_zero_approx(),
+		"non-pausing panel capture should suppress gameplay movement input"
+	)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.ZERO)
 	InputService.inject_playback_value(ACTIONS.SHOW_STATS_PANEL, false)
-	InputService.set_playback_active(false)
 	for _index: int in range(UI_TRANSITION_FRAMES):
 		await get_tree().process_frame
-		if not bool(hud.call("is_stats_panel_visible")):
+		if _find_node_by_name(get_tree().root, "GearModBoardPanel") == null:
 			break
-	_expect(not bool(hud.call("is_stats_panel_visible")), "releasing stats panel action should hide the HUD panel")
+	InputService.set_playback_active(false)
+	_expect(
+		_find_node_by_name(get_tree().root, "GearModBoardPanel") == null,
+		"releasing stats action should close the Gear Mod inspect panel"
+	)
+	_expect(
+		not InputService.non_pausing_ui_capture_active(),
+		"closing the inspect panel should release non-pausing input capture"
+	)
 
 
 func _expect_gold_orb_draw_order(run_loop: Node, player: Node2D) -> void:
@@ -4327,12 +4341,16 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 		]
 	)
 	await _push_action_once(ACTIONS.INTERACT)
+	var mod_cache_placement: Dictionary = (
+		_confirm_pending_gear_mod_first_legal(run_loop)
+	)
 	var mod_ids_after_mod_cache: Array[String] = _run_gear_mod_ids(run_loop)
 	_expect(
-		mod_ids_after_mod_cache.size() == mod_ids_before_mod_cache.size() + 1
+		bool(mod_cache_placement.get("ok", false))
+		and mod_ids_after_mod_cache.size() == mod_ids_before_mod_cache.size() + 1
 		and _active_gear_mod_pickup_count(run_loop)
 		== pickups_before_mod_cache + 1,
-		"one interact press should collect only the nearest Mod cache pickup"
+		"one confirmed placement should collect only the nearest Mod cache pickup"
 	)
 	_expect(
 		hud != null
@@ -4350,8 +4368,8 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	var resource_state: Dictionary = points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(resource_state.get("claimed", false)), "run snapshot should persist claimed interest point state")
 	var gear_mod_state: Dictionary = snapshot.get("gear_mods", {}) as Dictionary
-	var saved_mod_ids: Array[String] = _string_array(
-		gear_mod_state.get("mod_ids", [])
+	var saved_mod_ids: Array[String] = _gear_mod_ids_from_state(
+		gear_mod_state
 	)
 	_expect(
 		saved_mod_ids == mod_ids_after_mod_cache,
@@ -4662,11 +4680,11 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			paused_run_snapshot.get("rng", {}) as Dictionary
 		).get("streams", {}) as Dictionary
 	).get("economy", {}) as Dictionary
-	var saved_gear_mod_ids: Array[String] = _string_array(
-		(paused_run_snapshot.get("gear_mods", {}) as Dictionary).get(
-			"mod_ids",
-			[]
-		)
+	var saved_gear_mod_state: Dictionary = (
+		paused_run_snapshot.get("gear_mods", {}) as Dictionary
+	).duplicate(true)
+	var saved_gear_mod_ids: Array[String] = _gear_mod_ids_from_state(
+		saved_gear_mod_state
 	)
 	var saved_gear_mod_pickups: Array = (
 		paused_run_snapshot.get("gear_mod_pickups", []) as Array
@@ -4859,11 +4877,8 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var restored_points: Dictionary = restored_snapshot.get("interest_points", {}) as Dictionary
 	var restored_resource_state: Dictionary = restored_points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(restored_resource_state.get("claimed", false)), "continue should restore claimed interest point state")
-	var restored_gear_mod_ids: Array[String] = _string_array(
-		(restored_snapshot.get("gear_mods", {}) as Dictionary).get(
-			"mod_ids",
-			[]
-		)
+	var restored_gear_mod_ids: Array[String] = _gear_mod_ids_from_state(
+		restored_snapshot.get("gear_mods", {}) as Dictionary
 	)
 	_expect(
 		restored_gear_mod_ids == saved_gear_mod_ids,
@@ -4874,26 +4889,36 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		== saved_gear_mod_pickups,
 		"continue should restore exact uncollected Gear Mod pickup snapshots"
 	)
+	var unknown_mod_state: Dictionary = saved_gear_mod_state.duplicate(true)
+	var unknown_placements: Array = unknown_mod_state.get("placements", []) as Array
+	if not unknown_placements.is_empty():
+		(unknown_placements[0] as Dictionary)["mod_id"] = "missing_gear_mod"
+	unknown_mod_state["placements"] = unknown_placements
 	_expect(
 		not bool(restored_run_loop.call(
 			"_restore_run_gear_mods",
-			{"mod_ids": ["missing_gear_mod"]}
+			unknown_mod_state
 		)),
 		"run restore should reject unknown Gear Mod ids"
 	)
+	var invalid_instance_state: Dictionary = saved_gear_mod_state.duplicate(true)
+	var invalid_placements: Array = invalid_instance_state.get("placements", []) as Array
+	if not invalid_placements.is_empty():
+		(invalid_placements[0] as Dictionary)["instance_id"] = "1"
+	invalid_instance_state["placements"] = invalid_placements
 	_expect(
 		not bool(restored_run_loop.call(
 			"_restore_run_gear_mods",
-			{"mod_ids": [GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST, 1]}
+			invalid_instance_state
 		)),
-		"run restore should reject non-string Gear Mod ids"
+		"run restore should reject non-integer Gear Mod instance ids"
 	)
 	_expect(
 		bool(restored_run_loop.call(
 			"_restore_run_gear_mods",
-			{"mod_ids": saved_gear_mod_ids}
+			saved_gear_mod_state
 		)),
-		"valid repeated Gear Mod ids should remain restorable after rejection checks"
+		"valid spatial Gear Mod state should remain restorable after rejection checks"
 	)
 	restored_run_loop.call("_apply_run_gear_modifiers")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
@@ -4918,8 +4943,12 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	if restored_pickup != null:
 		restored_player.global_position = restored_pickup.global_position
 		await _push_action_once(ACTIONS.INTERACT)
+		var restored_placement: Dictionary = (
+			_confirm_pending_gear_mod_first_legal(restored_run_loop)
+		)
 		_expect(
-			_active_gear_mod_pickup_count(restored_run_loop)
+			bool(restored_placement.get("ok", false))
+			and _active_gear_mod_pickup_count(restored_run_loop)
 			== pickup_count_before_resume_interact - 1
 			and _run_gear_mod_ids(restored_run_loop).size()
 			== mod_ids_before_restored_pickup.size() + 1,
@@ -5106,7 +5135,49 @@ func _run_gear_mod_ids(run_loop: Node) -> Array[String]:
 		return []
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot") as Dictionary
 	var gear_mods: Dictionary = snapshot.get("gear_mods", {}) as Dictionary
-	return _string_array(gear_mods.get("mod_ids", []))
+	return _gear_mod_ids_from_state(gear_mods)
+
+
+func _gear_mod_ids_from_state(gear_mods: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	var raw_placements: Variant = gear_mods.get("placements", [])
+	if not raw_placements is Array:
+		return result
+	for raw_placement: Variant in raw_placements as Array:
+		if raw_placement is Dictionary:
+			result.append(String(
+				(raw_placement as Dictionary).get("mod_id", "")
+			))
+	return result
+
+
+func _confirm_pending_gear_mod_first_legal(
+	run_loop: Node
+) -> Dictionary:
+	if (
+		run_loop == null
+		or not run_loop.has_method("debug_pending_gear_mod_placement")
+	):
+		return {"ok": false, "reason": "missing_runtime"}
+	var pending: Dictionary = run_loop.call(
+		"debug_pending_gear_mod_placement"
+	) as Dictionary
+	var raw_targets: Variant = pending.get("legal_targets", [])
+	if pending.is_empty() or not raw_targets is Array:
+		return {"ok": false, "reason": "missing_pending"}
+	var targets: Array = raw_targets as Array
+	if targets.is_empty() or not targets[0] is Dictionary:
+		return {"ok": false, "reason": "missing_legal_target"}
+	var target: Dictionary = targets[0] as Dictionary
+	return run_loop.call(
+		"confirm_gear_mod_placement",
+		int(pending.get("instance_id", 0)),
+		String(pending.get("mod_id", "")),
+		Vector2i(
+			int(target.get("x", -1)),
+			int(target.get("y", -1))
+		)
+	) as Dictionary
 
 
 func _string_array(raw_value: Variant) -> Array[String]:

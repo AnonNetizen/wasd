@@ -136,7 +136,9 @@ func configure(config: Dictionary) -> void:
 	)
 	_seed_spin.value = float(int(normalized.get("seed", 1)))
 	_rebuild_mod_rows(
-		_typed_dictionary_array(normalized.get("gear_mods", []))
+		_typed_dictionary_array(
+			normalized.get("gear_mod_placements", [])
+		)
 	)
 	_refresh_unavailable_content()
 	refresh_texts()
@@ -264,6 +266,7 @@ func _rebuild_mod_rows(selected_mods: Array[Dictionary]) -> void:
 	for row: DebugTestArenaModRow in _gear_mod_rows:
 		row.queue_free()
 	_gear_mod_rows.clear()
+	var definition_index: int = 0
 	for definition: Dictionary in _typed_dictionary_array(
 		_content.get("gear_mods", [])
 	):
@@ -274,16 +277,27 @@ func _rebuild_mod_rows(selected_mods: Array[Dictionary]) -> void:
 			continue
 		_mod_list.add_child(row)
 		_gear_mod_rows.append(row)
-		var is_selected: bool = false
+		var selection: Dictionary = {}
 		for selected: Dictionary in selected_mods:
 			if (
 				String(selected.get("mod_id", ""))
 				== String(definition.get("id", ""))
 			):
-				is_selected = true
+				selection = selected.duplicate(true)
 				break
-		row.configure(definition, is_selected)
+		if selection.is_empty():
+			var default_coord: Vector2i = _default_mod_coord(definition_index)
+			selection = {
+				"mod_id": String(definition.get("id", "")),
+				"x": default_coord.x,
+				"y": default_coord.y,
+				"enabled": false,
+			}
+		else:
+			selection["enabled"] = true
+		row.configure(definition, selection)
 		row.selection_changed.connect(_refresh_preview)
+		definition_index += 1
 
 
 func _refresh_unavailable_content() -> void:
@@ -316,11 +330,11 @@ func _unavailable_content_text(
 
 
 func _build_config() -> Dictionary:
-	var gear_mods: Array[Dictionary] = []
+	var placements: Array[Dictionary] = []
 	for row: DebugTestArenaModRow in _gear_mod_rows:
 		var selection: Dictionary = row.selection()
 		if not selection.is_empty():
-			gear_mods.append(selection)
+			placements.append(selection)
 	return {
 		"schema_version": DebugTestArenaConfig.SCHEMA_VERSION,
 		"seed": maxi(int(_seed_spin.value), 1),
@@ -328,7 +342,7 @@ func _build_config() -> Dictionary:
 		"sub_hero_id": _selected_id(_sub_hero_option),
 		"weapon_id": _selected_id(_weapon_option),
 		"primary_skill_id": _selected_id(_skill_option),
-		"gear_mods": gear_mods,
+		"gear_mod_placements": placements,
 	}
 
 
@@ -344,7 +358,10 @@ func _refresh_preview() -> void:
 		{}
 	) as Dictionary
 	var diagnostics: Array[Dictionary] = _typed_dictionary_array(
-		preview.get("diagnostics", [])
+		normalized.get("diagnostics", [])
+	)
+	diagnostics.append_array(
+		_typed_dictionary_array(preview.get("diagnostics", []))
 	)
 	_start_button.disabled = _has_blocking_preview_diagnostic(diagnostics)
 	_feedback_label.text = (
@@ -359,12 +376,36 @@ func _has_blocking_preview_diagnostic(
 ) -> bool:
 	for diagnostic: Dictionary in diagnostics:
 		if String(diagnostic.get("reason", "")) in [
-			"duplicate_unique_mod",
+			"duplicate_mod",
+			"occupied_cell",
+			"invalid_placement",
+			"invalid_placement_fields",
+			"invalid_mod_or_coord",
+			"illegal_or_disconnected_cell",
+			"invalid_board_config",
 			"unknown_mod",
 			"unknown_loadout_slot",
 		]:
 			return true
 	return false
+
+
+func _default_mod_coord(index: int) -> Vector2i:
+	var defaults: Array[Vector2i] = [
+		Vector2i(3, 2),
+		Vector2i(2, 3),
+		Vector2i(4, 3),
+		Vector2i(3, 4),
+		Vector2i(3, 1),
+		Vector2i(2, 2),
+		Vector2i(4, 2),
+		Vector2i(1, 3),
+		Vector2i(5, 3),
+		Vector2i(2, 4),
+		Vector2i(4, 4),
+		Vector2i(3, 5),
+	]
+	return defaults[index % defaults.size()]
 
 
 func _selected_id(option: OptionButton) -> String:

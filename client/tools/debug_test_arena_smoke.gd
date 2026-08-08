@@ -81,21 +81,21 @@ func _run() -> void:
 	var legacy: Dictionary = config_manager.call(
 		"normalize_config",
 		{
-			"schema_version": 2,
+			"schema_version": 3,
 			"seed": 159159,
 			"main_hero_id": "character_primary_a",
 			"sub_hero_id": "character_primary_b",
 			"weapon_id": "weapon_basic_blaster",
 			"primary_skill_id": "skill_deploy_projectile_barrier",
-			"gear_mods": [
-				{"mod_id": "gear_mod_weapon_damage_test"},
+			"gear_mod_placements": [
+				{"mod_id": "gear_mod_weapon_damage_test", "x": 3, "y": 2},
 			],
 		}
 	) as Dictionary
 	_check(
 		int(legacy.get("seed", 0)) == CONFIG_SCRIPT.DEFAULT_SEED
-		and (legacy.get("gear_mods", []) as Array).is_empty(),
-		"v2 config resets instead of carrying legacy selections into v3"
+		and (legacy.get("gear_mod_placements", []) as Array).is_empty(),
+		"v3 config resets instead of carrying legacy selections into v4"
 	)
 	var legacy_schema_rejected: bool = false
 	for raw_diagnostic: Variant in legacy.get("diagnostics", []) as Array:
@@ -107,15 +107,15 @@ func _run() -> void:
 		):
 			legacy_schema_rejected = true
 			break
-	_check(legacy_schema_rejected, "v2 config records schema rejection")
+	_check(legacy_schema_rejected, "v3 config records schema rejection")
 
 	var duplicate_mods: Dictionary = config_manager.call(
 		"normalize_config",
 		{
 			"schema_version": CONFIG_SCRIPT.SCHEMA_VERSION,
-			"gear_mods": [
-				{"mod_id": "gear_mod_weapon_damage_test"},
-				{"mod_id": "gear_mod_weapon_damage_test"},
+			"gear_mod_placements": [
+				{"mod_id": "gear_mod_weapon_damage_test", "x": 3, "y": 2},
+				{"mod_id": "gear_mod_weapon_damage_test", "x": 2, "y": 3},
 			],
 		}
 	) as Dictionary
@@ -133,18 +133,45 @@ func _run() -> void:
 			duplicate_diagnostic_found = true
 			break
 	_check(
-		(duplicate_mods.get("gear_mods", []) as Array).size() == 1
+		(duplicate_mods.get("gear_mod_placements", []) as Array).size() == 1
 		and (
 			(
 				duplicate_mods.get("modifier_preview", {})
 				as Dictionary
 			).get("selected", []) as Array
 		).size() == 1,
-		"v3 config deduplicates repeated Mod ids instead of exposing quantity"
+		"v4 config deduplicates repeated Mod ids instead of exposing quantity"
 	)
 	_check(
 		duplicate_diagnostic_found,
-		"v3 config records duplicate Mod diagnostics"
+		"v4 config records duplicate Mod diagnostics"
+	)
+	var connected_chain: Dictionary = config_manager.call(
+		"normalize_config",
+		{
+			"schema_version": CONFIG_SCRIPT.SCHEMA_VERSION,
+			"gear_mod_placements": [
+				{"mod_id": "gear_mod_grid_rock", "x": 3, "y": 1},
+				{"mod_id": "gear_mod_weapon_damage_test", "x": 3, "y": 2},
+			],
+		}
+	) as Dictionary
+	_check(
+		(connected_chain.get("gear_mod_placements", []) as Array).size() == 2,
+		"v4 config accepts a connected chain regardless of source ordering"
+	)
+	var diagonal_only: Dictionary = config_manager.call(
+		"normalize_config",
+		{
+			"schema_version": CONFIG_SCRIPT.SCHEMA_VERSION,
+			"gear_mod_placements": [
+				{"mod_id": "gear_mod_grid_rock", "x": 2, "y": 2},
+			],
+		}
+	) as Dictionary
+	_check(
+		(diagonal_only.get("gear_mod_placements", []) as Array).is_empty(),
+		"v4 config rejects a diagonal-only placement"
 	)
 
 	var invalid: Dictionary = config_manager.call(
@@ -156,8 +183,8 @@ func _run() -> void:
 			"sub_hero_id": "missing_sub_hero",
 			"weapon_id": "missing_weapon",
 			"primary_skill_id": "missing_skill",
-			"gear_mods": [
-				{"mod_id": "missing_mod"},
+			"gear_mod_placements": [
+				{"mod_id": "missing_mod", "x": 3, "y": 2},
 			],
 		}
 	) as Dictionary
@@ -182,8 +209,8 @@ func _run() -> void:
 			"sub_hero_id": "character_primary_b",
 			"weapon_id": "weapon_basic_blaster",
 			"primary_skill_id": "skill_deploy_projectile_barrier",
-			"gear_mods": [
-				{"mod_id": "gear_mod_weapon_damage_test"},
+			"gear_mod_placements": [
+				{"mod_id": "gear_mod_weapon_damage_test", "x": 3, "y": 2},
 			],
 		}
 	) as Dictionary
@@ -196,11 +223,14 @@ func _run() -> void:
 		(preview.get("selected", []) as Array).size() == 1,
 		"pure Gear Mod preview resolves selection"
 	)
-	var saved_mods: Array = config.get("gear_mods", []) as Array
+	var saved_mods: Array = config.get("gear_mod_placements", []) as Array
 	_check(
 		saved_mods.size() == 1
-		and (saved_mods[0] as Dictionary).keys() == ["mod_id"],
-		"v3 developer config stores only the selected Gear Mod id"
+		and String((saved_mods[0] as Dictionary).get("mod_id", ""))
+		== "gear_mod_weapon_damage_test"
+		and int((saved_mods[0] as Dictionary).get("x", -1)) == 3
+		and int((saved_mods[0] as Dictionary).get("y", -1)) == 2,
+		"v4 developer config stores explicit Gear Mod board coordinates"
 	)
 
 	_verify_setup_panel(initial_setup, config)
@@ -725,7 +755,12 @@ func _verify_setup_panel(
 	)
 	_check(
 		setup.find_child("RankSpin", true, false) == null,
-		"Gear Mod rows expose selection only"
+		"Gear Mod rows do not restore rank controls"
+	)
+	_check(
+		setup.find_child("XSpin", true, false) != null
+		and setup.find_child("YSpin", true, false) != null,
+		"Gear Mod rows expose explicit board coordinates"
 	)
 
 

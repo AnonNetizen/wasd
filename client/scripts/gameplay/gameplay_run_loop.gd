@@ -16,6 +16,9 @@ signal reward_choice_resolved(
 	pool_id: String,
 	entry_id: String
 )
+signal gear_mod_placement_requested(pending: Dictionary)
+signal gear_mod_placement_resolved(result: Dictionary)
+signal gear_mod_placement_failed(result: Dictionary)
 
 enum RunPurpose {
 	STANDARD,
@@ -49,6 +52,13 @@ const HERO_COMPOSITION_RESOLVER := preload(
 )
 const DAMAGE_NUMBER_SCENE := preload("res://scenes/gameplay/damage_number.tscn")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
+const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
+const GEAR_MOD_MAP_BEHAVIORS := preload(
+	"res://scripts/contracts/gear_mod_map_behaviors.gd"
+)
+const GEAR_MOD_PLACEMENT_OUTCOMES := preload(
+	"res://scripts/contracts/gear_mod_placement_outcomes.gd"
+)
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
 const HAZARD_SCENE := preload("res://scenes/gameplay/hazard.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
@@ -68,6 +78,12 @@ const GOLD_ORB_SCENE := preload("res://scenes/gameplay/gold_orb.tscn")
 const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
 const GEAR_MOD_PICKUP_SCENE := preload(
 	"res://scenes/gameplay/gear_mod_pickup.tscn"
+)
+const GEAR_MOD_BOARD_SCRIPT := preload(
+	"res://scripts/gameplay/gear_mod_board.gd"
+)
+const GEAR_MOD_BOARD_PANEL_SCENE := preload(
+	"res://scenes/ui/gear_mod_board_panel.tscn"
 )
 const PROJECTILE_BARRIER_SCENE := preload(
 	"res://scenes/gameplay/projectile_barrier.tscn"
@@ -124,9 +140,10 @@ const FEEDBACK_POOL_SIZE: int = 128
 const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
-const GEAR_MOD_PICKUP_POOL_SIZE: int = 128
+const GEAR_MOD_PICKUP_POOL_SIZE: int = 65_536
+const GEAR_MOD_PICKUP_POOL_PREWARM: int = 8
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 17
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 18
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -135,6 +152,18 @@ const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_energy_orbs",
 	"active_gear_mod_pickups",
 	"active_deployables",
+]
+const GEAR_MOD_CAGE_OCCUPANT_GROUPS: Array[String] = [
+	"active_enemies",
+	"active_hazards",
+	"active_gold_orbs",
+	"active_energy_orbs",
+	"active_gear_mod_pickups",
+	"active_deployables",
+	"active_interest_point_caches",
+	"active_interest_point_targets",
+	"active_world_event_interactables",
+	"active_world_event_defense_targets",
 ]
 const UI_RESTORE_REWARD_CHOICE: String = "reward_choice"
 const UI_RESTORE_PAUSED: String = "paused"
@@ -174,6 +203,8 @@ var _content_progress_delta: Dictionary = {}
 var _enemy_rows: Dictionary = {}
 var _enemy_reward_config: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
+var _gear_mod_board: RefCounted = null
+var _gear_mod_board_panel: Node = null
 var _gear_mod_pickup_config: Dictionary = {}
 var _gold_drop_config: Dictionary = {}
 var _gold_progression: GoldProgression = null
@@ -190,6 +221,7 @@ var _main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _reward_choice_panel: CanvasLayer = null
 var _run_gear_mod_ids: Array[String] = []
 var _pending_restore_snapshot: Dictionary = {}
+var _pending_gear_mod_placement: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
 var _player_host: Node2D = null
@@ -201,6 +233,7 @@ var _module_world_technical_slice: bool = false
 var _module_world_manager: Node2D = null
 var _module_encounter_vfx: Dictionary = {}
 var _next_enemy_spawn_serial: int = 1
+var _next_gear_mod_instance_id: int = 1
 var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
@@ -233,12 +266,28 @@ var _world_event_wave_plans: Dictionary = {}
 func _ready() -> void:
 	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.connect(_on_input_action_pressed)
+	if not GameState.state_changed.is_connected(_on_game_state_changed):
+		GameState.state_changed.connect(_on_game_state_changed)
 	_start_run(_pending_restore_snapshot)
 
 
 func _exit_tree() -> void:
 	if InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.disconnect(_on_input_action_pressed)
+	if GameState.state_changed.is_connected(_on_game_state_changed):
+		GameState.state_changed.disconnect(_on_game_state_changed)
+	if (
+		_gear_mod_board_panel != null
+		and is_instance_valid(_gear_mod_board_panel)
+		and _gear_mod_board_panel.tree_exited.is_connected(
+			_on_gear_mod_panel_tree_exited
+		)
+	):
+		_gear_mod_board_panel.tree_exited.disconnect(
+			_on_gear_mod_panel_tree_exited
+		)
+	_gear_mod_board_panel = null
+	_pending_gear_mod_placement.clear()
 	_clear_interest_point_caches()
 	_clear_world_events()
 	_release_active_world_pool_entities()
@@ -249,7 +298,6 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
-	_update_stats_panel()
 	_update_combat_hud()
 	_refresh_difficulty_hud()
 	if not GameState.is_state(GameState.PLAYING):
@@ -258,6 +306,7 @@ func _process(delta: float) -> void:
 		return
 	if _module_world_enabled:
 		_update_module_world(delta)
+		_update_gear_mod_map_behaviors(delta)
 	else:
 		_advance_difficulty(delta)
 	if _world_event_controller != null:
@@ -288,6 +337,9 @@ func _on_input_action_pressed(action_id: StringName, participant_id: String) -> 
 			_debug_test_arena_controller.call("open_panel")
 		return
 	if GameState.is_state(GameState.PLAYING):
+		if action_id == StringName(ACTIONS.SHOW_STATS_PANEL):
+			open_gear_mod_board_inspect()
+			return
 		if action_id == StringName(ACTIONS.INTERACT):
 			_try_interact_nearest()
 			return
@@ -296,6 +348,25 @@ func _on_input_action_pressed(action_id: StringName, participant_id: String) -> 
 			return
 	if GameState.is_state(GameState.GAME_OVER) and action_id == StringName(ACTIONS.PAUSE):
 		restart_requested.emit()
+
+
+func _on_game_state_changed(
+	old_state: StringName,
+	new_state: StringName,
+	_context: Dictionary
+) -> void:
+	if old_state == GameState.PLAYING and new_state != GameState.PLAYING:
+		_prepare_gear_mod_ui_for_playing_exit()
+
+
+func _prepare_gear_mod_ui_for_playing_exit() -> void:
+	if _pending_gear_mod_placement.is_empty():
+		_close_gear_mod_board_panel(true)
+		return
+	if InputService.playback_active():
+		_close_gear_mod_board_panel(true)
+		return
+	_cancel_pending_gear_mod_placement("left_playing", true)
 
 
 func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
@@ -787,6 +858,17 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 			not restore_snapshot.is_empty()
 		)
 		return
+	_gear_mod_board = GEAR_MOD_BOARD_SCRIPT.new()
+	if not bool(_gear_mod_board.call(
+		"configure",
+		GearModSystem.board_config(),
+		GearModSystem.mod_definitions()
+	)):
+		_fail_run_start(
+			"Gear Mod board configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
 	var raw_loadout: Variant = character.get("starting_loadout", {})
 	var loadout: Dictionary = (
 		(raw_loadout as Dictionary).duplicate(true)
@@ -856,6 +938,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_reward_choice_controller.clear()
 	_kills = 0
 	_run_gear_mod_ids.clear()
+	_next_gear_mod_instance_id = 1
 	_run_completed = false
 
 	_player_host = _active_world.get_node_or_null("PlayerHost") as Node2D
@@ -1191,7 +1274,10 @@ func _prewarm_standard_pools() -> void:
 	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
 	PoolManager.prewarm(POOL_IDS.GOLD_ORB, 16)
 	PoolManager.prewarm(POOL_IDS.ENERGY_ORB, 8)
-	PoolManager.prewarm(POOL_IDS.GEAR_MOD_PICKUP, 8)
+	PoolManager.prewarm(
+		POOL_IDS.GEAR_MOD_PICKUP,
+		GEAR_MOD_PICKUP_POOL_PREWARM
+	)
 	PoolManager.prewarm(POOL_IDS.PROJECTILE_BARRIER, 2)
 	for request: Dictionary in _vfx_host.declared_pool_requests():
 		PoolManager.prewarm(
@@ -1209,7 +1295,10 @@ func _prewarm_standard_pools_staged() -> bool:
 		{"pool_id": POOL_IDS.HAZARD_SPIKE, "count": 8},
 		{"pool_id": POOL_IDS.GOLD_ORB, "count": 16},
 		{"pool_id": POOL_IDS.ENERGY_ORB, "count": 8},
-		{"pool_id": POOL_IDS.GEAR_MOD_PICKUP, "count": 8},
+		{
+			"pool_id": POOL_IDS.GEAR_MOD_PICKUP,
+			"count": GEAR_MOD_PICKUP_POOL_PREWARM,
+		},
 		{"pool_id": POOL_IDS.PROJECTILE_BARRIER, "count": 2},
 	]
 	requests.append_array(_vfx_host.declared_pool_requests())
@@ -2680,6 +2769,37 @@ func _world_event_spawn_context(
 	return result
 
 
+func debug_gear_mod_board_snapshot() -> Dictionary:
+	return _run_gear_mod_snapshot()
+
+
+func debug_pending_gear_mod_placement() -> Dictionary:
+	return _pending_gear_mod_placement_snapshot()
+
+
+func debug_tick_gear_mod_map_behaviors(delta: float) -> void:
+	_update_gear_mod_map_behaviors(delta)
+
+
+func request_gear_mod_relocation(
+	instance_id: int,
+	target: Vector2i,
+	cost_authorizer: Callable = Callable()
+) -> Dictionary:
+	if _gear_mod_board == null:
+		return _debug_result(false, "board_unavailable")
+	var result: Dictionary = _gear_mod_board.call(
+		"request_relocation",
+		instance_id,
+		target,
+		cost_authorizer
+	) as Dictionary
+	if bool(result.get("ok", false)):
+		_sync_run_gear_mod_ids_from_board()
+		_apply_run_gear_modifiers()
+	return result
+
+
 func _on_world_event_reward_requested(
 	instance_id: String,
 	event_id: String,
@@ -3208,6 +3328,195 @@ func _update_module_world(delta: float) -> void:
 	_refresh_module_world_hud()
 
 
+func _update_gear_mod_map_behaviors(delta: float) -> void:
+	if _gear_mod_board == null or _module_world_manager == null:
+		return
+	var current_module_coord: Vector2i = _module_world_manager.call(
+		"current_module_coord"
+	) as Vector2i
+	var scaled_delta: float = GameClock.delta_scaled(delta)
+	for behavior_snapshot: Dictionary in _typed_dictionary_array(
+		_gear_mod_board.call("map_behavior_snapshots")
+	):
+		var behavior: Dictionary = _dictionary_or_empty(
+			behavior_snapshot.get("behavior", {})
+		)
+		if (
+			String(behavior.get("id", ""))
+			!= GEAR_MOD_MAP_BEHAVIORS.PERIODIC_ENEMY_SPAWN
+		):
+			continue
+		var instance_id: int = int(
+			behavior_snapshot.get("instance_id", 0)
+		)
+		var placement_cell := Vector2i(
+			int(behavior_snapshot.get("x", -1)),
+			int(behavior_snapshot.get("y", -1))
+		)
+		var state: Dictionary = _dictionary_or_empty(
+			behavior_snapshot.get("state", {})
+		)
+		if placement_cell != current_module_coord:
+			if (
+				bool(behavior.get("reset_on_module_exit", false))
+				and (
+					float(state.get("elapsed", 0.0)) > 0.0
+					or not _dictionary_or_empty(
+						state.get("pending_plan", {})
+					).is_empty()
+				)
+			):
+				_gear_mod_board.call(
+					"set_map_behavior_state",
+					instance_id,
+					{"elapsed": 0.0, "pending_plan": {}}
+				)
+			continue
+		if not bool(behavior.get("current_layer_only", false)):
+			continue
+		if not bool(behavior.get("normal_rewards", false)):
+			continue
+		var interval: float = maxf(
+			float(behavior.get("interval_seconds", 0.0)),
+			0.0
+		)
+		if interval <= 0.0:
+			continue
+		state["elapsed"] = minf(
+			float(state.get("elapsed", 0.0)) + scaled_delta,
+			interval
+		)
+		var pending_plan: Dictionary = _dictionary_or_empty(
+			state.get("pending_plan", {})
+		)
+		if float(state.get("elapsed", 0.0)) >= interval and pending_plan.is_empty():
+			pending_plan = _build_gear_mod_cage_spawn_plan(
+				placement_cell
+			)
+			state["pending_plan"] = pending_plan
+		if not bool(_gear_mod_board.call(
+			"set_map_behavior_state",
+			instance_id,
+			state
+		)):
+			continue
+		if pending_plan.is_empty():
+			continue
+		var enemy_id: String = String(
+			pending_plan.get("enemy_id", "")
+		)
+		var spawn_position: Vector2 = _dict_to_vector(
+			pending_plan.get("position", {}),
+			Vector2.ZERO
+		)
+		var planned_module_coord: Vector2i = _dict_to_vector2i(
+			pending_plan.get("module_coord", {})
+		)
+		if planned_module_coord != placement_cell:
+			continue
+		if _is_gear_mod_cage_position_occupied(spawn_position):
+			continue
+		if _spawn_enemy_at(
+			enemy_id,
+			spawn_position,
+			"gear_mod_cage_%d" % instance_id,
+			_module_slot_key(placement_cell)
+		):
+			_gear_mod_board.call(
+				"set_map_behavior_state",
+				instance_id,
+				{"elapsed": 0.0, "pending_plan": {}}
+			)
+
+
+func _build_gear_mod_cage_spawn_plan(
+	module_coord: Vector2i
+) -> Dictionary:
+	if _module_world_manager == null:
+		return {}
+	var available_positions: Array[Vector2] = []
+	var raw_positions: Variant = _module_world_manager.call(
+		"empty_floor_positions_at",
+		module_coord
+	)
+	if raw_positions is Array:
+		for raw_position: Variant in raw_positions as Array:
+			if (
+				raw_position is Vector2
+				and not _is_gear_mod_cage_position_occupied(
+					raw_position as Vector2
+				)
+			):
+				available_positions.append(raw_position as Vector2)
+	if available_positions.is_empty():
+		return {}
+	var enemy_pool: Dictionary = _eligible_first_visit_enemy_pool(
+		_dictionary_or_empty(
+			_module_world_definition.get(
+				"first_visit_enemy_spawn",
+				{}
+			)
+		),
+		_difficulty_elapsed()
+	)
+	var enemy_ids: Array = _array_or_empty(
+		enemy_pool.get("enemy_ids", [])
+	)
+	var weights: Array = _array_or_empty(
+		enemy_pool.get("weights", [])
+	)
+	if enemy_ids.is_empty() or enemy_ids.size() != weights.size():
+		return {}
+	var position_index: int = int(
+		RNG.spawn.randi() % available_positions.size()
+	)
+	var enemy_id: String = String(
+		RNG.spawn.weighted_pick(enemy_ids, weights)
+	)
+	if enemy_id.is_empty():
+		return {}
+	return {
+		"enemy_id": enemy_id,
+		"position": available_positions[position_index],
+		"module_coord": module_coord,
+	}
+
+
+func _is_gear_mod_cage_position_occupied(position: Vector2) -> bool:
+	if _module_world_manager == null:
+		return true
+	var planned_cell: Vector2i = _module_world_manager.call(
+		"world_to_global_cell",
+		position
+	) as Vector2i
+	if _player != null and is_instance_valid(_player):
+		var player_cell: Vector2i = _module_world_manager.call(
+			"world_to_global_cell",
+			_player.global_position
+		) as Vector2i
+		if player_cell == planned_cell:
+			return true
+	var scene_tree: SceneTree = get_tree()
+	if scene_tree == null:
+		return true
+	for group_name: String in GEAR_MOD_CAGE_OCCUPANT_GROUPS:
+		for raw_node: Node in scene_tree.get_nodes_in_group(group_name):
+			if (
+				not raw_node is Node2D
+				or raw_node == _player
+				or not is_instance_valid(raw_node)
+				or not _is_active_world_entity(raw_node)
+			):
+				continue
+			var occupant_cell: Vector2i = _module_world_manager.call(
+				"world_to_global_cell",
+				(raw_node as Node2D).global_position
+			) as Vector2i
+			if occupant_cell == planned_cell:
+				return true
+	return false
+
+
 func _handle_module_stream_change(stream_change: Dictionary) -> void:
 	for raw_coord: Variant in _array_or_empty(stream_change.get("deactivated", [])):
 		_deactivate_module_slot(_dict_to_vector2i(raw_coord))
@@ -3299,6 +3608,8 @@ func _capture_and_release_module_group(group_name: String, slot_key: String) -> 
 				snapshot_data["wave_key"] = String(node.get_meta("wave_key", ""))
 			snapshots.append(snapshot_data)
 		PoolManager.release(node)
+	if group_name == "active_gear_mod_pickups":
+		_sort_gear_mod_pickup_snapshots(snapshots)
 	return snapshots
 
 
@@ -3750,7 +4061,23 @@ func _deactivate_module_interest_visuals(slot_key: String) -> void:
 func _module_world_snapshot() -> Dictionary:
 	if not _module_world_enabled or _module_world_manager == null:
 		return {}
-	return _module_world_manager.call("snapshot") as Dictionary
+	var result: Dictionary = (
+		_module_world_manager.call("snapshot") as Dictionary
+	).duplicate(true)
+	var raw_slot_states: Variant = result.get("slot_states", {})
+	if raw_slot_states is Dictionary:
+		for raw_state: Variant in (raw_slot_states as Dictionary).values():
+			if not raw_state is Dictionary:
+				continue
+			var state: Dictionary = raw_state as Dictionary
+			var raw_pickups: Variant = state.get(
+				"gear_mod_pickup_snapshots"
+			)
+			if raw_pickups is Array:
+				_sort_gear_mod_pickup_snapshots(
+					raw_pickups as Array
+				)
+	return result
 
 
 func _refresh_module_world_hud() -> void:
@@ -3978,15 +4305,25 @@ func _nearest_gear_mod_pickup_candidate() -> Dictionary:
 			if (
 				is_equal_approx(distance, best_distance)
 				and best_pickup != null
-				and not _pickup_position_precedes(
-					pickup.global_position,
-					best_pickup.global_position
+				and (
+					pickup.global_position
+					== best_pickup.global_position
+					and pickup.gear_mod_instance_id()
+					>= best_pickup.gear_mod_instance_id()
+					or (
+						pickup.global_position
+						!= best_pickup.global_position
+						and not _pickup_position_precedes(
+							pickup.global_position,
+							best_pickup.global_position
+						)
+					)
 				)
 			):
 				continue
 		best = {
 			"kind": "gear_mod_pickup",
-			"id": String.num_int64(pickup.get_instance_id()),
+			"id": pickup.gear_mod_instance_id(),
 			"distance": distance,
 			"pickup": pickup,
 		}
@@ -4258,13 +4595,164 @@ func _try_interact_gear_mod_pickup(
 		pickup == null
 		or not is_instance_valid(pickup)
 		or not pickup.can_player_interact(_player)
+		or not _pending_gear_mod_placement.is_empty()
 	):
 		return false
-	var mod_id: String = pickup.mod_id()
-	var pickup_position: Vector2 = pickup.global_position
-	var result: Dictionary = _grant_run_gear_mod(mod_id)
-	if not bool(result.get("ok", false)):
+	if _gear_mod_board == null:
+		_emit_gear_mod_placement_failure(
+			pickup.gear_mod_instance_id(),
+			pickup.mod_id(),
+			"board_unavailable"
+		)
 		return false
+	var mod_id: String = pickup.mod_id()
+	var instance_id: int = pickup.gear_mod_instance_id()
+	var legal_cells: Array[Vector2i] = []
+	var raw_legal_cells: Variant = _gear_mod_board.call(
+		"legal_cells",
+		mod_id
+	)
+	if raw_legal_cells is Array:
+		for raw_cell: Variant in raw_legal_cells as Array:
+			if raw_cell is Vector2i:
+				legal_cells.append(raw_cell as Vector2i)
+	if legal_cells.is_empty():
+		_emit_gear_mod_placement_failure(
+			instance_id,
+			mod_id,
+			"no_legal_cell"
+		)
+		return false
+	_pending_gear_mod_placement = {
+		"instance_id": instance_id,
+		"mod_id": mod_id,
+		"legal_cells": legal_cells,
+		"pickup": pickup,
+	}
+	var pending_snapshot: Dictionary = (
+		_pending_gear_mod_placement_snapshot()
+	)
+	gear_mod_placement_requested.emit(pending_snapshot)
+	_show_gear_mod_placement_panel(pending_snapshot)
+	return true
+
+
+func confirm_gear_mod_placement(
+	instance_id: int,
+	mod_id: String,
+	coord: Vector2i
+) -> Dictionary:
+	return _confirm_pending_gear_mod_placement(
+		instance_id,
+		mod_id,
+		coord,
+		true
+	)
+
+
+func cancel_gear_mod_placement(
+	instance_id: int,
+	mod_id: String
+) -> Dictionary:
+	if not _pending_gear_mod_matches(instance_id, mod_id):
+		return _debug_result(false, "pending_mismatch")
+	return _cancel_pending_gear_mod_placement("player_cancelled", true)
+
+
+func apply_replay_gear_mod_placement(
+	payload: Dictionary
+) -> Dictionary:
+	var outcome: String = String(payload.get("outcome", ""))
+	var expected_size: int = (
+		5
+		if outcome == GEAR_MOD_PLACEMENT_OUTCOMES.PLACED
+		else 3
+	)
+	if (
+		payload.size() != expected_size
+		or not payload.get("instance_id") is int
+		or not payload.get("mod_id") is String
+		or not payload.get("outcome") is String
+	):
+		return _debug_result(false, "replay_divergence")
+	var instance_id: int = int(payload.get("instance_id", 0))
+	var mod_id: String = String(payload.get("mod_id", ""))
+	if not _pending_gear_mod_matches(instance_id, mod_id):
+		return _debug_result(false, "replay_divergence")
+	if outcome == GEAR_MOD_PLACEMENT_OUTCOMES.CANCELLED:
+		var cancel_result: Dictionary = _cancel_pending_gear_mod_placement(
+			"replay_cancelled",
+			false
+		)
+		if not bool(cancel_result.get("ok", false)):
+			return _debug_result(false, "replay_divergence")
+		return cancel_result
+	if (
+		outcome != GEAR_MOD_PLACEMENT_OUTCOMES.PLACED
+		or not payload.get("x") is int
+		or not payload.get("y") is int
+	):
+		return _debug_result(false, "replay_divergence")
+	var placement_result: Dictionary = _confirm_pending_gear_mod_placement(
+		instance_id,
+		mod_id,
+		Vector2i(
+			int(payload.get("x", -1)),
+			int(payload.get("y", -1))
+		),
+		false
+	)
+	if not bool(placement_result.get("ok", false)):
+		return _debug_result(false, "replay_divergence")
+	return placement_result
+
+
+func _confirm_pending_gear_mod_placement(
+	instance_id: int,
+	mod_id: String,
+	coord: Vector2i,
+	record_event: bool
+) -> Dictionary:
+	if (
+		not GameState.is_state(GameState.PLAYING)
+		or _gear_mod_board == null
+		or not _pending_gear_mod_matches(instance_id, mod_id)
+	):
+		return _debug_result(false, "pending_mismatch")
+	var pickup: GearModPickup = _pending_gear_mod_placement.get(
+		"pickup"
+	) as GearModPickup
+	if (
+		pickup == null
+		or not is_instance_valid(pickup)
+		or not _is_active_world_entity(pickup)
+		or pickup.gear_mod_instance_id() != instance_id
+		or pickup.mod_id() != mod_id
+	):
+		return _emit_gear_mod_placement_failure(
+			instance_id,
+			mod_id,
+			"pickup_unavailable"
+		)
+	if not _is_content_available(CONTENT_UNLOCK_TYPES.GEAR_MOD, mod_id):
+		return _emit_gear_mod_placement_failure(
+			instance_id,
+			mod_id,
+			"content_unavailable"
+		)
+	var result: Dictionary = _gear_mod_board.call(
+		"request_placement",
+		instance_id,
+		mod_id,
+		coord
+	) as Dictionary
+	if not bool(result.get("ok", false)):
+		return _emit_gear_mod_placement_failure(
+			instance_id,
+			mod_id,
+			String(result.get("reason", "placement_rejected"))
+		)
+	var pickup_position: Vector2 = pickup.global_position
 	_play_feedback(
 		PRESENTATION_PICKUP_DEFAULT,
 		VFX_CUES.PICKUP_COLLECT,
@@ -4274,8 +4762,281 @@ func _try_interact_gear_mod_pickup(
 		}
 	)
 	PoolManager.release(pickup)
+	_pending_gear_mod_placement.clear()
+	_sync_run_gear_mod_ids_from_board()
+	_apply_run_gear_modifiers()
+	_show_placed_gear_mod_feedback(mod_id)
+	_close_gear_mod_board_panel(true)
+	var resolved: Dictionary = {
+		"ok": true,
+		"instance_id": instance_id,
+		"mod_id": mod_id,
+		"outcome": GEAR_MOD_PLACEMENT_OUTCOMES.PLACED,
+		"x": coord.x,
+		"y": coord.y,
+		"placement": _dictionary_or_empty(
+			result.get("placement", {})
+		),
+	}
+	if record_event:
+		_record_gear_mod_placement(resolved)
+	gear_mod_placement_resolved.emit(resolved.duplicate(true))
 	_update_combined_interaction_prompt()
+	return resolved
+
+
+func _cancel_pending_gear_mod_placement(
+	reason: String,
+	record_event: bool
+) -> Dictionary:
+	if _pending_gear_mod_placement.is_empty():
+		return _debug_result(false, "no_pending_placement")
+	var instance_id: int = int(
+		_pending_gear_mod_placement.get("instance_id", 0)
+	)
+	var mod_id: String = String(
+		_pending_gear_mod_placement.get("mod_id", "")
+	)
+	_pending_gear_mod_placement.clear()
+	_close_gear_mod_board_panel(false)
+	var result: Dictionary = {
+		"ok": true,
+		"instance_id": instance_id,
+		"mod_id": mod_id,
+		"outcome": GEAR_MOD_PLACEMENT_OUTCOMES.CANCELLED,
+		"reason": reason,
+	}
+	if record_event:
+		_record_gear_mod_placement(result)
+	gear_mod_placement_resolved.emit(result.duplicate(true))
+	_update_combined_interaction_prompt()
+	return result
+
+
+func _pending_gear_mod_matches(instance_id: int, mod_id: String) -> bool:
+	return (
+		instance_id > 0
+		and not mod_id.is_empty()
+		and int(_pending_gear_mod_placement.get("instance_id", 0))
+		== instance_id
+		and String(_pending_gear_mod_placement.get("mod_id", ""))
+		== mod_id
+	)
+
+
+func _pending_gear_mod_placement_snapshot() -> Dictionary:
+	if _pending_gear_mod_placement.is_empty():
+		return {}
+	var legal_cells: Array[Dictionary] = []
+	for raw_cell: Variant in _array_or_empty(
+		_pending_gear_mod_placement.get("legal_cells", [])
+	):
+		if raw_cell is Vector2i:
+			legal_cells.append(_coord_to_dict(raw_cell as Vector2i))
+	return {
+		"instance_id": int(
+			_pending_gear_mod_placement.get("instance_id", 0)
+		),
+		"mod_id": String(
+			_pending_gear_mod_placement.get("mod_id", "")
+		),
+		"legal_targets": legal_cells,
+		"default_target": _current_module_coord_dict(),
+	}
+
+
+func _emit_gear_mod_placement_failure(
+	instance_id: int,
+	mod_id: String,
+	reason: String
+) -> Dictionary:
+	if (
+		reason == "no_legal_cell"
+		and _hud != null
+		and _hud.has_method("show_gear_mod_no_space_feedback")
+	):
+		_hud.call("show_gear_mod_no_space_feedback")
+	var result: Dictionary = {
+		"ok": false,
+		"instance_id": instance_id,
+		"mod_id": mod_id,
+		"reason": reason,
+	}
+	gear_mod_placement_failed.emit(result.duplicate(true))
+	return result
+
+
+func _record_gear_mod_placement(result: Dictionary) -> void:
+	var outcome: String = String(result.get("outcome", ""))
+	var event_data: Dictionary = {
+		"instance_id": int(result.get("instance_id", 0)),
+		"mod_id": String(result.get("mod_id", "")),
+		"outcome": outcome,
+	}
+	if outcome == GEAR_MOD_PLACEMENT_OUTCOMES.PLACED:
+		event_data["x"] = int(result.get("x", -1))
+		event_data["y"] = int(result.get("y", -1))
+	if Replay.is_recording():
+		Replay.record_decision(
+			ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT,
+			event_data
+		)
+	Analytics.track_event(
+		ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT,
+		event_data
+	)
+
+
+func _show_placed_gear_mod_feedback(mod_id: String) -> void:
+	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
+	if (
+		definition.is_empty()
+		or _hud == null
+		or not _hud.has_method("show_gear_mod_drop_feedback")
+	):
+		return
+	_hud.call(
+		"show_gear_mod_drop_feedback",
+		String(definition.get("name_key", ""))
+	)
+
+
+func open_gear_mod_board_inspect() -> bool:
+	if (
+		_gear_mod_board == null
+		or _gear_mod_board_panel != null
+		or not GameState.is_state(GameState.PLAYING)
+	):
+		return false
+	var panel: GearModBoardPanel = UIManager.push(
+		GEAR_MOD_BOARD_PANEL_SCENE,
+		{"source": "gear_mod_board_inspect"}
+	) as GearModBoardPanel
+	if panel == null:
+		return false
+	_gear_mod_board_panel = panel
+	_connect_gear_mod_board_panel(panel)
+	panel.configure_inspect(
+		_run_gear_mod_snapshot(),
+		_gear_mod_panel_map_snapshot(),
+		_stats_panel_snapshot(),
+		_gear_mod_panel_passive()
+	)
 	return true
+
+
+func _show_gear_mod_placement_panel(pending: Dictionary) -> bool:
+	if _gear_mod_board == null:
+		return false
+	if (
+		_gear_mod_board_panel != null
+		and is_instance_valid(_gear_mod_board_panel)
+	):
+		return false
+	var panel: GearModBoardPanel = UIManager.push(
+		GEAR_MOD_BOARD_PANEL_SCENE,
+		{"source": "gear_mod_placement"}
+	) as GearModBoardPanel
+	if panel == null:
+		return false
+	_gear_mod_board_panel = panel
+	_connect_gear_mod_board_panel(panel)
+	panel.configure_placement(
+		_run_gear_mod_snapshot(),
+		_gear_mod_panel_map_snapshot(),
+		_stats_panel_snapshot(),
+		_gear_mod_panel_passive(),
+		pending
+	)
+	return true
+
+
+func _connect_gear_mod_board_panel(panel: GearModBoardPanel) -> void:
+	panel.placement_confirmed.connect(
+		_on_gear_mod_panel_placement_confirmed
+	)
+	panel.placement_cancelled.connect(
+		_on_gear_mod_panel_placement_cancelled
+	)
+	panel.inspect_closed.connect(_on_gear_mod_panel_inspect_closed)
+	panel.tree_exited.connect(_on_gear_mod_panel_tree_exited)
+
+
+func _close_gear_mod_board_panel(committed: bool) -> void:
+	if (
+		_gear_mod_board_panel == null
+		or not is_instance_valid(_gear_mod_board_panel)
+	):
+		_gear_mod_board_panel = null
+		return
+	var panel: Node = _gear_mod_board_panel
+	_gear_mod_board_panel = null
+	if committed and panel.has_method("close_after_commit"):
+		panel.call("close_after_commit")
+	elif panel.has_method("request_close"):
+		panel.call("request_close")
+	else:
+		UIManager.pop_expected(panel)
+
+
+func _on_gear_mod_panel_placement_confirmed(
+	instance_id: int,
+	mod_id: String,
+	coord: Vector2i
+) -> void:
+	confirm_gear_mod_placement(instance_id, mod_id, coord)
+
+
+func _on_gear_mod_panel_placement_cancelled(
+	instance_id: int,
+	mod_id: String
+) -> void:
+	cancel_gear_mod_placement(instance_id, mod_id)
+
+
+func _on_gear_mod_panel_inspect_closed() -> void:
+	_gear_mod_board_panel = null
+
+
+func _on_gear_mod_panel_tree_exited() -> void:
+	_gear_mod_board_panel = null
+	if not _pending_gear_mod_placement.is_empty():
+		_cancel_pending_gear_mod_placement(
+			"panel_closed",
+			true
+		)
+
+
+func _gear_mod_panel_map_snapshot() -> Dictionary:
+	if _module_world_manager == null:
+		return {}
+	return {
+		"visited_slots": _module_world_manager.call(
+			"visited_module_coords"
+		),
+		"current_slot": _current_module_coord_dict(),
+		"objective_slot": _coord_to_dict(
+			_module_world_manager.call(
+				"role_module_coord",
+				MODULE_ROLES.MODULE_ROLE_OBJECTIVE
+			) as Vector2i
+		),
+	}
+
+
+func _current_module_coord_dict() -> Dictionary:
+	if _module_world_manager == null:
+		return {}
+	return _coord_to_dict(
+		_module_world_manager.call("current_module_coord") as Vector2i
+	)
+
+
+func _gear_mod_panel_passive() -> Dictionary:
+	return _find_item(
+		_load_array(DataLoader.HERO_PASSIVES_PATH, "passives"),
+		String(_hero_composition.get("passive_id", ""))
+	)
 
 
 func _update_gear_mod_pickup_prompt(
@@ -4292,12 +5053,15 @@ func _update_gear_mod_pickup_prompt(
 	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
 	if definition.is_empty():
 		return
-	var values: Dictionary = {
-		"name": tr(String(definition.get("name_key", ""))),
-		"effect": _format_gear_mod_pickup_effect(
+	var effect_text: String = tr(String(definition.get("desc_key", "")))
+	if String(definition.get("kind", "")) == GEAR_MOD_KINDS.EFFECT:
+		effect_text = _format_gear_mod_pickup_effect(
 			mod_id,
 			GearModSystem.modifiers(mod_id)
-		),
+		)
+	var values: Dictionary = {
+		"name": tr(String(definition.get("name_key", ""))),
+		"effect": effect_text,
 	}
 	_hud.call(
 		"show_interaction_prompt",
@@ -5087,6 +5851,7 @@ func _on_player_died() -> void:
 	if _is_debug_test_arena():
 		call_deferred("_reset_debug_test_arena_after_player_death")
 		return
+	_prepare_gear_mod_ui_for_playing_exit()
 	var difficulty: Dictionary = _difficulty_snapshot()
 	var build_summary: Dictionary = _run_gear_mod_build_summary()
 	var newly_unlocked: Dictionary = _commit_content_progress(false)
@@ -5108,6 +5873,7 @@ func _complete_run(point_id: String) -> void:
 	if _run_completed:
 		return
 	_run_completed = true
+	_prepare_gear_mod_ui_for_playing_exit()
 	var difficulty: Dictionary = _difficulty_snapshot()
 	var build_summary: Dictionary = _run_gear_mod_build_summary()
 	var newly_unlocked: Dictionary = _commit_content_progress(true)
@@ -5231,13 +5997,25 @@ func _spawn_gear_mod_pickup(
 	)
 	if pool_id != POOL_IDS.GEAR_MOD_PICKUP:
 		return _debug_result(false, "invalid_gear_mod_pickup_pool")
+	if not _ground_gear_mod_pickup_can_grow(
+		_ground_gear_mod_pickup_count()
+	):
+		return _debug_result(false, "gear_mod_pickup_logical_cap_reached")
 	var raw_node: Node = PoolManager.acquire(POOL_IDS.GEAR_MOD_PICKUP)
 	if not raw_node is GearModPickup:
 		return _debug_result(false, "gear_mod_pickup_pool_exhausted")
 	var pickup: GearModPickup = raw_node as GearModPickup
 	pickup.global_position = spawn_position
 	_reparent_to_active_world(pickup)
-	if not pickup.configure(mod_id, _gear_mod_pickup_config):
+	var instance_id: int = _allocate_gear_mod_instance_id()
+	if instance_id <= 0:
+		PoolManager.release(pickup)
+		return _debug_result(false, "gear_mod_instance_id_exhausted")
+	if not pickup.configure(
+		instance_id,
+		mod_id,
+		_gear_mod_pickup_config
+	):
 		PoolManager.release(pickup)
 		return _debug_result(false, "gear_mod_pickup_config_failed")
 	_play_feedback(
@@ -5250,9 +6028,45 @@ func _spawn_gear_mod_pickup(
 	)
 	return {
 		"ok": true,
+		"instance_id": instance_id,
 		"mod_id": mod_id,
 		"position": _vector_to_dict(spawn_position),
 	}
+
+
+func _allocate_gear_mod_instance_id() -> int:
+	if _next_gear_mod_instance_id <= 0 or _next_gear_mod_instance_id >= 0x7fffffffffffffff:
+		return 0
+	var instance_id: int = _next_gear_mod_instance_id
+	_next_gear_mod_instance_id += 1
+	return instance_id
+
+
+func _ground_gear_mod_pickup_count() -> int:
+	var count: int = PoolManager.active_count(POOL_IDS.GEAR_MOD_PICKUP)
+	if not _module_world_enabled or _module_world_manager == null:
+		return count
+	var module_snapshot: Dictionary = _module_world_snapshot()
+	var slot_states: Dictionary = _dictionary_or_empty(
+		module_snapshot.get("slot_states", {})
+	)
+	for raw_state: Variant in slot_states.values():
+		if not raw_state is Dictionary:
+			continue
+		count += _array_or_empty(
+			(raw_state as Dictionary).get(
+				"gear_mod_pickup_snapshots",
+				[]
+			)
+		).size()
+	return count
+
+
+func _ground_gear_mod_pickup_can_grow(existing_count: int) -> bool:
+	return (
+		existing_count >= 0
+		and existing_count < GEAR_MOD_PICKUP_POOL_SIZE
+	)
 
 
 func _spawn_gear_mod_pickup_batch(
@@ -5302,25 +6116,47 @@ func _gear_mod_reward_positions(
 
 
 func _apply_initial_gear_modifiers() -> void:
-	var hero_modifiers: Array[Dictionary] = []
-	var weapon_modifiers: Array[Dictionary] = []
-	if _is_debug_test_arena():
-		var preview: Dictionary = GearModSystem.resolve_preview_loadout(
-			_array_or_empty(_debug_test_arena_config.get("gear_mods", []))
-		)
-		var all_modifiers: Dictionary = _dictionary_or_empty(
-			preview.get("modifiers", {})
-		)
-		hero_modifiers = _typed_dictionary_array(
-			all_modifiers.get(GEAR_MOD_SLOTS.HERO, [])
-		)
-		weapon_modifiers = _typed_dictionary_array(
-			all_modifiers.get(GEAR_MOD_SLOTS.WEAPON, [])
-		)
-	if _player != null and _player.has_method("set_gear_modifiers"):
-		_player.call("set_gear_modifiers", hero_modifiers)
-	if _weapon_system != null and _weapon_system.has_method("set_gear_modifiers"):
-		_weapon_system.call("set_gear_modifiers", weapon_modifiers)
+	if _is_debug_test_arena() and _gear_mod_board != null:
+		_apply_debug_test_arena_gear_mod_placements()
+	_sync_run_gear_mod_ids_from_board()
+	_apply_run_gear_modifiers()
+
+
+func _apply_debug_test_arena_gear_mod_placements() -> void:
+	var remaining: Array[Dictionary] = _typed_dictionary_array(
+		_debug_test_arena_config.get("gear_mod_placements", [])
+	)
+	while not remaining.is_empty():
+		var placed_index: int = -1
+		for index: int in range(remaining.size()):
+			var placement: Dictionary = remaining[index]
+			var mod_id: String = String(placement.get("mod_id", ""))
+			var target := Vector2i(
+				int(placement.get("x", -1)),
+				int(placement.get("y", -1))
+			)
+			var legal_cells: Array = _array_or_empty(
+				_gear_mod_board.call("legal_cells", mod_id)
+			)
+			if not legal_cells.has(target):
+				continue
+			var instance_id: int = _allocate_gear_mod_instance_id()
+			var result: Dictionary = _gear_mod_board.call(
+				"request_placement",
+				instance_id,
+				mod_id,
+				target
+			) as Dictionary
+			if not bool(result.get("ok", false)):
+				continue
+			placed_index = index
+			break
+		if placed_index < 0:
+			push_error(
+				"[GameplayRunLoop] debug Gear Mod placements are not core-connected"
+			)
+			return
+		remaining.remove_at(placed_index)
 
 
 func _show_pause_menu() -> void:
@@ -5393,7 +6229,24 @@ func _entity_snapshots(group_name: String) -> Array[Dictionary]:
 		if node.has_meta("module_slot"):
 			snapshot_data["module_slot"] = String(node.get_meta("module_slot"))
 		result.append(snapshot_data)
+	if group_name == "active_gear_mod_pickups":
+		_sort_gear_mod_pickup_snapshots(result)
 	return result
+
+
+func _sort_gear_mod_pickup_snapshots(
+	snapshots: Array
+) -> void:
+	snapshots.sort_custom(_gear_mod_pickup_snapshot_less)
+
+
+func _gear_mod_pickup_snapshot_less(
+	left: Dictionary,
+	right: Dictionary
+) -> bool:
+	return int(left.get("instance_id", 0)) < int(
+		right.get("instance_id", 0)
+	)
 
 
 func _ui_restore_snapshot() -> Dictionary:
@@ -5485,14 +6338,18 @@ func _is_active_world_entity(node: Node) -> bool:
 func _validate_run_gear_mod_pickup_snapshots(
 	snapshot_data: Dictionary
 ) -> bool:
+	var seen_instance_ids: Dictionary = {}
+	var pickup_count: int = 0
 	var active_pickups: Variant = snapshot_data.get("gear_mod_pickups")
 	if not active_pickups is Array:
 		return false
-	if (active_pickups as Array).size() > GEAR_MOD_PICKUP_POOL_SIZE:
-		return false
 	for raw_snapshot: Variant in active_pickups as Array:
-		if not _is_valid_gear_mod_pickup_snapshot(raw_snapshot):
+		if not _register_valid_gear_mod_pickup_snapshot(
+			raw_snapshot,
+			seen_instance_ids
+		):
 			return false
+		pickup_count += 1
 	var module_snapshot: Variant = snapshot_data.get("module_world", {})
 	if not module_snapshot is Dictionary:
 		return false
@@ -5512,11 +6369,300 @@ func _validate_run_gear_mod_pickup_snapshots(
 		)
 		if not stored_pickups is Array:
 			return false
-		if (stored_pickups as Array).size() > GEAR_MOD_PICKUP_POOL_SIZE:
-			return false
 		for raw_snapshot: Variant in stored_pickups as Array:
-			if not _is_valid_gear_mod_pickup_snapshot(raw_snapshot):
+			if not _register_valid_gear_mod_pickup_snapshot(
+				raw_snapshot,
+				seen_instance_ids
+			):
 				return false
+			pickup_count += 1
+	var board_snapshot: Variant = snapshot_data.get("gear_mods")
+	if not board_snapshot is Dictionary:
+		return false
+	var raw_placements: Variant = (
+		(board_snapshot as Dictionary).get("placements")
+	)
+	if not raw_placements is Array:
+		return false
+	for raw_placement: Variant in raw_placements as Array:
+		if not raw_placement is Dictionary:
+			return false
+		var placement: Dictionary = raw_placement as Dictionary
+		var raw_instance_id: Variant = placement.get("instance_id")
+		var mod_id: String = String(placement.get("mod_id", ""))
+		if (
+			not raw_instance_id is int
+			or int(raw_instance_id) <= 0
+			or seen_instance_ids.has(int(raw_instance_id))
+			or GearModSystem.mod_definition(mod_id).is_empty()
+			or not _is_content_available(
+				CONTENT_UNLOCK_TYPES.GEAR_MOD,
+				mod_id
+			)
+		):
+			return false
+		seen_instance_ids[int(raw_instance_id)] = true
+	var raw_next_instance_id: Variant = (
+		(board_snapshot as Dictionary).get("next_instance_id")
+	)
+	if (
+		not raw_next_instance_id is int
+		or int(raw_next_instance_id) <= 0
+	):
+		return false
+	var next_instance_id: int = int(raw_next_instance_id)
+	for raw_instance_id: Variant in seen_instance_ids.keys():
+		if int(raw_instance_id) >= next_instance_id:
+			return false
+	return (
+		pickup_count <= GEAR_MOD_PICKUP_POOL_SIZE
+		and _validate_run_gear_mod_map_behavior_plans(snapshot_data)
+	)
+
+
+func _validate_run_gear_mod_map_behavior_plans(
+	snapshot_data: Dictionary
+) -> bool:
+	var board: Dictionary = _dictionary_or_empty(
+		snapshot_data.get("gear_mods", {})
+	)
+	var placements_by_instance: Dictionary = {}
+	for placement: Dictionary in _typed_dictionary_array(
+		board.get("placements", [])
+	):
+		placements_by_instance[int(placement.get("instance_id", 0))] = (
+			placement
+		)
+	var difficulty_snapshot: Dictionary = _dictionary_or_empty(
+		snapshot_data.get("difficulty", {})
+	)
+	var frozen_pool: Dictionary = _eligible_first_visit_enemy_pool(
+		_dictionary_or_empty(
+			_module_world_definition.get("first_visit_enemy_spawn", {})
+		),
+		float(difficulty_snapshot.get("elapsed", 0.0))
+	)
+	var frozen_enemy_ids: Array = _array_or_empty(
+		frozen_pool.get("enemy_ids", [])
+	)
+	for state: Dictionary in _typed_dictionary_array(
+		board.get("map_behavior_states", [])
+	):
+		var pending_plan: Dictionary = _dictionary_or_empty(
+			state.get("pending_plan", {})
+		)
+		if pending_plan.is_empty():
+			continue
+		var instance_id: int = int(state.get("instance_id", 0))
+		var placement: Dictionary = _dictionary_or_empty(
+			placements_by_instance.get(instance_id, {})
+		)
+		var placement_coord := Vector2i(
+			int(placement.get("x", -1)),
+			int(placement.get("y", -1))
+		)
+		var planned_coord: Vector2i = _dict_to_vector2i(
+			pending_plan.get("module_coord", {})
+		)
+		var enemy_id: String = String(
+			pending_plan.get("enemy_id", "")
+		)
+		if (
+			_module_world_manager == null
+			or placement.is_empty()
+			or planned_coord != placement_coord
+			or not frozen_enemy_ids.has(enemy_id)
+		):
+			return false
+		var position: Vector2 = _dict_to_vector(
+			pending_plan.get("position", {}),
+			Vector2(INF, INF)
+		)
+		if (
+			not is_finite(position.x)
+			or not is_finite(position.y)
+			or not bool(_module_world_manager.call(
+				"is_world_position_walkable",
+				position
+			))
+		):
+			return false
+		var global_cell: Vector2i = _module_world_manager.call(
+			"world_to_global_cell",
+			position
+		) as Vector2i
+		var mapped: Dictionary = _module_world_manager.call(
+			"global_cell_to_module_and_local",
+			global_cell
+		) as Dictionary
+		if not mapped.get("module_coord") is Vector2i:
+			return false
+		var mapped_coord: Vector2i = mapped.get(
+			"module_coord"
+		) as Vector2i
+		if mapped_coord != planned_coord:
+			return false
+	return true
+
+
+func _register_valid_gear_mod_pickup_snapshot(
+	raw_value: Variant,
+	seen_instance_ids: Dictionary
+) -> bool:
+	if not _is_valid_gear_mod_pickup_snapshot(raw_value):
+		return false
+	var instance_id: int = int(
+		(raw_value as Dictionary).get("instance_id", 0)
+	)
+	if seen_instance_ids.has(instance_id):
+		return false
+	seen_instance_ids[instance_id] = true
+	return true
+
+
+func _normalize_persisted_gear_mod_numbers(
+	snapshot_data: Dictionary
+) -> bool:
+	var raw_board: Variant = snapshot_data.get("gear_mods")
+	if not raw_board is Dictionary:
+		return false
+	var board: Dictionary = raw_board as Dictionary
+	if not _normalize_integral_field(board, "next_instance_id"):
+		return false
+	if not _normalize_coordinate_entries(
+		board.get("unlocked_cells"),
+		false
+	):
+		return false
+	var raw_unlock_sources: Variant = board.get("unlock_sources")
+	if not raw_unlock_sources is Array:
+		return false
+	for raw_source: Variant in raw_unlock_sources as Array:
+		if (
+			not raw_source is Dictionary
+			or not _normalize_coordinate_entries(
+				(raw_source as Dictionary).get("cells"),
+				false
+			)
+		):
+			return false
+	var raw_placements: Variant = board.get("placements")
+	if not _normalize_coordinate_entries(raw_placements, true):
+		return false
+	var raw_behavior_states: Variant = board.get("map_behavior_states")
+	if not raw_behavior_states is Array:
+		return false
+	for raw_state: Variant in raw_behavior_states as Array:
+		if not raw_state is Dictionary:
+			return false
+		var state: Dictionary = raw_state as Dictionary
+		if not _normalize_integral_field(state, "instance_id"):
+			return false
+		var raw_pending_plan: Variant = state.get("pending_plan")
+		if not raw_pending_plan is Dictionary:
+			return false
+		var pending_plan: Dictionary = raw_pending_plan as Dictionary
+		if (
+			not pending_plan.is_empty()
+			and not _normalize_coordinate_dictionary(
+				pending_plan.get("module_coord")
+			)
+		):
+			return false
+	if not _normalize_pickup_instance_ids(
+		snapshot_data.get("gear_mod_pickups")
+	):
+		return false
+	var raw_module_world: Variant = snapshot_data.get("module_world")
+	if not raw_module_world is Dictionary:
+		return false
+	if (raw_module_world as Dictionary).is_empty():
+		return true
+	var raw_slot_states: Variant = (
+		(raw_module_world as Dictionary).get("slot_states")
+	)
+	if not raw_slot_states is Dictionary:
+		return false
+	for raw_slot_state: Variant in (raw_slot_states as Dictionary).values():
+		if not raw_slot_state is Dictionary:
+			return false
+		var slot_state: Dictionary = raw_slot_state as Dictionary
+		if (
+			slot_state.has("gear_mod_pickup_snapshots")
+			and not _normalize_pickup_instance_ids(
+				slot_state.get("gear_mod_pickup_snapshots")
+			)
+		):
+			return false
+	return true
+
+
+func _normalize_coordinate_entries(
+	raw_entries: Variant,
+	with_instance_id: bool
+) -> bool:
+	if not raw_entries is Array:
+		return false
+	for raw_entry: Variant in raw_entries as Array:
+		if not raw_entry is Dictionary:
+			return false
+		var entry: Dictionary = raw_entry as Dictionary
+		if (
+			not _normalize_integral_field(entry, "x")
+			or not _normalize_integral_field(entry, "y")
+			or (
+				with_instance_id
+				and not _normalize_integral_field(entry, "instance_id")
+			)
+		):
+			return false
+	return true
+
+
+func _normalize_coordinate_dictionary(raw_value: Variant) -> bool:
+	if not raw_value is Dictionary:
+		return false
+	var value: Dictionary = raw_value as Dictionary
+	return (
+		_normalize_integral_field(value, "x")
+		and _normalize_integral_field(value, "y")
+	)
+
+
+func _normalize_pickup_instance_ids(raw_pickups: Variant) -> bool:
+	if not raw_pickups is Array:
+		return false
+	for raw_pickup: Variant in raw_pickups as Array:
+		if (
+			not raw_pickup is Dictionary
+			or not _normalize_integral_field(
+				raw_pickup as Dictionary,
+				"instance_id"
+			)
+		):
+			return false
+	return true
+
+
+func _normalize_integral_field(
+	target: Dictionary,
+	field_name: String
+) -> bool:
+	if not target.has(field_name):
+		return false
+	var raw_value: Variant = target.get(field_name)
+	if raw_value is int:
+		return true
+	if not raw_value is float:
+		return false
+	var float_value: float = float(raw_value)
+	if (
+		not is_finite(float_value)
+		or float_value != floorf(float_value)
+		or absf(float_value) > 9_007_199_254_740_991.0
+	):
+		return false
+	target[field_name] = int(float_value)
 	return true
 
 
@@ -5525,10 +6671,14 @@ func _is_valid_gear_mod_pickup_snapshot(raw_value: Variant) -> bool:
 		return false
 	var snapshot_data: Dictionary = raw_value as Dictionary
 	if (
-		snapshot_data.size() != 2
+		snapshot_data.size() != 3
+		or not snapshot_data.has("instance_id")
 		or not snapshot_data.has("mod_id")
 		or not snapshot_data.has("position")
 	):
+		return false
+	var raw_instance_id: Variant = snapshot_data.get("instance_id")
+	if not raw_instance_id is int or int(raw_instance_id) <= 0:
 		return false
 	var mod_id: String = String(snapshot_data.get("mod_id", ""))
 	if (
@@ -5571,6 +6721,11 @@ func _restore_run_snapshot(
 		!= RUN_SNAPSHOT_SCHEMA_VERSION
 	):
 		push_error("[GameplayRunLoop] unsupported run snapshot schema")
+		return false
+	if not _normalize_persisted_gear_mod_numbers(snapshot_data):
+		push_error(
+			"[GameplayRunLoop] Gear Mod snapshot numeric fields are invalid"
+		)
 		return false
 	if (
 		not snapshot_data.get("content_availability", {}) is Dictionary
@@ -5644,6 +6799,12 @@ func _restore_run_snapshot(
 	_next_enemy_spawn_serial = maxi(
 		int(snapshot_data.get("next_enemy_spawn_serial", 1)),
 		1
+	)
+	_next_gear_mod_instance_id = int(
+		(snapshot_data.get("gear_mods", {}) as Dictionary).get(
+			"next_instance_id",
+			0
+		)
 	)
 	_spawn_states = _dictionary_or_empty(snapshot_data.get("spawn_states", {}))
 
@@ -5777,67 +6938,50 @@ func _gear_mod_name_key(mod_id: String) -> String:
 
 
 func _run_gear_mod_snapshot() -> Dictionary:
-	return {"mod_ids": _sorted_run_gear_mod_ids()}
+	if _gear_mod_board == null:
+		return {}
+	var result: Dictionary = (
+		_gear_mod_board.call("snapshot") as Dictionary
+	).duplicate(true)
+	result["next_instance_id"] = _next_gear_mod_instance_id
+	return result
 
 
 func _restore_run_gear_mods(raw_value: Variant) -> bool:
 	if not raw_value is Dictionary:
 		return false
 	var saved_state: Dictionary = raw_value as Dictionary
-	if (
-		saved_state.size() != 1
-		or not saved_state.has("mod_ids")
-		or not saved_state.get("mod_ids") is Array
-	):
+	if _gear_mod_board == null:
 		return false
-	var restored_mod_ids: Array[String] = []
-	for raw_mod_id: Variant in saved_state.get("mod_ids") as Array:
-		if not raw_mod_id is String:
-			return false
-		var mod_id: String = raw_mod_id as String
-		if (
-			GearModSystem.mod_definition(mod_id).is_empty()
-			or not _is_content_available(
-				CONTENT_UNLOCK_TYPES.GEAR_MOD,
-				mod_id
-			)
-		):
-			return false
-		restored_mod_ids.append(mod_id)
-	_run_gear_mod_ids = restored_mod_ids
+	var board_state: Dictionary = saved_state.duplicate(true)
+	board_state.erase("next_instance_id")
+	if not bool(_gear_mod_board.call("restore_snapshot", board_state)):
+		return false
+	_sync_run_gear_mod_ids_from_board()
 	return true
-
-
-func _grant_run_gear_mod(
-	mod_id: String,
-	show_feedback: bool = true
-) -> Dictionary:
-	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-	if definition.is_empty():
-		return _debug_result(false, "unknown_gear_mod")
-	if not _is_content_available(CONTENT_UNLOCK_TYPES.GEAR_MOD, mod_id):
-		return _debug_result(false, "locked_gear_mod")
-	_run_gear_mod_ids.append(mod_id)
-	_apply_run_gear_modifiers()
-	if (
-		show_feedback
-		and _hud != null
-		and _hud.has_method("show_gear_mod_drop_feedback")
-	):
-		_hud.call(
-			"show_gear_mod_drop_feedback",
-			String(definition.get("name_key", ""))
-		)
-	return {
-		"ok": true,
-		"mod_id": mod_id,
-		"name_key": String(definition.get("name_key", "")),
-	}
 
 
 func _clear_run_gear_mods() -> void:
 	_run_gear_mod_ids.clear()
+	if _gear_mod_board != null:
+		_gear_mod_board.call(
+			"configure",
+			GearModSystem.board_config(),
+			GearModSystem.mod_definitions()
+		)
 	_apply_run_gear_modifiers()
+
+
+func _sync_run_gear_mod_ids_from_board() -> void:
+	_run_gear_mod_ids.clear()
+	if _gear_mod_board == null:
+		return
+	for placement: Dictionary in _typed_dictionary_array(
+		_gear_mod_board.call("placements")
+	):
+		var mod_id: String = String(placement.get("mod_id", ""))
+		if not mod_id.is_empty():
+			_run_gear_mod_ids.append(mod_id)
 
 
 func _apply_run_gear_modifiers() -> void:
@@ -5845,6 +6989,8 @@ func _apply_run_gear_modifiers() -> void:
 	var weapon_modifiers: Array[Dictionary] = []
 	for mod_id: String in _sorted_run_gear_mod_ids():
 		var definition: Dictionary = GearModSystem.mod_definition(mod_id)
+		if String(definition.get("kind", "")) != GEAR_MOD_KINDS.EFFECT:
+			continue
 		var modifiers: Array[Dictionary] = GearModSystem.modifiers(mod_id)
 		match String(definition.get("slot", "")):
 			GEAR_MOD_SLOTS.HERO:
@@ -6646,18 +7792,6 @@ func _composition_color(color_key: String, fallback: Color) -> Color:
 	if not encoded.is_empty() and Color.html_is_valid(encoded):
 		return Color.from_string(encoded, fallback)
 	return fallback
-
-
-func _update_stats_panel() -> void:
-	if _hud == null or not _hud.has_method("set_stats_panel_visible"):
-		return
-	var should_show: bool = (
-		GameState.is_state(GameState.PLAYING)
-		and InputService.is_pressed(ACTIONS.SHOW_STATS_PANEL, INPUT_PARTICIPANT_ID)
-	)
-	_hud.call("set_stats_panel_visible", should_show)
-	if should_show and _hud.has_method("set_detailed_stats"):
-		_hud.call("set_detailed_stats", _stats_panel_snapshot())
 
 
 func _stats_panel_snapshot() -> Dictionary:

@@ -10,6 +10,13 @@ const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placemen
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
+const GEAR_MOD_GRID_BEHAVIORS := preload(
+	"res://scripts/contracts/gear_mod_grid_behaviors.gd"
+)
+const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
+const GEAR_MOD_MAP_BEHAVIORS := preload(
+	"res://scripts/contracts/gear_mod_map_behaviors.gd"
+)
 const WORLD_EVENT_IDS := preload("res://scripts/contracts/world_event_ids.gd")
 const WORLD_EVENT_KINDS := preload("res://scripts/contracts/world_event_kinds.gd")
 const CONTENT_UNLOCK_TYPES := preload(
@@ -258,6 +265,38 @@ func gear_mod_gameplay_fingerprint_payload() -> Dictionary:
 	if not raw_data is Dictionary:
 		return {}
 	var data: Dictionary = raw_data as Dictionary
+	var normalized_board: Dictionary = {}
+	var raw_board: Variant = data.get("board", {})
+	if raw_board is Dictionary:
+		var board: Dictionary = raw_board as Dictionary
+		var normalized_center: Dictionary = {}
+		var raw_center: Variant = board.get("center", {})
+		if raw_center is Dictionary:
+			var center: Dictionary = raw_center as Dictionary
+			normalized_center = {
+				"x": int(center.get("x", -1)),
+				"y": int(center.get("y", -1)),
+			}
+		var normalized_initial_cells: Array[Dictionary] = []
+		var raw_initial_cells: Variant = board.get(
+			"initial_unlocked_cells",
+			[]
+		)
+		if raw_initial_cells is Array:
+			for raw_cell: Variant in raw_initial_cells as Array:
+				if not raw_cell is Dictionary:
+					continue
+				var cell: Dictionary = raw_cell as Dictionary
+				normalized_initial_cells.append({
+					"x": int(cell.get("x", -1)),
+					"y": int(cell.get("y", -1)),
+				})
+		normalized_board = {
+			"width": int(board.get("width", 0)),
+			"height": int(board.get("height", 0)),
+			"center": normalized_center,
+			"initial_unlocked_cells": normalized_initial_cells,
+		}
 	var normalized_pickup: Dictionary = {}
 	var raw_pickup: Variant = data.get("pickup", {})
 	if raw_pickup is Dictionary:
@@ -307,13 +346,43 @@ func gear_mod_gameplay_fingerprint_payload() -> Dictionary:
 						"type": String(modifier.get("type", "")),
 						"value": float(modifier.get("value", 0.0)),
 					})
-			normalized_mods.append({
+			var normalized_mod: Dictionary = {
 				"id": String(mod.get("id", "")),
-				"slot": String(mod.get("slot", "")),
+				"kind": String(mod.get("kind", "")),
 				"default_unlocked": bool(mod.get("default_unlocked", true)),
 				"unlock_rule_id": String(mod.get("unlock_rule_id", "")),
-				"modifiers": normalized_modifiers,
-			})
+			}
+			var kind: String = String(mod.get("kind", ""))
+			if kind == GEAR_MOD_KINDS.EFFECT:
+				normalized_mod["slot"] = String(mod.get("slot", ""))
+				normalized_mod["modifiers"] = normalized_modifiers
+			elif kind == GEAR_MOD_KINDS.MAP:
+				var raw_map_behavior: Variant = mod.get("map_behavior", {})
+				if raw_map_behavior is Dictionary:
+					var map_behavior: Dictionary = raw_map_behavior as Dictionary
+					normalized_mod["map_behavior"] = {
+						"id": String(map_behavior.get("id", "")),
+						"interval_seconds": float(
+							map_behavior.get("interval_seconds", 0.0)
+						),
+						"reset_on_module_exit": bool(
+							map_behavior.get("reset_on_module_exit", false)
+						),
+						"current_layer_only": bool(
+							map_behavior.get("current_layer_only", false)
+						),
+						"normal_rewards": bool(
+							map_behavior.get("normal_rewards", false)
+						),
+					}
+			elif kind == GEAR_MOD_KINDS.GRID:
+				var raw_grid_behavior: Variant = mod.get("grid_behavior", {})
+				if raw_grid_behavior is Dictionary:
+					var grid_behavior: Dictionary = raw_grid_behavior as Dictionary
+					normalized_mod["grid_behavior"] = {
+						"id": String(grid_behavior.get("id", "")),
+					}
+			normalized_mods.append(normalized_mod)
 
 	var normalized_drop_rows: Array[Dictionary] = []
 	for row: Dictionary in load_csv(GEAR_MOD_DROP_TABLES_PATH):
@@ -327,6 +396,7 @@ func gear_mod_gameplay_fingerprint_payload() -> Dictionary:
 
 	return {
 		"schema_version": int(data.get("schema_version", 0)),
+		"board": normalized_board,
 		"pickup": normalized_pickup,
 		"reward_pools": normalized_reward_pools,
 		"mods": normalized_mods,
@@ -2794,14 +2864,15 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		GEAR_MODS_PATH,
 		"root",
 		payload,
-		["schema_version", "pickup", "reward_pools", "mods"]
+		["schema_version", "board", "pickup", "reward_pools", "mods"]
 	)
 	is_valid = _require_exact_int(
 		GEAR_MODS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		4
+		5
 	) and is_valid
+	is_valid = _validate_gear_mod_board(payload.get("board")) and is_valid
 	var pickup: Variant = payload.get("pickup")
 	if not pickup is Dictionary:
 		is_valid = _schema_fail(
@@ -2925,11 +2996,31 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 			is_valid = _schema_fail(GEAR_MODS_PATH, field, "Dictionary") and is_valid
 			continue
 		var mod_dict: Dictionary = mod as Dictionary
+		var mod_kind: String = _require_registered(
+			GEAR_MODS_PATH,
+			"%s.kind" % field,
+			mod_dict.get("kind"),
+			"gear_mod_kinds"
+		)
+		is_valid = not mod_kind.is_empty() and is_valid
+		var required_mod_keys: Array[String] = [
+			"id",
+			"name_key",
+			"desc_key",
+			"kind",
+			"rarity",
+		]
+		if mod_kind == GEAR_MOD_KINDS.EFFECT:
+			required_mod_keys.append_array(["slot", "modifiers"])
+		elif mod_kind == GEAR_MOD_KINDS.MAP:
+			required_mod_keys.append("map_behavior")
+		elif mod_kind == GEAR_MOD_KINDS.GRID:
+			required_mod_keys.append("grid_behavior")
 		is_valid = _validate_dictionary_keys(
 			GEAR_MODS_PATH,
 			field,
 			mod_dict,
-			["id", "name_key", "desc_key", "slot", "rarity", "modifiers"],
+			required_mod_keys,
 			["default_unlocked", "unlock_rule_id", "codex_icon_path"]
 		) and is_valid
 		var mod_id: String = _require_registered(GEAR_MODS_PATH, "%s.id" % field, mod_dict.get("id"), "gear_mod_ids")
@@ -2939,10 +3030,250 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 			seen[mod_id] = true
 		is_valid = _require_locale_key(GEAR_MODS_PATH, "%s.name_key" % field, mod_dict.get("name_key"), locale_keys) and is_valid
 		is_valid = _require_locale_key(GEAR_MODS_PATH, "%s.desc_key" % field, mod_dict.get("desc_key"), locale_keys) and is_valid
-		is_valid = _require_registered(GEAR_MODS_PATH, "%s.slot" % field, mod_dict.get("slot"), "gear_mod_slots") != "" and is_valid
 		is_valid = _require_registered(GEAR_MODS_PATH, "%s.rarity" % field, mod_dict.get("rarity"), "gear_mod_rarities") != "" and is_valid
-		is_valid = _validate_gear_mod_modifiers("%s.modifiers" % field, mod_dict.get("modifiers")) and is_valid
+		if mod_kind == GEAR_MOD_KINDS.EFFECT:
+			is_valid = _require_registered(
+				GEAR_MODS_PATH,
+				"%s.slot" % field,
+				mod_dict.get("slot"),
+				"gear_mod_slots"
+			) != "" and is_valid
+			is_valid = _validate_gear_mod_modifiers(
+				"%s.modifiers" % field,
+				mod_dict.get("modifiers")
+			) and is_valid
+		elif mod_kind == GEAR_MOD_KINDS.MAP:
+			is_valid = _validate_gear_mod_map_behavior(
+				"%s.map_behavior" % field,
+				mod_dict.get("map_behavior")
+			) and is_valid
+		elif mod_kind == GEAR_MOD_KINDS.GRID:
+			is_valid = _validate_gear_mod_grid_behavior(
+				"%s.grid_behavior" % field,
+				mod_dict.get("grid_behavior")
+			) and is_valid
 	_last_schema_counts["gear_mod_reward_pools"] = reward_pools.size()
+	return is_valid
+
+
+func _validate_gear_mod_board(data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(GEAR_MODS_PATH, "board", "Dictionary")
+	var board: Dictionary = data as Dictionary
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		GEAR_MODS_PATH,
+		"board",
+		board,
+		["width", "height", "center", "initial_unlocked_cells"]
+	)
+	is_valid = _require_exact_int(
+		GEAR_MODS_PATH,
+		"board.width",
+		board.get("width"),
+		7
+	) and is_valid
+	is_valid = _require_exact_int(
+		GEAR_MODS_PATH,
+		"board.height",
+		board.get("height"),
+		7
+	) and is_valid
+	var center: Variant = board.get("center")
+	if not center is Dictionary:
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			"board.center",
+			"Dictionary"
+		) and is_valid
+	else:
+		var center_cell: Dictionary = center as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			GEAR_MODS_PATH,
+			"board.center",
+			center_cell,
+			["x", "y"]
+		) and is_valid
+		is_valid = _require_exact_int(
+			GEAR_MODS_PATH,
+			"board.center.x",
+			center_cell.get("x"),
+			3
+		) and is_valid
+		is_valid = _require_exact_int(
+			GEAR_MODS_PATH,
+			"board.center.y",
+			center_cell.get("y"),
+			3
+		) and is_valid
+	var cells: Array = _require_array(
+		GEAR_MODS_PATH,
+		"board.initial_unlocked_cells",
+		board.get("initial_unlocked_cells")
+	)
+	var actual_cells: Dictionary = {}
+	for index: int in range(cells.size()):
+		var field: String = "board.initial_unlocked_cells[%d]" % index
+		var raw_cell: Variant = cells[index]
+		if not raw_cell is Dictionary:
+			is_valid = _schema_fail(GEAR_MODS_PATH, field, "Dictionary") and is_valid
+			continue
+		var cell: Dictionary = raw_cell as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			GEAR_MODS_PATH,
+			field,
+			cell,
+			["x", "y"]
+		) and is_valid
+		var x_is_valid: bool = _require_int(
+			GEAR_MODS_PATH,
+			"%s.x" % field,
+			cell.get("x"),
+			0,
+			6
+		)
+		var y_is_valid: bool = _require_int(
+			GEAR_MODS_PATH,
+			"%s.y" % field,
+			cell.get("y"),
+			0,
+			6
+		)
+		is_valid = x_is_valid and y_is_valid and is_valid
+		if not x_is_valid or not y_is_valid:
+			continue
+		var cell_value := Vector2i(int(cell.get("x")), int(cell.get("y")))
+		if actual_cells.has(cell_value):
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				field,
+				"unique board cell"
+			) and is_valid
+		actual_cells[cell_value] = true
+	var expected_cells: Array[Vector2i] = [
+		Vector2i(3, 1),
+		Vector2i(2, 2),
+		Vector2i(3, 2),
+		Vector2i(4, 2),
+		Vector2i(1, 3),
+		Vector2i(2, 3),
+		Vector2i(3, 3),
+		Vector2i(4, 3),
+		Vector2i(5, 3),
+		Vector2i(2, 4),
+		Vector2i(3, 4),
+		Vector2i(4, 4),
+		Vector2i(3, 5),
+	]
+	if cells.size() != expected_cells.size():
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			"board.initial_unlocked_cells",
+			"exact 13-cell 0/1/3/5/3/1/0 center mask"
+		) and is_valid
+	for expected_cell: Vector2i in expected_cells:
+		if not actual_cells.has(expected_cell):
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"board.initial_unlocked_cells",
+				"exact 13-cell 0/1/3/5/3/1/0 center mask"
+			) and is_valid
+			break
+	return is_valid
+
+
+func _validate_gear_mod_map_behavior(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(GEAR_MODS_PATH, field, "Dictionary")
+	var behavior: Dictionary = data as Dictionary
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		GEAR_MODS_PATH,
+		field,
+		behavior,
+		[
+			"id",
+			"interval_seconds",
+			"reset_on_module_exit",
+			"current_layer_only",
+			"normal_rewards",
+		]
+	)
+	var behavior_id: String = _require_registered(
+		GEAR_MODS_PATH,
+		"%s.id" % field,
+		behavior.get("id"),
+		"gear_mod_map_behaviors"
+	)
+	is_valid = not behavior_id.is_empty() and is_valid
+	if (
+		not behavior_id.is_empty()
+		and behavior_id != GEAR_MOD_MAP_BEHAVIORS.PERIODIC_ENEMY_SPAWN
+	):
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			"%s.id" % field,
+			"periodic_enemy_spawn"
+		) and is_valid
+	var interval_is_valid: bool = _require_number(
+		GEAR_MODS_PATH,
+		"%s.interval_seconds" % field,
+		behavior.get("interval_seconds"),
+		0.0,
+		null,
+		true
+	)
+	is_valid = interval_is_valid and is_valid
+	if interval_is_valid and float(behavior.get("interval_seconds")) != 10.0:
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			"%s.interval_seconds" % field,
+			"number equal to 10.0"
+		) and is_valid
+	for key: String in [
+		"reset_on_module_exit",
+		"current_layer_only",
+		"normal_rewards",
+	]:
+		var bool_is_valid: bool = _require_bool(
+			GEAR_MODS_PATH,
+			"%s.%s" % [field, key],
+			behavior.get(key)
+		)
+		is_valid = bool_is_valid and is_valid
+		if bool_is_valid and not bool(behavior.get(key)):
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"%s.%s" % [field, key],
+				"true"
+			) and is_valid
+	return is_valid
+
+
+func _validate_gear_mod_grid_behavior(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(GEAR_MODS_PATH, field, "Dictionary")
+	var behavior: Dictionary = data as Dictionary
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		GEAR_MODS_PATH,
+		field,
+		behavior,
+		["id"]
+	)
+	var behavior_id: String = _require_registered(
+		GEAR_MODS_PATH,
+		"%s.id" % field,
+		behavior.get("id"),
+		"gear_mod_grid_behaviors"
+	)
+	is_valid = not behavior_id.is_empty() and is_valid
+	if (
+		not behavior_id.is_empty()
+		and behavior_id != GEAR_MOD_GRID_BEHAVIORS.OCCUPY_ONLY
+	):
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			"%s.id" % field,
+			"occupy_only"
+		) and is_valid
 	return is_valid
 
 

@@ -1,7 +1,7 @@
 # InputService 模块
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 权威范围：项目输入门面、规范 action 与归一化 intent、GUIDE context 生命周期、重绑定持久化、设备提示、Godot UI 兼容桥及 Replay v7 输入接管。插件内部架构见 [`guide.md`](guide.md)，action / binding id 白名单见 [`../词表与契约.md`](../词表与契约.md) §7，架构决策见 [`../决策记录.md`](../决策记录.md) ADR #151 / #152 / #161 / #186 / #188 / #189 / #193。
+> 权威范围：项目输入门面、规范 action 与归一化 intent、GUIDE context 生命周期、非暂停 UI gameplay capture、重绑定持久化、设备提示、Godot UI 兼容桥及 Replay v8 输入接管。插件内部架构见 [`guide.md`](guide.md)，action / binding id 白名单见 [`../词表与契约.md`](../词表与契约.md) §7，架构决策见 [`../决策记录.md`](../决策记录.md) ADR #151 / #152 / #161 / #186 / #188 / #189 / #193 / #194。
 
 ## 1. 一句话职责
 
@@ -58,7 +58,7 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 | `pointer_viewport_position() -> Vector2` / `pointer_world_position(viewport) -> Vector2` | 读取内部 pointer action 的 viewport 坐标，或按目标 viewport canvas transform 转成世界坐标 |
 | `publish_resolved_aim(value)` | Player 适配层把鼠标 / 方向来源合成为最终 aim 后发布；本地录制只记录这个结果 |
 | `resolved_aim() -> Vector2` | 读取最终 aim；playback 模式直接返回回放注入的 `aim` |
-| `should_use_pointer_aim() -> bool` | 本地物理输入下最近有效瞄准源是否为鼠标；回放期间固定为 `false` |
+| `should_use_pointer_aim() -> bool` | 本地物理输入下最近有效瞄准源是否为鼠标；回放或非暂停 UI capture 期间固定为 `false`，避免面板开启时继续驱动朝向 / 相机 |
 | `current_device_family() -> StringName` | 返回 `keyboard_mouse` 或 `gamepad` |
 | `set_debug_capture_active(enabled)` | DebugConsole 可见时阻断 gameplay、启用 UI 输入语义；release 构建强制保持关闭 |
 | `action_resource(action_id) -> GUIDEAction` | 仅项目输入 / UI 提示适配需要时取 GUIDE action；业务不要继续向下访问插件 |
@@ -71,7 +71,10 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 | `resolve_pending_remap(replace_conflicts) -> bool` | 冲突弹窗选择替换或取消 |
 | `reset_bindings_to_defaults() -> bool` | 清空 remapping config、恢复发布默认并原子保存 |
 | `set_playback_active(enabled)` / `playback_active()` | 开关 Replay 输入覆盖；切换时清空残留值 |
-| `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v7 注入 bool / Vector2 intent；仅 playback 模式接受 |
+| `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v8 注入 bool / Vector2 intent；仅 playback 模式接受 |
+| `begin_non_pausing_ui_capture(owner) -> bool` | 以弱引用 owner 开始非暂停 UI 捕获；可嵌套不同 owner，首个 owner 进入时把轮询 intent 归零；持续开火记录 release，技能 / 冲刺 / 交互 / 暂停等 one-shot 不合成边沿 |
+| `end_non_pausing_ui_capture(owner) -> bool` | 移除 owner；最后一个 owner 离开时按真实物理状态恢复移动 / 瞄准 / 持续开火；仍按住的 one-shot 不合成第二次 press，必须先释放再重新按下 |
+| `non_pausing_ui_capture_active() -> bool` | 查询 Gear Mod 查看 / 放置等非暂停 UI 是否正在完整屏蔽角色 intent |
 | `clear_playback_values()` | 清空当前回放值 |
 | `bindings_path() -> String` | 返回当前绑定文件路径 |
 | `debug_inject_input(event)` | 测试边界注入 GUIDE 原始事件；正式业务禁用 |
@@ -109,6 +112,8 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 
 GUIDE 用单调启用序号解决同优先级 context 的确定性顺序；禁止改回系统时间戳。捕获重绑定时全部 context 暂停，捕获完成、取消或异常清理后由 `InputService` 按上表重新计算，不能由设置页自行逐个恢复。
 
+`GearModBoardPanel` 这类不暂停世界的 gameplay overlay 同时保留 gameplay 与 UI context：真实 `show_stats_panel` 按住状态必须持续可见，以便 Tab 松开关闭；移动、瞄准、开火、技能 1–4、冲刺和交互的业务值则在 capture 期间归零。进入 capture 要发布一次 release / 零向量，离开时从 GUIDE 当前真实值恢复，不能把 context 重算造成的伪释放当成物理松键。
+
 ## 6. UI 兼容桥
 
 Godot `Control` 的鼠标点击继续使用原生 GUI event。GUIDE tracker 会先观察同一个物理事件，再让它继续进入 GUI；`InputService` 的 active context 保证菜单点击不会同时触发 gameplay。键盘 / 手柄导航由 `InputService` 把 GUIDE 的 `ui_up/down/left/right`、`ui_confirm`、`ui_back` 窄桥接为 Godot `ui_*` `InputEventAction`，仅用于现有焦点系统。
@@ -144,9 +149,9 @@ binding id 是设置 UI 的绑定槽，不等于 action。完整白名单在词�
 
 热插拔 / 断开时清理手柄残留状态并切换到仍有效设备提示。新增 prompt 展示时先复用 `prompt_text()` / `prompt_richtext_async()`，不要在 UI 中维护独立的“按键名映射表”。
 
-## 9. Replay v7 边界
+## 9. Replay v8 边界
 
-Replay v7 记录最终 intent；四技能、冲刺和组合选择都纳入录制，已删除的 `reload` 不再是合法输入语义：
+Replay v8 记录最终 intent；四技能、冲刺和组合选择都纳入录制，已删除的 `reload` 不再是合法输入语义：
 
 ```json
 {
@@ -159,7 +164,7 @@ Replay v7 记录最终 intent；四技能、冲刺和组合选择都纳入录制
 }
 ```
 
-布尔 action 使用 `value_type: "bool"` 与布尔 `value`。播放时 `Replay` 先启用 playback，再调用 `inject_playback_value()`；此时本地 GUIDE 采样不污染业务值。Replay v7 只接受当前规范 action，并同时恢复冻结内容池、忽略本机 Meta；ADR #193 后旧 Replay v6 明确拒绝，不做迁移。详见 [`replay.md`](replay.md)。
+布尔 action 使用 `value_type: "bool"` 与布尔 `value`。播放时 `Replay` 先启用 playback，再调用 `inject_playback_value()`；此时本地 GUIDE 采样不污染业务值。Replay v8 只接受当前规范 action，并同时恢复冻结内容池、忽略本机 Meta；`gear_mod_placement` 是独立语义决策，不伪装成物理鼠标轨迹。ADR #194 后旧 Replay v7 明确拒绝，不做迁移。详见 [`replay.md`](replay.md)。
 
 ## 10. 修改入口与禁止事项
 
@@ -167,7 +172,7 @@ Replay v7 记录最终 intent；四技能、冲刺和组合选择都纳入录制
 |------|----------|
 | 新增业务 action | 词表 §7 → 契约同步 → GUIDE action / context 资源 → InputService → 测试与文档 |
 | 改默认键位 / 摇杆 | `client/resources/input/contexts/*.tres` 与 binding spec；同步设置文案 / smoke |
-| 改玩家移动 / 瞄准 / 技能 / 冲刺语义 | InputService + Player / SkillSystem 适配层 + Replay v7；不要改 GUIDE 设备底层 |
+| 改玩家移动 / 瞄准 / 技能 / 冲刺语义 | InputService + Player / SkillSystem 适配层 + Replay v8；不要改 GUIDE 设备底层 |
 | 改重绑定规则 | InputService remap API、binding schema 与设置页；同步 `settings.md` |
 | 改 prompt | InputService formatter 门面；插件 formatter 内部变化再读 `guide.md` |
 | 升级 GUIDE | 先按 `client/addons/README.md` 人工比较发布包并重放本地补丁 |
@@ -188,7 +193,7 @@ Replay v7 记录最终 intent；四技能、冲刺和组合选择都纳入录制
 
 ## 12. 验证义务
 
-- `input-smoke`：键鼠 / 手柄移动瞄准、按钮边沿、context 隔离、失焦、设备切换、提示刷新、捕获取消、负轴轴组、冲突替换 / 取消和防锁死键。
+- `input-smoke`：键鼠 / 手柄移动瞄准、按钮边沿、context 隔离、失焦、设备切换、提示刷新、捕获取消、负轴轴组、冲突替换 / 取消、防锁死键，以及非暂停 UI capture 的角色 intent / pointer aim 屏蔽、Tab 真实按住、持续 intent 恢复和 one-shot 不重复触发。
 - `settings-smoke`：v1 普通偏好保留、旧输入 key 忽略、binding roundtrip、重启保持、恢复默认、损坏与未来版本回退。
 - `replay-smoke` / `replay-input-smoke`：v4 bool / Vector2、四技能、冲刺、组合决策、鼠标最终 aim、`reload` 拒绝、不支持 schema 拒绝及物理输入隔离。
 - 修改输入消费方后运行相应 runtime、module-world、technical-slice、L1 与 debug tools smoke。

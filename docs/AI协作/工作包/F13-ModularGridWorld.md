@@ -2,7 +2,7 @@
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是模块 Roguelike 世界工作包；改动时同步 GDD、ADR、Module World / Gameplay / Save 文档、数据手册、测试策略与 AI 记忆。
 
-> ADR #142 / #154 / #164 / #166 / #173 / #188 / #190 / #193 的当前阶段工作包。模块世界 schema、确定性目标角落、直接通关语义和 Run v17 必须同步 GDD、代码文档、测试策略、数据手册、知识索引与 AI 记忆。
+> ADR #142 / #154 / #164 / #166 / #173 / #188 / #190 / #193 / #194 的当前阶段工作包。模块世界 schema、确定性目标角落、直接通关语义、同坐标 Gear Mod 棋盘和 Run v18 必须同步 GDD、代码文档、测试策略、数据手册、知识索引与 AI 记忆。
 
 ## 目标
 
@@ -25,8 +25,8 @@
 ## 运行时边界
 
 - `ModuleWorldManager` 负责 49 槽 assignment、内容敏感 map hash、77×77 walkability、3×3 流式邻域、最多三个事件 pin 与槽位状态。
-- `GameplayRunLoop` 负责首次遭遇、敌人 / 机关 / 事件、局内金币与无等级 Gear Mod 实例、目标完成和 Run v17 总快照。
-- 恢复顺序保持 assignment / hash → 世界事件 → 敌人 / 子弹 → 从排序后的 `mod_ids` 替换应用局内 Gear Mod 层。
+- `GameplayRunLoop` 负责首次遭遇、敌人 / 机关 / 事件、局内金币、Gear Mod 棋盘 / 地图行为 / 带 ID 地面物、目标完成和 Run v18 总快照。
+- 恢复顺序保持 assignment / hash → 世界事件 → 棋盘 / 带 ID 地面物 → 敌人 / 子弹 → 从按实例排序的 effect placements 替换应用局内 Gear Mod 层。
 - fallback 先覆盖完整 49 格，再以同一确定性目标选择覆盖候选角；技术切片平移到中心 3×3 / 外圈 40 格封锁。两者同样只能以 `completes_run` 目标直接结束。
 
 ## 模块审核状态
@@ -36,8 +36,8 @@
 ## 验证
 
 - contracts、数据 / schema、module bake / check、module JSON editor。
-- `module-world-smoke` 与 `module-world-technical-slice-smoke` 覆盖 49 个唯一槽位、77×77 导航、左下起点、三个确定性目标候选、6–12 次跨越、fallback 覆盖、中心 3×3 / 外圈 40 格技术首片、迷雾、意识核直接完成、Run v17 roundtrip 与 hash mismatch。
+- `module-world-smoke` 与 `module-world-technical-slice-smoke` 覆盖 49 个唯一槽位、77×77 导航、左下起点、三个确定性目标候选、6–12 次跨越、fallback 覆盖、中心 3×3 / 外圈 40 格技术首片、迷雾、意识核直接完成、刷怪笼同坐标行为、Run v18 roundtrip 与 hash mismatch。
 - `world-event-smoke`、`save-smoke`、`loading-smoke`、`runtime-smoke`、headless boot/editor。
-- Replay v7 四条黄金回放重录与运行时回归；ADR #193 后旧 Run v16 及更早版本与 Replay v6 明确不兼容。
+- Replay v8 四条黄金回放重录与运行时回归；ADR #194 后旧 Run v17 及更早版本与 Replay v7 明确不兼容。
 
 性能 probe 不属于默认验证。人工项包括出生房视觉、左下小地图方向、三个目标角覆盖、续局目标稳定与 6 / 12 次跨越路线手感，均保持待人工验收。

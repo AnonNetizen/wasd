@@ -5,8 +5,12 @@ const VALUES: Array[String] = [
 	"gear_mod_weapon_damage_test",
 	"gear_mod_weapon_recoil_damper",
 	"gear_mod_weapon_spread_stabilizer",
+	"gear_mod_map_spawner_cage",
+	"gear_mod_grid_rock",
 ]
 
 const GEAR_MOD_WEAPON_DAMAGE_TEST: String = "gear_mod_weapon_damage_test"
 const GEAR_MOD_WEAPON_RECOIL_DAMPER: String = "gear_mod_weapon_recoil_damper"
 const GEAR_MOD_WEAPON_SPREAD_STABILIZER: String = "gear_mod_weapon_spread_stabilizer"
+const GEAR_MOD_MAP_SPAWNER_CAGE: String = "gear_mod_map_spawner_cage"
+const GEAR_MOD_GRID_ROCK: String = "gear_mod_grid_rock"

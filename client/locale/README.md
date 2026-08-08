@@ -36,7 +36,7 @@ Godot 中央主界面的“数据配表”把 `strings.csv` 作为完整可编�
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key`；消耗、范围、效果参数等使用下方配置占位符 |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，可能调整的数值必须使用命名占位符并由配置注入 |
-| 加 Gear Mod 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key，例如 Mod 名称、描述、拾取与获得反馈；Mod 描述保持定性，实际修正值由固定 `modifiers` 的通用摘要显示；UI 代码使用 `tr("ui_xxx")` |
+| 加 Gear Mod 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key，例如 effect / map / grid Mod 名称与描述、7×7 棋盘、核心、坐标、放置 / 取消和无空间反馈；effect 实际修正值由固定 `modifiers` 通用摘要显示，map / grid 详情使用定性描述；UI 代码使用 `tr("ui_xxx")` |
 | 加开发者测试岛文案 | 在 `strings.csv` 加 `ui_debug_test_arena_*` key；该域只供独立 debug/dev_tools scene 的配装、区域标签、控制面板和伤害 HUD 使用，仍须维护 `zh_CN` / `en` 并按英文长度验收 |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
@@ -83,7 +83,7 @@ ui_resume,继续,Resume
 | `ui_hud_` | 局内常驻 HUD 标签与短时状态 / 拾取反馈 | `ui_hud_life` / `ui_hud_kills` / `ui_hud_level` |
 | `ui_difficulty_` | 难度 profile 名称、局内威胁等级、阶段与暂停状态 | `ui_difficulty_standard_name` / `ui_difficulty_level` / `ui_difficulty_stage_dormant` |
 | `ui_stats_` | 局内详细数值面板标签 | `ui_stats_damage` / `ui_stats_skill_resource` |
-| `ui_gear_mod_` | Gear Mod 局内获得反馈 | `ui_gear_mod_drop_obtained` |
+| `ui_gear_mod_` | Gear Mod 局内反馈与 7×7 棋盘面板 | `ui_gear_mod_board_title` / `ui_gear_mod_no_space` |
 | `ui_debug_test_arena_` | 独立 debug/dev_tools 开发者测试岛、配装、控制面板和伤害 HUD | `ui_debug_test_arena_setup_title` / `ui_debug_test_arena_spawn` |
 | `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
 | `character_` | 智能碎片名称和描述；`character` 是不迁移的遗留内部前缀 | `character_primary_a_name` / `character_primary_b_name` |
@@ -189,7 +189,7 @@ label.text = tr("ui_damage") + str(value)
 
 ### 加一段 HUD 文案
 
-1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。Gear Mod 实体拾取提示使用 `ui_interact_pickup_gear_mod`，必须同时保留 `{binding}`、`{name}`、`{effect}`；拾取后的 HUD 反馈只显示 Mod 名称。世界事件完成后只显示“Gear Mod 已掉落”，不能提前显示“已获得”。威胁阶段名称使用 `ui_difficulty_stage_<stage>`，跨语言共用同一 key。
+1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key。Gear Mod 实体提示使用 `ui_interact_pickup_gear_mod`，必须同时保留 `{binding}`、`{name}`、`{effect}`；effect 的 `{effect}` 由 modifier 生成，map / grid 使用 `desc_key`。交互后只是打开配置，只有确认放置才显示获得反馈；取消、无合法格或自动中止不得写“已获得”。棋盘坐标模板两种语言必须保留相同 `{x}` / `{y}` 占位符。
    难度 profile 显示名同样使用 `ui_difficulty_*_name`；当前标准 profile 固定引用 `ui_difficulty_standard_name`（“标准 / Standard”），不得把显示名写进 `difficulty_profiles.json`。
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
 3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、清理数、难度时间、威胁阶段、等级、金币余额 / 进度、详细数值、等级 / 奖励反馈和交互提示重画。
@@ -268,7 +268,7 @@ gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces pr
 
 1. 图鉴入口与标题使用 `ui_codex` / `ui_codex_title`；三个首版分类固定使用 `ui_codex_category_character`、`ui_codex_category_gear_mod`、`ui_codex_category_enemy`。
 2. 未解锁名称统一显示 `ui_codex_locked` 的 `???`。通用要求进度使用 `ui_codex_requirement_progress`；具体计数器分别映射到 `ui_codex_requirement_runs_ended`、`ui_codex_requirement_runs_completed`、`ui_codex_requirement_character_run_completed`、`ui_codex_requirement_enemy_defeated_total` 与 `ui_codex_requirement_enemy_defeated`，组合模式使用 `ui_codex_requirement_mode_all` / `ui_codex_requirement_mode_any`。两种语言都必须保留对应的 `{subject}`、`{current}`、`{target}`；本局暂存提示使用 `ui_codex_pending_preview` 的 `{count}`。
-3. Gear Mod 图鉴详情显示槽位与稀有度，并通过 `ui_codex_slot_<slot>` / `ui_codex_rarity_<rarity>` 映射，不把契约 id 直接暴露给玩家；实际效果来自固定 `modifiers`。
+3. Gear Mod 图鉴详情显示类型、适用槽位（effect）与稀有度，不把 kind / behavior 契约 id 直接暴露给玩家；effect 实际效果来自固定 `modifiers`，map / grid 使用本地化描述。中心“核心”不是普通 Mod，不进入图鉴。
 4. 局终新解锁结果使用 `ui_result_new_unlocks_header`、`ui_result_new_unlock_line` 的 `{name}` 与 `ui_result_new_unlocks_summary` 的 `{count}`；同一 key 的中英文占位符集合必须完全一致。
 5. 心象图鉴正文使用 `enemy_*_desc`，由 `enemies.csv.desc_key` 引用；智能碎片与 Gear Mod 继续复用各自已有 `*_desc`。
 

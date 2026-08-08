@@ -28,6 +28,7 @@
 | `client/project.godot` | autoload 注册 |
 | `client/scenes/ui/settings_panel.tscn` | F7 设置面板，通过标题菜单和暂停菜单压栈 |
 | `client/scenes/ui/codex_panel.tscn` | 标题图鉴，通过 `FormalClientBoot` 压栈并以 `request_close()` / `ui_back` 返回 |
+| `client/scenes/ui/gear_mod_board_panel.tscn` | ADR #194 的 7×7 地图 / 棋盘双视图、拾取放置与 Attributes 页面；非暂停压栈 |
 | `client/scenes/ui/loading_screen.tscn` | ADR #157 的全屏玩家加载遮罩，`process_mode=ALWAYS` |
 | 后续 `client/scenes/ui/` | UI 场景归属位置 |
 
@@ -106,6 +107,8 @@ UI 根节点可用两种方式声明暂停请求：
 
 `LoadingScreen` 本身也不声明 `pauses_game`：`FormalClientBoot` 在压栈前显式进入 `GameState.LOADING`。其全屏根 `Control` 使用 `mouse_filter=STOP`，且不提供 `request_close()`；玩家不能取消加载。准备成功时启动层 `pop_expected()` 并等待对应 `ui_removed` 后才激活 gameplay；失败 / 回标题硬切使用 `clear(true)`。
 
+`GearModBoardPanel` 不声明 `pauses_game`，只在正式 `PLAYING` 中由 RunLoop 压栈。Tab 查看模式按住打开、松开关闭；拾取配置模式必须 `ui_confirm` 或 `ui_back`，不能由通用返回绕过事务。两种模式都让世界与 `GameClock` 继续运行，同时通过 `InputService.begin_non_pausing_ui_capture()` 屏蔽全部角色 intent；退出或事务自动取消时必须成对释放 capture。左侧地图与右侧 Mod 棋盘保持相同坐标方向和选格同步。
+
 ## 依赖
 
 - 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动；`InputService` 提供 UI action、context 与最近设备族。
@@ -132,6 +135,7 @@ UI 根节点可用两种方式声明暂停请求：
 | 改标题 / 暂停设置入口 | `title_menu.gd`、`pause_menu.gd`、`formal_client_boot.gd`、`gameplay_run_loop.gd` | Settings / GameplayRuntime 文档 | `settings-smoke` + `runtime-smoke` |
 | 改 UI 栈语义 | `ui_manager.gd` | 本文档、UI Effects、测试策略 | `ui-manager-smoke` + `runtime-smoke` |
 | 改加载遮罩 / 阻断行为 | `loading_screen.tscn/.gd`、`formal_client_boot.gd` | 本文档、Gameplay Loading 文档 | `loading-smoke` + 手动中英文 |
+| 改 Gear Mod 棋盘面板 | `gear_mod_board_panel.tscn/.gd`、`gear_mod_grid_view.gd`、RunLoop、InputService | Gear Mod / Gameplay / Input 文档 | `gear-mod-pickup-smoke` + `input-smoke` + `ui-manager-smoke` + headless boot |
 
 ## 故障排查
 
@@ -154,6 +158,7 @@ UI 根节点可用两种方式声明暂停请求：
 - 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；自动覆盖包括标题 / 暂停设置入口、`ui_back` 只关闭栈顶、键鼠不显示常驻焦点、手柄导航焦点、context 隔离和 UI bridge 不双触发。
 - 修改 `LoadingScreen` 或玩家加载 UI 栈行为时，追加 `python tools/godot_bridge.py --project client loading-smoke`，并手动检查 `zh_CN` / `en` 文案和旋转动画。
 - 修改 `CodexPanel`、标题图鉴入口、锁定条目或焦点 / 返回时，追加 `python tools/godot_bridge.py --project client codex-smoke`、`ui-manager-smoke` 与 headless boot；中英文 16:9 布局和真实手柄导航保留待人工验收。
+- 修改 `GearModBoardPanel` 时追加 Gear Mod、Input、UIManager、runtime 和 headless 自动门禁；1920×1080 中英文布局、真实键鼠 / 手柄焦点、战斗中可读性与操作手感只保留为待人工验收。
 
 ## 迁移 / 兼容
 

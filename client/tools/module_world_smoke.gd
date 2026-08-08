@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective completion, threat-time combat gates and Run v17 restore.
+## objective completion, threat-time combat gates and Run v18 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -98,13 +98,59 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 17
+		int(fresh_run_snapshot.get("schema_version", 0)) == 18
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v17 should save registered world-event state"
+		"Run v18 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	var expected_start_coord := Vector2i(3, 3) if OS.get_cmdline_user_args().has("--module-world-technical-slice") else Vector2i(0, 6)
 	_expect(_coord_matches(world_summary.get("current_module", {}), expected_start_coord), "fresh run should start at the configured start module")
+	var original_start_state: Dictionary = module_world_node.call(
+		"slot_state",
+		expected_start_coord
+	) as Dictionary
+	var shuffled_start_state: Dictionary = original_start_state.duplicate(true)
+	shuffled_start_state["gear_mod_pickup_snapshots"] = [
+		{
+			"instance_id": 9002,
+			"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
+			"position": {"x": 0.0, "y": 0.0},
+		},
+		{
+			"instance_id": 9001,
+			"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST,
+			"position": {"x": 0.0, "y": 0.0},
+		},
+	]
+	module_world_node.call(
+		"set_slot_state",
+		expected_start_coord,
+		shuffled_start_state
+	)
+	var normalized_module_snapshot: Dictionary = run_loop.call(
+		"_module_world_snapshot"
+	) as Dictionary
+	var normalized_start_state: Dictionary = (
+		(normalized_module_snapshot.get("slot_states", {}) as Dictionary).get(
+			"%d,%d" % [expected_start_coord.x, expected_start_coord.y],
+			{}
+		) as Dictionary
+	)
+	var normalized_cached_pickups: Array = normalized_start_state.get(
+		"gear_mod_pickup_snapshots",
+		[]
+	) as Array
+	_expect(
+		normalized_cached_pickups.size() == 2
+		and int((normalized_cached_pickups[0] as Dictionary).get("instance_id", 0)) == 9001
+		and int((normalized_cached_pickups[1] as Dictionary).get("instance_id", 0)) == 9002,
+		"module cache pickup arrays should serialize in stable instance-id order"
+	)
+	module_world_node.call(
+		"set_slot_state",
+		expected_start_coord,
+		original_start_state
+	)
 	var runtime_navigation: Dictionary = world_summary.get("navigation", {}) as Dictionary
 	_expect(
 		int(runtime_navigation.get("flow_radius_cells", 0)) == NAVIGATION_FLOW_RADIUS_CELLS,
@@ -116,6 +162,7 @@ func _run() -> void:
 	_expect_enemy_unlock_boundaries(run_loop)
 	print("[ModuleWorldSmoke] stage=streaming")
 	await _expect_seamless_streaming(run_loop)
+	await _expect_gear_mod_cage_behavior(run_loop)
 	print("[ModuleWorldSmoke] stage=objective_restore")
 	await _expect_objective_completion_and_restore(run_loop)
 	print("[ModuleWorldSmoke] stage=finish")
@@ -596,6 +643,358 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		_find_active_enemy_by_wave_key("module_blocked_restore_test") == null,
 		"runtime should reject an enemy snapshot restored on blocked module terrain"
 	)
+
+
+func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
+	print("[ModuleWorldSmoke] stage=cage_setup")
+	var manager: Node = _find_node_by_name(
+		get_tree().root,
+		"ModuleWorldManager"
+	)
+	var cage_player: Node2D = _find_node_by_name(
+		get_tree().root,
+		"Player"
+	) as Node2D
+	var board: RefCounted = run_loop.get("_gear_mod_board") as RefCounted
+	_expect(
+		manager != null and cage_player != null and board != null,
+		"cage behavior smoke should have manager, player, and Gear Mod board"
+	)
+	if manager == null or cage_player == null or board == null:
+		return
+	var technical_slice: bool = OS.get_cmdline_user_args().has(
+		"--module-world-technical-slice"
+	)
+	var before: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var difficulty_at_start: Dictionary = run_loop.call(
+		"debug_difficulty_snapshot"
+	) as Dictionary
+	var before_hash: String = String(
+		(before.get("module_world", {}) as Dictionary).get("map_hash", "")
+	)
+	var start_coord: Vector2i = manager.call(
+		"role_module_coord",
+		MODULE_ROLES.MODULE_ROLE_START
+	) as Vector2i
+	var encounter_coord: Vector2i = start_coord + Vector2i.RIGHT
+	var encounter_slot_key: String = "%d,%d" % [
+		encounter_coord.x,
+		encounter_coord.y,
+	]
+	var start_center_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11 + 5, start_coord.y * 11 + 5)
+	) as Vector2
+	var start_west_floor_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11 + 1, start_coord.y * 11 + 5)
+	) as Vector2
+	var start_west_wall_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11, start_coord.y * 11 + 5)
+	) as Vector2
+	var start_east_door_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(start_coord.x * 11 + 10, start_coord.y * 11 + 5)
+	) as Vector2
+	var encounter_center_position: Vector2 = manager.call(
+		"global_cell_to_world",
+		Vector2i(encounter_coord.x * 11 + 5, encounter_coord.y * 11 + 5)
+	) as Vector2
+	if technical_slice:
+		start_west_floor_position = Vector2(-160.0, -160.0)
+		start_west_wall_position = Vector2(-320.0, -160.0)
+	var far_position := (
+		Vector2(-1760.0, 0.0) if technical_slice else Vector2.ZERO
+	)
+	var original_player_position: Vector2 = cage_player.global_position
+	var cage_coord := Vector2i(3, 2)
+	var legal_cells: Array[Vector2i] = board.call(
+		"legal_cells",
+		GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE
+	) as Array[Vector2i]
+	_expect(
+		legal_cells.has(cage_coord),
+		"the cage should be placeable in the unlocked cell above the core"
+	)
+	if not legal_cells.has(cage_coord):
+		return
+	var cage_instance_id: int = int(run_loop.call(
+		"_allocate_gear_mod_instance_id"
+	))
+	var placement_result: Dictionary = board.call(
+		"request_placement",
+		cage_instance_id,
+		GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE,
+		cage_coord
+	) as Dictionary
+	_expect(
+		bool(placement_result.get("ok", false)),
+		"cage smoke fixture should create one map placement without an entity"
+	)
+	if not bool(placement_result.get("ok", false)):
+		return
+	var other_cage_coord := Vector2i(2, 3)
+	var other_legal_cells: Array[Vector2i] = board.call(
+		"legal_cells",
+		GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE
+	) as Array[Vector2i]
+	_expect(
+		other_legal_cells.has(other_cage_coord),
+		"a second cage should be independently placeable beside the core"
+	)
+	if not other_legal_cells.has(other_cage_coord):
+		return
+	var other_cage_instance_id: int = int(run_loop.call(
+		"_allocate_gear_mod_instance_id"
+	))
+	var other_placement_result: Dictionary = board.call(
+		"request_placement",
+		other_cage_instance_id,
+		GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE,
+		other_cage_coord
+	) as Dictionary
+	_expect(
+		bool(other_placement_result.get("ok", false)),
+		"cage smoke fixture should create a second independent map placement"
+	)
+	if not bool(other_placement_result.get("ok", false)):
+		return
+	run_loop.call("_sync_run_gear_mod_ids_from_board")
+	var cage_floor_positions: Array[Vector2] = manager.call(
+		"empty_floor_positions_at",
+		cage_coord
+	) as Array[Vector2]
+	_expect(
+		not cage_floor_positions.is_empty(),
+		"cage module should expose at least one static empty floor position"
+	)
+	if cage_floor_positions.is_empty():
+		return
+	run_loop.call("debug_set_player_position", cage_floor_positions[0])
+	await _wait_frames(BOOT_FRAMES)
+	print("[ModuleWorldSmoke] stage=cage_plan")
+	run_loop.call("debug_clear_enemies")
+	var locked_plan: Dictionary = run_loop.call(
+		"_build_gear_mod_cage_spawn_plan",
+		cage_coord
+	) as Dictionary
+	_expect(
+		not locked_plan.is_empty(),
+		"cage should build a plan from the current module enemy pool and empty floors"
+	)
+	if locked_plan.is_empty():
+		return
+	var raw_planned_position: Variant = locked_plan.get("position", {})
+	var planned_position: Vector2 = (
+		raw_planned_position as Vector2
+		if raw_planned_position is Vector2
+		else _dict_to_vector(raw_planned_position)
+	)
+	var player_cell: Vector2i = manager.call(
+		"world_to_global_cell",
+		cage_player.global_position
+	) as Vector2i
+	var planned_cell: Vector2i = manager.call(
+		"world_to_global_cell",
+		planned_position
+	) as Vector2i
+	_expect(
+		planned_cell != player_cell,
+		"cage plan generation should exclude the player-occupied floor cell"
+	)
+
+	var old_time_scale: float = GameClock.time_scale()
+	GameClock.set_time_scale(0.5)
+	board.call(
+		"set_map_behavior_state",
+		cage_instance_id,
+		{"elapsed": 1.0, "pending_plan": {}}
+	)
+	board.call(
+		"set_map_behavior_state",
+		other_cage_instance_id,
+		{"elapsed": 4.0, "pending_plan": {}}
+	)
+	run_loop.call("debug_tick_gear_mod_map_behaviors", 0.5)
+	var scaled_state: Dictionary = board.call(
+		"map_behavior_state",
+		cage_instance_id
+	) as Dictionary
+	var other_scaled_state: Dictionary = board.call(
+		"map_behavior_state",
+		other_cage_instance_id
+	) as Dictionary
+	_expect(
+		is_equal_approx(float(scaled_state.get("elapsed", 0.0)), 1.25)
+		and is_equal_approx(
+			float(other_scaled_state.get("elapsed", -1.0)),
+			0.0
+		),
+		"only the cage under the player should advance while another instance resets independently"
+	)
+	GameClock.set_time_scale(old_time_scale)
+
+	board.call(
+		"set_map_behavior_state",
+		cage_instance_id,
+		{"elapsed": 10.0, "pending_plan": locked_plan}
+	)
+	locked_plan = (
+		board.call("map_behavior_state", cage_instance_id) as Dictionary
+	).get("pending_plan", {}) as Dictionary
+	var board_snapshot: Dictionary = board.call("snapshot") as Dictionary
+	board.call(
+		"set_map_behavior_state",
+		cage_instance_id,
+		{"elapsed": 0.0, "pending_plan": {}}
+	)
+	var restored_board_state: bool = bool(board.call(
+		"restore_snapshot",
+		board_snapshot
+	))
+	_expect(
+		restored_board_state
+		and (
+			board.call("map_behavior_state", cage_instance_id) as Dictionary
+		).get("pending_plan", {}) == locked_plan,
+		"board snapshot restore should preserve the cage locked plan"
+	)
+	var valid_plan_snapshot: Dictionary = run_loop.call(
+		"create_run_snapshot"
+	) as Dictionary
+	var unknown_enemy_snapshot: Dictionary = valid_plan_snapshot.duplicate(true)
+	var unknown_enemy_states: Array = (
+		(unknown_enemy_snapshot.get("gear_mods", {}) as Dictionary).get(
+			"map_behavior_states",
+			[]
+		) as Array
+	)
+	(
+		(unknown_enemy_states[0] as Dictionary).get(
+			"pending_plan",
+			{}
+		) as Dictionary
+	)["enemy_id"] = "missing_enemy"
+	var wrong_module_position_snapshot: Dictionary = (
+		valid_plan_snapshot.duplicate(true)
+	)
+	var wrong_position_states: Array = (
+		(
+			wrong_module_position_snapshot.get(
+				"gear_mods",
+				{}
+			) as Dictionary
+		).get("map_behavior_states", []) as Array
+	)
+	(
+		(wrong_position_states[0] as Dictionary).get(
+			"pending_plan",
+			{}
+		) as Dictionary
+	)["position"] = _vector_to_dict(original_player_position)
+	_expect(
+		bool(run_loop.call(
+			"_validate_run_gear_mod_map_behavior_plans",
+			valid_plan_snapshot
+		))
+		and not bool(run_loop.call(
+			"_validate_run_gear_mod_map_behavior_plans",
+			unknown_enemy_snapshot
+		))
+		and not bool(run_loop.call(
+			"_validate_run_gear_mod_map_behavior_plans",
+			wrong_module_position_snapshot
+		)),
+		"run restore validation should reject cage plans with an unavailable enemy or a position outside the cage module"
+	)
+	var enemy_id: String = String(locked_plan.get("enemy_id", ""))
+	var cage_enemy_rows: Dictionary = run_loop.get("_enemy_rows") as Dictionary
+	var saved_enemy_row: Dictionary = (
+		cage_enemy_rows.get(enemy_id, {}) as Dictionary
+	).duplicate(true)
+	cage_enemy_rows.erase(enemy_id)
+	run_loop.set("_enemy_rows", cage_enemy_rows)
+	var rng_before_failed_spawn: Dictionary = RNG.snapshot()
+	run_loop.call("debug_tick_gear_mod_map_behaviors", 0.0)
+	print("[ModuleWorldSmoke] stage=cage_failed_retry")
+	var failed_state: Dictionary = board.call(
+		"map_behavior_state",
+		cage_instance_id
+	) as Dictionary
+	_expect(
+		failed_state.get("pending_plan", {}) == locked_plan
+		and RNG.snapshot() == rng_before_failed_spawn,
+		"failed cage spawn should retain its exact plan without consuming RNG for a reroll"
+	)
+	cage_enemy_rows[enemy_id] = saved_enemy_row
+	run_loop.set("_enemy_rows", cage_enemy_rows)
+	run_loop.call("debug_tick_gear_mod_map_behaviors", 0.0)
+	print("[ModuleWorldSmoke] stage=cage_spawned")
+	var success_state: Dictionary = board.call(
+		"map_behavior_state",
+		cage_instance_id
+	) as Dictionary
+	var spawned_enemy: Node2D = _find_active_entity_at(
+		"active_enemies",
+		planned_position
+	)
+	var spawned_enemy_snapshot: Dictionary = (
+		spawned_enemy.call("snapshot") as Dictionary
+		if spawned_enemy != null and spawned_enemy.has_method("snapshot")
+		else {}
+	)
+	_expect(
+		spawned_enemy != null
+		and String(spawned_enemy.get_meta("module_slot", ""))
+		== "%d,%d" % [cage_coord.x, cage_coord.y]
+		and bool(
+			(spawned_enemy_snapshot.get("reward_snapshot", {}) as Dictionary).get(
+				"valid",
+				false
+			)
+		)
+		and is_equal_approx(float(success_state.get("elapsed", -1.0)), 0.0)
+		and (success_state.get("pending_plan", {}) as Dictionary).is_empty(),
+		"successful cage spawn should use normal rewards, bind to the module slot, and reset its timer: enemy=%s slot=%s reward=%s state=%s"
+		% [
+			str(spawned_enemy),
+			String(
+				spawned_enemy.get_meta("module_slot", "")
+				if spawned_enemy != null
+				else ""
+			),
+			str(spawned_enemy_snapshot.get("reward_snapshot", {})),
+			str(success_state),
+		]
+	)
+
+	board.call(
+		"set_map_behavior_state",
+		cage_instance_id,
+		{"elapsed": 5.0, "pending_plan": locked_plan}
+	)
+	var away_positions: Array[Vector2] = manager.call(
+		"empty_floor_positions_at",
+		Vector2i(3, 3)
+	) as Array[Vector2]
+	if not away_positions.is_empty():
+		run_loop.call("debug_set_player_position", away_positions[0])
+		run_loop.call("debug_module_world_tick")
+		run_loop.call("debug_tick_gear_mod_map_behaviors", 0.0)
+	var left_state: Dictionary = board.call(
+		"map_behavior_state",
+		cage_instance_id
+	) as Dictionary
+	_expect(
+		is_equal_approx(float(left_state.get("elapsed", -1.0)), 0.0)
+		and (left_state.get("pending_plan", {}) as Dictionary).is_empty(),
+		"leaving the cage module should clear elapsed time and its pending plan"
+	)
+	run_loop.call("debug_clear_enemies")
+	run_loop.call("debug_set_player_position", original_player_position)
+	await _wait_frames(BOOT_FRAMES)
+	print("[ModuleWorldSmoke] stage=streaming_continuation")
 	# The lower-left start room has a floor cell beside its solid west wall.
 	run_loop.call("debug_set_player_position", start_west_floor_position)
 	await get_tree().physics_frame
@@ -718,7 +1117,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	)
 	_expect(
 		_saved_slot_has_encounter(saved_slot_states, encounter_slot_key, spawn_plan),
-		"Run v17 snapshot should persist the fixed telegraph plan"
+		"Run v18 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -1097,16 +1496,16 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v17 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v18 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 17, "module run snapshot should use schema v17")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v17 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 18, "module run snapshot should use schema v18")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v18 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v17 should load")
+	_expect(not loaded.is_empty(), "module run v18 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -1152,7 +1551,7 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 				0
 			)
 		) >= 1,
-		"Run v17 restore should preserve active event progress, pin, and fixed wave plan"
+		"Run v18 restore should preserve active event progress, pin, and fixed wave plan"
 	)
 	_expect(
 		is_equal_approx(
@@ -1169,13 +1568,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v17 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v18 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v17 fixture should resume after difficulty comparison"
+		"restored paused Run v18 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")

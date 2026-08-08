@@ -114,6 +114,23 @@ const UI_BRIDGE_ACTIONS: Dictionary = {
 	&"ui_confirm": &"ui_accept",
 	&"ui_back": &"ui_cancel",
 }
+const NON_PAUSING_CAPTURE_BOOL_ACTIONS: Array[StringName] = [
+	ACTIONS.FIRE,
+	ACTIONS.SKILL_1,
+	ACTIONS.SKILL_2,
+	ACTIONS.SKILL_3,
+	ACTIONS.SKILL_4,
+	ACTIONS.DASH,
+	ACTIONS.INTERACT,
+	ACTIONS.PAUSE,
+]
+const NON_PAUSING_CAPTURE_RESUMABLE_BOOL_ACTIONS: Array[StringName] = [
+	ACTIONS.FIRE,
+]
+const NON_PAUSING_CAPTURE_VECTOR_ACTIONS: Array[StringName] = [
+	ACTIONS.MOVE,
+	ACTIONS.AIM,
+]
 
 var _actions: Dictionary = {}
 var _binding_items: Dictionary = {}
@@ -126,6 +143,8 @@ var _formatter: GUIDEInputFormatter = null
 var _input_detector: GUIDEInputDetector = null
 var _last_aim_source: StringName = AIM_SOURCE_DIRECTION
 var _last_emitted_vector_values: Dictionary = {}
+var _non_pausing_ui_capture_owners: Dictionary = {}
+var _overlay_capture_context_active: bool = false
 var _pending_bool_edges: Array[Dictionary] = []
 var _pending_ui_bridge_actions: Array[StringName] = []
 var _physical_bool_values: Dictionary = {}
@@ -208,6 +227,11 @@ func _notification(what: int) -> void:
 func vector(action_id: StringName, participant_id: String = DEFAULT_PARTICIPANT_ID) -> Vector2:
 	if participant_id != DEFAULT_PARTICIPANT_ID:
 		return Vector2.ZERO
+	if (
+		non_pausing_ui_capture_active()
+		and NON_PAUSING_CAPTURE_VECTOR_ACTIONS.has(action_id)
+	):
+		return Vector2.ZERO
 	if _playback_active:
 		return _variant_to_vector(_playback_values.get(action_id, Vector2.ZERO))
 	return _variant_to_vector(_physical_vector_values.get(action_id, Vector2.ZERO))
@@ -215,6 +239,11 @@ func vector(action_id: StringName, participant_id: String = DEFAULT_PARTICIPANT_
 
 func is_pressed(action_id: StringName, participant_id: String = DEFAULT_PARTICIPANT_ID) -> bool:
 	if participant_id != DEFAULT_PARTICIPANT_ID:
+		return false
+	if (
+		non_pausing_ui_capture_active()
+		and NON_PAUSING_CAPTURE_BOOL_ACTIONS.has(action_id)
+	):
 		return false
 	if _playback_active:
 		return bool(_playback_values.get(action_id, false))
@@ -235,6 +264,9 @@ func pointer_world_position(viewport: Viewport = null) -> Vector2:
 func publish_resolved_aim(value: Vector2) -> void:
 	if _playback_active:
 		return
+	if non_pausing_ui_capture_active():
+		_resolved_aim = Vector2.ZERO
+		return
 	var normalized: Vector2 = value
 	if normalized.length_squared() > 1.0:
 		normalized = normalized.normalized()
@@ -245,13 +277,19 @@ func publish_resolved_aim(value: Vector2) -> void:
 
 
 func resolved_aim() -> Vector2:
+	if non_pausing_ui_capture_active():
+		return Vector2.ZERO
 	if _playback_active:
 		return vector(&"aim")
 	return _resolved_aim
 
 
 func should_use_pointer_aim() -> bool:
-	return not _playback_active and _last_aim_source == AIM_SOURCE_POINTER
+	return (
+		not _playback_active
+		and not non_pausing_ui_capture_active()
+		and _last_aim_source == AIM_SOURCE_POINTER
+	)
 
 
 func current_device_family() -> StringName:
@@ -264,6 +302,39 @@ func set_debug_capture_active(enabled: bool) -> void:
 	_debug_capture_active = enabled and _debug_inputs_enabled()
 	_context_signature = ""
 	_apply_contexts()
+
+
+func begin_non_pausing_ui_capture(owner: Object) -> bool:
+	if owner == null or not is_instance_valid(owner):
+		return false
+	var owner_id: int = owner.get_instance_id()
+	if _non_pausing_ui_capture_owners.has(owner_id):
+		return false
+	var was_active: bool = non_pausing_ui_capture_active()
+	_non_pausing_ui_capture_owners[owner_id] = weakref(owner)
+	if not was_active:
+		_emit_non_pausing_capture_boundary(true)
+	_context_signature = ""
+	_apply_contexts()
+	return true
+
+
+func end_non_pausing_ui_capture(owner: Object) -> bool:
+	if owner == null:
+		return false
+	var owner_id: int = owner.get_instance_id()
+	if not _non_pausing_ui_capture_owners.erase(owner_id):
+		return false
+	if not non_pausing_ui_capture_active():
+		_emit_non_pausing_capture_boundary(false)
+	_context_signature = ""
+	_apply_contexts()
+	return true
+
+
+func non_pausing_ui_capture_active() -> bool:
+	_prune_non_pausing_ui_capture_owners()
+	return not _non_pausing_ui_capture_owners.is_empty()
 
 
 func action_resource(action_id: StringName) -> GUIDEAction:
@@ -505,12 +576,23 @@ func _flush_physical_edges() -> void:
 	_pending_bool_edges.clear()
 	for edge: Dictionary in queued_edges:
 		var action_id: StringName = StringName(edge.get("action", &""))
+		if (
+			non_pausing_ui_capture_active()
+			and NON_PAUSING_CAPTURE_BOOL_ACTIONS.has(action_id)
+			and bool(edge.get("pressed", false))
+		):
+			continue
 		if bool(edge.get("pressed", false)):
 			action_pressed.emit(action_id, DEFAULT_PARTICIPANT_ID)
 		else:
 			action_released.emit(action_id, DEFAULT_PARTICIPANT_ID)
 	for action_id: StringName in VECTOR_ACTION_IDS:
 		if action_id == &"aim":
+			continue
+		if (
+			non_pausing_ui_capture_active()
+			and NON_PAUSING_CAPTURE_VECTOR_ACTIONS.has(action_id)
+		):
 			continue
 		var value: Vector2 = _variant_to_vector(_physical_vector_values.get(action_id, Vector2.ZERO))
 		var previous: Vector2 = _variant_to_vector(_last_emitted_vector_values.get(action_id, Vector2.ZERO))
@@ -538,6 +620,40 @@ func _clear_runtime_values(emit_releases: bool) -> void:
 	if emit_releases and _resolved_aim.length_squared() > VECTOR_EPSILON_SQUARED:
 		vector_changed.emit(&"aim", Vector2.ZERO, DEFAULT_PARTICIPANT_ID)
 	_resolved_aim = Vector2.ZERO
+
+
+func _emit_non_pausing_capture_boundary(entering: bool) -> void:
+	if _playback_active:
+		return
+	for action_id: StringName in NON_PAUSING_CAPTURE_RESUMABLE_BOOL_ACTIONS:
+		if not bool(_physical_bool_values.get(action_id, false)):
+			continue
+		if entering:
+			action_released.emit(action_id, DEFAULT_PARTICIPANT_ID)
+		else:
+			action_pressed.emit(action_id, DEFAULT_PARTICIPANT_ID)
+	for action_id: StringName in NON_PAUSING_CAPTURE_VECTOR_ACTIONS:
+		var value: Vector2 = _variant_to_vector(
+			_physical_vector_values.get(action_id, Vector2.ZERO)
+		)
+		var emitted_value: Vector2 = Vector2.ZERO if entering else value
+		_last_emitted_vector_values[action_id] = emitted_value
+		if value.length_squared() <= VECTOR_EPSILON_SQUARED:
+			continue
+		vector_changed.emit(
+			action_id,
+			emitted_value,
+			DEFAULT_PARTICIPANT_ID
+		)
+	if entering and _resolved_aim.length_squared() > VECTOR_EPSILON_SQUARED:
+		vector_changed.emit(&"aim", Vector2.ZERO, DEFAULT_PARTICIPANT_ID)
+
+
+func _prune_non_pausing_ui_capture_owners() -> void:
+	for owner_id: Variant in _non_pausing_ui_capture_owners.keys():
+		var owner_ref: WeakRef = _non_pausing_ui_capture_owners[owner_id] as WeakRef
+		if owner_ref == null or owner_ref.get_ref() == null:
+			_non_pausing_ui_capture_owners.erase(owner_id)
 
 
 func _set_device_family(device_family: StringName) -> void:
@@ -627,19 +743,36 @@ func _apply_contexts() -> void:
 	var gameplay_context: GUIDEMappingContext = _contexts.get(&"gameplay") as GUIDEMappingContext
 	var ui_context: GUIDEMappingContext = _contexts.get(&"ui") as GUIDEMappingContext
 	var debug_context: GUIDEMappingContext = _contexts.get(&"debug") as GUIDEMappingContext
+	var overlay_capture_active: bool = (
+		GameState.is_state(GameState.PLAYING)
+		and non_pausing_ui_capture_active()
+	)
 	var ui_active: bool = not GameState.is_state(GameState.PLAYING) or _debug_capture_active
 	if UIManager != null:
 		ui_active = ui_active or UIManager.stack_size() > 0
 	var debug_inputs_enabled: bool = _debug_inputs_enabled()
-	var signature: String = "%s|%s|%s" % [str(ui_active), str(debug_inputs_enabled), str(_debug_capture_active)]
+	var signature: String = "%s|%s|%s|%s" % [
+		str(ui_active),
+		str(debug_inputs_enabled),
+		str(_debug_capture_active),
+		str(overlay_capture_active),
+	]
 	if signature == _context_signature:
 		return
 	_context_signature = signature
-	GUIDE.release_pressed_inputs()
-	_set_context_enabled(gameplay_context, not ui_active, 10)
-	_set_context_enabled(ui_context, ui_active, 0)
+	var was_overlay_capture_active: bool = _overlay_capture_context_active
+	_overlay_capture_context_active = overlay_capture_active
+	if not overlay_capture_active and not was_overlay_capture_active:
+		GUIDE.release_pressed_inputs()
+	_set_context_enabled(
+		gameplay_context,
+		overlay_capture_active or not ui_active,
+		10
+	)
+	_set_context_enabled(ui_context, ui_active, 30 if overlay_capture_active else 0)
 	_set_context_enabled(debug_context, debug_inputs_enabled, 20)
-	_clear_runtime_values(true)
+	if not overlay_capture_active and not was_overlay_capture_active:
+		_clear_runtime_values(true)
 
 
 func _debug_inputs_enabled() -> bool:

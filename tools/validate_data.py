@@ -1832,9 +1832,10 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         path,
         "root",
         data,
-        {"schema_version", "pickup", "reward_pools", "mods"},
+        {"schema_version", "board", "pickup", "reward_pools", "mods"},
     )
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 4)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 5)
+    _validate_gear_mod_board(ctx, path, data.get("board"))
     pickup = data.get("pickup")
     if not isinstance(pickup, dict):
         ctx.error(path, "pickup", "must be an object")
@@ -1892,25 +1893,39 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         if not isinstance(mod, dict):
             ctx.error(path, field, "must be an object")
             continue
-        required_mod_keys = {
+        common_required_mod_keys = {
             "id",
             "name_key",
             "desc_key",
-            "slot",
+            "kind",
             "rarity",
-            "modifiers",
         }
         optional_mod_keys = {
             "default_unlocked",
             "unlock_rule_id",
             "codex_icon_path",
         }
-        for missing_key in sorted(required_mod_keys.difference(mod)):
-            ctx.error(path, f"{field}.{missing_key}", "is required")
-        for unexpected_key in sorted(
-            set(mod).difference(required_mod_keys | optional_mod_keys)
-        ):
-            ctx.error(path, f"{field}.{unexpected_key}", "is not allowed")
+        kind = _require_registered(
+            ctx,
+            path,
+            f"{field}.kind",
+            mod.get("kind"),
+            "gear_mod_kinds",
+        )
+        kind_required_keys: set[str] = set()
+        if kind == "effect":
+            kind_required_keys = {"slot", "modifiers"}
+        elif kind == "map":
+            kind_required_keys = {"map_behavior"}
+        elif kind == "grid":
+            kind_required_keys = {"grid_behavior"}
+        _validate_exact_object_keys(
+            ctx,
+            path,
+            field,
+            mod,
+            common_required_mod_keys | optional_mod_keys.intersection(mod) | kind_required_keys,
+        )
         mod_id = _require_registered(ctx, path, f"{field}.id", mod.get("id"), "gear_mod_ids")
         if mod_id:
             if mod_id in seen:
@@ -1932,9 +1947,171 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
                 f"{field}.codex_icon_path",
                 mod.get("codex_icon_path"),
             )
-        _require_registered(ctx, path, f"{field}.slot", mod.get("slot"), "gear_mod_slots")
         _require_registered(ctx, path, f"{field}.rarity", mod.get("rarity"), "gear_mod_rarities")
-        _validate_gear_mod_modifiers(ctx, path, f"{field}.modifiers", mod.get("modifiers"))
+        if kind == "effect":
+            _require_registered(ctx, path, f"{field}.slot", mod.get("slot"), "gear_mod_slots")
+            _validate_gear_mod_modifiers(
+                ctx,
+                path,
+                f"{field}.modifiers",
+                mod.get("modifiers"),
+            )
+        elif kind == "map":
+            _validate_gear_mod_map_behavior(
+                ctx,
+                path,
+                f"{field}.map_behavior",
+                mod.get("map_behavior"),
+            )
+        elif kind == "grid":
+            _validate_gear_mod_grid_behavior(
+                ctx,
+                path,
+                f"{field}.grid_behavior",
+                mod.get("grid_behavior"),
+            )
+
+
+def _validate_gear_mod_board(
+    ctx: ValidationContext,
+    path: Path,
+    data: Any,
+) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, "board", "must be an object")
+        return
+    _validate_exact_object_keys(
+        ctx,
+        path,
+        "board",
+        data,
+        {"width", "height", "center", "initial_unlocked_cells"},
+    )
+    _require_exact_int(ctx, path, "board.width", data.get("width"), 7)
+    _require_exact_int(ctx, path, "board.height", data.get("height"), 7)
+    center = data.get("center")
+    if not isinstance(center, dict):
+        ctx.error(path, "board.center", "must be an object")
+    else:
+        _validate_exact_object_keys(
+            ctx,
+            path,
+            "board.center",
+            center,
+            {"x", "y"},
+        )
+        _require_exact_int(ctx, path, "board.center.x", center.get("x"), 3)
+        _require_exact_int(ctx, path, "board.center.y", center.get("y"), 3)
+    raw_cells = _require_list(
+        ctx,
+        path,
+        "board.initial_unlocked_cells",
+        data.get("initial_unlocked_cells"),
+    )
+    expected_cells = {
+        (3, 1),
+        (2, 2),
+        (3, 2),
+        (4, 2),
+        (1, 3),
+        (2, 3),
+        (3, 3),
+        (4, 3),
+        (5, 3),
+        (2, 4),
+        (3, 4),
+        (4, 4),
+        (3, 5),
+    }
+    actual_cells: set[tuple[int, int]] = set()
+    for index, raw_cell in enumerate(raw_cells):
+        field = f"board.initial_unlocked_cells[{index}]"
+        if not isinstance(raw_cell, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        _validate_exact_object_keys(ctx, path, field, raw_cell, {"x", "y"})
+        x = _require_int(ctx, path, f"{field}.x", raw_cell.get("x"), minimum=0, maximum=6)
+        y = _require_int(ctx, path, f"{field}.y", raw_cell.get("y"), minimum=0, maximum=6)
+        if x is None or y is None:
+            continue
+        cell = (x, y)
+        if cell in actual_cells:
+            ctx.error(path, field, f"duplicate board cell {cell}")
+        actual_cells.add(cell)
+    if len(raw_cells) != 13 or actual_cells != expected_cells:
+        ctx.error(
+            path,
+            "board.initial_unlocked_cells",
+            "must equal the 13-cell 0/1/3/5/3/1/0 center mask",
+        )
+
+
+def _validate_gear_mod_map_behavior(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _validate_exact_object_keys(
+        ctx,
+        path,
+        field,
+        data,
+        {
+            "id",
+            "interval_seconds",
+            "reset_on_module_exit",
+            "current_layer_only",
+            "normal_rewards",
+        },
+    )
+    behavior_id = _require_registered(
+        ctx,
+        path,
+        f"{field}.id",
+        data.get("id"),
+        "gear_mod_map_behaviors",
+    )
+    if behavior_id and behavior_id != "periodic_enemy_spawn":
+        ctx.error(path, f"{field}.id", "must equal periodic_enemy_spawn")
+    interval = _require_number(
+        ctx,
+        path,
+        f"{field}.interval_seconds",
+        data.get("interval_seconds"),
+        minimum=0,
+        exclusive_minimum=True,
+    )
+    if interval is not None and interval != 10.0:
+        ctx.error(path, f"{field}.interval_seconds", "must equal 10.0")
+    for key in ("reset_on_module_exit", "current_layer_only", "normal_rewards"):
+        value = _require_bool(ctx, path, f"{field}.{key}", data.get(key))
+        if value is False:
+            ctx.error(path, f"{field}.{key}", "must be true")
+
+
+def _validate_gear_mod_grid_behavior(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _validate_exact_object_keys(ctx, path, field, data, {"id"})
+    behavior_id = _require_registered(
+        ctx,
+        path,
+        f"{field}.id",
+        data.get("id"),
+        "gear_mod_grid_behaviors",
+    )
+    if behavior_id and behavior_id != "occupy_only":
+        ctx.error(path, f"{field}.id", "must equal occupy_only")
 
 
 def _validate_gear_mod_modifiers(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:

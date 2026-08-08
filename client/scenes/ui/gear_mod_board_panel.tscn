@@ -1,0 +1,176 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/gear_mod_board_panel.gd" id="1_panel"]
+[ext_resource type="Script" path="res://scripts/ui/gear_mod_grid_view.gd" id="2_grid"]
+
+[node name="GearModBoardPanel" type="CanvasLayer"]
+script = ExtResource("1_panel")
+
+[node name="Root" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.012, 0.02, 0.034, 0.94)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(1720, 940)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 22
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 32
+vertical_alignment = 1
+
+[node name="BoardPageButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Header"]
+custom_minimum_size = Vector2(190, 48)
+layout_mode = 2
+toggle_mode = true
+
+[node name="AttributesPageButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Header"]
+custom_minimum_size = Vector2(190, 48)
+layout_mode = 2
+toggle_mode = true
+
+[node name="BoardPage" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Boards" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout/BoardPage"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 32
+alignment = 1
+
+[node name="MapColumn" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/BoardPage/Boards"]
+custom_minimum_size = Vector2(700, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MapTitle" type="Label" parent="Root/Center/Panel/Margin/Layout/BoardPage/Boards/MapColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="MapGrid" type="Control" parent="Root/Center/Panel/Margin/Layout/BoardPage/Boards/MapColumn"]
+custom_minimum_size = Vector2(620, 520)
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("2_grid")
+map_view = true
+
+[node name="ModColumn" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/BoardPage/Boards"]
+custom_minimum_size = Vector2(700, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ModTitle" type="Label" parent="Root/Center/Panel/Margin/Layout/BoardPage/Boards/ModColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="ModGrid" type="Control" parent="Root/Center/Panel/Margin/Layout/BoardPage/Boards/ModColumn"]
+custom_minimum_size = Vector2(620, 520)
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("2_grid")
+
+[node name="Detail" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/BoardPage"]
+custom_minimum_size = Vector2(0, 156)
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="NameLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/BoardPage/Detail"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+
+[node name="TypeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/BoardPage/Detail"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+modulate = Color(0.65, 0.8, 0.95, 1)
+
+[node name="DescLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/BoardPage/Detail"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="EffectLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/BoardPage/Detail"]
+layout_mode = 2
+autowrap_mode = 3
+modulate = Color(0.76, 0.92, 0.82, 1)
+
+[node name="AttributesPage" type="MarginContainer" parent="Root/Center/Panel/Margin/Layout"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 80
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 80
+theme_override_constants/margin_bottom = 40
+
+[node name="AttributesLabel" type="RichTextLabel" parent="Root/Center/Panel/Margin/Layout/AttributesPage"]
+layout_mode = 2
+bbcode_enabled = true
+fit_content = false
+scroll_active = true
+theme_override_font_sizes/normal_font_size = 20
+theme_override_constants/line_separation = 7
+
+[node name="Footer" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HintLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+vertical_alignment = 1
+
+[node name="ConfirmButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Footer"]
+visible = false
+custom_minimum_size = Vector2(180, 50)
+layout_mode = 2
+
+[node name="CancelButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Footer"]
+visible = false
+custom_minimum_size = Vector2(180, 50)
+layout_mode = 2

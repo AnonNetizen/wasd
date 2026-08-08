@@ -42,7 +42,7 @@ func _run() -> void:
 	get_root().add_child(_combat)
 	_controller.configure(data)
 	_mod_pool = _gear_mod_pool("world_event_mod_pool_common")
-	_require(_mod_pool.size() == 3, "common Mod pool exposes three entries")
+	_require(_mod_pool.size() == 5, "common Mod pool exposes five entries")
 	_controller.wave_requested.connect(_on_wave_requested)
 	_controller.reward_requested.connect(_on_reward_requested)
 

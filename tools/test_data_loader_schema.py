@@ -1329,11 +1329,99 @@ def main() -> int:
             ],
         ),
         (
-            "gear mod schema v4 is required",
-            _mutate_json("client/data/gear_mods.json", _set_gear_mod_schema_version(3)),
+            "gear mod schema v5 is required",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_schema_version(4)),
             [
                 "client/data/gear_mods.json:schema_version",
-                "must equal 4",
+                "must equal 5",
+            ],
+        ),
+        (
+            "gear mod board is fixed at seven columns",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_board_width(8)),
+            [
+                "client/data/gear_mods.json:board.width",
+                "must equal 7",
+            ],
+        ),
+        (
+            "gear mod board requires the exact initial mask",
+            _mutate_json("client/data/gear_mods.json", _remove_gear_mod_initial_cell),
+            [
+                "client/data/gear_mods.json:board.initial_unlocked_cells",
+                "must equal the 13-cell 0/1/3/5/3/1/0 center mask",
+            ],
+        ),
+        (
+            "gear mod kind must be registered",
+            _mutate_json("client/data/gear_mods.json", _set_first_gear_mod_kind("unknown")),
+            [
+                "client/data/gear_mods.json:mods[0].kind",
+                "unknown id unknown; expected one of gear_mod_kinds",
+            ],
+        ),
+        (
+            "effect gear mods reject map fields",
+            _mutate_json("client/data/gear_mods.json", _add_effect_map_behavior),
+            [
+                "client/data/gear_mods.json:mods[0].map_behavior",
+                "is not allowed",
+            ],
+        ),
+        (
+            "map gear mods require map behavior",
+            _mutate_json("client/data/gear_mods.json", _remove_map_gear_mod_behavior),
+            [
+                "client/data/gear_mods.json:mods[3].map_behavior",
+                "is required",
+            ],
+        ),
+        (
+            "map gear mods reject effect fields",
+            _mutate_json("client/data/gear_mods.json", _add_map_gear_mod_slot),
+            [
+                "client/data/gear_mods.json:mods[3].slot",
+                "is not allowed",
+            ],
+        ),
+        (
+            "map gear mod spawn interval is fixed",
+            _mutate_json("client/data/gear_mods.json", _set_map_gear_mod_interval(9.0)),
+            [
+                "client/data/gear_mods.json:mods[3].map_behavior.interval_seconds",
+                "must equal 10.0",
+            ],
+        ),
+        (
+            "map gear mod rejects the old layer-exit reset field",
+            _mutate_json(
+                "client/data/gear_mods.json",
+                _rename_map_reset_to_layer_exit,
+            ),
+            [
+                "client/data/gear_mods.json:mods[3].map_behavior.reset_on_layer_exit",
+                "is not allowed",
+                "client/data/gear_mods.json:mods[3].map_behavior.reset_on_module_exit",
+                "is required",
+            ],
+        ),
+        (
+            "grid gear mods reject effect fields",
+            _mutate_json("client/data/gear_mods.json", _add_grid_gear_mod_modifiers),
+            [
+                "client/data/gear_mods.json:mods[4].modifiers",
+                "is not allowed",
+            ],
+        ),
+        (
+            "grid gear mod behavior is occupy only",
+            _mutate_json(
+                "client/data/gear_mods.json",
+                _set_grid_gear_mod_behavior("periodic_enemy_spawn"),
+            ),
+            [
+                "client/data/gear_mods.json:mods[4].grid_behavior.id",
+                "unknown id periodic_enemy_spawn; expected one of gear_mod_grid_behaviors",
             ],
         ),
         (
@@ -2917,6 +3005,67 @@ def _set_gear_mod_id(value: str) -> JsonMutator:
 def _set_gear_mod_schema_version(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["schema_version"] = value
+
+    return mutate
+
+
+def _set_gear_mod_board_width(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["board"]["width"] = value
+
+    return mutate
+
+
+def _remove_gear_mod_initial_cell(payload: dict[str, Any]) -> None:
+    payload["board"]["initial_unlocked_cells"].pop()
+
+
+def _set_first_gear_mod_kind(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][0]["kind"] = value
+
+    return mutate
+
+
+def _add_effect_map_behavior(payload: dict[str, Any]) -> None:
+    payload["mods"][0]["map_behavior"] = {
+        "id": "periodic_enemy_spawn",
+        "interval_seconds": 10.0,
+        "reset_on_module_exit": True,
+        "current_layer_only": True,
+        "normal_rewards": True,
+    }
+
+
+def _remove_map_gear_mod_behavior(payload: dict[str, Any]) -> None:
+    payload["mods"][3].pop("map_behavior")
+
+
+def _add_map_gear_mod_slot(payload: dict[str, Any]) -> None:
+    payload["mods"][3]["slot"] = "weapon"
+
+
+def _set_map_gear_mod_interval(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][3]["map_behavior"]["interval_seconds"] = value
+
+    return mutate
+
+
+def _rename_map_reset_to_layer_exit(payload: dict[str, Any]) -> None:
+    behavior = payload["mods"][3]["map_behavior"]
+    behavior["reset_on_layer_exit"] = behavior.pop("reset_on_module_exit")
+
+
+def _add_grid_gear_mod_modifiers(payload: dict[str, Any]) -> None:
+    payload["mods"][4]["modifiers"] = [
+        {"stat": "damage", "type": "mult", "value": 1.2}
+    ]
+
+
+def _set_grid_gear_mod_behavior(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][4]["grid_behavior"]["id"] = value
 
     return mutate
 

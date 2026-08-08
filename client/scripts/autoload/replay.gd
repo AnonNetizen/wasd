@@ -19,9 +19,12 @@ const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const CONTENT_UNLOCK_TYPES := preload(
 	"res://scripts/contracts/content_unlock_types.gd"
 )
+const GEAR_MOD_PLACEMENT_OUTCOMES := preload(
+	"res://scripts/contracts/gear_mod_placement_outcomes.gd"
+)
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 7
-const REPLAY_FILE_SCHEMA_VERSION: int = 7
+const REPLAY_SCHEMA_VERSION: int = 8
+const REPLAY_FILE_SCHEMA_VERSION: int = 8
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
@@ -77,6 +80,7 @@ func start_recording(context: Dictionary = {}) -> bool:
 func stop_recording(reason: String = "") -> Dictionary:
 	if not _is_recording:
 		return {}
+	_trim_input_events_to_capacity()
 
 	_is_recording = false
 	_recording["ended_tick"] = GameClock.tick()
@@ -135,9 +139,10 @@ func record_input_value(action_name: String, value: Variant, participant_id: Str
 	}
 
 	_input_events.append(input_event)
-	while _input_events.size() > MAX_INPUT_EVENTS:
-		_input_events.pop_front()
-		_dropped_input_count += 1
+	if _may_be_gear_mod_semantic_trigger(input_event):
+		_trim_input_events_to_capacity(MAX_INPUT_EVENTS + 1)
+	else:
+		_trim_input_events_to_capacity()
 
 	input_recorded.emit(input_event.duplicate(true))
 	return true
@@ -156,6 +161,12 @@ func record_decision(event_name: String, payload: Dictionary = {}) -> bool:
 		"tick": GameClock.tick(),
 		"time": GameClock.now(),
 	}
+	if not _is_valid_decision_event(decision_event):
+		push_error("[Replay] invalid decision payload for event: %s" % event_name)
+		return false
+	if event_name == ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
+		_discard_same_tick_gear_mod_trigger_input(payload)
+	_trim_input_events_to_capacity()
 
 	_decision_events.append(decision_event)
 	while _decision_events.size() > MAX_DECISION_EVENTS:
@@ -164,6 +175,46 @@ func record_decision(event_name: String, payload: Dictionary = {}) -> bool:
 
 	decision_recorded.emit(decision_event.duplicate(true))
 	return true
+
+
+func _discard_same_tick_gear_mod_trigger_input(payload: Dictionary) -> void:
+	var trigger_action: String = ""
+	match String(payload.get("outcome", "")):
+		GEAR_MOD_PLACEMENT_OUTCOMES.PLACED:
+			trigger_action = ACTIONS.UI_CONFIRM
+		GEAR_MOD_PLACEMENT_OUTCOMES.CANCELLED:
+			trigger_action = ACTIONS.UI_BACK
+	if trigger_action.is_empty():
+		return
+	var decision_tick: int = GameClock.tick()
+	for index: int in range(_input_events.size() - 1, -1, -1):
+		var input_event: Dictionary = _input_events[index]
+		if int(input_event.get("tick", -1)) != decision_tick:
+			continue
+		if (
+			String(input_event.get("action", "")) == trigger_action
+			and String(input_event.get("value_type", "")) == "bool"
+			and bool(input_event.get("value", false))
+		):
+			_input_events.remove_at(index)
+			return
+
+
+func _may_be_gear_mod_semantic_trigger(input_event: Dictionary) -> bool:
+	return (
+		String(input_event.get("value_type", "")) == "bool"
+		and bool(input_event.get("value", false))
+		and String(input_event.get("action", ""))
+		in [ACTIONS.UI_CONFIRM, ACTIONS.UI_BACK]
+	)
+
+
+func _trim_input_events_to_capacity(
+	capacity: int = MAX_INPUT_EVENTS
+	) -> void:
+	while _input_events.size() > capacity:
+		_input_events.pop_front()
+		_dropped_input_count += 1
 
 
 func clear_recording() -> void:
@@ -227,6 +278,7 @@ func load_replay_file(path: String) -> Dictionary:
 		return {}
 
 	var envelope: Dictionary = parsed as Dictionary
+	_normalize_wire_integer_fields(envelope)
 	var validation_error: String = _validate_file_envelope(envelope)
 	if not validation_error.is_empty():
 		_set_error(validation_error)
@@ -235,6 +287,40 @@ func load_replay_file(path: String) -> Dictionary:
 
 	replay_loaded.emit(path, envelope.duplicate(true))
 	return envelope.duplicate(true)
+
+
+func _normalize_wire_integer_fields(envelope: Dictionary) -> void:
+	var recording_raw: Variant = envelope.get("recording", null)
+	if not recording_raw is Dictionary:
+		return
+	var recording: Dictionary = recording_raw as Dictionary
+	var decisions_raw: Variant = recording.get("decision_events", null)
+	if not decisions_raw is Array:
+		return
+	for raw_event: Variant in decisions_raw as Array:
+		if not raw_event is Dictionary:
+			continue
+		var event: Dictionary = raw_event as Dictionary
+		_normalize_integral_field(event, "tick")
+		if String(event.get("event", "")) != ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
+			continue
+		var payload_raw: Variant = event.get("payload", null)
+		if not payload_raw is Dictionary:
+			continue
+		var payload: Dictionary = payload_raw as Dictionary
+		_normalize_integral_field(payload, "instance_id")
+		_normalize_integral_field(payload, "x")
+		_normalize_integral_field(payload, "y")
+
+
+func _normalize_integral_field(target: Dictionary, field_name: String) -> void:
+	var raw_value: Variant = target.get(field_name, null)
+	if not raw_value is float:
+		return
+	var value: float = float(raw_value)
+	if not is_finite(value) or value != floor(value) or absf(value) > 9007199254740992.0:
+		return
+	target[field_name] = int(value)
 
 
 func replay_root() -> String:
@@ -417,6 +503,9 @@ func _is_valid_recording(recording: Dictionary) -> bool:
 	for raw_event: Variant in recording.get("input_events", []) as Array:
 		if not raw_event is Dictionary or not _is_valid_input_event(raw_event as Dictionary):
 			return false
+	for raw_event: Variant in recording.get("decision_events", []) as Array:
+		if not raw_event is Dictionary or not _is_valid_decision_event(raw_event as Dictionary):
+			return false
 	return true
 
 
@@ -471,6 +560,49 @@ func _is_valid_input_event(event: Dictionary) -> bool:
 		return false
 	var components: Array = event["value"] as Array
 	return components.size() == 2 and (components[0] is int or components[0] is float) and (components[1] is int or components[1] is float)
+
+
+func _is_valid_decision_event(event: Dictionary) -> bool:
+	for field_name: String in ["event", "payload", "tick", "time"]:
+		if not event.has(field_name):
+			return false
+	if not event["event"] is String or not event["payload"] is Dictionary:
+		return false
+	if not event["tick"] is int or not (event["time"] is int or event["time"] is float):
+		return false
+	var event_name: String = String(event["event"])
+	if not _is_registered_analytics_event(event_name):
+		return false
+	if event_name != ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
+		return true
+	return _is_valid_gear_mod_placement_payload(event["payload"] as Dictionary)
+
+
+func _is_valid_gear_mod_placement_payload(payload: Dictionary) -> bool:
+	for field_name: String in ["instance_id", "mod_id", "outcome"]:
+		if not payload.has(field_name):
+			return false
+	if not payload["instance_id"] is int or int(payload["instance_id"]) <= 0:
+		return false
+	if not payload["mod_id"] is String or String(payload["mod_id"]).is_empty():
+		return false
+	var outcome: String = String(payload["outcome"])
+	if not GEAR_MOD_PLACEMENT_OUTCOMES.VALUES.has(outcome):
+		return false
+	var expected_keys: Array[String] = ["instance_id", "mod_id", "outcome"]
+	if outcome == GEAR_MOD_PLACEMENT_OUTCOMES.PLACED:
+		expected_keys.append_array(["x", "y"])
+		if not payload.get("x") is int or not payload.get("y") is int:
+			return false
+		var coord := Vector2i(int(payload["x"]), int(payload["y"]))
+		if coord.x < 0 or coord.x >= 7 or coord.y < 0 or coord.y >= 7:
+			return false
+	var actual_keys: Array[String] = []
+	for raw_key: Variant in payload.keys():
+		actual_keys.append(String(raw_key))
+	actual_keys.sort()
+	expected_keys.sort()
+	return actual_keys == expected_keys
 
 
 func _ensure_replay_root() -> bool:

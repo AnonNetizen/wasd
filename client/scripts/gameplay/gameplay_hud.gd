@@ -5,7 +5,6 @@ extends CanvasLayer
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
-const STATS_ROW_SCENE: PackedScene = preload("res://scenes/ui/stats_row.tscn")
 const UI_EFFECT_BUNDLE_SCENE: PackedScene = preload("res://scenes/ui/effects/ui_effect_bundle.tscn")
 const SKILL_ACTIONS: Array[String] = [
 	ACTIONS.SKILL_1,
@@ -17,44 +16,6 @@ const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
 const UPGRADE_FEEDBACK_TEXT_SHADOW_COLOR: Color = Color(0.05, 0.04, 0.03, 0.92)
-const DIFFICULTY_MARKER_NORMAL_RECT: Rect2 = Rect2(-267.0, 189.0, 254.0, 132.0)
-const DIFFICULTY_MARKER_STATS_RECT: Rect2 = Rect2(-718.0, 24.0, 254.0, 132.0)
-const STATS_PANEL_ROWS: Array[Dictionary] = [
-	{"key": "life", "label_key": "ui_stats_life"},
-	{"key": "level", "label_key": "ui_stats_level"},
-	{"key": "gold_balance", "label_key": "ui_stats_gold_balance"},
-	{
-		"key": "gold_earned_total",
-		"label_key": "ui_stats_gold_earned_total",
-	},
-	{"key": "level_progress", "label_key": "ui_stats_level_progress"},
-	{"key": "kills", "label_key": "ui_stats_kills"},
-	{"key": "run_time", "label_key": "ui_stats_run_time"},
-	{"key": "enemy_health_multiplier", "label_key": "ui_stats_enemy_health_multiplier"},
-	{"key": "enemy_damage_multiplier", "label_key": "ui_stats_enemy_damage_multiplier"},
-	{"key": "damage", "label_key": "ui_stats_damage"},
-	{"key": "health_regen", "label_key": "ui_stats_health_regen"},
-	{"key": "shield", "label_key": "ui_stats_shield"},
-	{"key": "overshield", "label_key": "ui_stats_overshield"},
-	{"key": "energy", "label_key": "ui_stats_energy"},
-	{"key": "armor", "label_key": "ui_stats_armor"},
-	{"key": "ability_strength", "label_key": "ui_stats_ability_strength"},
-	{"key": "ability_range", "label_key": "ui_stats_ability_range"},
-	{"key": "ability_efficiency", "label_key": "ui_stats_ability_efficiency"},
-	{"key": "ability_duration", "label_key": "ui_stats_ability_duration"},
-	{"key": "fire_rate", "label_key": "ui_stats_fire_rate"},
-	{"key": "move_speed", "label_key": "ui_stats_move_speed"},
-	{"key": "bullet_speed", "label_key": "ui_stats_bullet_speed"},
-	{"key": "bullet_range", "label_key": "ui_stats_bullet_range"},
-	{"key": "bullet_count", "label_key": "ui_stats_bullet_count"},
-	{"key": "pierce_count", "label_key": "ui_stats_pierce_count"},
-	{"key": "crit_chance", "label_key": "ui_stats_crit_chance"},
-	{"key": "crit_mult", "label_key": "ui_stats_crit_mult"},
-	{"key": "pickup_range", "label_key": "ui_stats_pickup_range"},
-	{"key": "luck", "label_key": "ui_stats_luck"},
-	{"key": "skill_resource", "label_key": "ui_stats_skill_resource"},
-	{"key": "skill_cooldown", "label_key": "ui_stats_skill_cooldown"},
-]
 
 var _life_label: Label = null
 var _level_label: Label = null
@@ -63,15 +24,7 @@ var _gold_progress_label: Label = null
 var _time_label: Label = null
 var _message_label: RichTextLabel = null
 var _module_minimap: Control = null
-var _stats_grid: GridContainer = null
-var _stats_label_labels: Dictionary = {}
-var _stats_panel: PanelContainer = null
-var _stats_title_label: Label = null
-var _stats_values: Dictionary = {}
-var _stats_value_labels: Dictionary = {}
-var _stats_panel_requested_visible: bool = false
 var _selection_feedback: UISelectionFeedback = null
-var _stats_transition: UIPanelTransition = null
 var _ui_effect_bundle: Node = null
 var _upgrade_feedback_label: Label = null
 var _upgrade_feedback_remaining: float = 0.0
@@ -139,9 +92,6 @@ func _ready() -> void:
 		) as Label
 		if slot_label != null:
 			_skill_slot_labels.append(slot_label)
-	_stats_panel = get_node_or_null("Root/StatsPanel") as PanelContainer
-	_stats_title_label = get_node_or_null("Root/StatsPanel/Margin/Layout/TitleLabel") as Label
-	_stats_grid = get_node_or_null("Root/StatsPanel/Margin/Layout/StatsGrid") as GridContainer
 	_difficulty_marker = get_node_or_null("Root/DifficultyMarker") as DifficultyMarker
 	_upgrade_feedback_label = get_node_or_null("Root/UpgradeFeedbackLabel") as Label
 	if (
@@ -156,9 +106,6 @@ func _ready() -> void:
 	if (
 		_message_label == null
 		or _upgrade_feedback_label == null
-		or _stats_panel == null
-		or _stats_title_label == null
-		or _stats_grid == null
 		or _difficulty_marker == null
 	):
 		push_error("[GameplayHud] missing required scene nodes")
@@ -180,8 +127,6 @@ func _ready() -> void:
 		return
 
 	_message_label.hide()
-	_stats_panel.hide()
-	_build_stats_panel_rows()
 	_upgrade_feedback_label.hide()
 	_configure_upgrade_feedback_style()
 	_bind_ui_effects()
@@ -190,7 +135,6 @@ func _ready() -> void:
 		push_error("[GameplayHud] missing scene-authored ModuleMinimap")
 		return
 	_difficulty_marker.set_snapshot(_difficulty_snapshot, _difficulty_combat_locked)
-	_position_difficulty_marker(false)
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
 	if not InputService.bindings_changed.is_connected(_on_input_prompt_changed):
@@ -449,8 +393,6 @@ func set_difficulty_snapshot(snapshot: Dictionary, combat_locked: bool) -> void:
 	if _difficulty_marker != null:
 		_difficulty_marker.set_snapshot(_difficulty_snapshot, _difficulty_combat_locked)
 	_refresh_time_label()
-	if _stats_panel != null and _stats_panel.visible:
-		_refresh_stats_panel()
 
 
 func set_gold_progress(
@@ -491,6 +433,10 @@ func show_level_advanced_feedback(level: int) -> void:
 
 func show_gear_mod_drop_feedback(name_key: String) -> void:
 	_show_feedback("ui_gear_mod_drop_obtained", name_key)
+
+
+func show_gear_mod_no_space_feedback() -> void:
+	_show_feedback("ui_gear_mod_board_no_space", "")
 
 
 func show_world_event_feedback(
@@ -578,45 +524,6 @@ func is_game_over_message_visible() -> bool:
 	return _message_label != null and _message_label.visible
 
 
-func set_stats_panel_visible(is_visible: bool) -> void:
-	if _stats_panel == null:
-		return
-	if is_visible:
-		_position_difficulty_marker(true)
-	if _stats_panel_requested_visible == is_visible:
-		if is_visible:
-			_refresh_stats_panel()
-		else:
-			_position_difficulty_marker(false)
-		return
-	_stats_panel_requested_visible = is_visible
-	if is_visible:
-		_stats_panel.show()
-		_refresh_stats_panel()
-		if _stats_transition != null:
-			_stats_transition.play_enter()
-		return
-	if _stats_transition != null and _stats_panel.visible:
-		_stats_transition.play_exit(_finish_stats_panel_hide)
-	else:
-		_stats_panel.hide()
-		_position_difficulty_marker(false)
-
-
-func set_detailed_stats(stats: Dictionary) -> void:
-	_stats_values = stats.duplicate(true)
-	if _stats_panel != null and _stats_panel.visible:
-		_refresh_stats_panel()
-
-
-func is_stats_panel_visible() -> bool:
-	return (
-		_stats_panel != null
-		and _stats_panel_requested_visible
-		and _stats_panel.visible
-	)
-
-
 func _refresh_static_labels() -> void:
 	set_life(_current_life, _max_life)
 	set_kills(_kills)
@@ -638,7 +545,6 @@ func _refresh_static_labels() -> void:
 	if _difficulty_marker != null:
 		_difficulty_marker.refresh_locale()
 	_refresh_status_label()
-	_refresh_stats_panel()
 
 
 func _on_input_prompt_changed() -> void:
@@ -705,11 +611,6 @@ func _bind_ui_effects() -> void:
 		return
 	_ui_effect_bundle.name = &"UIEffects"
 	add_child(_ui_effect_bundle)
-	_stats_transition = _ui_effect_bundle.get_node_or_null(
-		"PanelTransition"
-	) as UIPanelTransition
-	if _stats_transition != null:
-		_stats_transition.configure(_stats_panel)
 	_value_feedback = _ui_effect_bundle.get_node_or_null(
 		"ValueFeedback"
 	) as UIValueFeedback
@@ -727,69 +628,8 @@ func _bind_ui_effects() -> void:
 	if focus_indicator != null:
 		focus_indicator.bind(self)
 
-
-func _finish_stats_panel_hide() -> void:
-	if not _stats_panel_requested_visible and _stats_panel != null:
-		_stats_panel.hide()
-		_position_difficulty_marker(false)
-
-
 func _bind_module_minimap() -> void:
 	_module_minimap = get_node_or_null("Root/ModuleMinimap") as Control
-
-
-func _position_difficulty_marker(stats_panel_open: bool) -> void:
-	if _difficulty_marker == null:
-		return
-	var target_rect: Rect2 = (
-		DIFFICULTY_MARKER_STATS_RECT
-		if stats_panel_open
-		else DIFFICULTY_MARKER_NORMAL_RECT
-	)
-	_difficulty_marker.offset_left = target_rect.position.x
-	_difficulty_marker.offset_top = target_rect.position.y
-	_difficulty_marker.offset_right = target_rect.position.x + target_rect.size.x
-	_difficulty_marker.offset_bottom = target_rect.position.y + target_rect.size.y
-
-
-func _build_stats_panel_rows() -> void:
-	_stats_label_labels.clear()
-	_stats_value_labels.clear()
-	for child: Node in _stats_grid.get_children():
-		child.queue_free()
-	for row: Dictionary in STATS_PANEL_ROWS:
-		var row_key: String = String(row["key"])
-		var row_node: HBoxContainer = STATS_ROW_SCENE.instantiate() as HBoxContainer
-		if row_node == null:
-			push_error("[GameplayHud] failed to instantiate stats row template")
-			continue
-		row_node.name = "%sRow" % row_key.to_pascal_case()
-		var label: Label = row_node.get_node_or_null("NameLabel") as Label
-		var value_label: Label = row_node.get_node_or_null("ValueLabel") as Label
-		if label == null or value_label == null:
-			row_node.queue_free()
-			push_error("[GameplayHud] stats row template is missing labels")
-			continue
-		label.name = "%sLabel" % row_key.to_pascal_case()
-		value_label.name = "%sValueLabel" % row_key.to_pascal_case()
-		_stats_grid.add_child(row_node)
-		_stats_label_labels[row_key] = label
-		_stats_value_labels[row_key] = value_label
-	_refresh_stats_panel()
-
-
-func _refresh_stats_panel() -> void:
-	if _stats_title_label == null or _stats_grid == null:
-		return
-	_stats_title_label.text = tr("ui_stats_panel_title")
-	for row: Dictionary in STATS_PANEL_ROWS:
-		var row_key: String = String(row["key"])
-		var label: Label = _stats_label_labels.get(row_key) as Label
-		var value_label: Label = _stats_value_labels.get(row_key) as Label
-		if label != null:
-			label.text = tr(String(row["label_key"]))
-		if value_label != null:
-			value_label.text = _stats_value_for_row(row_key)
 
 
 func _update_upgrade_feedback_visual() -> void:
@@ -828,18 +668,6 @@ func _color_from_variant(value: Variant, fallback: Color) -> Color:
 	if value is String and Color.html_is_valid(String(value)):
 		return Color.from_string(String(value), fallback)
 	return fallback
-
-
-func _stats_value_for_row(row_key: String) -> String:
-	if not _difficulty_snapshot.is_empty():
-		match row_key:
-			"run_time":
-				return _format_elapsed(float(_difficulty_snapshot.get("elapsed", 0.0)))
-			"enemy_health_multiplier":
-				return "%.2f×" % float(_difficulty_snapshot.get("health_multiplier", 1.0))
-			"enemy_damage_multiplier":
-				return "%.2f×" % float(_difficulty_snapshot.get("damage_multiplier", 1.0))
-	return String(_stats_values.get(row_key, "-"))
 
 
 func _format_elapsed(elapsed_seconds: float) -> String:

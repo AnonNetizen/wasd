@@ -5,6 +5,7 @@ extends Node
 
 
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
+const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
 
 
 ## Rolls every matching enemy drop row without mutating run or meta state.
@@ -58,9 +59,20 @@ func mod_definition(mod_id: String) -> Dictionary:
 	return {}
 
 
+func mod_definitions() -> Array[Dictionary]:
+	return _typed_dictionary_array(_gear_data().get("mods", []))
+
+
+func board_config() -> Dictionary:
+	return _dictionary_or_empty(_gear_data().get("board", {}))
+
+
 func modifiers(mod_id: String) -> Array[Dictionary]:
 	var definition: Dictionary = mod_definition(mod_id)
-	if definition.is_empty():
+	if (
+		definition.is_empty()
+		or String(definition.get("kind", "")) != GEAR_MOD_KINDS.EFFECT
+	):
 		return []
 	var resolved_modifiers: Array[Dictionary] = []
 	for modifier: Dictionary in _typed_dictionary_array(
@@ -123,22 +135,40 @@ func resolve_preview_loadout(selections: Array) -> Dictionary:
 				"reason": "unknown_mod",
 			})
 			continue
-		var loadout_slot: String = String(definition.get("slot", ""))
-		if not GEAR_MOD_SLOTS.VALUES.has(loadout_slot):
-			diagnostics.append({
-				"mod_id": mod_id,
-				"reason": "unknown_loadout_slot",
-			})
-			continue
-		selected.append({
+		var mod_kind: String = String(definition.get("kind", ""))
+		var resolved_selection: Dictionary = {
 			"mod_id": mod_id,
-			"slot": loadout_slot,
+			"kind": mod_kind,
 			"name_key": String(definition.get("name_key", "")),
 			"desc_key": String(definition.get("desc_key", "")),
-		})
-		var slot_modifiers: Array = modifiers_by_slot[loadout_slot] as Array
-		slot_modifiers.append_array(modifiers(mod_id))
-		modifiers_by_slot[loadout_slot] = slot_modifiers
+		}
+		if mod_kind == GEAR_MOD_KINDS.EFFECT:
+			var loadout_slot: String = String(definition.get("slot", ""))
+			if not GEAR_MOD_SLOTS.VALUES.has(loadout_slot):
+				diagnostics.append({
+					"mod_id": mod_id,
+					"reason": "unknown_loadout_slot",
+				})
+				continue
+			resolved_selection["slot"] = loadout_slot
+			var slot_modifiers: Array = modifiers_by_slot[loadout_slot] as Array
+			slot_modifiers.append_array(modifiers(mod_id))
+			modifiers_by_slot[loadout_slot] = slot_modifiers
+		elif mod_kind == GEAR_MOD_KINDS.MAP:
+			resolved_selection["map_behavior"] = _dictionary_or_empty(
+				definition.get("map_behavior", {})
+			)
+		elif mod_kind == GEAR_MOD_KINDS.GRID:
+			resolved_selection["grid_behavior"] = _dictionary_or_empty(
+				definition.get("grid_behavior", {})
+			)
+		else:
+			diagnostics.append({
+				"mod_id": mod_id,
+				"reason": "unknown_mod_kind",
+			})
+			continue
+		selected.append(resolved_selection)
 
 	return {
 		"ok": true,
@@ -156,7 +186,7 @@ func _gear_data() -> Dictionary:
 
 
 func _mod_definitions() -> Array[Dictionary]:
-	return _typed_dictionary_array(_gear_data().get("mods", []))
+	return mod_definitions()
 
 
 func _drop_rows_for_enemy(

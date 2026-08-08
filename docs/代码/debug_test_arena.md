@@ -1,7 +1,7 @@
 # Developer Test Arena 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是正式项目内“开发者测试岛”的代码契约；改独立场景入口、运行用途、配装配置、训练靶、控制面板、伤害统计、存档隔离或 release 导出边界时，必须同步 ADR #159 / #160 / #193、GDD §9.20、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档、测试策略、AI 导航和 AI 记忆。
+> 本文档是正式项目内“开发者测试岛”的代码契约；改独立场景入口、运行用途、配装配置、训练靶、控制面板、伤害统计、存档隔离或 release 导出边界时，必须同步 ADR #159 / #160 / #193 / #194、GDD §9.20、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档、测试策略、AI 导航和 AI 记忆。
 
 ## 职责
 
@@ -27,8 +27,8 @@
 | `client/scripts/debug/debug_test_arena_controller.gd` | 目标生成、控制动作、死亡复位、伤害统计和面板生命周期 |
 | `client/scenes/debug/debug_test_arena_control_panel.tscn` / 对应脚本 | UIManager 管理的暂停控制面板 |
 | `client/scenes/debug/debug_test_arena_setup.tscn` / 对应脚本 | 数据驱动配装界面和开发配置保存 |
-| `client/scenes/debug/debug_test_arena_mod_row.tscn` / 对应脚本 | Gear Mod 启用行模板；只有勾选与名称，无等级 / 数量控件 |
-| `client/scripts/debug/debug_test_arena_config.gd` | `user://debug_test_arena.cfg` schema v3、主／子英雄回退诊断和内容列表 |
+| `client/scenes/debug/debug_test_arena_mod_row.tscn` / 对应脚本 | Gear Mod 启用行模板；勾选具体 Mod 并填写唯一 x/y 坐标，无等级 / 数量控件 |
+| `client/scripts/debug/debug_test_arena_config.gd` | `user://debug_test_arena.cfg` schema v4、主／子英雄回退、显式 placements 和正式棋盘校验 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 内部 `DEBUG_TEST_ARENA` 运行用途及受控 arena API |
 | `client/scripts/gameplay/player.gd` / `weapon_system.gd` / `skill_system.gd` / `enemy.gd` | 无敌、免费释放、刷新、训练靶 AI 开关与复位的最小 debug API |
 | `client/scripts/autoload/gear_mod_system.gd` | 不读取 / 写入 SaveManager 的纯 `resolve_preview_loadout()` |
@@ -62,7 +62,7 @@ DebugTestArena (standalone host)
 |------|------|
 | 独立入口 | 在 Godot 中直接运行 `debug_test_arena.tscn`；host 仅接受 debug 或 `dev_tools` 构建，并先验证正式项目数据 |
 | 配装入口 | 每次启动先通过 UIManager 打开上次配置的 setup；没有标题菜单或正式 `--debug-test-arena` 启动路径 |
-| 配置归一化 | 正 seed、主／子英雄、武器与无等级 Gear Mod id 被校验；重复英雄和无效 id 回退到合法组合并写诊断 |
+| 配置归一化 | 正 seed、主／子英雄、武器与 `{mod_id,x,y}` placements 被校验；重复 Mod ID、重复格、越界、对角或不连通项拒绝并写诊断 |
 | Runtime 配置 | host 实例化 `debug_test_arena_run.tscn`，并在入树前调用 `configure_debug_test_arena()`；内部运行用途关闭模块世界、Spawner、导演、兴趣点、撤离、成长与普通结算 |
 | 服务隔离 | host 启动时保存 Replay / Analytics enabled 状态并临时关闭；返回配装期间保持关闭，退出独立测试时幂等恢复 |
 | 激活 | 玩家和正式战斗系统完成配置后，默认打开控制面板；面板通过 UIManager 暂停并接管输入 |
@@ -76,19 +76,19 @@ DebugTestArena (standalone host)
 
 ```ini
 [arena]
-schema_version=3
+schema_version=4
 seed=424242
 main_hero_id="character_primary_a"
 sub_hero_id="character_primary_b"
 weapon_id="weapon_basic_blaster"
-gear_mods=[{"mod_id":"gear_mod_weapon_damage_test"}]
+gear_mod_placements=[{"mod_id":"gear_mod_weapon_damage_test","x":3,"y":2}]
 ```
 
 - 配置使用 `ConfigFile`，不走 `SaveManager`，不触碰 `user://saves/`。
 - 可用选择器从 `DataLoader` 动态列出主英雄、子英雄、武器和 Gear Mod；重复组合自动修正。
 - 遗物、主动道具和消耗品只列出名称并明确显示“运行时尚未接入”，不可选择。
 - 测试内容视为已解锁，不读取背包或货币。
-- 每个 Gear Mod 只有一个启用开关；setup 不提供 rank、count、容量、drain 或升级控件。`resolve_preview_loadout()` 只解析 `{mod_id}` 并输出固定 hero / weapon modifiers 与诊断。
+- 每个 Gear Mod ID 只有一个启用开关和一组显式坐标；setup 不提供 rank、count、容量、drain、移动或升级控件。配置先按 `y,x` 排序，再用正式 `GearModBoard` 的当前合法目标逐项展开；`effect` 正常生成 hero / weapon modifier，`grid` 只占格，`map` 保留 placement 但因测试岛没有 7×7 ModuleWorld 而不激活。旧 schema v3 直接重置，不推断坐标。
 
 ## 控制面板
 
@@ -116,7 +116,7 @@ gear_mods=[{"mod_id":"gear_mod_weapon_damage_test"}]
 |-----|------|
 | `DebugTestArenaConfig.available_content()` | 返回 setup 可展示的正式内容定义 |
 | `load_config()` / `save_config()` / `normalize_config()` | 独立开发配置读写与回退诊断 |
-| `GearModSystem.resolve_preview_loadout(selections)` | 纯内存解析合法 Mod id 与固定 hero / weapon modifiers |
+| `GearModBoard` + `GearModSystem.modifiers()` | 纯内存校验显式 placements，并只从 effect Mod 解析 hero / weapon modifiers |
 | `DebugTestArenaHost.debug_active_setup()` / `debug_active_run_loop()` | smoke 只读查询当前独立场景阶段 |
 | `DebugTestArenaHost.debug_service_state_before()` / `debug_exit_is_completed()` | smoke 验证服务恢复与退出完成 |
 | `GameplayRunLoop.configure_debug_test_arena(config)` | 入树前选择内部运行用途与配装 |

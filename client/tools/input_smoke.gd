@@ -37,6 +37,7 @@ func _run() -> void:
 	InputService.reset_bindings_to_defaults()
 
 	await _expect_context_isolation_and_vector_input()
+	await _expect_non_pausing_ui_capture_preserves_physical_holds()
 	await _expect_mouse_events_reach_guide_before_gui()
 	await _expect_bool_edges_are_latched()
 	await _expect_default_combat_bindings()
@@ -103,6 +104,90 @@ func _expect_context_isolation_and_vector_input() -> void:
 	await _inject_joy_axis(JOY_AXIS_RIGHT_Y, -1.0)
 	_expect(InputService.vector(ACTIONS.AIM).y < -0.9, "right stick negative Y should produce negative aim intent")
 	await _inject_joy_axis(JOY_AXIS_RIGHT_Y, 0.0)
+
+
+func _expect_non_pausing_ui_capture_preserves_physical_holds() -> void:
+	GameState.change_state(GameState.PLAYING, {"source": "input_smoke_overlay_capture"})
+	UIManager.clear()
+	await _wait_process_frames(WAIT_FRAMES)
+	await _inject_key(KEY_W, true)
+	await _inject_key(KEY_TAB, true)
+	await _inject_joy_button(JOY_BUTTON_A, true)
+	var dash_press_count_before_capture: int = _action_presses.count(
+		StringName(ACTIONS.DASH)
+	)
+	var pointer_event := InputEventMouseMotion.new()
+	pointer_event.position = Vector2(700.0, 400.0)
+	pointer_event.global_position = pointer_event.position
+	pointer_event.relative = Vector2(3.0, 1.0)
+	InputService.debug_inject_input(pointer_event)
+	await _wait_process_frames(WAIT_FRAMES)
+	_expect(
+		InputService.should_use_pointer_aim(),
+		"pointer activity should control aim before non-pausing UI capture"
+	)
+	_expect(
+		InputService.vector(ACTIONS.MOVE).is_equal_approx(Vector2.UP),
+		"movement should be held before non-pausing UI capture"
+	)
+	var capture_owner := Node.new()
+	capture_owner.name = "InputSmokeNonPausingCaptureOwner"
+	add_child(capture_owner)
+	_expect(
+		InputService.begin_non_pausing_ui_capture(capture_owner),
+		"non-pausing UI capture should accept a live owner"
+	)
+	await _wait_process_frames(WAIT_FRAMES)
+	_expect(
+		GameState.is_state(GameState.PLAYING),
+		"non-pausing UI capture should keep the world in PLAYING"
+	)
+	_expect(
+		InputService.vector(ACTIONS.MOVE).is_zero_approx(),
+		"non-pausing UI capture should mask movement intent"
+	)
+	_expect(
+		not InputService.should_use_pointer_aim(),
+		"non-pausing UI capture should suppress pointer-driven facing and camera aim"
+	)
+	_expect(
+		InputService.is_pressed(ACTIONS.SHOW_STATS_PANEL),
+		"Tab hold state should remain observable while its panel captures gameplay"
+	)
+	await _inject_mouse_button(MOUSE_BUTTON_LEFT, true)
+	_expect(
+		not InputService.is_pressed(ACTIONS.FIRE),
+		"non-pausing UI capture should mask fire intent"
+	)
+	_expect(
+		not InputService.is_pressed(ACTIONS.DASH),
+		"non-pausing UI capture should mask held one-shot intent"
+	)
+	_expect(
+		InputService.end_non_pausing_ui_capture(capture_owner),
+		"non-pausing UI capture should release its live owner"
+	)
+	await _wait_process_frames(WAIT_FRAMES)
+	_expect(
+		InputService.vector(ACTIONS.MOVE).is_equal_approx(Vector2.UP),
+		"releasing capture should restore a physically held movement intent"
+	)
+	_expect(
+		InputService.is_pressed(ACTIONS.FIRE),
+		"releasing capture should restore a physically held fire intent"
+	)
+	_expect(
+		InputService.is_pressed(ACTIONS.DASH)
+		and _action_presses.count(StringName(ACTIONS.DASH))
+		== dash_press_count_before_capture,
+		"releasing capture should not synthesize a second press for a held one-shot action"
+	)
+	await _inject_mouse_button(MOUSE_BUTTON_LEFT, false)
+	await _inject_joy_button(JOY_BUTTON_A, false)
+	await _inject_key(KEY_W, false)
+	await _inject_key(KEY_TAB, false)
+	capture_owner.queue_free()
+	await get_tree().process_frame
 
 
 func _expect_mouse_events_reach_guide_before_gui() -> void:

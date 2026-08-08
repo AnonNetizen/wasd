@@ -284,11 +284,21 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 			)
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var runtime_events: Array[Dictionary] = _sorted_runtime_events(recording.get("runtime_events", []))
+	var placement_decisions: Array[Dictionary] = _sorted_placement_decision_events(
+		recording.get("decision_events", [])
+	)
 	var next_input_index: int = 0
 	var next_runtime_index: int = 0
+	var next_placement_index: int = 0
 	var frame_samples: Array[Dictionary] = []
 	for frame_number: int in range(1, capture_frames + 1):
 		next_input_index = await _apply_due_input_events(input_events, next_input_index, frame_number)
+		next_placement_index = await _apply_due_placement_decisions(
+			placement_decisions,
+			next_placement_index,
+			frame_number,
+			run_loop
+		)
 		next_runtime_index = await _apply_due_runtime_events(runtime_events, next_runtime_index, frame_number, run_loop)
 		await get_tree().physics_frame
 		await get_tree().process_frame
@@ -296,6 +306,12 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 			frame_samples.append(_frame_sample(run_loop, frame_number, scenario))
 
 	next_input_index = await _apply_due_input_events(input_events, next_input_index, capture_frames + 1)
+	next_placement_index = await _apply_due_placement_decisions(
+		placement_decisions,
+		next_placement_index,
+		capture_frames + 1,
+		run_loop
+	)
 	next_runtime_index = await _apply_due_runtime_events(runtime_events, next_runtime_index, capture_frames + 1, run_loop)
 	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario, frame_samples)
 	_release_input_actions()
@@ -488,6 +504,25 @@ func _sorted_runtime_events(raw_runtime_events: Variant) -> Array[Dictionary]:
 	return runtime_events
 
 
+func _sorted_placement_decision_events(
+		raw_decision_events: Variant
+	) -> Array[Dictionary]:
+	var decisions: Array[Dictionary] = []
+	if raw_decision_events is not Array:
+		return decisions
+	for raw_decision: Variant in raw_decision_events as Array:
+		if raw_decision is not Dictionary:
+			continue
+		var decision: Dictionary = raw_decision as Dictionary
+		if String(decision.get("event", "")) != ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
+			continue
+		var copied: Dictionary = decision.duplicate(true)
+		copied["_source_order"] = decisions.size()
+		decisions.append(copied)
+	decisions.sort_custom(_sort_input_events_by_tick)
+	return decisions
+
+
 func _sort_input_events_by_tick(left: Dictionary, right: Dictionary) -> bool:
 	var left_tick: int = int(left.get("tick", 0))
 	var right_tick: int = int(right.get("tick", 0))
@@ -528,6 +563,33 @@ func _apply_due_runtime_events(runtime_events: Array[Dictionary], next_runtime_i
 		await _apply_runtime_event(runtime_event, run_loop)
 		next_runtime_index += 1
 	return next_runtime_index
+
+
+func _apply_due_placement_decisions(
+		decisions: Array[Dictionary],
+		next_decision_index: int,
+		frame_number: int,
+		run_loop: Node
+	) -> int:
+	while next_decision_index < decisions.size():
+		var decision: Dictionary = decisions[next_decision_index]
+		if not _is_input_event_due(decision, frame_number):
+			return next_decision_index
+		if not run_loop.has_method("apply_replay_gear_mod_placement"):
+			_expect(false, "ReplayRunner runtime lacks Gear Mod placement replay API")
+			return decisions.size()
+		var result: Dictionary = run_loop.call(
+			"apply_replay_gear_mod_placement",
+			_dictionary_or_empty(decision.get("payload", {}))
+		) as Dictionary
+		_expect(
+			bool(result.get("ok", false)),
+			"ReplayRunner Gear Mod placement divergence: %s"
+			% JSON.stringify(result)
+		)
+		next_decision_index += 1
+		await get_tree().process_frame
+	return next_decision_index
 
 
 func _is_runtime_event_due(runtime_event: Dictionary, frame_number: int) -> bool:

@@ -1,5 +1,67 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
+  "board": {
+    "width": 7,
+    "height": 7,
+    "center": {
+      "x": 3,
+      "y": 3
+    },
+    "initial_unlocked_cells": [
+      {
+        "x": 3,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 3
+      },
+      {
+        "x": 4,
+        "y": 3
+      },
+      {
+        "x": 5,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 4
+      },
+      {
+        "x": 4,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 5
+      }
+    ]
+  },
   "pickup": {
     "pool_id": "gear_mod_pickup",
     "interaction_radius": 72.0,
@@ -12,7 +74,9 @@
       "mod_ids": [
         "gear_mod_weapon_damage_test",
         "gear_mod_weapon_recoil_damper",
-        "gear_mod_weapon_spread_stabilizer"
+        "gear_mod_weapon_spread_stabilizer",
+        "gear_mod_map_spawner_cage",
+        "gear_mod_grid_rock"
       ]
     }
   ],
@@ -22,6 +86,7 @@
       "name_key": "gear_mod_weapon_damage_test_name",
       "desc_key": "gear_mod_weapon_damage_test_desc",
       "default_unlocked": true,
+      "kind": "effect",
       "slot": "weapon",
       "rarity": "common",
       "modifiers": [
@@ -37,6 +102,7 @@
       "name_key": "gear_mod_weapon_recoil_damper_name",
       "desc_key": "gear_mod_weapon_recoil_damper_desc",
       "default_unlocked": true,
+      "kind": "effect",
       "slot": "weapon",
       "rarity": "common",
       "modifiers": [
@@ -52,6 +118,7 @@
       "name_key": "gear_mod_weapon_spread_stabilizer_name",
       "desc_key": "gear_mod_weapon_spread_stabilizer_desc",
       "default_unlocked": true,
+      "kind": "effect",
       "slot": "weapon",
       "rarity": "common",
       "modifiers": [
@@ -61,6 +128,32 @@
           "value": 0.8
         }
       ]
+    },
+    {
+      "id": "gear_mod_map_spawner_cage",
+      "name_key": "gear_mod_map_spawner_cage_name",
+      "desc_key": "gear_mod_map_spawner_cage_desc",
+      "default_unlocked": true,
+      "kind": "map",
+      "rarity": "common",
+      "map_behavior": {
+        "id": "periodic_enemy_spawn",
+        "interval_seconds": 10.0,
+        "reset_on_module_exit": true,
+        "current_layer_only": true,
+        "normal_rewards": true
+      }
+    },
+    {
+      "id": "gear_mod_grid_rock",
+      "name_key": "gear_mod_grid_rock_name",
+      "desc_key": "gear_mod_grid_rock_desc",
+      "default_unlocked": true,
+      "kind": "grid",
+      "rarity": "common",
+      "grid_behavior": {
+        "id": "occupy_only"
+      }
     }
   ]
 }

@@ -9,6 +9,7 @@ const HOVER_AMPLITUDE: float = 3.0
 const HOVER_SPEED: float = 2.2
 
 var _interaction_radius: float = 0.0
+var _gear_mod_instance_id: int = 0
 var _mod_id: String = ""
 var _visual_time: float = 0.0
 
@@ -31,14 +32,23 @@ func _process(delta: float) -> void:
 	_refresh_visual()
 
 
-func configure(mod_id_value: String, pickup_config: Dictionary) -> bool:
+func configure(
+	instance_id_value: int,
+	mod_id_value: String,
+	pickup_config: Dictionary
+) -> bool:
 	var interaction_radius: float = float(
 		pickup_config.get("interaction_radius", 0.0)
 	)
-	if mod_id_value.is_empty() or interaction_radius <= 0.0:
+	if (
+		instance_id_value <= 0
+		or mod_id_value.is_empty()
+		or interaction_radius <= 0.0
+	):
 		return false
 	if GearModSystem.mod_definition(mod_id_value).is_empty():
 		return false
+	_gear_mod_instance_id = instance_id_value
 	_mod_id = mod_id_value
 	_interaction_radius = interaction_radius
 	_visual_time = 0.0
@@ -50,6 +60,10 @@ func configure(mod_id_value: String, pickup_config: Dictionary) -> bool:
 
 func mod_id() -> String:
 	return _mod_id
+
+
+func gear_mod_instance_id() -> int:
+	return _gear_mod_instance_id
 
 
 func can_player_interact(player: Node2D) -> bool:
@@ -64,6 +78,7 @@ func can_player_interact(player: Node2D) -> bool:
 
 func snapshot() -> Dictionary:
 	return {
+		"instance_id": _gear_mod_instance_id,
 		"position": {
 			"x": global_position.x,
 			"y": global_position.y,
@@ -77,7 +92,8 @@ func restore_snapshot(
 	pickup_config: Dictionary
 ) -> bool:
 	if (
-		snapshot_data.size() != 2
+		snapshot_data.size() != 3
+		or not snapshot_data.has("instance_id")
 		or not snapshot_data.has("mod_id")
 		or not snapshot_data.has("position")
 	):
@@ -104,7 +120,14 @@ func restore_snapshot(
 	var position_y: float = float(position_data.get("y", NAN))
 	if not is_finite(position_x) or not is_finite(position_y):
 		return false
-	if not configure(String(snapshot_data.get("mod_id", "")), pickup_config):
+	var raw_instance_id: Variant = snapshot_data.get("instance_id")
+	if not raw_instance_id is int or int(raw_instance_id) <= 0:
+		return false
+	if not configure(
+		int(raw_instance_id),
+		String(snapshot_data.get("mod_id", "")),
+		pickup_config
+	):
 		return false
 	global_position = Vector2(position_x, position_y)
 	return true
@@ -112,6 +135,7 @@ func restore_snapshot(
 
 func _pool_reset() -> void:
 	_interaction_radius = 0.0
+	_gear_mod_instance_id = 0
 	_mod_id = ""
 	_visual_time = 0.0
 	position = Vector2.ZERO
@@ -122,6 +146,7 @@ func _pool_reset() -> void:
 func _pool_release() -> void:
 	remove_from_group(ACTIVE_GROUP)
 	_interaction_radius = 0.0
+	_gear_mod_instance_id = 0
 	_mod_id = ""
 	_visual_time = 0.0
 

@@ -6,8 +6,11 @@ extends RefCounted
 
 const CONFIG_PATH: String = "user://debug_test_arena.cfg"
 const DEFAULT_SEED: int = 424242
-const SCHEMA_VERSION: int = 3
+const SCHEMA_VERSION: int = 4
 const SECTION: String = "arena"
+const GEAR_MOD_BOARD_SCRIPT := preload(
+	"res://scripts/gameplay/gear_mod_board.gd"
+)
 
 
 func available_content() -> Dictionary:
@@ -51,7 +54,11 @@ func load_config() -> Dictionary:
 		"primary_skill_id": String(
 			file.get_value(SECTION, "primary_skill_id", "")
 		),
-		"gear_mods": file.get_value(SECTION, "gear_mods", []),
+		"gear_mod_placements": file.get_value(
+			SECTION,
+			"gear_mod_placements",
+			[]
+		),
 	}
 	var normalized: Dictionary = normalize_config(raw_config)
 	for diagnostic: Dictionary in _typed_dictionary_array(
@@ -91,8 +98,8 @@ func save_config(raw_config: Dictionary) -> Dictionary:
 	)
 	file.set_value(
 		SECTION,
-		"gear_mods",
-		normalized.get("gear_mods", []).duplicate(true)
+		"gear_mod_placements",
+		normalized.get("gear_mod_placements", []).duplicate(true)
 	)
 	var save_error: Error = file.save(CONFIG_PATH)
 	normalized["saved"] = save_error == OK
@@ -177,12 +184,17 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 		"primary_skill_id",
 		diagnostics
 	)
-	var preview: Dictionary = GearModSystem.resolve_preview_loadout(
-		_deduplicated_gear_mod_input(
-			_array_or_empty(source_config.get("gear_mods", [])),
-			diagnostics
-		)
+	var placement_result: Dictionary = _normalized_gear_mod_placements(
+		_array_or_empty(source_config.get("gear_mod_placements", [])),
+		diagnostics
 	)
+	var placements: Array[Dictionary] = _typed_dictionary_array(
+		placement_result.get("placements", [])
+	)
+	var preview_input: Array[Dictionary] = []
+	for placement: Dictionary in placements:
+		preview_input.append({"mod_id": String(placement.get("mod_id", ""))})
+	var preview: Dictionary = GearModSystem.resolve_preview_loadout(preview_input)
 	diagnostics.append_array(
 		_typed_dictionary_array(preview.get("diagnostics", []))
 	)
@@ -194,8 +206,9 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 		"character_id": main_hero_id,
 		"weapon_id": weapon_id,
 		"primary_skill_id": skill_id,
-		"gear_mods": _config_selections(
-			_typed_dictionary_array(preview.get("selected", []))
+		"gear_mod_placements": placements,
+		"gear_mod_board": _dictionary_or_empty(
+			placement_result.get("board_snapshot", {})
 		),
 		"modifier_preview": preview,
 		"diagnostics": diagnostics,
@@ -231,39 +244,128 @@ func _load_items(path: String, key: String) -> Array[Dictionary]:
 	return _typed_dictionary_array(payload.get(key, []))
 
 
-func _config_selections(
-	resolved: Array[Dictionary]
-) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for selection: Dictionary in resolved:
-		result.append({
-			"mod_id": String(selection.get("mod_id", "")),
-		})
-	return result
-
-
-func _deduplicated_gear_mod_input(
-	raw_selections: Array,
+func _normalized_gear_mod_placements(
+	raw_placements: Array,
 	diagnostics: Array[Dictionary]
-) -> Array:
-	var result: Array = []
+) -> Dictionary:
+	var board: GearModBoard = GEAR_MOD_BOARD_SCRIPT.new()
+	if not board.configure(
+		GearModSystem.board_config(),
+		GearModSystem.mod_definitions()
+	):
+		diagnostics.append({
+			"field": "gear_mod_placements",
+			"reason": "invalid_board_config",
+		})
+		return {"placements": [], "board_snapshot": {}}
+	var candidates: Array[Dictionary] = []
 	var seen_mod_ids: Dictionary = {}
-	for raw_selection: Variant in raw_selections:
-		if raw_selection is Dictionary:
-			var mod_id: String = String(
-				(raw_selection as Dictionary).get("mod_id", "")
-			).strip_edges()
-			if not mod_id.is_empty():
-				if seen_mod_ids.has(mod_id):
-					diagnostics.append({
-						"field": "gear_mods",
-						"reason": "duplicate_mod",
-						"value": mod_id,
-					})
-					continue
-				seen_mod_ids[mod_id] = true
-		result.append(raw_selection)
-	return result
+	var seen_cells: Dictionary = {}
+	for raw_placement: Variant in raw_placements:
+		if raw_placement is not Dictionary:
+			diagnostics.append({
+				"field": "gear_mod_placements",
+				"reason": "invalid_placement",
+			})
+			continue
+		var placement: Dictionary = raw_placement as Dictionary
+		if not _has_exact_keys(placement, ["mod_id", "x", "y"]):
+			diagnostics.append({
+				"field": "gear_mod_placements",
+				"reason": "invalid_placement_fields",
+				"value": placement.duplicate(true),
+			})
+			continue
+		var mod_id: String = String(placement.get("mod_id", "")).strip_edges()
+		var x_value: Variant = placement.get("x")
+		var y_value: Variant = placement.get("y")
+		if (
+			GearModSystem.mod_definition(mod_id).is_empty()
+			or not x_value is int
+			or not y_value is int
+		):
+			diagnostics.append({
+				"field": "gear_mod_placements",
+				"reason": "invalid_mod_or_coord",
+				"value": placement.duplicate(true),
+			})
+			continue
+		var cell := Vector2i(int(x_value), int(y_value))
+		var cell_key: String = "%d,%d" % [cell.x, cell.y]
+		if seen_mod_ids.has(mod_id):
+			diagnostics.append({
+				"field": "gear_mod_placements",
+				"reason": "duplicate_mod",
+				"value": mod_id,
+			})
+			continue
+		if seen_cells.has(cell_key):
+			diagnostics.append({
+				"field": "gear_mod_placements",
+				"reason": "occupied_cell",
+				"value": {"x": cell.x, "y": cell.y},
+			})
+			continue
+		seen_mod_ids[mod_id] = true
+		seen_cells[cell_key] = true
+		candidates.append({"mod_id": mod_id, "x": cell.x, "y": cell.y})
+	candidates.sort_custom(_placement_less)
+	var accepted: Array[Dictionary] = []
+	var remaining: Array[Dictionary] = candidates.duplicate(true)
+	var next_instance_id: int = 1
+	while not remaining.is_empty():
+		var placed_one: bool = false
+		for index: int in range(remaining.size()):
+			var candidate: Dictionary = remaining[index]
+			var mod_id: String = String(candidate.get("mod_id", ""))
+			var cell := Vector2i(
+				int(candidate.get("x", -1)),
+				int(candidate.get("y", -1))
+			)
+			if not board.legal_cells(mod_id).has(cell):
+				continue
+			if not bool(board.request_placement(
+				next_instance_id,
+				mod_id,
+				cell
+			).get("ok", false)):
+				continue
+			accepted.append(candidate.duplicate(true))
+			remaining.remove_at(index)
+			next_instance_id += 1
+			placed_one = true
+			break
+		if placed_one:
+			continue
+		for rejected: Dictionary in remaining:
+			diagnostics.append({
+				"field": "gear_mod_placements",
+				"reason": "illegal_or_disconnected_cell",
+				"value": rejected.duplicate(true),
+			})
+		break
+	accepted.sort_custom(_placement_less)
+	return {
+		"placements": accepted,
+		"board_snapshot": board.snapshot(),
+	}
+
+
+func _placement_less(left: Dictionary, right: Dictionary) -> bool:
+	var left_y: int = int(left.get("y", -1))
+	var right_y: int = int(right.get("y", -1))
+	if left_y != right_y:
+		return left_y < right_y
+	return int(left.get("x", -1)) < int(right.get("x", -1))
+
+
+func _has_exact_keys(data: Dictionary, expected: Array[String]) -> bool:
+	if data.size() != expected.size():
+		return false
+	for key: String in expected:
+		if not data.has(key):
+			return false
+	return true
 
 
 func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
@@ -280,3 +382,9 @@ func _array_or_empty(raw_value: Variant) -> Array:
 	if raw_value is Array:
 		return (raw_value as Array).duplicate(true)
 	return []
+
+
+func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
+	if raw_value is Dictionary:
+		return (raw_value as Dictionary).duplicate(true)
+	return {}

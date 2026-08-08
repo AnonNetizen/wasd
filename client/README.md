@@ -47,7 +47,7 @@ ADR #151 / #152 后，正式输入由固定版本 GUIDE 解释物理设备，项
 | `Replay` | `res://scripts/autoload/replay.gd` | 输入 / 关键决策的内存态回放录制边界 |
 | `PoolManager` | `res://scripts/autoload/pool_manager.gd` | 高频实体对象池注册、获取、释放、统计与溢出埋点 |
 | `SaveManager` | `res://scripts/autoload/save_manager.gd` | `meta` / `run` / `replay_index` 存档 envelope、原子写入、备份回退、迁移与坏档隔离 |
-| `GearModSystem` | `res://scripts/autoload/gear_mod_system.gd` | 装备 Mod profile、资源、库存、英雄 / 武器 loadout、掉落、升级、分解和下一局 modifier snapshot |
+| `GearModSystem` | `res://scripts/autoload/gear_mod_system.gd` | Gear Mod v5 内容查询、固定 effect modifiers、奖励池 / 掉落与拾取配置解析；局内 7×7 棋盘实例状态由 `GearModBoard` 和 `GameplayRunLoop` 管理，不存在库存、等级、升级或分解接口 |
 | `AudioManager` | `res://scripts/autoload/audio_manager.gd` | SFX / voice / music 注册、播放入口、Bus 路由与音量设置同步 |
 | `Localization` | `res://scripts/autoload/localization.gd` | 当前语言、语言切换与翻译入口 |
 | `UIManager` | `res://scripts/autoload/ui_manager.gd` | UI 场景栈与暂停 UI 联动 |

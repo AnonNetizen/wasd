@@ -9,8 +9,8 @@
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
 - 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
-- 当前 `meta` 为 v4、`run` 为 v17：Meta 保存上次确认的主／副智能碎片和稀疏横向内容进度，不含任何局内 Gear Mod 实例；Run 保存完整 7×7 assignment 与目标角落、冻结内容池、未结算进度增量、玩家、武器分层修正、可重复的局内 Gear Mod `mod_ids`、活动 / 非活动模块未拾取 Mod、经济、敌人、世界事件和 RNG 状态。旧 Run v16 不转换等级语义，只删除 Run 并保留 Meta v4。
-- `GameplayRunLoop` 是无等级 Gear Mod 实例权威，`GearModSystem` 不读写 SaveManager；Meta v4 中只允许 `content_progression.unlocked.gear_mod` 保存内容可用资格。Meta v3→v4 保留英雄组合并初始化空进度。
+- 当前 `meta` 为 v4、`run` 为 v18：Meta 保存上次确认的主／副智能碎片和稀疏横向内容进度，不含任何局内 Gear Mod 实例；Run 保存完整 7×7 assignment、Gear Mod 解锁格 / placements / 地图行为计划、带实例 ID 的地面物、冻结内容池、玩家、经济、敌人、世界事件和 RNG 状态。旧 Run v17 无法推断 Mod 坐标，只删除 Run 并保留 Meta v4。
+- `GameplayRunLoop + GearModBoard` 是空间 Mod 状态权威，`GearModSystem` 不读写 SaveManager；Meta v4 中只允许 `content_progression.unlocked.gear_mod` 保存内容可用资格。Meta v3→v4 保留英雄组合并初始化空进度。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
 ## 阅读方式
@@ -62,8 +62,8 @@ user://saves/
 | 损坏 | 正式文件和备份都失败时，用唯一文件名隔离坏文件到 `.broken` 并发事件 | `save_corrupted` |
 | 删除 | 删除正式、备份、临时文件；若 slot 目录空则清理空目录 | `delete()` / `save_deleted` |
 | F5 续局 | Gameplay runtime 生成 JSON 友好的 run payload，SaveManager 写入 envelope；标题继续时只返回 payload | `save()` / `load()` |
-| 局内 Gear Mod | `GameplayRunLoop` 把可重复的 `mod_ids` 与未拾取实体写入 Run v17；活动模块使用顶层数组，非活动模块写入对应 slot state，恢复后统一替换应用 Mod 层 | `save()` / `load()` |
-| 内容进度 | `ContentUnlockSystem` 原子提交 Meta v4；Run v17 只暂存冻结池与未结算增量 | `save()` / `load()` |
+| 局内 Gear Mod | `GameplayRunLoop` 把棋盘、地图行为与带 `instance_id` 的未拾取实体写入 Run v18；活动模块使用顶层数组，非活动模块写入对应 slot state，恢复后只从 effect placements 替换应用 Mod 层 | `save()` / `load()` |
+| 内容进度 | `ContentUnlockSystem` 原子提交 Meta v4；Run v18 只暂存冻结池与未结算增量 | `save()` / `load()` |
 
 ## 公共 API
 
@@ -100,7 +100,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 | kind | 用途 |
 |------|------|
 | `meta` | 局外长期档案，当前 v4：上次确认的 `main_hero_id` / `sub_hero_id` 与稀疏 `content_progression`；不含局内 Gear Mod 实例 |
-| `run` | 当前一局续局档案，当前 v17：完整世界、英雄组合、冻结内容池、未结算进度、武器分层修正、可重复的局内 Gear Mod `mod_ids`、经济、威胁时间、敌人奖励快照、显式攻击、世界事件和事务游标 |
+| `run` | 当前一局续局档案，当前 v18：完整世界、英雄组合、冻结内容池、未结算进度、Gear Mod 棋盘 / 地图行为 / 地面实例、经济、威胁时间、敌人奖励快照、显式攻击、世界事件和事务游标 |
 | `replay_index` | 回放索引档案：具体回放文件仍由 `Replay` 管理 |
 
 存档 envelope：
@@ -116,7 +116,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-Run v17 payload 延续模块、事件和敌人奖励确定性字段，并保存 49 槽 assignment（其中恰好一个本局 objective）、`gear_mods.mod_ids`、顶层 `gear_mod_pickups`、非活动模块 `gear_mod_pickup_snapshots`、`content_availability` 与 `content_progress_delta`；`mod_ids` 是允许重复的字符串数组，保存前使用排序副本。每个 Mod 拾取快照严格只含 `mod_id` 与有限数值 `position.{x,y}`。未知、锁定、多余字段、非数值 / 非有限位置或活动池超容量会使恢复失败并走既有坏档隔离，不静默授予或丢弃。`weapon` 不存在弹量或换弹字段，顶层也不存在 `pending_loot`、`extraction`、场上弹匣或 `RNG.ammo` state。
+Run v18 payload 延续模块、事件和敌人奖励确定性字段，并保存 49 槽 assignment、`gear_mods.next_instance_id`、行优先 `unlocked_cells`、行优先 `{instance_id,mod_id,x,y}` placements、按实例排序 `map_behavior_states`、顶层活动 `gear_mod_pickups`、非活动模块 `gear_mod_pickup_snapshots`、`content_availability` 与 `content_progress_delta`。核心从主英雄派生，不保存；每个地面拾取快照携带正整数 `instance_id` 与有限 `position`，棋盘、活动物和模块缓存间必须全局唯一。未提交 placement transaction 不保存，恢复后仍是普通地面物。未知、锁定、多余字段、非法坐标 / 连接、非有限位置或逻辑上限超限会使恢复失败并走坏档隔离，不静默授予或丢弃。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 
@@ -143,6 +143,8 @@ Run v17 payload 延续模块、事件和敌人奖励确定性字段，并保存 
 `run` v15→v16 是 ADR #191 的手动 Gear Mod 拾取边界：v15 尚未生成场上 Mod 实体，因此迁移无损保留 ranks 与全部局内状态，仅推进 schema 并补 `gear_mod_pickups=[]`；不得标记不兼容、补发或重抽奖励。
 
 `run` v16→v17 是 ADR #193 的等级删除边界：旧 `gear_mods.ranks` 同时编码拾取次数与强度，不能无损映射为固定实例。迁移只推进 schema 并设置 `legacy_run_incompatible=true`，不读取、折算或伪造 `mod_ids`；正式启动提示一次后只删除 Run，Meta v4 保留。
+
+`run` v17→v18 是 ADR #194 的空间棋盘边界：旧 `gear_mods.mod_ids` 没有实例 ID、坐标、解锁格和地图行为状态，无法无损推断 placement。迁移只推进 schema 并设置 `legacy_run_incompatible=true`；正式启动提示一次后只删除 Run，Meta v4 保留。
 
 `meta` v1→v2 在保留当时 `gear_mods` 字段的同时补入默认组合；`meta` v2→v3 保留合法的 `main_hero_id` / `sub_hero_id`，直接删除旧 `gear_mods` inventory、rank、dust 与 loadout，不补偿。SaveManager 仍只校验 envelope 与 hash，业务层只解释英雄组合。
 
@@ -184,13 +186,13 @@ Run v17 payload 延续模块、事件和敌人奖励确定性字段，并保存 
 ## 测试义务
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，并跑 `python tools/godot_bridge.py --project client save-smoke`。
-- 改 Meta v4 英雄组合 / 内容进度或 Run v17 局内 Gear Mod / 拾取快照 / 冻结池 / 7×7 assignment 字段时追加 `content-progression-smoke`、`save-smoke`、`gear-mod-smoke`、`gear-mod-pickup-smoke`、`module-world-smoke` 与 `runtime-smoke`；Meta 必须断言不存在旧顶层 `gear_mods`。
+- 改 Meta v4 英雄组合 / 内容进度或 Run v18 Gear Mod 棋盘 / 地面实例 / 地图计划 / 冻结池 / 7×7 assignment 字段时追加 `content-progression-smoke`、`save-smoke`、`gear-mod-smoke`、`gear-mod-pickup-smoke`、`module-world-smoke` 与 `runtime-smoke`；Meta 必须断言不存在旧顶层 `gear_mods`。
 - 后续引入 GUT 后，`SaveManager` 必须覆盖 envelope 字段、hash mismatch、原子写入 / `.bak`、迁移链、坏档隔离、`meta` / `run` roundtrip、slot 校验和删除行为。
 - 改存档 schema 必须注册 migration 并补迁移测试；改 `run` 续局字段还要跑适用的自动 roundtrip，L5 存档 checklist 保持待人工验收并由用户执行。影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
 
 ## 迁移 / 兼容
 
-当前 `meta` 为 v4、`run` 为 v17、`replay_index` 为 v1，游戏版本标签为 `v1.16`。Meta v3→v4 保留英雄组合并初始化稀疏内容进度；Run v15→v16 历史迁移无损补空拾取数组，v16→v17 明确拒绝等级旧局。Replay 文件由 `Replay` 独立管理，当前为 v7，旧 Replay v6 明确拒绝；四条黄金回放因 wire 与规范化 Gear Mod 数据指纹变化重录。未来每次提升 kind 版本时必须：
+当前 `meta` 为 v4、`run` 为 v18、`replay_index` 为 v1，游戏版本标签为 `v1.17`。Meta v3→v4 保留英雄组合并初始化稀疏内容进度；Run v17→v18 明确拒绝无坐标旧局。Replay 文件由 `Replay` 独立管理，当前为 v8，旧 Replay v7 明确拒绝；四条黄金回放因 placement wire 与规范化 Gear Mod v5 数据指纹变化重录。未来每次提升 kind 版本时必须：
 
 1. 更新 `CURRENT_KIND_VERSIONS[kind]`。
 2. 用 `register_migration(kind, old, old + 1, fn)` 补逐级迁移。

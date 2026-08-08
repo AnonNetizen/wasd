@@ -6,11 +6,11 @@
 
 ## 目标
 
-把 Gear Mod 做成俯视角射击 Roguelike 的核心局内构筑层：玩家不在标题页或局内面板配置 Mod，也不把 Mod 带到下一局；成功拾取一个实例时立即改变当前 Player / WeaponSystem 数值。
+把 Gear Mod 做成俯视角射击 Roguelike 的 7×7 空间构筑层：棋盘与模块地图同坐标，中心核心派生主英雄被动；玩家只在拾取事务中放置新实例，确认后才生效，不把棋盘带到下一局。
 
 ## 当前规则
 
-- 新局的 `mod_ids` 必须为空；每次成功拾取只追加一个 Mod id，不接受 rank 或 count 参数。
+- 新局从核心与 13 个解锁格开始；每个普通实例有唯一 `instance_id + mod_id + x/y`，不接受 rank 或 count 参数。
 - 单份固定效果采用旧第 2 档数值：伤害 ×1.20，后坐力与扩散上限各 ×0.80。
 - 重复获得同一 id 时保留为多个独立实例并逐份乘算，例如两份伤害 Mod 为 1.44，两份后坐力 Mod 为 0.64。
 - 所有敌人、缓存和世界事件的 Mod 奖励都先生成池化 CPU 拾取实体；玩家执行 `interact` 成功后才追加实例。
@@ -22,16 +22,16 @@
 | 层 | 职责 |
 |---|---|
 | `GearModSystem` | 无状态规则服务：定义查询、掉落、公共池、固定 `modifiers(mod_id)` 与仅含 Mod id 的测试岛预览 |
-| `GameplayRunLoop` | 可重复 `mod_ids` 权威、单份原子授予、HUD 反馈、Run v17 保存 / 恢复、结果页数量聚合 |
+| `GearModBoard` / `GameplayRunLoop` | 前者权威管理核心、解锁、四邻、placements 与地图状态；后者分配实例 ID、编排拾取事务 / map 行为、HUD、Run v18 与结果聚合 |
 | `Player` / `WeaponSystem` | `set_gear_modifiers()` 替换专属 Gear Mod 层；普通奖励与临时 modifier 独立保留 |
-| `SaveManager` | Run v17 保存局内 `mod_ids`；Meta v4 可保存内容资格，但不保存任何 Mod 实例；旧 Run v16 及更早版本不兼容 |
+| `SaveManager` | Run v18 保存棋盘、地图计划和带 ID 地面物；Meta v4 只保存内容资格；旧 Run v17 及更早版本不兼容 |
 | 开发者测试岛 | 配置 v3 只允许勾选具体 Mod，不提供等级或数量控件；旧 v2 重置，不读写正式 Meta |
 
-恢复顺序固定为：恢复实体基础状态 → 恢复普通 / 临时 modifier → 从排序后的 `mod_ids` 副本统一替换 Gear Mod 层一次。重复重建不得在旧结果上再次累加；同一数组内的重复 id 必须逐份乘算。
+恢复顺序固定为：内容池 / 地图 → 棋盘与地面实体 → 普通 / 临时 modifier → 从按实例排序的 effect placements 统一替换 Gear Mod 层一次。map / grid 不进入 modifier，核心不双算。
 
 ## 数据
 
-- `client/data/gear_mods.json` schema v4 保存 slot、rarity、公共奖励池与固定 `modifiers[{stat,type,value}]`；校验器明确拒绝全部旧等级字段。
+- `client/data/gear_mods.json` schema v5 保存 7×7 board、严格 effect / map / grid、公共池与固定行为；校验器拒绝旧等级字段和类型混用。
 - 当前固定值为伤害 `multiply 1.20`、后坐力 `multiply 0.80`、扩散上限 `multiply 0.80`。
 - `gear_mod_drop_tables.csv`：追击者伤害 Mod 5%，喷吐者扩散 Mod 2.5%，壁垒者后坐 Mod 15%。
 - 只有玩家归因击杀能触发敌人 Mod 掉落，随机固定走 `RNG.drop`。
@@ -49,8 +49,8 @@
 
 ## 验证
 
-`gear-mod-smoke` 必须覆盖：空开局、单份固定效果、重复 id 逐份乘算、不同 Mod 独立、无等级字段 / API、立即生效、新局清空、Run v17 恢复不重发，以及替换式 modifier 的幂等性。`gear-mod-pickup-smoke` 覆盖所有奖励来源先生成实体、最近距离交互和对象池复用。
+`gear-mod-smoke` 必须覆盖：13 格掩码、核心、四邻 / 对角 / 锁格 / 占用 / 越界、重复实例、石头、解锁幂等、移动授权、固定效果与替换层。`gear-mod-pickup-smoke` 覆盖预占、确认 / 取消、满盘留地、65536/65537、自动中止和 Run v18 roundtrip；module-world 覆盖刷怪笼。
 
-同时运行 contracts、数据 / schema、三档 lint、`runtime-smoke`、`world-event-smoke`、`save-smoke`、`loading-smoke`、正式 / 技术模块世界、开发者测试岛、headless boot/editor 与四份 Replay v7 黄金回放。当前游戏版本为 v1.16。
+同时运行 contracts、数据 / schema、三层 lint、Gear Mod / pickup / input / UI / runtime / world-event / save / loading / 正式与技术模块世界 / 测试岛 / headless，以及四份 Replay v8 黄金回放。当前游戏版本为 v1.17。
 
 性能 probe 不属于本工作包验收。标题无配置入口、掉落 / 重复实例反馈、结果页构筑和中英文布局均为待人工验收。
