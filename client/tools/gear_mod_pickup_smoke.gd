@@ -253,18 +253,27 @@ func _expect_interaction_contract(
 	var first_pending: Dictionary = run_loop.call(
 		"debug_pending_gear_mod_placement"
 	) as Dictionary
+	var placement_panel: GearModBoardPanel = _find_node_by_name(
+		get_tree().root,
+		"GearModBoardPanel"
+	) as GearModBoardPanel
 	_expect(
 		first_pickup_result
 		and _active_pickup_count(run_loop) == 1
 		and _run_mod_ids(run_loop) == start_mod_ids
 		and int(first_pending.get("instance_id", 0))
-		== pickup.gear_mod_instance_id(),
+		== pickup.gear_mod_instance_id()
+		and placement_panel != null,
 		"interact should open one uncommitted placement and keep the pickup"
 	)
 	player.global_position += Vector2(200.0, 0.0)
 	_last_placement_result.clear()
 	var first_instance_id: int = int(first_pending.get("instance_id", 0))
-	await _inject_physical_key_once(KEY_ENTER)
+	if placement_panel != null:
+		await _confirm_panel_placement_with_mouse(
+			placement_panel,
+			_dictionary_array(first_pending.get("legal_targets", []))
+		)
 	var first_place_result: Dictionary = _last_placement_result.duplicate(true)
 	var recorded_after_live_placement: Dictionary = Replay.snapshot()
 	var first_mod_ids: Array[String] = _run_mod_ids(run_loop)
@@ -1106,11 +1115,6 @@ func _on_gear_mod_placement_resolved(result: Dictionary) -> void:
 	_last_placement_result = result.duplicate(true)
 
 
-func _inject_physical_key_once(keycode: Key) -> void:
-	await _inject_physical_key_press(keycode)
-	await _inject_physical_key_release(keycode)
-
-
 func _inject_physical_key_press(keycode: Key) -> void:
 	var press := InputEventKey.new()
 	press.physical_keycode = keycode
@@ -1126,6 +1130,112 @@ func _inject_physical_key_release(keycode: Key) -> void:
 	release.pressed = false
 	InputService.debug_inject_input(release)
 	await get_tree().physics_frame
+	await get_tree().process_frame
+
+
+func _confirm_panel_placement_with_mouse(
+	panel: GearModBoardPanel,
+	legal_targets: Array[Dictionary]
+) -> void:
+	for _frame: int in range(30):
+		if UIManager.ui_state(panel) == UIManager.UIState.ACTIVE:
+			break
+		await get_tree().process_frame
+	var mod_grid: GearModGridView = _find_node_by_name(
+		panel,
+		"ModGrid"
+	) as GearModGridView
+	var confirm_button: Button = _find_node_by_name(
+		panel,
+		"ConfirmButton"
+	) as Button
+	_expect(
+		mod_grid != null and confirm_button != null,
+		"placement Panel should expose a mouse-operable Mod grid and confirm button"
+	)
+	if mod_grid == null or confirm_button == null or legal_targets.is_empty():
+		return
+	var selected_target: Dictionary = legal_targets[0]
+	for target: Dictionary in legal_targets:
+		var coord := Vector2i(
+			int(target.get("x", -1)),
+			int(target.get("y", -1))
+		)
+		if coord != panel.selected_coord():
+			selected_target = target
+			break
+	var target_coord := Vector2i(
+		int(selected_target.get("x", -1)),
+		int(selected_target.get("y", -1))
+	)
+	await _click_control_at(
+		mod_grid,
+		_gear_mod_cell_local_center(mod_grid, target_coord)
+	)
+	_expect(
+		panel.selected_coord() == target_coord
+		and mod_grid.selected_coord() == target_coord,
+		"left-clicking a legal Mod cell should synchronize the selected coordinate"
+	)
+	await _click_control_at(confirm_button, confirm_button.size * 0.5)
+
+
+func _gear_mod_cell_local_center(
+	grid: GearModGridView,
+	coord: Vector2i
+) -> Vector2:
+	const BOARD_SIZE: int = 7
+	const CELL_GAP: float = 6.0
+	const GRID_PADDING: float = 12.0
+	var side: float = minf(grid.size.x, grid.size.y) - GRID_PADDING * 2.0
+	var cell_size: float = (
+		side - CELL_GAP * float(BOARD_SIZE - 1)
+	) / float(BOARD_SIZE)
+	var grid_size: float = (
+		cell_size * BOARD_SIZE + CELL_GAP * float(BOARD_SIZE - 1)
+	)
+	var origin := Vector2(
+		(grid.size.x - grid_size) * 0.5,
+		(grid.size.y - grid_size) * 0.5
+	)
+	return (
+		origin
+		+ Vector2(coord.x, coord.y) * (cell_size + CELL_GAP)
+		+ Vector2.ONE * cell_size * 0.5
+	)
+
+
+func _click_control_at(control: Control, local_position: Vector2) -> void:
+	var global_position: Vector2 = control.get_global_rect().position + local_position
+	var motion := InputEventMouseMotion.new()
+	motion.position = global_position
+	motion.global_position = global_position
+	get_viewport().push_input(motion, true)
+	await get_tree().process_frame
+	var hovered: Control = get_viewport().gui_get_hovered_control()
+	_expect(
+		hovered == control or (hovered != null and control.is_ancestor_of(hovered)),
+		"mouse fixture should hover %s at %s; actual=%s rect=%s"
+		% [
+			control.name,
+			global_position,
+			String(hovered.get_path()) if hovered != null else "null",
+			control.get_global_rect(),
+		]
+	)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = global_position
+	press.global_position = global_position
+	get_viewport().push_input(press, true)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = global_position
+	release.global_position = global_position
+	get_viewport().push_input(release, true)
 	await get_tree().process_frame
 
 
