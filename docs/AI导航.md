@@ -132,6 +132,7 @@
 | **配普通 JSON / CSV / 中英文文案或全局搜索** | 打开 Godot 中央主界面“数据配表”；普通 `client/data` JSON、全部数据 CSV 与 `strings.csv` 可统一编辑，JSON 层级不同由递归属性树处理。未保存内容只进 `user://data_table_editor`，保存通过 hash + 备份 + headless DataLoader 验证事务。模块 JSON/注册表/图块目录和 VFX/profile 使用各自专用编辑器且不进入全局搜索；`module_worlds.json` 仍属于普通配表。新增数据源必须同步 `data_table_catalog.json`，详见 ADR #180 与 `docs/代码/data_table_editor.md` |
 | **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距、通用 `tag_enemy`、独立且与敌人 id 相同的 `pool_id`、`pool_prewarm`、专属 `scene_path`、`ai_profile_id` 与 `enemy_*_name` 文案；静态外观需要区分时从 `scenes/gameplay/actors/enemy_base.tscn` 新建继承场景，不复制基础树。不同敌人 id 可复用同一 TSCN，但不能复用对象池。优先复用现有对玩家 profile；攻击参数只能写入 schema v5 对应 action 的必填 `attack` 字典，远程 action 还必须声明 `windup/burst_count/shot_interval`，普通身体重叠永不造成伤害。改完跑 contracts、data/schema、`actor-scene-smoke`、runtime、save 与黄金回放 |
 | **改敌人生成 / 对象池材化 / 续局恢复顺序** | 先读 ADR #197、`docs/代码/enemy_spawn_service.md`、Gameplay Runtime / EnemyAI / PoolManager / ModuleWorld / WorldEvent 文档与测试策略。资格、walkability、奖励和随机位置策略留在 RunLoop；`EnemySpawnService` 只统一 fresh / fixed / debug / restore 的 reparent、metadata、configure、难度 / 导航、serial、bounds 与 lifecycle。Run v19 的 `next_enemy_spawn_serial` 和敌人 snapshot 字典不得改变，restore 必须保持 `bounds → lifecycle/VFX → Enemy.restore_snapshot()`。必跑专项 GUT、actor/runtime/world-event/save、完整 / technical module-world、headless boot 与四条 Replay v9 golden；只重跑不重录，pool / reward 失败不得消费位置 RNG 或 serial，不运行性能 probe |
+| **改 Run v19 捕获字段或跨域恢复顺序** | 先读 ADR #197、`docs/代码/run_snapshot_coordinator.md`、Gameplay Runtime / SaveManager / Loading 文档与测试策略。`RunSnapshotCoordinator` 只拥有 30 个 gameplay payload 顶层字段及验证 / 恢复端口顺序；RunLoop 继续持有生命周期、节点、signals、领域 leaf 与激活后 `ui_restore`，`mod_environment` 继续由 SaveManager 注入。必跑 coordinator unit、save/runtime/loading、完整 / technical module-world、world-event/effect-runtime、headless boot 与四条 Replay v9 golden；保持 Meta v4 / Run v19 / Replay v9 / game v1.18，不重录、不运行性能 probe |
 | **改敌人寻路 / 感知** | 先读 `F14-EnemyNavigationAndPerception.md`、`docs/代码/enemy_ai.md`、`docs/代码/module_world_manager.md` 与 ADR #145 / #146；profile 感知参数改 `enemy_ai_profiles.json.perception`，局部活动流场 / 全图静态路径 / 视线改 `module_navigation_field.gd`，半径由最大视觉范围自动推导，门面改 `module_world_manager.gd`，行为消费改 `enemy.gd`。导航 / 感知派生状态不进 run，开放战区保留无 provider 直线兜底 |
 | **改敌人显式攻击 / 连锁爆炸** | 先读 ADR #170 / #173 / #175 / #188 / #189 / #191 / #193 / #194 / #196、GDD §5.3、EnemyAI / EnemyRewardResolver / WorldEvent / Combat / SaveManager / ContentUnlockSystem 文档。普通敌人仍只以玩家为目标；防御事件目标只能由受控 spawn context 注入。Run v19 保存事件归属、攻击阶段、序号、锁定奖励、冻结内容池、Gear Mod 棋盘、效果程序状态与带 ID 未拾取 Mod；按测试策略整行验证并重录四条 Replay v9 黄金回放，不运行性能 probe |
 | **改突击枪手 / 远程点射** | 先读 ADR #171 / #172 / #173 / #175 / #181 / #184 / #188 / #189 / #191 / #193 / #194 / #196、GDD §5.3、EnemyAI / EnemyRewardResolver / Gameplay Runtime / PoolManager / VFX 文档。保留内部 id 与场景；当前静默前摇 0.32 秒、4 发、0.12 秒间隔、350 px/s、720 px、12 px 半径、2.1 秒寿命与 24 px 枪口距离；玩家归因击杀以 2.5% 生成扩散 Mod 拾取物。验证 Run v19 点射、奖励、事件 target mode、冻结内容池、效果程序状态、棋盘与带 ID 未拾取物恢复，不运行性能 probe |
@@ -225,7 +226,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`FormalClientBoot` / `LoadingScreen` / `CodexPanel` / `GameplayRunLoop` / `GameplayEffectRuntime` / `EffectPrimitiveRegistry` / `EffectExecutionGateway` / `DeveloperTestArena(debug/dev_tools)` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleNavigationField` / `WorldEventController` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GoldProgression` / `RewardChoiceController` / `GearModSystem` / `ContentUnlockSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PlayerSlimeVisual` / `EnemyPresentationVisual` / `PauseMenu` / `Combat` / `StatusEffectComponent`。统一效果模块见 `docs/代码/gameplay_effect_runtime.md`。
+**业务模块**：`FormalClientBoot` / `LoadingScreen` / `CodexPanel` / `GameplayRunLoop` / `RunSnapshotCoordinator` / `GameplayEffectRuntime` / `EffectPrimitiveRegistry` / `EffectExecutionGateway` / `DeveloperTestArena(debug/dev_tools)` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleNavigationField` / `WorldEventController` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GoldProgression` / `RewardChoiceController` / `GearModSystem` / `ContentUnlockSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PlayerSlimeVisual` / `EnemyPresentationVisual` / `PauseMenu` / `Combat` / `StatusEffectComponent`。统一效果模块见 `docs/代码/gameplay_effect_runtime.md`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -302,6 +303,7 @@ flowchart LR
 
   Player[Player]
   RunLoop[GameplayRunLoop]
+  RunSnapshot[RunSnapshotCoordinator]
   Weapon[WeaponSystem]
   Bullet[Bullet]
   Skill[SkillSystem]
@@ -359,6 +361,8 @@ flowchart LR
   Input --> Player --> Weapon
   Input --> CamCtl
   Input --> Skill & UIM & UI
+  RunLoop --> RunSnapshot
+  RunSnapshot -. Run v19 payload / restore order .- Save
   RunLoop --> Difficulty & Gold & Reward
   Difficulty --> Spawner & Director & Enemy & UI
   Difficulty -. Run v19 snapshot .- Save

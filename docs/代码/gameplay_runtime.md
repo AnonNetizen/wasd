@@ -30,6 +30,7 @@
 | 改主动技能释放 / 资源消耗 | `docs/代码/skill_system.md`、`client/scripts/gameplay/skill_system.gd`、`client/data/skills.json` |
 | 改敌人对玩家 AI / 显式攻击 / 连锁爆炸 | `docs/代码/enemy_ai.md`、`client/scripts/gameplay/enemy.gd`、`enemy_ai_profiles.json` |
 | 改敌人获池后材化 / metadata / serial / 实体恢复顺序 | `docs/代码/enemy_spawn_service.md`、`client/scripts/gameplay/enemy_spawn_service.gd`；生成资格、规划与外层快照仍看 `gameplay_run_loop.gd` |
+| 改 Run v19 顶层字段、组装或恢复顺序 | `docs/代码/run_snapshot_coordinator.md`、`client/scripts/gameplay/run_snapshot_coordinator.gd`；具体域恢复 leaf 仍看 `gameplay_run_loop.gd` |
 | 改有限地图 / PCG / 人工摆点 | `docs/代码/map_manager.md`、`client/scripts/gameplay/map_manager.gd`、`client/data/map_layouts.json` |
 | 改机关运行时 / FEA-12 | `docs/代码/hazard_system.md`、`client/scripts/gameplay/hazard.gd`、`client/data/hazards.csv` |
 | 改战区导演 / 阶段主题 / 兴趣点 | `docs/代码/warzone_director.md`、`client/scripts/gameplay/warzone_director.gd`、`client/data/warzone_directors.json` |
@@ -62,6 +63,7 @@
 | `client/scenes/ui/stats_row.tscn` / `reward_choice_button.tscn` / `input_binding_row.tscn` | 数据驱动重复 UI 的可编辑行模板；运行时允许实例化模板并填入文本 / signal，不允许逐个 `Label.new()` / `Button.new()` 拼装长期行结构 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/enemy_spawn_service.gd` | RunLoop 直属的敌人材化服务；统一 fresh / fixed / debug / restore 的获池后顺序、`wave_key` / `module_slot` 清理、serial、bounds 与 lifecycle；资格、规划、奖励策略和 Run v19 外层仍由 RunLoop 持有 |
+| `client/scripts/gameplay/run_snapshot_coordinator.gd` | 纯 `RefCounted` Run v19 协调器；保有 30 个顶层字段的插入顺序与验证 / 恢复顺序，通过 typed state / Callable ports 调用 RunLoop leaf，不持有场景节点 |
 | `client/scripts/data/difficulty_progression.gd` | 模式级威胁时间、难度系数、90 秒阶段、敌人出生倍率和 Run v19 快照；由 RunLoop 决定每帧是否推进 |
 | `client/scripts/data/enemy_reward_resolver.gd` | 纯计算敌人生成时金币及完整明细；不读取随机、时间或节点 |
 | `client/scenes/debug/debug_test_arena_run.tscn` / `client/scripts/debug/debug_test_arena_controller.gd` | ADR #159 / #160 独立测试岛内部 RunLoop：复用正式战斗系统的场景化训练岛、控制器与只读伤害统计 |
@@ -255,8 +257,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `GameplayRunLoop.gold_balance()` / `gold_earned_total()` / `current_level()` / `current_level_gold()` / `current_level_gold_required()` / `can_afford_gold(amount)` | 无 / 金额 | `int` / `bool` | HUD、交易调用方和诊断使用；等级只由累计金币推导 |
 | `GameplayRunLoop.request_reward_choice(pool_id, trigger_id, candidate_count)` | 奖励池、触发 id、2–5 | `Dictionary` | 只允许 `PLAYING` 且无未完成请求；失败不消耗 RNG、不改状态、不显示 UI |
 | `GearModPickup.configure()` / `mod_id()` / `can_player_interact()` / `snapshot()` / `restore_snapshot()` | Mod id、统一配置或快照 | `bool` / `String` / `Dictionary` | 配置必须在池取得后完成；快照严格只含 `mod_id` 与有限数值位置，未知 / 锁定内容由 RunLoop 在恢复前拒绝 |
-| `GameplayRunLoop.create_run_snapshot()` | 无 | `Dictionary` | 生成 Run v19 payload；保存 mod environment、GameplayEffectRuntime、Gear Mod 棋盘 / 地面实例及其余确定性对局状态，不保存核心或 pending placement transaction |
-| `GameplayRunLoop.configure_restore_snapshot(snapshot)` | `Dictionary` | `void` | 在节点入树前由 `FormalClientBoot` 调用；要求 schema v10 与合法 difficulty / 金币 / 奖励选择 / 敌人奖励快照，随后重建玩家、武器、敌人、子弹、金币球、RNG、GameClock 和 `ui_restore` 状态 |
+| `GameplayRunLoop.create_run_snapshot()` | 无 | `Dictionary` | 生成 Run v19 gameplay payload；保存 GameplayEffectRuntime、Gear Mod 棋盘 / 地面实例及其余确定性对局状态，不保存核心或 pending placement transaction；`mod_environment` 由 `SaveManager.save()` 注入保存副本 |
+| `GameplayRunLoop.configure_restore_snapshot(snapshot)` | `Dictionary` | `void` | 在节点入树前由 `FormalClientBoot` 调用；要求 schema v19 与合法 difficulty / 金币 / 奖励选择 / 敌人奖励快照，随后按 `RunSnapshotCoordinator` 固定顺序重建玩家、武器、敌人、子弹、金币球、RNG、GameClock，并在激活后应用 `ui_restore` |
 | `GameplayRunLoop.configure_difficulty_profile_id(profile_id)` | profile id | `void` | 只能在入树前调用；空值使用 mode 默认。当前玩家 UI 总是传标准 profile，接口为未来选择保留 |
 | `GameplayRunLoop.debug_difficulty_snapshot()` | 无 | `Dictionary` | 只读返回 profile/name/difficulty coefficient、当前威胁 elapsed / level / progress / 生命 / 伤害倍率，供 smoke 与 debug summary |
 | `GameplayRunLoop.configure_player_loading_mode(enabled)` | `bool` | `void` | 必须在节点入树前调用；`true` 启用线程资源读取、分帧准备和外部激活，默认 `false` 保留工具同步时序 |
@@ -452,6 +454,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 - Gameplay runtime 代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
 - 修改敌人材化、metadata、spawn serial 或实体恢复顺序时，先跑 GUT `client/tests/integration/test_enemy_spawn_service.gd`，再跑 runtime、actor-scene、完整 / technical module-world、world-event、save 和四条 Replay v9 黄金回放；pool / reward 失败不得消费随机位置或 serial，restore 必须保持 `bounds → lifecycle/VFX → Enemy.restore_snapshot()`。
+- 修改 Run v19 顶层 payload 或恢复编排时，先跑 GUT `client/tests/unit/test_run_snapshot_coordinator.gd`，要求 30 字段数量 / 顺序、深拷贝、`mod_environment` 所有权和 sync / staged port 顺序等价；再跑 save、runtime、loading、module-world full / technical、world-event、formal boot 和四条 Replay v9 golden。
 - Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`；涉及局内 Gear Mod 或标题入口删除边界时追加 `gear-mod-smoke`。
 - 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、金币球、金币成长、奖励选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 改角色挂点、表现 cue、命中 / 退场、VfxHost 或回池边界时追加 `vfx-smoke` 与 `actor-scene-smoke`；回放 summary 和 gameplay RNG 不得因纯表现变化而改变。
@@ -488,6 +491,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - `docs/代码/debug_tools.md`
 - `docs/代码/debug_test_arena.md`
 - `docs/代码/enemy_spawn_service.md`
+- `docs/代码/run_snapshot_coordinator.md`
 - `docs/游戏设计文档.md` §3 / §4 / §5.3 / §9.13 / §9.15.1
 - `docs/代码/combat.md`
 - `docs/代码/map_manager.md`

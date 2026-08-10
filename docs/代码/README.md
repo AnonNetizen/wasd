@@ -40,6 +40,7 @@
 | Combat | `docs/代码/combat.md` | `client/scripts/combat/combat.gd`、`client/scripts/combat/damage_info.gd`、`client/data/elements.json` | 七元素、三层防御、护盾门与来源过滤已建立 |
 | Gameplay Runtime | `docs/代码/gameplay_runtime.md` | `client/scripts/gameplay/*.gd`、`client/scripts/ui/*.gd`、`client/scripts/boot/formal_client_boot.gd` | Run v19 Roguelike 对局编排、冻结内容 / Mod 环境、7×7 模块世界、空间 Gear Mod 棋盘、世界事件和结算解锁 |
 | EnemySpawnService | [`enemy_spawn_service.md`](enemy_spawn_service.md) | `client/scripts/gameplay/enemy_spawn_service.gd`、`client/scenes/gameplay/gameplay_run_loop.tscn` | 敌人获池后的统一材化、序列号、metadata、生命周期接线顺序与 Run v19 实体恢复 |
+| RunSnapshotCoordinator | [`run_snapshot_coordinator.md`](run_snapshot_coordinator.md) | `client/scripts/gameplay/run_snapshot_coordinator.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` | Run v19 顶层 payload 组装、固定恢复顺序与 sync / staged 等价端口 |
 | GameplayEffectRuntime | `docs/代码/gameplay_effect_runtime.md` | `client/scripts/gameplay/effects/*.gd`、`client/tools/effect_runtime_smoke.gd` | 每局统一效果来源、FIFO 事件队列、原语注册、受控执行、冷却 / 周期、预算与快照 |
 | DifficultyProgression | `docs/代码/difficulty_progression.md` | `client/scripts/data/difficulty_progression.gd`、`client/data/difficulty_profiles.json`、`client/scripts/gameplay/gameplay_run_loop.gd` | ADR #166 / #175 模式级威胁时间、难度系数、出生倍率与起点门禁 |
 | EnemyRewardResolver | `docs/代码/enemy_reward_resolver.md` | `client/scripts/data/enemy_reward_resolver.gd`、`client/data/enemy_rewards.json`、`client/data/enemies.csv` | ADR #175 敌人生成时金币公式、饱和取整与计算明细 |

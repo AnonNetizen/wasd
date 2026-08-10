@@ -44,6 +44,9 @@ const ENEMY_REWARD_RESOLVER_SCRIPT := preload(
 const ENEMY_SPAWN_SERVICE_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_spawn_service.gd"
 )
+const RUN_SNAPSHOT_COORDINATOR_SCRIPT := preload(
+	"res://scripts/gameplay/run_snapshot_coordinator.gd"
+)
 const ENEMY_DEFEAT_CAUSES := preload(
 	"res://scripts/contracts/enemy_defeat_causes.gd"
 )
@@ -156,7 +159,9 @@ const ENERGY_ORB_POOL_SIZE: int = 64
 const GEAR_MOD_PICKUP_POOL_SIZE: int = 65_536
 const GEAR_MOD_PICKUP_POOL_PREWARM: int = 8
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 19
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = (
+	RUN_SNAPSHOT_COORDINATOR_SCRIPT.RUN_SNAPSHOT_SCHEMA_VERSION
+)
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -265,6 +270,9 @@ var _vfx_host: VfxHost = null
 var _requested_main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _requested_sub_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 var _reward_choice_controller: RewardChoiceController = null
+var _run_snapshot_coordinator: RUN_SNAPSHOT_COORDINATOR_SCRIPT = (
+	RUN_SNAPSHOT_COORDINATOR_SCRIPT.new()
+)
 var _registered_enemy_pool_ids: Array[String] = []
 var _player_loading_mode: bool = false
 var _run_activated: bool = false
@@ -552,59 +560,74 @@ func debug_request_reward_choice(
 func create_run_snapshot() -> Dictionary:
 	if _is_debug_test_arena():
 		return {}
-	return {
-		"schema_version": RUN_SNAPSHOT_SCHEMA_VERSION,
-		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
-		"character": _character_id,
-		"hero_composition": {
-			"main_hero_id": _main_hero_id,
-			"sub_hero_id": _sub_hero_id,
-		},
-		"gold_progression": (
-			_gold_progression.snapshot()
-			if _gold_progression != null
-			else {}
-		),
-		"kills": _kills,
-		"next_enemy_spawn_serial": (
-			_enemy_spawn_service.next_spawn_serial()
-			if _enemy_spawn_service != null
-			else 1
-		),
-		"game_clock": GameClock.snapshot(),
-		"difficulty": (
-			_difficulty_progression.snapshot()
-			if _difficulty_progression != null
-			else {}
-		),
-		"rng": RNG.snapshot(),
-		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
-		"interest_points": _interest_points_snapshot(),
-		"gear_mods": _run_gear_mod_snapshot(),
-		"content_availability": _content_availability.duplicate(true),
-		"content_progress_delta": _content_progress_delta.duplicate(true),
-		"spawn_states": _spawn_states.duplicate(true),
-		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
-		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
-		"skills": _skill_system.call("snapshot") if _skill_system != null and _skill_system.has_method("snapshot") else {},
-		"effects": _effect_runtime.snapshot() if _effect_runtime != null else {},
-		"hazards": _entity_snapshots("active_hazards"),
-		"enemies": _entity_snapshots("active_enemies"),
-		"bullets": _entity_snapshots("active_bullets"),
-		"gold_orbs": _entity_snapshots("active_gold_orbs"),
-		"energy_orbs": _entity_snapshots("active_energy_orbs"),
-		"gear_mod_pickups": _entity_snapshots(
-			"active_gear_mod_pickups"
-		),
-		"module_world": _module_world_snapshot(),
-		"world_events": _world_events_snapshot(),
-		"reward_choice": (
-			_reward_choice_controller.snapshot()
-			if _reward_choice_controller != null
-			else {}
-		),
-		"ui_restore": _ui_restore_snapshot(),
+	var state: RUN_SNAPSHOT_COORDINATOR_SCRIPT.CaptureState = (
+		RUN_SNAPSHOT_COORDINATOR_SCRIPT.CaptureState.new()
+	)
+	state.mode = GAME_MODES.MODE_STANDARD_SURVIVAL
+	state.character = _character_id
+	state.hero_composition = {
+		"main_hero_id": _main_hero_id,
+		"sub_hero_id": _sub_hero_id,
 	}
+	state.gold_progression = (
+		_gold_progression.snapshot()
+		if _gold_progression != null
+		else {}
+	)
+	state.kills = _kills
+	state.next_enemy_spawn_serial = (
+		_enemy_spawn_service.next_spawn_serial()
+		if _enemy_spawn_service != null
+		else 1
+	)
+	state.game_clock = GameClock.snapshot()
+	state.difficulty = (
+		_difficulty_progression.snapshot()
+		if _difficulty_progression != null
+		else {}
+	)
+	state.rng = RNG.snapshot()
+	state.map = (
+		_map_manager.call("snapshot")
+		if _map_manager != null and _map_manager.has_method("snapshot")
+		else {}
+	)
+	state.interest_points = _interest_points_snapshot()
+	state.gear_mods = _run_gear_mod_snapshot()
+	state.content_availability = _content_availability
+	state.content_progress_delta = _content_progress_delta
+	state.spawn_states = _spawn_states
+	state.player = (
+		_player.call("snapshot")
+		if _player != null and _player.has_method("snapshot")
+		else {}
+	)
+	state.weapon = (
+		_weapon_system.call("snapshot")
+		if _weapon_system != null and _weapon_system.has_method("snapshot")
+		else {}
+	)
+	state.skills = (
+		_skill_system.call("snapshot")
+		if _skill_system != null and _skill_system.has_method("snapshot")
+		else {}
+	)
+	state.effects = _effect_runtime.snapshot() if _effect_runtime != null else {}
+	state.hazards = _entity_snapshots("active_hazards")
+	state.enemies = _entity_snapshots("active_enemies")
+	state.bullets = _entity_snapshots("active_bullets")
+	state.gold_orbs = _entity_snapshots("active_gold_orbs")
+	state.energy_orbs = _entity_snapshots("active_energy_orbs")
+	state.gear_mod_pickups = _entity_snapshots("active_gear_mod_pickups")
+	state.module_world = _module_world_snapshot()
+	state.world_events = _world_events_snapshot()
+	state.reward_choice = (
+		_reward_choice_controller.snapshot()
+		if _reward_choice_controller != null
+		else {}
+	)
+	state.ui_restore = _ui_restore_snapshot()
+	return _run_snapshot_coordinator.capture(state)
 
 
 func _start_run(restore_snapshot: Dictionary = {}) -> void:
@@ -6920,36 +6943,96 @@ func _restore_run_snapshot(
 	snapshot_data: Dictionary,
 	staged_loading: bool = false
 ) -> bool:
-	if (
-		int(snapshot_data.get("schema_version", -1))
-		!= RUN_SNAPSHOT_SCHEMA_VERSION
-	):
-		push_error("[GameplayRunLoop] unsupported run snapshot schema")
-		return false
-	if not _normalize_persisted_gear_mod_numbers(snapshot_data):
-		push_error(
-			"[GameplayRunLoop] Gear Mod snapshot numeric fields are invalid"
-		)
-		return false
-	if (
-		not snapshot_data.get("content_availability", {}) is Dictionary
-		or not snapshot_data.get("content_progress_delta", {}) is Dictionary
-	):
-		push_error("[GameplayRunLoop] run snapshot content progression is invalid")
-		return false
-	if not _validate_run_gear_mod_pickup_snapshots(snapshot_data):
-		push_error("[GameplayRunLoop] Gear Mod pickup snapshot is invalid")
-		return false
+	return await _run_snapshot_coordinator.restore(
+		snapshot_data,
+		_run_snapshot_restore_bindings(),
+		staged_loading
+	)
+
+
+func _run_snapshot_restore_bindings() -> RUN_SNAPSHOT_COORDINATOR_SCRIPT.RestoreBindings:
+	var bindings: RUN_SNAPSHOT_COORDINATOR_SCRIPT.RestoreBindings = (
+		RUN_SNAPSHOT_COORDINATOR_SCRIPT.RestoreBindings.new()
+	)
+	bindings.normalize_persisted_numbers = Callable(
+		self,
+		"_normalize_persisted_gear_mod_numbers"
+	)
+	bindings.validate_gear_mod_pickups = Callable(
+		self,
+		"_validate_run_gear_mod_pickup_snapshots"
+	)
+	bindings.restore_difficulty = Callable(
+		self,
+		"_snapshot_restore_difficulty"
+	)
+	bindings.restore_module_world = Callable(
+		self,
+		"_snapshot_restore_module_world"
+	)
+	bindings.restore_gold_progression = Callable(
+		self,
+		"_snapshot_restore_gold_progression"
+	)
+	bindings.restore_reward_choice = Callable(
+		self,
+		"_snapshot_restore_reward_choice"
+	)
+	bindings.restore_scalar_state = Callable(
+		self,
+		"_snapshot_restore_scalar_state"
+	)
+	bindings.restore_rng = Callable(self, "_snapshot_restore_rng")
+	bindings.restore_map_and_bounds = Callable(
+		self,
+		"_snapshot_restore_map_and_bounds"
+	)
+	bindings.restore_player = Callable(self, "_snapshot_restore_player")
+	bindings.restore_weapon = Callable(self, "_snapshot_restore_weapon")
+	bindings.restore_gear_mods = Callable(
+		self,
+		"_snapshot_restore_gear_mods"
+	)
+	bindings.apply_gear_modifiers = Callable(
+		self,
+		"_apply_run_gear_modifiers"
+	)
+	bindings.restore_skills = Callable(self, "_snapshot_restore_skills")
+	bindings.restore_effect_runtime = Callable(
+		self,
+		"_snapshot_restore_effect_runtime"
+	)
+	bindings.restore_hazards_and_interest = Callable(
+		self,
+		"_snapshot_restore_hazards_and_interest"
+	)
+	bindings.restore_entity_batches = Callable(
+		self,
+		"_snapshot_restore_entity_batches"
+	)
+	bindings.restore_game_clock = Callable(
+		self,
+		"_snapshot_restore_game_clock"
+	)
+	bindings.refresh_hud = Callable(self, "_snapshot_refresh_hud")
+	return bindings
+
+
+func _snapshot_restore_difficulty(snapshot_data: Dictionary) -> bool:
 	var difficulty_snapshot: Dictionary = _dictionary_or_empty(
 		snapshot_data.get("difficulty", {})
 	)
-	if (
+	return not (
 		_difficulty_progression == null
 		or difficulty_snapshot.is_empty()
 		or not _difficulty_progression.restore_snapshot(difficulty_snapshot)
-	):
-		push_error("[GameplayRunLoop] difficulty snapshot restore failed")
-		return false
+	)
+
+
+func _snapshot_restore_module_world(
+	snapshot_data: Dictionary,
+	staged_loading: bool
+) -> bool:
 	var module_snapshot: Dictionary = _dictionary_or_empty(snapshot_data.get("module_world", {}))
 	if _module_world_enabled and _module_world_manager != null:
 		if module_snapshot.is_empty() or not bool(_module_world_manager.call("restore_state", module_snapshot)):
@@ -6971,23 +7054,27 @@ func _restore_run_snapshot(
 			_activate_module_slot(module_coord, false)
 			if staged_loading and not await _yield_loading_frame():
 				return false
+	return true
 
+
+func _snapshot_restore_gold_progression(snapshot_data: Dictionary) -> bool:
 	var gold_snapshot: Dictionary = _dictionary_or_empty(
 		snapshot_data.get("gold_progression", {})
 	)
-	if (
+	return not (
 		_gold_progression == null
 		or not _gold_progression.restore(
 			int(gold_snapshot.get("gold_balance", -1)),
 			int(gold_snapshot.get("gold_earned_total", -1))
 		)
-	):
-		push_error("[GameplayRunLoop] gold progression restore failed")
-		return false
+	)
+
+
+func _snapshot_restore_reward_choice(snapshot_data: Dictionary) -> bool:
 	var reward_choice_snapshot: Dictionary = _dictionary_or_empty(
 		snapshot_data.get("reward_choice", {})
 	)
-	if (
+	return not (
 		not reward_choice_snapshot.is_empty()
 		and (
 			_reward_choice_controller == null
@@ -6996,9 +7083,10 @@ func _restore_run_snapshot(
 				current_level()
 			)
 		)
-	):
-		push_error("[GameplayRunLoop] reward choice restore failed")
-		return false
+	)
+
+
+func _snapshot_restore_scalar_state(snapshot_data: Dictionary) -> void:
 	_kills = maxi(int(snapshot_data.get("kills", 0)), 0)
 	_enemy_spawn_service.reset_spawn_serial(
 		maxi(
@@ -7014,34 +7102,52 @@ func _restore_run_snapshot(
 	)
 	_spawn_states = _dictionary_or_empty(snapshot_data.get("spawn_states", {}))
 
+
+func _snapshot_restore_rng(snapshot_data: Dictionary) -> void:
 	var rng_snapshot: Variant = snapshot_data.get("rng", {})
 	if rng_snapshot is Dictionary:
 		RNG.restore_snapshot(rng_snapshot as Dictionary)
 
+
+func _snapshot_restore_map_and_bounds(snapshot_data: Dictionary) -> void:
 	var map_snapshot: Variant = snapshot_data.get("map", {})
 	if _map_manager != null and _map_manager.has_method("restore_snapshot") and map_snapshot is Dictionary:
 		_map_manager.call("restore_snapshot", map_snapshot as Dictionary)
 	_apply_player_movement_bounds()
 
+
+func _snapshot_restore_player(snapshot_data: Dictionary) -> void:
 	if _player != null and _player.has_method("restore_snapshot") and snapshot_data.get("player", {}) is Dictionary:
 		_player.call("restore_snapshot", snapshot_data.get("player", {}) as Dictionary)
+
+
+func _snapshot_restore_weapon(snapshot_data: Dictionary) -> void:
 	if _weapon_system != null and _weapon_system.has_method("restore_snapshot") and snapshot_data.get("weapon", {}) is Dictionary:
 		_weapon_system.call("restore_snapshot", snapshot_data.get("weapon", {}) as Dictionary)
-	if not _restore_run_gear_mods(snapshot_data.get("gear_mods", {})):
-		push_error("[GameplayRunLoop] Gear Mod snapshot restore failed")
-		return false
-	_apply_run_gear_modifiers()
+
+
+func _snapshot_restore_gear_mods(snapshot_data: Dictionary) -> bool:
+	return _restore_run_gear_mods(snapshot_data.get("gear_mods", {}))
+
+
+func _snapshot_restore_skills(snapshot_data: Dictionary) -> void:
 	if _skill_system != null and _skill_system.has_method("restore_snapshot") and snapshot_data.get("skills", {}) is Dictionary:
 		_skill_system.call("restore_snapshot", snapshot_data.get("skills", {}) as Dictionary)
-	var effect_snapshot: Variant = snapshot_data.get("effects")
-	if (
-		_effect_runtime == null
-		or not effect_snapshot is Dictionary
-		or not _effect_runtime.restore_snapshot(effect_snapshot as Dictionary)
-	):
-		push_error("[GameplayRunLoop] effect runtime snapshot restore failed")
-		return false
 
+
+func _snapshot_restore_effect_runtime(snapshot_data: Dictionary) -> bool:
+	var effect_snapshot: Variant = snapshot_data.get("effects")
+	return (
+		_effect_runtime != null
+		and effect_snapshot is Dictionary
+		and _effect_runtime.restore_snapshot(effect_snapshot as Dictionary)
+	)
+
+
+func _snapshot_restore_hazards_and_interest(
+	snapshot_data: Dictionary,
+	staged_loading: bool
+) -> bool:
 	var hazard_snapshots: Array = _array_or_empty(snapshot_data.get("hazards", []))
 	if hazard_snapshots.is_empty() and not _module_world_enabled and _map_manager != null and _map_manager.has_method("generate_hazard_placements"):
 		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
@@ -7066,6 +7172,13 @@ func _restore_run_snapshot(
 		_spawn_interest_point_targets()
 	if staged_loading and not await _yield_loading_frame():
 		return false
+	return true
+
+
+func _snapshot_restore_entity_batches(
+	snapshot_data: Dictionary,
+	staged_loading: bool
+) -> bool:
 	var enemy_snapshots: Array = _array_or_empty(snapshot_data.get("enemies", []))
 	var bullet_snapshots: Array = _array_or_empty(snapshot_data.get("bullets", []))
 	var gold_orb_snapshots: Array = _array_or_empty(
@@ -7111,11 +7224,16 @@ func _restore_run_snapshot(
 		_restore_gear_mod_pickup_snapshots(
 			gear_mod_pickup_snapshots
 		)
+	return true
 
+
+func _snapshot_restore_game_clock(snapshot_data: Dictionary) -> void:
 	var clock_snapshot: Variant = snapshot_data.get("game_clock", {})
 	if clock_snapshot is Dictionary:
 		GameClock.restore_snapshot(clock_snapshot as Dictionary)
 
+
+func _snapshot_refresh_hud() -> void:
 	if _hud != null:
 		_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 		_hud.call("set_kills", _kills)
@@ -7124,7 +7242,6 @@ func _restore_run_snapshot(
 	_refresh_module_world_hud()
 	_refresh_difficulty_hud()
 	_update_combat_hud()
-	return true
 
 
 func _restore_interest_points(raw_value: Variant) -> void:
