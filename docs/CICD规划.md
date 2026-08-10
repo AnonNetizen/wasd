@@ -39,8 +39,9 @@
 - 数据 / locale 校验：`python tools/validate_data.py`，覆盖 JSON 语法、`client/data/*.json` / `client/data/*.csv` 与 `strings.csv`
 - DataLoader schema 回归：`python tools/test_data_loader_schema.py`，用临时数据副本断言黄金数据通过、未登记 id / 缺 locale / 类型范围错 / 跨文件引用错会 fail-fast
 - 第一档 GDScript 项目 lint：`python tools/lint_gdscript_rules.py`，检查可低误报自动化的 style guide 顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API
-- 第二档项目规则 lint：`python tools/lint_project_rules.py`，检查新增数据字段是否登记到 `client/data/README.md`、locale 是否保留 `zh_CN` / `en` 双语，以及 release preset 是否误带 debug/dev_tools 资源；ADR #159 后还强制要求排除测试岛场景、脚本和 smoke
+- 第二档项目规则 lint：`python tools/lint_project_rules.py`，检查新增数据字段是否登记到 `client/data/README.md`、locale 是否保留 `zh_CN` / `en` 双语，以及 release preset 是否误带 debug/dev_tools 资源；ADR #159 后还强制要求排除测试岛场景、脚本和 smoke，ADR #197 后阻断 InputService→UIManager 反向依赖、RunLoop 对 `Visual` / `Presentation` 的节点直访，以及 smoke/GUT/runtime CI 绕过临时用户环境隔离
 - 项目规则 lint 回归：`python tools/test_project_rules_lint.py`，固定新增字段漏文档、locale 缺译文、release preset 带 `dev_tools` 或缺少测试岛排除 pattern 的坏样例
+- Godot Bridge 回归：`python tools/test_godot_bridge.py`，固定 smoke descriptor / marker policy / FormalBoot 路由、GUT JUnit 非空门禁与临时用户环境哨兵；docs-check 必跑，pre-commit 在 Bridge、catalog、FormalBoot 或 runtime workflow 变化时触发
 - 第三档语义 advisory lint：`python tools/lint_semantic_rules.py` 默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、缺类型签名、长期脚本缺 `# Doc:` 和未知 contract 常量；其中 Pool / UI 检查按高频实体 / 弹窗命名提示直建、释放或挂载风险，并识别已注册的 `PoolManager` factory，`python tools/test_semantic_rules_lint.py` 固定报警与不误报样例
 - AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
 - whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`；本地 staged hook 会先自动修复低风险的 EOF 多空行，再保留其他 whitespace 错误为硬失败

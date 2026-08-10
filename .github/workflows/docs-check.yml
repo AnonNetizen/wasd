@@ -44,6 +44,9 @@ jobs:
       - name: Run project rules lint regression tests
         run: python tools/test_project_rules_lint.py
 
+      - name: Run Godot Bridge regression tests
+        run: python tools/test_godot_bridge.py
+
       - name: Run semantic advisory lint
         run: python tools/lint_semantic_rules.py || true
 

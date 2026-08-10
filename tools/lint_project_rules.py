@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import ast
 import csv
 import json
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,15 @@ FORMAL_CLIENT_BOOT = (
 )
 TITLE_MENU_SCRIPT = ROOT / "client" / "scripts" / "ui" / "title_menu.gd"
 TITLE_MENU_SCENE = ROOT / "client" / "scenes" / "ui" / "title_menu.tscn"
+INPUT_SERVICE_SCRIPT = (
+    ROOT / "client" / "scripts" / "autoload" / "input_service.gd"
+)
+GAMEPLAY_RUN_LOOP_SCRIPT = (
+    ROOT / "client" / "scripts" / "gameplay" / "gameplay_run_loop.gd"
+)
+SMOKE_COMMAND_CATALOG = ROOT / "client" / "tools" / "smoke_commands.json"
+GODOT_BRIDGE_SCRIPT = ROOT / "tools" / "godot_bridge.py"
+GODOT_RUNTIME_WORKFLOW = ROOT / ".github" / "workflows" / "godot-runtime.yml"
 
 IGNORE_DATA_FILES = {"_contracts.json"}
 IGNORED_FIELD_LEAVES = {"schema_version"}
@@ -43,6 +54,26 @@ REQUIRED_RELEASE_TEST_EXCLUDES = {
     "tests/*",
 }
 GUT_EDITOR_PLUGIN_PATH = "res://addons/gut/plugin.cfg"
+SMOKE_ISOLATION_POLICY = "temporary_user_environment"
+ISOLATED_BRIDGE_FUNCTIONS = (
+    "_run_gut",
+    "_run_isolated_command",
+    "_verify_release_debug_resource_exclusion",
+)
+RUNTIME_BRIDGE_GUT_COMMAND_RE = re.compile(
+    r"(?m)^\s*python(?:3(?:\.\d+)?)?\s+tools/godot_bridge\.py\s+"
+    r"--project\s+client\s+gut\s*$"
+)
+INPUT_SERVICE_UI_MANAGER_RE = re.compile(r"\bUIManager\b|autoload/ui_manager\.gd")
+RUN_LOOP_PRESENTATION_NODE_RE = re.compile(
+    r"(?:\b(?:get_node|get_node_or_null|find_child)\s*\(\s*(?:\^?"
+    r"[\"'](?:[^\"']*/)?(?:Visual|Presentation)(?:/[^\"']*)?[\"']|"
+    r"(?:NodePath|StringName)\s*\(\s*[\"'](?:[^\"']*/)?"
+    r"(?:Visual|Presentation)(?:/[^\"']*)?[\"']\s*\))|"
+    r"[$%](?:\^?[\"'](?:[^\"']*/)?(?:Visual|Presentation)"
+    r"(?:/[^\"']*)?[\"']|(?:[A-Za-z0-9_]+/)*(?:Visual|Presentation)"
+    r"(?:/[A-Za-z0-9_]+)*))"
+)
 
 
 @dataclass(frozen=True)
@@ -65,6 +96,7 @@ def main() -> int:
     errors.extend(_check_release_presets())
     errors.extend(_check_gut_editor_plugin_disabled())
     errors.extend(_check_debug_test_arena_standalone())
+    errors.extend(_check_architecture_boundaries())
 
     if errors:
         for error in sorted(errors, key=lambda item: (_rel(item.path), item.field, item.rule)):
@@ -313,6 +345,434 @@ def _check_debug_test_arena_standalone() -> list[LintError]:
                 )
             )
     return errors
+
+
+def _check_architecture_boundaries() -> list[LintError]:
+    errors: list[LintError] = []
+    errors.extend(_check_source_boundary(
+        INPUT_SERVICE_SCRIPT,
+        INPUT_SERVICE_UI_MANAGER_RE,
+        "input-service-ui-one-way",
+        "InputService must only receive UI stack facts; it must not reference "
+        "or subscribe back to UIManager",
+    ))
+    errors.extend(_check_source_boundary(
+        GAMEPLAY_RUN_LOOP_SCRIPT,
+        RUN_LOOP_PRESENTATION_NODE_RE,
+        "runloop-presentation-facade",
+        "GameplayRunLoop must use GameplayFeedbackController or Player public "
+        "facades instead of reading Visual/Presentation nodes",
+    ))
+    errors.extend(_check_test_user_environment_isolation())
+    return errors
+
+
+def _check_source_boundary(
+    path: Path,
+    pattern: re.Pattern[str],
+    rule: str,
+    message: str,
+) -> list[LintError]:
+    if not path.exists():
+        return [LintError(path, "$", rule, f"required source is missing; {message}")]
+    errors: list[LintError] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        code = _without_gdscript_comment(line)
+        if pattern.search(code) is None:
+            continue
+        errors.append(LintError(path, f"line {line_number}", rule, message))
+    return errors
+
+
+def _without_gdscript_comment(line: str) -> str:
+    quote = ""
+    escaped = False
+    for index, character in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+        if character == "\\" and quote:
+            escaped = True
+            continue
+        if character in {"\"", "'"}:
+            if not quote:
+                quote = character
+            elif quote == character:
+                quote = ""
+            continue
+        if character == "#" and not quote:
+            return line[:index]
+    return line
+
+
+def _check_test_user_environment_isolation() -> list[LintError]:
+    errors: list[LintError] = []
+    if not SMOKE_COMMAND_CATALOG.exists():
+        errors.append(LintError(
+            SMOKE_COMMAND_CATALOG,
+            "$",
+            "test-user-environment-isolation",
+            "smoke catalog is required",
+        ))
+    else:
+        try:
+            catalog = json.loads(SMOKE_COMMAND_CATALOG.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as error:
+            errors.append(LintError(
+                SMOKE_COMMAND_CATALOG,
+                "$",
+                "test-user-environment-isolation",
+                f"smoke catalog must be readable JSON: {error}",
+            ))
+        else:
+            commands = catalog.get("commands") if isinstance(catalog, dict) else None
+            if not isinstance(commands, list) or not commands:
+                errors.append(LintError(
+                    SMOKE_COMMAND_CATALOG,
+                    "commands",
+                    "test-user-environment-isolation",
+                    "smoke catalog commands must be a non-empty array",
+                ))
+                commands = []
+            for index, descriptor in enumerate(commands):
+                isolation = (
+                    descriptor.get("isolation")
+                    if isinstance(descriptor, dict)
+                    else None
+                )
+                if isolation == SMOKE_ISOLATION_POLICY:
+                    continue
+                errors.append(LintError(
+                    SMOKE_COMMAND_CATALOG,
+                    f"commands[{index}].isolation",
+                    "test-user-environment-isolation",
+                    "every smoke command must use temporary_user_environment",
+                ))
+
+    if not GODOT_BRIDGE_SCRIPT.exists():
+        errors.append(LintError(
+            GODOT_BRIDGE_SCRIPT,
+            "$",
+            "test-user-environment-isolation",
+            "the canonical GUT runner is required",
+        ))
+    else:
+        bridge_text = GODOT_BRIDGE_SCRIPT.read_text(encoding="utf-8")
+        bridge_errors = _bridge_isolation_errors(bridge_text)
+        for field, message in bridge_errors:
+            errors.append(LintError(
+                GODOT_BRIDGE_SCRIPT,
+                field,
+                "test-user-environment-isolation",
+                message,
+            ))
+
+    if not GODOT_RUNTIME_WORKFLOW.exists():
+        errors.append(LintError(
+            GODOT_RUNTIME_WORKFLOW,
+            "$",
+            "test-user-environment-isolation",
+            "the runtime CI workflow is required",
+        ))
+    else:
+        workflow_text = "\n".join(
+            _without_gdscript_comment(line)
+            for line in GODOT_RUNTIME_WORKFLOW.read_text(encoding="utf-8").splitlines()
+        )
+        runtime_commands = "\n".join(
+            _runtime_workflow_run_commands(workflow_text)
+        )
+        if (
+            RUNTIME_BRIDGE_GUT_COMMAND_RE.search(runtime_commands) is None
+            or "gut_cmdln.gd" in runtime_commands
+        ):
+            errors.append(LintError(
+                GODOT_RUNTIME_WORKFLOW,
+                "runtime-tests",
+                "test-user-environment-isolation",
+                "runtime CI must call the isolated Godot Bridge GUT entrypoint",
+            ))
+    return errors
+
+
+def _bridge_isolation_errors(source: str) -> list[tuple[str, str]]:
+    try:
+        module = ast.parse(source)
+    except SyntaxError:
+        return [(
+            "$",
+            "Godot Bridge must be valid Python before isolation can be verified",
+        )]
+    errors: list[tuple[str, str]] = []
+    for function_name in ISOLATED_BRIDGE_FUNCTIONS:
+        function = _find_top_level_function(module, function_name)
+        if (
+            function is None
+            or not _function_runs_in_temporary_environment(function)
+        ):
+            errors.append((
+                function_name,
+                f"{function_name} must run every process inside one temporary "
+                "directory with an environment derived from that directory",
+            ))
+    smoke_function = _find_top_level_function(module, "_run_smoke_command")
+    if smoke_function is None or not _smoke_entry_uses_isolated_runner(
+        smoke_function
+    ):
+        errors.append((
+            "_run_smoke_command",
+            "smoke commands must route through _run_isolated_command and must "
+            "not execute a process directly",
+        ))
+    return errors
+
+
+def _find_top_level_function(
+    module: ast.Module,
+    name: str,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    functions = [
+        node
+        for node in module.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == name
+    ]
+    if len(functions) != 1:
+        return None
+    return functions[0]
+
+
+def _function_runs_in_temporary_environment(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    run_calls = [
+        node
+        for node in ast.walk(function)
+        if _is_named_call(node, "_run_command")
+    ]
+    if not run_calls:
+        return False
+    for node in ast.walk(function):
+        if not isinstance(node, ast.With):
+            continue
+        directory_name = _temporary_directory_alias(node)
+        if directory_name is None:
+            continue
+        scope_nodes = set(ast.walk(node))
+        if not all(call in scope_nodes for call in run_calls):
+            continue
+        if _temporary_scope_runs_are_isolated(
+            node,
+            directory_name,
+            run_calls,
+        ):
+            return True
+    return False
+
+
+def _temporary_directory_alias(node: ast.With) -> str | None:
+    for item in node.items:
+        call = item.context_expr
+        if not (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "tempfile"
+            and call.func.attr == "TemporaryDirectory"
+            and isinstance(item.optional_vars, ast.Name)
+        ):
+            continue
+        return item.optional_vars.id
+    return None
+
+
+def _temporary_scope_runs_are_isolated(
+    scope: ast.With,
+    directory_name: str,
+    run_calls: list[ast.Call],
+) -> bool:
+    store_counts: Counter[str] = Counter(
+        node.id
+        for node in ast.walk(scope)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+    )
+    events = [
+        node
+        for node in ast.walk(scope)
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+        or _is_named_call(node, "_run_command")
+    ]
+    events.sort(key=lambda node: (
+        getattr(node, "lineno", 0),
+        getattr(node, "col_offset", 0),
+        0 if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)) else 1,
+    ))
+    derived_names: set[str] = {directory_name}
+    isolated_environment_names: set[str] = set()
+    checked_calls: set[ast.Call] = set()
+    for event in events:
+        if isinstance(event, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            value = event.value
+            targets = _assignment_target_names(event)
+            is_isolated_environment = (
+                isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name)
+                and value.func.id == "_isolated_user_environment"
+                and bool(value.args)
+                and _expression_references_names(value.args[0], derived_names)
+            )
+            is_derived = (
+                value is not None
+                and _expression_references_names(value, derived_names)
+            )
+            for target in targets:
+                isolated_environment_names.discard(target)
+                derived_names.discard(target)
+                if is_derived:
+                    derived_names.add(target)
+                if is_isolated_environment:
+                    isolated_environment_names.add(target)
+            continue
+        call = event
+        env_names = [
+            keyword.value.id
+            for keyword in call.keywords
+            if keyword.arg == "env" and isinstance(keyword.value, ast.Name)
+        ]
+        if (
+            len(env_names) != 1
+            or env_names[0] not in isolated_environment_names
+        ):
+            return False
+        checked_calls.add(call)
+    if checked_calls != set(run_calls):
+        return False
+    protected_names = derived_names | isolated_environment_names
+    return all(store_counts[name] == 1 for name in protected_names)
+
+
+def _assignment_target_names(
+    node: ast.Assign | ast.AnnAssign | ast.AugAssign,
+) -> set[str]:
+    raw_targets: list[ast.expr]
+    if isinstance(node, ast.Assign):
+        raw_targets = node.targets
+    else:
+        raw_targets = [node.target]
+    names: set[str] = set()
+    for target in raw_targets:
+        names.update(
+            child.id
+            for child in ast.walk(target)
+            if isinstance(child, ast.Name)
+        )
+    return names
+
+
+def _expression_references_names(
+    node: ast.AST,
+    names: set[str],
+) -> bool:
+    return any(
+        isinstance(child, ast.Name)
+        and isinstance(child.ctx, ast.Load)
+        and child.id in names
+        for child in ast.walk(node)
+    )
+
+
+def _is_named_call(node: ast.AST, name: str) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == name
+    )
+
+
+def _smoke_entry_uses_isolated_runner(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    isolated_calls = [
+        node
+        for node in ast.walk(function)
+        if _is_named_call(node, "_run_isolated_command")
+    ]
+    direct_calls = [
+        node
+        for node in ast.walk(function)
+        if _is_named_call(node, "_run_command")
+        or (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in {"os", "subprocess"}
+            and node.func.attr in {"system", "run", "Popen"}
+        )
+    ]
+    return len(isolated_calls) == 1 and not direct_calls
+
+
+def _runtime_workflow_run_commands(source: str) -> list[str]:
+    lines = source.splitlines()
+    jobs_index = next(
+        (
+            index for index, line in enumerate(lines)
+            if line.strip() == "jobs:" and len(line) - len(line.lstrip()) == 0
+        ),
+        -1,
+    )
+    if jobs_index < 0:
+        return []
+    runtime_index = -1
+    runtime_indent = -1
+    for index in range(jobs_index + 1, len(lines)):
+        line = lines[index]
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip())
+        if stripped and indent == 0:
+            break
+        if stripped == "runtime-tests:":
+            runtime_index = index
+            runtime_indent = indent
+            break
+    if runtime_index < 0:
+        return []
+
+    commands: list[str] = []
+    index = runtime_index + 1
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip())
+        if stripped and indent <= runtime_indent:
+            break
+        match = re.match(r"^\s*run:\s*(.*)$", line)
+        if match is None:
+            index += 1
+            continue
+        value = match.group(1).strip()
+        run_indent = indent
+        if value not in {"|", "|-", "|+", ">", ">-", ">+"}:
+            commands.append(value.strip("\"'"))
+            index += 1
+            continue
+        block: list[str] = []
+        index += 1
+        while index < len(lines):
+            block_line = lines[index]
+            block_stripped = block_line.strip()
+            block_indent = len(block_line) - len(block_line.lstrip())
+            if block_stripped and block_indent <= run_indent:
+                break
+            if block_stripped:
+                block.append(block_stripped)
+            index += 1
+        separator = " " if value.startswith(">") else "\n"
+        commands.append(separator.join(block))
+    return commands
 
 
 def _data_files() -> list[Path]:

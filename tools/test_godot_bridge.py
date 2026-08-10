@@ -639,6 +639,74 @@ class GodotBridgeTests(unittest.TestCase):
                 self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve")
                 self.assertFalse((sentinel.parent / "probe.txt").exists())
 
+    def test_release_preflight_preserves_outer_user_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            project = root / "project"
+            project.mkdir()
+            environment_paths = {
+                "APPDATA": root / "appdata",
+                "LOCALAPPDATA": root / "local_appdata",
+                "XDG_DATA_HOME": root / "xdg_data",
+                "XDG_CONFIG_HOME": root / "xdg_config",
+                "XDG_CACHE_HOME": root / "xdg_cache",
+                "HOME": root / "home",
+                "USERPROFILE": root / "profile",
+            }
+            sentinels: list[Path] = []
+            for path in environment_paths.values():
+                path.mkdir(parents=True)
+                sentinel = path / "sentinel.txt"
+                sentinel.write_text("preserve", encoding="utf-8")
+                sentinels.append(sentinel)
+
+            captured_environments: list[dict[str, str]] = []
+
+            def fake_run(command: list[str], **kwargs: object) -> object:
+                environment = kwargs["env"]
+                self.assertIsInstance(environment, dict)
+                captured_environments.append(environment)
+                Path(environment["APPDATA"], "probe.txt").write_text(
+                    "isolated",
+                    encoding="utf-8",
+                )
+                if "--export-pack" in command:
+                    Path(command[-1]).write_bytes(b"test-pack")
+                    stdout = ""
+                else:
+                    stdout = "RELEASE DEBUG RESOURCE CHECK PASS\n"
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout=stdout,
+                    stderr="",
+                )
+
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {key: str(value) for key, value in environment_paths.items()},
+                ),
+                mock.patch.object(
+                    godot_bridge.subprocess,
+                    "run",
+                    side_effect=fake_run,
+                ),
+            ):
+                result = godot_bridge._verify_release_debug_resource_exclusion(
+                    root / "fake-godot.exe",
+                    project,
+                )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(len(captured_environments), 2)
+            for environment in captured_environments:
+                for key, outer_path in environment_paths.items():
+                    self.assertNotEqual(environment[key], str(outer_path))
+            for sentinel in sentinels:
+                self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve")
+                self.assertFalse((sentinel.parent / "probe.txt").exists())
+
     def test_success_marker_is_required(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             result = godot_bridge._run_command(

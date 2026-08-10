@@ -57,6 +57,13 @@ repos:
         pass_filenames: false
         files: ^tools/(lint_project_rules|test_project_rules_lint)\.py$
 
+      - id: test-godot-bridge
+        name: Run Godot Bridge regression tests
+        entry: python tools/test_godot_bridge.py
+        language: system
+        pass_filenames: false
+        files: ^(tools/(godot_bridge|test_godot_bridge)\.py|client/tools/smoke_commands\.json|client/scripts/boot/formal_client_boot\.gd|\.pre-commit-config\.yaml|\.github/workflows/(docs-check|godot-runtime)\.yml)$
+
       - id: lint-semantic-rules
         name: Run third-tier semantic advisory lint
         entry: python tools/lint_semantic_rules.py

@@ -261,13 +261,13 @@
       "authority": "Testing pyramid, coverage, replay, human-only manual acceptance, and user-trigger-only performance probes",
       "status": "active",
       "owner_scope": "test",
-      "last_reviewed": "2026-08-08",
-      "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression", "human_only_acceptance", "path_aware_validation"],
+      "last_reviewed": "2026-08-10",
+      "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression", "human_only_acceptance", "path_aware_validation", "architecture_boundary_lint"],
       "must_read_for": ["test_change", "behavior_change", "replay_change"],
       "related_docs": ["docs/CICD规划.md", "docs/AI导航.md", "docs/代码文档规范.md"],
-      "related_code": ["client/", "tools/", "client/tools/rng_audit.gd", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
+      "related_code": ["client/", "tools/", "client/tools/rng_audit.gd", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/test_godot_bridge.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
       "update_triggers": ["new testing requirement", "coverage target change", "manual acceptance ownership change", "new golden replay policy", "performance test trigger policy change", "RNG correlation audit changes"],
-      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "人工检查", "人工验收", "待人工验收", "human-only acceptance", "L5", "ADR #174", "ADR #182", "ADR #183", "PlayerSlimeVisual", "20 control points", "100 boundary points", "25 px player radius", "38 px muzzle", "primary-only", "golden replay", "ordinary Git text", "性能测试按需", "user-triggered performance test", "startup-probe", "perf-probe", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "rng-audit", "cross-stream correlation", "RNG correlation", "Steamworks Lab", "battle_smoke", "单人AI大招", "自主游击", "预判闪避", "归队合体"]
+      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "人工检查", "人工验收", "待人工验收", "human-only acceptance", "L5", "ADR #174", "ADR #182", "ADR #183", "ADR #197", "architecture boundary lint", "InputService one-way UI", "RunLoop presentation facade", "isolated user environment", "temporary user environment", "PlayerSlimeVisual", "20 control points", "100 boundary points", "25 px player radius", "38 px muzzle", "primary-only", "golden replay", "ordinary Git text", "性能测试按需", "user-triggered performance test", "startup-probe", "perf-probe", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "rng-audit", "cross-stream correlation", "RNG correlation", "Steamworks Lab", "battle_smoke", "单人AI大招", "自主游击", "预判闪避", "归队合体"]
     },
     {
       "path": "docs/代码文档规范.md",
@@ -811,7 +811,7 @@
       "canonical_for": ["local_validation_loop", "pre_commit_design"],
       "must_read_for": ["pre_commit_change", "validation_loop_change"],
       "related_docs": ["docs/CICD规划.md", "docs/测试策略.md", "docs/AI协作/文档健康检查.md", "docs/AI协作/代码审核流程.md"],
-      "related_code": [".pre-commit-config.yaml", ".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py", "tools/check_staged_whitespace.py"],
+      "related_code": [".pre-commit-config.yaml", ".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/test_godot_bridge.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py", "tools/check_staged_whitespace.py"],
       "update_triggers": ["new hook", "watch script changes", "local validation responsibility changes"],
       "keywords": ["pre-commit", "实时验证", "hook", "docs-health", "GitHub Actions", "sync_contracts", "validate_data", "test_data_loader_schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "staged whitespace"]
     },
@@ -841,7 +841,7 @@
       "related_docs": ["docs/测试策略.md", "docs/AI协作/文档健康检查.md", "docs/AI协作/实时验证回路.md", "docs/AI协作/代码审核流程.md"],
       "related_code": [".pre-commit-config.yaml", ".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py", "tools/check_staged_whitespace.py"],
       "update_triggers": ["new validation script", "new workflow", "CI stage change", "pre-commit hook change"],
-      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow", "sync_contracts", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "release preset", "pre-commit", "staged whitespace", "golden_reward_choice", "ADR #169"]
+      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow", "sync_contracts", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "architecture boundary lint", "isolated user environment", "lint_semantic_rules", "语义lint", "advisory", "release preset", "pre-commit", "staged whitespace", "golden_reward_choice", "ADR #169", "ADR #197"]
     },
     {
       "path": "docs/修改建议.md",

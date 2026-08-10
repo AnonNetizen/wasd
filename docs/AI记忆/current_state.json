@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-10",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面与 ModuleWorldState 九个渐进提取点。ModuleWorld current/revealed/visited/pins/slot payload 已由纯状态对象持有，restore 候选只在 cache/hash 通过后提交；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步继续 DataLoader validator、DebugFacade 与 Enemy Brain/action；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面与 ModuleWorldState 九个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步继续 DataLoader validator、DebugFacade 与 Enemy Brain/action；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / 静态架构边界：project rules lint 阻断 InputService 反向依赖 UIManager、GameplayRunLoop 直接读取 Visual/Presentation，以及 smoke catalog、Bridge GUT/smoke/preflight 或 runtime CI 绕过临时用户环境隔离；Bridge regression 已纳入 CI 与对应 pre-commit 路径。",
     "ADR #197 / ModuleWorld 动态状态：新增纯 ModuleWorldState，集中 current/revealed/visited、pins、slot payload 与 RestoreCandidate；Manager 保留 assignment/hash/RNG/navigation/streaming 和 Run v19 九字段显式 facade，hash/assignment 失败不污染 live 动态状态。",
     "ADR #197 / GameplayFeedback 与 Player 表现门面：无状态 GameplayFeedbackController 集中 actor Presentation profile / cue context，Player 集中 palette 与武器开火视觉冲击；RunLoop 不再直接查找角色表现节点，combat effect 与武器反馈顺序保持。",
     "ADR #197 / DataLoader 引用索引提取：新增纯 DataReferenceIndexBuilder，逐函数承接 18 类跨文件 ID 索引并保持真实 JSON/CSV 类型、source order、重复折叠、hazard last-write 与 wave nesting；DataLoader 的读取 / 校验 / 坏 Mod 隔离顺序和 data hash 不变。",
