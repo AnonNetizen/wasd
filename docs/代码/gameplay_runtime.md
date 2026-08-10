@@ -20,7 +20,7 @@
 | 改玩家加载准备 / 激活边界 | `docs/代码/gameplay_loading.md`、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` |
 | 改模块大地图 / 模块模板 / 流式加载 | `docs/代码/module_world_manager.md`、`client/scripts/gameplay/module_world_manager.gd`、`client/scripts/gameplay/module_chunk.gd`、`client/data/module_worlds.json`、`client/data/module_templates.json`、`client/data/modules/*.json` |
 | 改标题 / 失败面板 | `client/scripts/ui/title_menu.gd`、`client/scripts/ui/game_over_panel.gd` |
-| 改 Gear Mod 棋盘 / 拾取事务 / 类型行为 / effect 叠加 | `client/scripts/gameplay/gear_mod_board.gd`、`gameplay_run_loop.gd`、`gear_mod_pickup.gd`、`client/scripts/autoload/gear_mod_system.gd`、Player / WeaponSystem |
+| 改 Gear Mod 棋盘 / 拾取事务 / 类型行为 / effect 叠加 | `client/scripts/gameplay/gear_mod_board.gd`、`gameplay_run_loop.gd`、`gear_mod_pickup.gd`、`client/scripts/autoload/gear_mod_system.gd`、`client/scripts/data/modifier_stack.gd`、Player / WeaponSystem |
 | 改武器射速 / 后坐 / 扩散 / 玩家反冲 | `client/scripts/gameplay/weapon_system.gd`、`client/scripts/data/weapon_recoil_resolver.gd`、`client/scripts/gameplay/player.gd`、`client/data/weapons.json` |
 | 改暂停 / 保存退出 | `client/scripts/ui/pause_menu.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`docs/代码/save_manager.md` |
 | 改失败面板 / run 清理 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/ui/game_over_panel.gd` |
@@ -55,6 +55,7 @@
 | `client/scenes/gameplay/actors/enemy_base.tscn` / `enemies/*.tscn` | 敌人基础场景与五种敌人专属继承场景；共享 `Enemy` 脚本和必需组件，专属场景保存颜色、轮廓及未来动画 / 素材节点 |
 | `client/scenes/gameplay/gameplay_camera_controller.tscn` / `client/scripts/gameplay/gameplay_camera_controller.gd` | 稳定摄像机场景与类型化门面；管理 `Camera2D` + Phantom Camera host / player PCam / 瞄准引导偏移 / 受伤与武器两个 noise emitter，读 `camera_feedback.json`、按输入源平滑预看、按 context 缩放武器震屏并响应 `gameplay.screen_shake` |
 | `client/scripts/data/weapon_recoil_resolver.gd` | 纯数据解析 `recoil_model` 与武器运行时 stats，输出有效后坐、完整扩散锥角、后移距离 / 初速度及持续时间 |
+| `client/scripts/data/modifier_stack.gd` | 纯 `RefCounted` 三层属性栈；固定按 persistent → gear → temporary 计算 `(base + additions) × multipliers`，以来源插入顺序支持替换、移除、深拷贝物化和层汇总恢复；不依赖 Node、GameClock、RNG 或 StatusEffect |
 | `client/scenes/gameplay/bullet.tscn` / `gold_orb.tscn` / `hit_spark.tscn` / `damage_number.tscn` / `hazard.tscn` | 其他对象池实体场景；由 `PoolManager` 工厂实例化并复用。共享 Bullet 场景只保存一个四节点史莱姆 `Visual`，运行时按 `source_team` 切换同一几何的玩家白色系 / 敌方红色系并在池复用时完整重置；其他静态占位表现同样由可编辑 `Polygon2D` / `Line2D` 子节点承载，不走实体 `_draw()` |
 | `client/scenes/gameplay/gear_mod_pickup.tscn` / `client/scripts/gameplay/gear_mod_pickup.gd` | `gear_mod_pickup` 池化手动掉落实体；40 px CPU 固定空间星窗与 2 px 青色轮缘，根节点不动、视觉子节点轻微悬浮；无碰撞、无吸附、无超时，只在最近交互仲裁中响应 `interact` |
 | `client/scenes/gameplay/interest_point_target.tscn` / `client/scripts/gameplay/interest_point_target.gd` | F12 低频兴趣点目标：精英巢点和小巢核可伤害占位；视觉 footprint 对齐地图矩形格，摧毁后通过 signal 触发通用兴趣点奖励 |
@@ -75,7 +76,7 @@
 | `client/scripts/gameplay/world_events/` / `client/scenes/gameplay/world_events/` | 五类事件的场景化 Controller、交互物、防御目标与占点表现；详见 `docs/代码/world_event_system.md` |
 | `client/scripts/gameplay/world_background.gd` | 量化矩形地图格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地图度量，不改变世界坐标或相机缩放 |
 | `client/scripts/gameplay/map_manager.gd` | 有限地图边界、PCG 机关摆放、人工摆点、刷怪位置 clamp 和地图快照 |
-| `client/scripts/gameplay/player.gd` | 玩家移动、瞄准、冲刺、主英雄属性、超量护盾 / 普通护盾 / 护盾门 / 护甲 / 生命防御链、临时修饰器与受控 debug 资源 API；ADR #186 后不再挂载弹药世界提示 |
+| `client/scripts/gameplay/player.gd` | 玩家移动、瞄准、冲刺、主英雄属性、超量护盾 / 普通护盾 / 护盾门 / 护甲 / 生命防御链、三层 `ModifierStack` 适配、临时修饰器生命周期与受控 debug 资源 API；ADR #186 后不再挂载弹药世界提示 |
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、兴趣点和阶段启用 wave |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器按住无限开火、临时武器修正、冷却、后坐解析与子弹池获取 |
 | `client/scenes/gameplay/skill_system.tscn` / `client/scripts/gameplay/skill_system.gd` | 预置 `StatusEffectComponent` 的四槽技能系统；负责槽位快照、共享能量、能力四维缩放、skills v3 激活提交、屏障、combat gate 和 Run v19 恢复 |
@@ -217,11 +218,17 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `Player.aim_at_world_position(world_position)` | 世界坐标 | `void` | 按玩家到目标世界坐标的方向更新 `aim_direction`，并清掉上一帧鼠标瞄准缓存；headless smoke 和未来脚本化瞄准可复用，真实鼠标输入使用玩家实际屏幕位置 + 稳定引导偏移的投影反算路径 |
 | `Player.set_camera_look_offset(offset)` | 稳定镜头引导偏移 | `void` | 由 `GameplayCameraController` 写入；用于把鼠标位置换算为相对玩家实际屏幕位置的方向，`Camera2D.offset` 震屏噪声不得包含在参数内 |
 | `Player.apply_modifiers(modifiers)` | `reward_choice_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新玩家运行时属性 |
+| `Player.apply_temporary_modifiers(modifiers, duration, source_id)` | modifier 列表、正持续时间、来源 | `void` | 替换同来源 temporary 层并刷新持续时间；空来源继续归一为 `anonymous`，不同来源按首次插入顺序叠加，过期后移除并重建属性 |
+| `Player.set_gear_modifiers(modifiers)` | 当前棋盘派生的 hero modifiers | `void` | 整体替换 gear 层；重复应用同一列表幂等，gear 继续由棋盘权威重建且不写入 Player entity snapshot |
 | `Player.current_shield()` / `max_shield()` / `current_overshield()` / `add_overshield(amount)` | 无 / 非负增加量 | `float` | 内置英雄开局普通护盾为 0；超量护盾容量为 `max_life + max_shield`，添加方法返回实际接收值 |
 | `Player.apply_status_effect(status_effect)` / `active_statuses()` | `StatusEffect` 兼容对象 / 无 | Dictionary / `Array[String]` | 玩家状态走 `StatusEffectComponent`；新开局 `configure()` 清空状态与 owned ability tags |
 | `Player.combat_team_id()` | 无 | String | 返回玩家队伍 id，供状态 DoT 等延迟伤害保存 source / target team 归因 |
 | `Player.add_owned_tag()` / `remove_owned_tag()` / `has_owned_tag()` / `owned_tags()` | ability tag id | bool / `Array[String]` | 只接受词表 §12-G 已登记 tag；供状态授予 / 移除和调试查询 |
 | `Player.snapshot()` / `restore_snapshot(snapshot_data)` | 无 / run payload | Dictionary / `void` | 保存位置、朝向、生命 / 防御、冲刺、武器后坐速度 / 剩余时间 / 总时长、modifiers、owned tag 计数和状态效果；恢复时超量护盾钳制到当前生命 / 护盾上限之和，缺失后坐字段按静止读取 |
+| `ModifierStack.configure()` / `append_modifiers()` / `replace_source()` / `replace_layer()` | 基础值、层、来源与 modifier 列表 | `void` | 只接受三个内建层；所有输入深拷贝。persistent 追加、gear 整层替换、temporary 按来源替换，不负责持续时间 |
+| `ModifierStack.remove_source()` / `clear_layer()` | 层与来源 | `bool` / `void` | 删除来源或清空层；删除不存在来源幂等返回 `false` |
+| `ModifierStack.value()` / `materialized_values()` | stat 与可选基础默认值 / 无 | `float` / `Dictionary` | 固定层序与来源序计算；输出深拷贝，只有乘法且无基础 / 加法的 stat 结果为 `0` |
+| `ModifierStack.layer_totals()` / `restore_layer_totals()` | 层 / 层与 additions、multipliers | `Dictionary` / `void` | 为旧 Player `stat_additions` / `stat_multipliers` wire 提供汇总 roundtrip；不把来源或 gear 写入 entity snapshot |
 | `Player.configure_weapon_recoil(recoil_model)` / `apply_weapon_recoil(direction, initial_speed, duration)` | 后坐模型 / 中心开火方向与冲量 | `void` | 配置运行时速度上限；开火时叠加反向向量并钳制，冲刺激活时不新增冲量 |
 | `Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用；无敌期返回 `reason=invulnerable` 且不扣生命 |
 | `Player.debug_heal()` / `debug_set_life()` / `debug_clear_invulnerability()` | 调试数值 | Dictionary / `void` | 仅供 debug/dev_tools GM 指令调用；正式 gameplay 不应依赖 |
@@ -317,8 +324,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 金币与等级：`GoldProgression` 是余额、累计获得金币和等级推导的唯一事实源。`level_progression.json` 配置首段 100 与有理倍率 13/10；每段 `ceil(previous × 13 / 10)`，不用浮点幂，前十段固定为 `100, 130, 169, 220, 286, 372, 484, 630, 819, 1065`。余额可消费，累计金币只增不减；等级从累计金币重算，不单独保存。
 - 奖励选择：`reward_choice_pools.json` 定义池和候选；当前只解释 `kind=stat_modifier`。调用方显式提供 pool / trigger / 2–5 候选数，控制器按当前等级过滤、稳定 id 排序后使用 `RNG.ui_choice` 加权无放回抽取；`luck` 无影响。Run v19 保存 trigger、pool 和原候选，续局恢复时不再消耗 RNG。
 - 分辨率与 UI：当前只设计 / 验收固定 16:9，默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，非 16:9 屏幕通过 `canvas_items + keep` 等比缩放并补黑边，不拉伸、不裁切、不扩大玩法视野；F4 HUD 和升级面板使用 `Control` 锚点 / 容器布局适配经过验证的 16:9 固定预设。其他宽高比留作未来按独立固定预设接入的 P3 优化，不作为当前响应式布局目标。
-- run 续局快照：`RUN_SNAPSHOT_SCHEMA_VERSION` 与 SaveManager run envelope 均为 v19。Run 保存精确 mod environment、GameplayEffectRuntime、Gear Mod next ID / 解锁格 / placements，地面快照带 ID 并做全局唯一校验；旧 Run v18 保留但不继续。恢复顺序是环境 / assignment / 内容池 → 棋盘与实体基础状态 → 来源注册 → 普通 / 临时 / modifier 层 → Runtime 状态。
+- run 续局快照：`RUN_SNAPSHOT_SCHEMA_VERSION` 与 SaveManager run envelope 均为 v19。Run 保存精确 mod environment、GameplayEffectRuntime、Gear Mod next ID / 解锁格 / placements，地面快照带 ID 并做全局唯一校验；旧 Run v18 保留但不继续。Player entity snapshot 顶层继续使用原 `stat_additions`、`stat_multipliers`、`temporary_modifiers`，不新增 stack wire 且不保存 gear。Player 内部严格先恢复 persistent totals 并执行 reset rebuild，再写生命 / 护盾等实体值，随后按快照来源顺序恢复 temporary 并执行增量 rebuild；RunLoop 再从棋盘替换 gear，因此最大生命 / 最大护盾增长继续保留原补量 signal 与数值副作用。整体恢复顺序仍是环境 / assignment / 内容池 → 棋盘与实体基础状态 → 来源注册 → 普通 / 临时 / modifier 层 → Runtime 状态。
 - 局内 Gear Mod 权威：`GearModBoard` 保存核心、解锁、坐标与连接，`GameplayRunLoop` 保存实例分配和事务，`GameplayEffectRuntime` 保存 program 状态；`GearModSystem` 仅解析 schema v6 components。Player 与 WeaponSystem 只消费 modifier components，同 id 多份乘法 modifier 合法逐份相乘。
+- Player 属性层权威：`ModifierStack` 只计算 persistent、gear、temporary 三层；`Player` 继续单独保存 temporary 剩余时间并在 `GameClock` 驱动的物理帧更新生命周期。`StatusEffectComponent` 的属性倍率不进入该栈，现有移动速度状态链继续在 Player 计算结果之外相乘。
 - Gear Mod 掉落：仅玩家归因击杀调用 `GearModSystem.roll_drop_for_enemy()` 并走 `RNG.drop`；追击者伤害 Mod 5%、喷吐者扩散 Mod 2.5%、壁垒者后坐 Mod 15%。命中后生成手动拾取实体，成功交互才通过统一单份授予入口追加、应用并显示 HUD 反馈；奖励源不按已持有 id 过滤，怪物互杀或非玩家归因击杀不会授予。缓存、世界事件与敌人掉落共用同一原子入口，Run 恢复不重抽、不重复发奖。
 - 伤害类型：从 `weapons.json` / `enemies.csv` / `hazards.csv` 读取，交给 `Combat` 校验。
 - UI / HUD / 奖励文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_gold_progress`、`ui_stats_*`、`ui_reward_choice_title`、`ui_reward_applied`、`ui_level_reached`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_result_*`、`ui_gear_mod_*`，奖励候选使用 `reward_choice_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
@@ -429,6 +437,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 死亡后还能继续旧局 | `SaveManager.delete(slot_0, run)` 是否在死亡后执行；标题继续按钮是否仍看见旧 `run` |
 | 标题仍出现 Gear Mod 配置 | `TitleMenu` / `FormalClientBoot` 是否残留 Gear Mod button、signal、scene preload 或 locale key；`runtime-smoke` 是否覆盖正式入口 |
 | Gear Mod 重复应用后数值漂移 | Player / WeaponSystem 是否使用 `set_gear_modifiers()` 替换专属层；Run 恢复是否在实体恢复后只统一重建一次；`gear-mod-smoke` 幂等断言是否通过 |
+| Player temporary 刷新后重复叠加或来源顺序漂移 | `apply_temporary_modifiers()` 是否同时替换 `temporary_modifiers[source]` 与 `ModifierStack` temporary source；同来源赋值不能删除后重插，过期删除必须同时移除两边来源 |
+| Player 续局后最大生命 / 最大护盾或补量 signal 顺序变化 | Player snapshot 是否仍只保存 persistent totals 与 temporary 生命周期、gear 是否仍由 RunLoop 后置重建；先 persistent reset rebuild、再实体值、再 temporary 增量 rebuild 的顺序不得调整 |
 | 标题菜单仍出现旧局外升级 | `TitleMenu` 是否意外恢复 `MetaProgressionButton` / `MetaProfileSummaryLabel`；`FormalClientBoot` 是否意外恢复 `meta_progression_requested` 连接 |
 | 失败面板出现局外成长购买或跳转入口 | `GameOverPanel` 是否意外恢复 `PurchaseUpgradeButton` / `MetaProgressionButton`；`runtime-smoke` 是否通过失败页不显示局外成长入口断言 |
 | 本局 Gear Mod 属性无效 | placement 是否含 `type=modifier` 组件；slot 是否支持目标 stat；确认事务后是否同步派生 modifier 列表并调用替换式重建 |
@@ -455,6 +465,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - Gameplay runtime 代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
 - 修改敌人材化、metadata、spawn serial 或实体恢复顺序时，先跑 GUT `client/tests/integration/test_enemy_spawn_service.gd`，再跑 runtime、actor-scene、完整 / technical module-world、world-event、save 和四条 Replay v9 黄金回放；pool / reward 失败不得消费随机位置或 serial，restore 必须保持 `bounds → lifecycle/VFX → Enemy.restore_snapshot()`。
 - 修改 Run v19 顶层 payload 或恢复编排时，先跑 GUT `client/tests/unit/test_run_snapshot_coordinator.gd`，要求 30 字段数量 / 顺序、深拷贝、`mod_environment` 所有权和 sync / staged port 顺序等价；再跑 save、runtime、loading、module-world full / technical、world-event、formal boot 和四条 Replay v9 golden。
+- 修改 `ModifierStack` 或 Player / WeaponSystem 属性层时，先跑 GUT `client/tests/unit/test_modifier_stack.gd`、`client/tests/integration/test_player_modifier_stack.gd` 与 `client/tests/integration/test_weapon_modifier_stack.gd`；unit 覆盖三层公式、gear 替换幂等、temporary 来源刷新 / 顺序 / 删除、深拷贝和层 totals roundtrip；Player integration 覆盖最大生命 / 护盾的 Run v19 恢复副作用；Weapon integration 覆盖 materialized keys、`legacy:` 空来源、畸形旧载荷、temporary 生命周期 signal 与快照插入顺序。接入变化再追加 `l1-smoke`、Gear Mod / pickup、effect-runtime、VFX、runtime、save、headless 与四条 Replay v9 golden。
 - Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`；涉及局内 Gear Mod 或标题入口删除边界时追加 `gear-mod-smoke`。
 - 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、金币球、金币成长、奖励选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 改角色挂点、表现 cue、命中 / 退场、VfxHost 或回池边界时追加 `vfx-smoke` 与 `actor-scene-smoke`；回放 summary 和 gameplay RNG 不得因纯表现变化而改变。

@@ -17,6 +17,7 @@ signal died()
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const MODIFIER_STACK_SCRIPT := preload("res://scripts/data/modifier_stack.gd")
 const DEFAULT_BODY_RADIUS: float = 25.0
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
 const ACTIVE_PLAYER_GROUP: String = "active_player"
@@ -49,8 +50,6 @@ var _external_knockback_remaining: float = 0.0
 var _external_knockback_velocity: Vector2 = Vector2.ZERO
 var _has_movement_bounds: bool = false
 var _health_regen: float = 0.0
-var _gear_stat_additions: Dictionary = {}
-var _gear_stat_multipliers: Dictionary = {}
 var _luck: float = 0.0
 var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
@@ -58,6 +57,7 @@ var _max_energy: float = 0.0
 var _max_life: float = 1.0
 var _max_shield: float = 0.0
 var _life_points: float = 1.0
+var _modifier_stack := MODIFIER_STACK_SCRIPT.new()
 var _owned_tag_counts: Dictionary = {}
 var _overshield: float = 0.0
 var _overshield_decay_rate: float = 0.05
@@ -69,8 +69,6 @@ var _shield_gate_remaining: float = 0.0
 var _shield_recharge_delay: float = 4.0
 var _shield_recharge_delay_remaining: float = 0.0
 var _shield_recharge_rate: float = 25.0
-var _stat_additions: Dictionary = {}
-var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
 var _temporary_modifiers: Dictionary = {}
 var _presentation: ActorPresentationController = null
@@ -144,10 +142,7 @@ func _physics_process(delta: float) -> void:
 
 func configure(base_stats: Dictionary) -> void:
 	_base_stats = base_stats.duplicate(true)
-	_stat_additions.clear()
-	_stat_multipliers.clear()
-	_gear_stat_additions.clear()
-	_gear_stat_multipliers.clear()
+	_modifier_stack.configure(_base_stats)
 	_clear_status_effects_for_reuse()
 	_camera_look_offset = Vector2.ZERO
 	_ensure_presentation()
@@ -372,6 +367,7 @@ func debug_reset_transient_state(world_position: Vector2) -> void:
 	_shield_gate_remaining = 0.0
 	_shield_recharge_delay_remaining = 0.0
 	_temporary_modifiers.clear()
+	_modifier_stack.clear_layer(MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY)
 	_clear_status_effects_for_reuse()
 	_life_points = _max_life
 	_current_shield = _max_shield
@@ -659,7 +655,7 @@ func apply_temporary_modifiers(
 ) -> void:
 	var normalized_source: String = source_id
 	if normalized_source.is_empty():
-		normalized_source = "anonymous"
+		normalized_source = MODIFIER_STACK_SCRIPT.ANONYMOUS_SOURCE
 	var modifier_list: Array[Dictionary] = _typed_dictionary_array(modifiers)
 	var remaining: float = maxf(duration, 0.0)
 	if modifier_list.is_empty() or remaining <= 0.0:
@@ -668,6 +664,11 @@ func apply_temporary_modifiers(
 		"remaining": remaining,
 		"modifiers": modifier_list,
 	}
+	_modifier_stack.replace_source(
+		MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY,
+		normalized_source,
+		modifier_list
+	)
 	_rebuild_stats(false)
 
 
@@ -688,41 +689,19 @@ func set_movement_bounds(bounds: Rect2) -> void:
 
 
 func apply_modifiers(modifiers: Array) -> void:
-	for raw_modifier: Variant in modifiers:
-		if not raw_modifier is Dictionary:
-			continue
-		var modifier: Dictionary = raw_modifier as Dictionary
-		var stat: String = String(modifier.get("stat", ""))
-		var modifier_type: String = String(modifier.get("type", ""))
-		var value: float = float(modifier.get("value", 0.0))
-		if modifier_type == "add":
-			_stat_additions[stat] = float(_stat_additions.get(stat, 0.0)) + value
-		elif modifier_type == "mult":
-			_stat_multipliers[stat] = float(_stat_multipliers.get(stat, 1.0)) * value
+	_modifier_stack.append_modifiers(
+		MODIFIER_STACK_SCRIPT.LAYER_PERSISTENT,
+		_normalized_accumulated_modifiers(modifiers, false)
+	)
 	_rebuild_stats(false)
 
 
 ## Replaces the run-owned Gear Mod layer. Reapplying the same list is idempotent.
 func set_gear_modifiers(modifiers: Array) -> void:
-	_gear_stat_additions.clear()
-	_gear_stat_multipliers.clear()
-	for raw_modifier: Variant in modifiers:
-		if not raw_modifier is Dictionary:
-			continue
-		var modifier: Dictionary = raw_modifier as Dictionary
-		var stat: String = String(modifier.get("stat", ""))
-		var modifier_type: String = String(modifier.get("type", ""))
-		var value: float = float(modifier.get("value", 0.0))
-		if stat.is_empty():
-			continue
-		if modifier_type == "add":
-			_gear_stat_additions[stat] = (
-				float(_gear_stat_additions.get(stat, 0.0)) + value
-			)
-		elif modifier_type == "mult":
-			_gear_stat_multipliers[stat] = (
-				float(_gear_stat_multipliers.get(stat, 1.0)) * value
-			)
+	_modifier_stack.replace_layer(
+		MODIFIER_STACK_SCRIPT.LAYER_GEAR,
+		_normalized_accumulated_modifiers(modifiers, true)
+	)
 	_rebuild_stats(false)
 
 
@@ -786,6 +765,9 @@ func status_stat_multiplier(stat_id: String) -> float:
 
 
 func snapshot() -> Dictionary:
+	var persistent_totals: Dictionary = _modifier_stack.layer_totals(
+		MODIFIER_STACK_SCRIPT.LAYER_PERSISTENT
+	)
 	return {
 		"position": _vector_to_dict(global_position),
 		"aim_direction": _vector_to_dict(aim_direction),
@@ -807,8 +789,12 @@ func snapshot() -> Dictionary:
 		"external_knockback_remaining": _external_knockback_remaining,
 		"external_knockback_duration": _external_knockback_duration,
 		"element_damage_taken_multipliers": _element_damage_taken_multipliers.duplicate(true),
-		"stat_additions": _stat_additions.duplicate(true),
-		"stat_multipliers": _stat_multipliers.duplicate(true),
+		"stat_additions": _dictionary_or_empty(
+			persistent_totals.get(MODIFIER_STACK_SCRIPT.TOTAL_ADDITIONS, {})
+		),
+		"stat_multipliers": _dictionary_or_empty(
+			persistent_totals.get(MODIFIER_STACK_SCRIPT.TOTAL_MULTIPLIERS, {})
+		),
 		"temporary_modifiers": _temporary_modifiers.duplicate(true),
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 		"status_effects": _status_effect_snapshot(),
@@ -821,8 +807,17 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		_status_effect_component.call("clear", false)
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_set_aim_direction(_dict_to_vector(snapshot_data.get("aim_direction", {}), aim_direction))
-	_stat_additions = _dictionary_or_empty(snapshot_data.get("stat_additions", {}))
-	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
+	_modifier_stack.restore_layer_totals(
+		MODIFIER_STACK_SCRIPT.LAYER_PERSISTENT,
+		{
+			MODIFIER_STACK_SCRIPT.TOTAL_ADDITIONS: _dictionary_or_empty(
+				snapshot_data.get("stat_additions", {})
+			),
+			MODIFIER_STACK_SCRIPT.TOTAL_MULTIPLIERS: _dictionary_or_empty(
+				snapshot_data.get("stat_multipliers", {})
+			),
+		}
+	)
 	_rebuild_stats(true)
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
 	_current_shield = clampf(
@@ -913,6 +908,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_temporary_modifiers = _dictionary_or_empty(
 		snapshot_data.get("temporary_modifiers", {})
 	)
+	_sync_temporary_modifier_layer()
 	_rebuild_stats(false)
 	_restore_status_snapshot(snapshot_data)
 	_apply_movement_bounds()
@@ -1178,7 +1174,25 @@ func _update_temporary_modifiers(delta: float) -> void:
 		return
 	for source_id: String in expired_sources:
 		_temporary_modifiers.erase(source_id)
+		_modifier_stack.remove_source(
+			MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY,
+			source_id
+		)
 	_rebuild_stats(false)
+
+
+func _sync_temporary_modifier_layer() -> void:
+	_modifier_stack.clear_layer(MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY)
+	for raw_source_id: Variant in _temporary_modifiers.keys():
+		var raw_entry: Variant = _temporary_modifiers[raw_source_id]
+		if not raw_entry is Dictionary:
+			continue
+		var entry: Dictionary = raw_entry as Dictionary
+		_modifier_stack.replace_source(
+			MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY,
+			String(raw_source_id),
+			_typed_dictionary_array(entry.get("modifiers", []))
+		)
 
 
 func _effective_move_speed() -> float:
@@ -1369,29 +1383,7 @@ func _clamp_axis_to_radius_bounds(
 	return clampf(value, minimum + _body_radius, maximum - _body_radius)
 
 func _stat_value(stat: String, default_value: float) -> float:
-	var base_value: float = float(_base_stats.get(stat, default_value))
-	var added_value: float = (
-		float(_stat_additions.get(stat, 0.0))
-		+ float(_gear_stat_additions.get(stat, 0.0))
-	)
-	var multiplier: float = (
-		float(_stat_multipliers.get(stat, 1.0))
-		* float(_gear_stat_multipliers.get(stat, 1.0))
-	)
-	for entry: Variant in _temporary_modifiers.values():
-		if not entry is Dictionary:
-			continue
-		for modifier: Dictionary in _typed_dictionary_array(
-			(entry as Dictionary).get("modifiers", [])
-		):
-			if String(modifier.get("stat", "")) != stat:
-				continue
-			var modifier_type: String = String(modifier.get("type", ""))
-			if modifier_type == "add":
-				added_value += float(modifier.get("value", 0.0))
-			elif modifier_type == "mult":
-				multiplier *= float(modifier.get("value", 1.0))
-	return (base_value + added_value) * multiplier
+	return _modifier_stack.value(stat, default_value)
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:
@@ -1421,6 +1413,31 @@ func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
 	for item: Variant in raw_value as Array:
 		if item is Dictionary:
 			result.append((item as Dictionary).duplicate(true))
+	return result
+
+
+func _normalized_accumulated_modifiers(
+	raw_value: Variant,
+	require_stat: bool
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not raw_value is Array:
+		return result
+	for raw_modifier: Variant in raw_value as Array:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
+		var stat_id: String = String(modifier.get("stat", ""))
+		if require_stat and stat_id.is_empty():
+			continue
+		var modifier_type: String = String(modifier.get("type", ""))
+		if modifier_type != "add" and modifier_type != "mult":
+			continue
+		result.append({
+			"stat": stat_id,
+			"type": modifier_type,
+			"value": float(modifier.get("value", 0.0)),
+		})
 	return result
 
 

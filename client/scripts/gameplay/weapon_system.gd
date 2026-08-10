@@ -12,17 +12,15 @@ signal weapon_fired(context: Dictionary)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const MODIFIER_STACK_SCRIPT := preload("res://scripts/data/modifier_stack.gd")
 const RECOIL_RESOLVER := preload("res://scripts/data/weapon_recoil_resolver.gd")
 
 var _player: Node2D = null
 var _active_parent: Node = null
 var _base_stats: Dictionary = {}
 var _combat_gate: Callable = Callable()
-var _gear_stat_additions: Dictionary = {}
-var _gear_stat_multipliers: Dictionary = {}
+var _modifier_stack := MODIFIER_STACK_SCRIPT.new()
 var _runtime_stats: Dictionary = {}
-var _stat_additions: Dictionary = {}
-var _stat_multipliers: Dictionary = {}
 var _temporary_modifiers: Array[Dictionary] = []
 var _weapon_data: Dictionary = {}
 var _recoil_model: Dictionary = {}
@@ -67,10 +65,7 @@ func configure(
 	_weapon_data = weapon_data.duplicate(true)
 	_recoil_model = recoil_model.duplicate(true)
 	_base_stats = _weapon_data.get("base_stats", {}).duplicate(true)
-	_stat_additions.clear()
-	_stat_multipliers.clear()
-	_gear_stat_additions.clear()
-	_gear_stat_multipliers.clear()
+	_modifier_stack.configure(_base_stats)
 	_temporary_modifiers.clear()
 	_rebuild_runtime_stats()
 	_cooldown_remaining = 0.0
@@ -81,21 +76,19 @@ func configure_combat_gate(combat_gate: Callable) -> void:
 
 
 func apply_modifiers(modifiers: Array) -> void:
-	for raw_modifier: Variant in modifiers:
-		_accumulate_modifier(raw_modifier, _stat_additions, _stat_multipliers)
+	_modifier_stack.append_modifiers(
+		MODIFIER_STACK_SCRIPT.LAYER_PERSISTENT,
+		_normalized_accumulated_modifiers(modifiers)
+	)
 	_rebuild_runtime_stats()
 
 
 ## Replaces the run-owned Gear Mod layer. Reapplying the same list is idempotent.
 func set_gear_modifiers(modifiers: Array) -> void:
-	_gear_stat_additions.clear()
-	_gear_stat_multipliers.clear()
-	for raw_modifier: Variant in modifiers:
-		_accumulate_modifier(
-			raw_modifier,
-			_gear_stat_additions,
-			_gear_stat_multipliers
-		)
+	_modifier_stack.replace_layer(
+		MODIFIER_STACK_SCRIPT.LAYER_GEAR,
+		_normalized_accumulated_modifiers(modifiers)
+	)
 	_rebuild_runtime_stats()
 
 
@@ -122,6 +115,7 @@ func apply_temporary_modifiers(
 		_temporary_modifiers[existing_index] = added_entry
 	else:
 		_temporary_modifiers.append(added_entry)
+	_sync_temporary_modifier_layer()
 	_rebuild_runtime_stats()
 	if is_refresh:
 		temporary_modifier_refreshed.emit(added_entry.duplicate(true))
@@ -143,21 +137,38 @@ func active_temporary_modifiers() -> Array[Dictionary]:
 func debug_refresh() -> void:
 	_cooldown_remaining = 0.0
 	_temporary_modifiers.clear()
+	_modifier_stack.clear_layer(MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY)
 	_rebuild_runtime_stats()
 
 
 func snapshot() -> Dictionary:
+	var persistent_totals: Dictionary = _modifier_stack.layer_totals(
+		MODIFIER_STACK_SCRIPT.LAYER_PERSISTENT
+	)
 	return {
 		"cooldown_remaining": _cooldown_remaining,
-		"stat_additions": _stat_additions.duplicate(true),
-		"stat_multipliers": _stat_multipliers.duplicate(true),
+		"stat_additions": _dictionary_or_empty(
+			persistent_totals.get(MODIFIER_STACK_SCRIPT.TOTAL_ADDITIONS, {})
+		),
+		"stat_multipliers": _dictionary_or_empty(
+			persistent_totals.get(MODIFIER_STACK_SCRIPT.TOTAL_MULTIPLIERS, {})
+		),
 		"temporary_modifiers": _temporary_modifiers.duplicate(true),
 	}
 
 
 func restore_snapshot(snapshot_data: Dictionary) -> void:
-	_stat_additions = _dictionary_or_empty(snapshot_data.get("stat_additions", {}))
-	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
+	_modifier_stack.restore_layer_totals(
+		MODIFIER_STACK_SCRIPT.LAYER_PERSISTENT,
+		{
+			MODIFIER_STACK_SCRIPT.TOTAL_ADDITIONS: _dictionary_or_empty(
+				snapshot_data.get("stat_additions", {})
+			),
+			MODIFIER_STACK_SCRIPT.TOTAL_MULTIPLIERS: _dictionary_or_empty(
+				snapshot_data.get("stat_multipliers", {})
+			),
+		}
+	)
 	_temporary_modifiers = _typed_dictionary_array(snapshot_data.get("temporary_modifiers", []))
 	for index: int in range(_temporary_modifiers.size()):
 		var entry: Dictionary = _temporary_modifiers[index]
@@ -166,6 +177,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 				_typed_dictionary_array(entry.get("modifiers", []))
 			)
 			_temporary_modifiers[index] = entry
+	_sync_temporary_modifier_layer()
 	_rebuild_runtime_stats()
 	_cooldown_remaining = maxf(float(snapshot_data.get("cooldown_remaining", 0.0)), 0.0)
 	temporary_modifiers_restored.emit(active_temporary_modifiers())
@@ -286,28 +298,7 @@ func _reparent_to_active_world(node: Node) -> void:
 
 
 func _rebuild_runtime_stats() -> void:
-	_runtime_stats = _base_stats.duplicate(true)
-	var additions: Dictionary = _stat_additions.duplicate(true)
-	var multipliers: Dictionary = _stat_multipliers.duplicate(true)
-	_merge_modifier_totals(
-		additions,
-		multipliers,
-		_gear_stat_additions,
-		_gear_stat_multipliers
-	)
-	for entry: Dictionary in _temporary_modifiers:
-		for raw_modifier: Variant in _array_or_empty(entry.get("modifiers", [])):
-			_accumulate_modifier(raw_modifier, additions, multipliers)
-
-	for stat: String in _base_stats.keys():
-		var base_value: float = float(_base_stats.get(stat, 0.0))
-		var added_value: float = float(additions.get(stat, 0.0))
-		var multiplier: float = float(multipliers.get(stat, 1.0))
-		_runtime_stats[stat] = (base_value + added_value) * multiplier
-	for stat: String in additions.keys():
-		if _runtime_stats.has(stat):
-			continue
-		_runtime_stats[stat] = float(additions.get(stat, 0.0)) * float(multipliers.get(stat, 1.0))
+	_runtime_stats = _modifier_stack.materialized_values()
 
 
 func _update_temporary_modifiers(delta: float) -> void:
@@ -327,6 +318,7 @@ func _update_temporary_modifiers(delta: float) -> void:
 		_temporary_modifiers = active_modifiers
 		return
 	_temporary_modifiers = active_modifiers
+	_sync_temporary_modifier_layer()
 	_rebuild_runtime_stats()
 	var emitted_modifier_groups: Array = []
 	for expired: Dictionary in expired_modifiers:
@@ -379,49 +371,43 @@ func _is_combat_allowed() -> bool:
 	return bool(_combat_gate.call())
 
 
-func _accumulate_modifier(raw_modifier: Variant, additions: Dictionary, multipliers: Dictionary) -> void:
-	if not raw_modifier is Dictionary:
-		return
-	var modifier: Dictionary = raw_modifier as Dictionary
-	var stat: String = String(modifier.get("stat", ""))
-	var modifier_type: String = String(modifier.get("type", ""))
-	var value: float = float(modifier.get("value", 0.0))
-	if stat.is_empty():
-		return
-	if modifier_type == "add":
-		additions[stat] = float(additions.get(stat, 0.0)) + value
-	elif modifier_type == "mult":
-		multipliers[stat] = float(multipliers.get(stat, 1.0)) * value
+func _sync_temporary_modifier_layer() -> void:
+	_modifier_stack.clear_layer(MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY)
+	for index: int in range(_temporary_modifiers.size()):
+		var entry: Dictionary = _temporary_modifiers[index]
+		_modifier_stack.replace_source(
+			MODIFIER_STACK_SCRIPT.LAYER_TEMPORARY,
+			str(index),
+			_normalized_accumulated_modifiers(entry.get("modifiers", []))
+		)
 
 
-func _merge_modifier_totals(
-	additions: Dictionary,
-	multipliers: Dictionary,
-	extra_additions: Dictionary,
-	extra_multipliers: Dictionary
-) -> void:
-	for stat: String in extra_additions:
-		additions[stat] = (
-			float(additions.get(stat, 0.0))
-			+ float(extra_additions.get(stat, 0.0))
-		)
-	for stat: String in extra_multipliers:
-		multipliers[stat] = (
-			float(multipliers.get(stat, 1.0))
-			* float(extra_multipliers.get(stat, 1.0))
-		)
+func _normalized_accumulated_modifiers(raw_value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not raw_value is Array:
+		return result
+	for raw_modifier: Variant in raw_value as Array:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
+		var stat_id: String = String(modifier.get("stat", ""))
+		if stat_id.is_empty():
+			continue
+		var modifier_type: String = String(modifier.get("type", ""))
+		if modifier_type != "add" and modifier_type != "mult":
+			continue
+		result.append({
+			"stat": stat_id,
+			"type": modifier_type,
+			"value": float(modifier.get("value", 0.0)),
+		})
+	return result
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
 	if raw_value is Dictionary:
 		return (raw_value as Dictionary).duplicate(true)
 	return {}
-
-
-func _array_or_empty(raw_value: Variant) -> Array:
-	if raw_value is Array:
-		return (raw_value as Array).duplicate(true)
-	return []
 
 
 func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:

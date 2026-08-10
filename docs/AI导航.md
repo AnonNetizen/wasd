@@ -147,6 +147,7 @@
 | **加 / 选择视觉效果** | 先读 `docs/代码/visual_effects.md`；优先在 Godot“VFX 效果库”用向导创建组合场景、自动登记效果目录，并在 Inspector / 内容绑定页选择 effect 或 profile。内容数据只写 `presentation_profile_id`；固定 cue / anchor / domain / space / lifecycle 先登记词表 §16。程序几何只能使用精选复合模板，不得生成任意 `_draw()` 或引用 addon / `output/test_lab` |
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md` 与 `gameplay_effect_runtime.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，只通过统一效果程序的 `apply_status` action 与 `EffectExecutionGateway` 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **调武器后坐 / 扩散** | 数值改 `client/data/weapons.json` 的武器 stats 或根级 `recoil_model`，震屏 profile 改 `camera_feedback.json`，装备控制改 `gear_mods.json` / 掉落 CSV；公式入口是 `weapon_recoil_resolver.gd`，发射 / 后移 / 相机分别见 WeaponSystem、Player、GameplayCameraController。每颗弹固定消耗 `RNG.combat`，零扩散也不能跳过 |
+| **改 Player / Weapon 属性层、临时 modifier 或实体快照 wire** | 先读 ADR #197、Gameplay Runtime 与测试策略；纯 `ModifierStack` 只计算 persistent → gear → temporary 的 `(base + add) × mult`，Player / WeaponSystem 继续分别拥有生命 / 护盾副作用、缓存、timer、来源 wire 与 signal。Player 空来源是 `anonymous`，Weapon 是 `legacy:<modifier-list>`；Gear 不进入实体快照，StatusEffect 倍率不进入 Stack。必跑三组 GUT、L1、Gear Mod / pickup、effect-runtime、VFX、runtime/save/headless 与四条 Replay v9 golden，只重跑不重录，不运行性能 probe |
 | **改局内威胁时间 / 难度系数 / 敌人出生强化 / 难度标记器** | 先读 ADR #166 / #170 / #173 / #175 / #188 / #189 / #191 / #193 / #194 / #196、GDD §7.3、Difficulty / EnemyRewardResolver 文档。`difficulty_profiles.json` schema v2 的系数缩放威胁时间并参与生成金币；事件波次在激活时固定生命 / 伤害语义，金币按实际生成阶段。Run v19 保存 profile / 系数、固定计划、每敌出生倍率 / 奖励、攻击提交状态、冻结内容池、效果程序状态、棋盘与带 ID 未拾取 Mod。范围、时序、移速、AI 和数量仍不随难度缩放；按测试策略整套验证，不运行性能 probe |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、`element_id`、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`element_id` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
@@ -227,7 +228,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`FormalClientBoot` / `LoadingScreen` / `CodexPanel` / `GameplayRunLoop` / `RunSnapshotCoordinator` / `GameplayEffectRuntime` / `EffectPrimitiveRegistry` / `EffectExecutionGateway` / `DeveloperTestArena(debug/dev_tools)` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleSlotStateCodec` / `ModuleNavigationField` / `WorldEventController` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GoldProgression` / `RewardChoiceController` / `GearModSystem` / `ContentUnlockSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PlayerSlimeVisual` / `EnemyPresentationVisual` / `PauseMenu` / `Combat` / `StatusEffectComponent`。统一效果模块见 `docs/代码/gameplay_effect_runtime.md`。
+**业务模块**：`FormalClientBoot` / `LoadingScreen` / `CodexPanel` / `GameplayRunLoop` / `RunSnapshotCoordinator` / `GameplayEffectRuntime` / `EffectPrimitiveRegistry` / `EffectExecutionGateway` / `DeveloperTestArena(debug/dev_tools)` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleSlotStateCodec` / `ModuleNavigationField` / `WorldEventController` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GoldProgression` / `RewardChoiceController` / `GearModSystem` / `ContentUnlockSystem` / `ModifierStack` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PlayerSlimeVisual` / `EnemyPresentationVisual` / `PauseMenu` / `Combat` / `StatusEffectComponent`。统一效果模块见 `docs/代码/gameplay_effect_runtime.md`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -296,7 +297,7 @@ flowchart LR
   ResLoader[ResourceLoader]
   Boot[FormalClientBoot]
   Loading[LoadingScreen]
-  ME[ModifierEngine]
+  ME[ModifierStack]
   Combat[Combat<br/>伤害结算]
   SE[StatusEffectComponent]
   VfxHost[VfxHost]
@@ -400,14 +401,13 @@ flowchart LR
   CamCtl -. stable aim look offset .-> Player
   CamCtl -. GLUED compatibility position .-> Cam
   PCamMgr -. 注册 / priority / layer / noise .-> PCam & PCHost
-  ME -. 修正器叠加 .- Player & Weapon
+  ME -. persistent / gear / temporary .- Player & Weapon
   Item -. 注册 modifiers/behaviors .- ME
   Gold -. 累计金币推导等级 .-> RunLoop
   Reward -. 通用奖励 modifier .- ME
   GearMod -. 固定实例 modifiers .- ME
   GearMod -. 武器 Mod .- Weapon
   GearMod -. 智能碎片 Mod（内部 hero） .- Player
-  SE -. 注入 modifier .- ME
 
   Unlock -. 开局冻结英雄/Mod/敌池 .-> RunLoop
   Unlock -. 图鉴查询/要求进度 .-> UI
