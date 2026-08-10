@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-10",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、ModuleSlotStateCodec、ModifierStack 与 ModuleChunkStreamingController 七个渐进提取点。DataLoader 的 18 类跨文件引用索引已提取为纯静态 builder，读取、校验、坏 Mod 隔离与错误顺序仍由 autoload 持有；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步继续 ModuleWorldState、DataLoader validator、GameplayFeedbackController、DebugFacade 与 Enemy Brain/action；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController 与 GameplayFeedback / Player 表现门面八个渐进提取点。RunLoop 不再直接读取 actor Presentation 或 Player Visual，DataLoader 的 18 类跨文件引用索引已提取为纯静态 builder；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步继续 ModuleWorldState、DataLoader validator、DebugFacade 与 Enemy Brain/action；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / GameplayFeedback 与 Player 表现门面：无状态 GameplayFeedbackController 集中 actor Presentation profile / cue context，Player 集中 palette 与武器开火视觉冲击；RunLoop 不再直接查找角色表现节点，combat effect 与武器反馈顺序保持。",
     "ADR #197 / DataLoader 引用索引提取：新增纯 DataReferenceIndexBuilder，逐函数承接 18 类跨文件 ID 索引并保持真实 JSON/CSV 类型、source order、重复折叠、hazard last-write 与 wave nesting；DataLoader 的读取 / 校验 / 坏 Mod 隔离顺序和 data hash 不变。",
     "ADR #197 / ModuleWorld 流式控制器：新增纯 ModuleChunkStreamingController，集中候选 / 已提交生成场景 cache、12 chunk 池与 3×3 + pins active mapping；显式 rebuild 失败清 active/cache/map，restore 失败保留旧 assignment/hash/active/cache。Run v19 / map hash / Replay v9 不变。",
     "ADR #197 / Player 与 Weapon 属性层收口：新增纯 ModifierStack，固定 persistent→gear→temporary 的 `(base+add)×mult` 与来源顺序；宿主继续持有 timer、wire、signals、缓存和生命 / 护盾副作用，Gear 与内部 stack 不进入 Run v19 entity snapshot。",
@@ -195,7 +196,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "继续 ADR #197 的协议不变渐进拆分：EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、ModuleSlotStateCodec、ModifierStack 与 ModuleChunkStreamingController 已完成；下一独立切片提取 ModuleWorldState，再处理 DataLoader validator、GameplayFeedbackController 与 DebugFacade。Enemy Brain/action 形成独立可回滚提交。",
+    "继续 ADR #197 的协议不变渐进拆分：EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController 与 GameplayFeedback / Player 表现门面已完成；下一独立切片提取 ModuleWorldState，再处理 DataLoader validator 与 DebugFacade。Enemy Brain/action 形成独立可回滚提交。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",

@@ -1021,13 +1021,12 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 				String(_hero_composition.get("passive_id", ""))
 			)
 		)
-	var composition_visual: Node = _player.get_node_or_null("Visual")
-	if composition_visual != null and composition_visual.has_method("configure_palette"):
-		composition_visual.call(
-			"configure_palette",
+	if _player.has_method("configure_visual_palette"):
+		_player.call(
+			"configure_visual_palette",
 			_dictionary_or_empty(_hero_composition.get("palette", {}))
 		)
-	_configure_actor_presentation_profile(
+	_gameplay_feedback.configure_actor_profile(
 		_player,
 		String(character.get("presentation_profile_id", ""))
 	)
@@ -1055,10 +1054,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
 	_player.connect("dash_started", Callable(self, "_on_player_dash_started"))
 	_connect_status_feedback(_player)
-	_play_feedback(_actor_profile_id(_player, PRESENTATION_PLAYER_DEFAULT), VFX_CUES.SPAWN, {
-		"owner": _player,
-		"world_position": _player.global_position,
-	})
+	_play_actor_feedback(
+		_player,
+		PRESENTATION_PLAYER_DEFAULT,
+		VFX_CUES.SPAWN
+	)
 
 	var background: Node2D = _active_world.get_node_or_null("WorldBackground") as Node2D
 	if background == null:
@@ -5916,10 +5916,6 @@ func _on_combat_damage_applied(target: Node, info: RefCounted, result: Dictionar
 		fallback_profile = PRESENTATION_PLAYER_DEFAULT
 	elif enemy_damage:
 		fallback_profile = PRESENTATION_ENEMY_DEFAULT
-	var profile_id: String = _actor_profile_id(
-		target_2d,
-		fallback_profile
-	)
 	var context: Dictionary = {
 		"owner": target_2d,
 		"target": target_2d,
@@ -5929,11 +5925,16 @@ func _on_combat_damage_applied(target: Node, info: RefCounted, result: Dictionar
 		"player_damage": player_damage,
 		"camera_controller": _camera_controller,
 	}
-	_play_feedback(profile_id, VFX_CUES.HIT, context)
+	_play_actor_feedback(target_2d, fallback_profile, VFX_CUES.HIT, context)
 	if defeated and enemy_damage:
-		_play_feedback(profile_id, VFX_CUES.DEFEAT, context)
+		_play_actor_feedback(
+			target_2d,
+			fallback_profile,
+			VFX_CUES.DEFEAT,
+			context
+		)
 	elif player_damage or enemy_damage:
-		_play_feedback(profile_id, VFX_CUES.HURT, context)
+		_play_actor_feedback(target_2d, fallback_profile, VFX_CUES.HURT, context)
 
 
 func _emit_combat_effect_events(
@@ -5983,21 +5984,20 @@ func _play_feedback(profile_id: String, cue: String, context: Dictionary = {}) -
 	_gameplay_feedback.play(profile_id, cue, context)
 
 
-func _actor_profile_id(actor: Node, fallback: String) -> String:
-	if actor == null:
-		return fallback
-	var presentation: Node = actor.get_node_or_null("Presentation")
-	if presentation != null and presentation.has_method("resolved_profile_id"):
-		return String(presentation.call("resolved_profile_id", fallback))
-	return fallback
-
-
-func _configure_actor_presentation_profile(actor: Node, profile_id: String) -> void:
-	if actor == null:
+func _play_actor_feedback(
+	actor: Node,
+	fallback_profile_id: String,
+	cue: String,
+	context: Dictionary = {}
+) -> void:
+	if _gameplay_feedback == null or not is_instance_valid(_gameplay_feedback):
 		return
-	var presentation: Node = actor.get_node_or_null("Presentation")
-	if presentation != null and presentation.has_method("configure_profile_id"):
-		presentation.call("configure_profile_id", profile_id)
+	_gameplay_feedback.play_actor(
+		actor,
+		fallback_profile_id,
+		cue,
+		context
+	)
 
 
 func _profile_or_fallback(profile_id: String, fallback: String) -> String:
@@ -6079,10 +6079,11 @@ func _on_weapon_fired(context: Dictionary) -> void:
 		if raw_direction is Vector2
 		else Vector2.RIGHT
 	)
-	if _player != null:
-		var player_visual: Node = _player.get_node_or_null("Visual")
-		if player_visual != null and player_visual.has_method("apply_fire_impulse"):
-			player_visual.call("apply_fire_impulse", shot_direction)
+	if (
+		_player != null
+		and _player.has_method("apply_weapon_fire_visual_impulse")
+	):
+		_player.call("apply_weapon_fire_visual_impulse", shot_direction)
 	if _player != null and _player.has_method("apply_weapon_recoil"):
 		_player.call(
 			"apply_weapon_recoil",
@@ -7653,10 +7654,11 @@ func _connect_enemy_defeated(enemy: Node, wave_key: String) -> void:
 	_connect_enemy_attack_feedback(enemy)
 	_connect_status_feedback(enemy)
 	if enemy is Node2D:
-		_play_feedback(_actor_profile_id(enemy, PRESENTATION_ENEMY_DEFAULT), VFX_CUES.SPAWN, {
-			"owner": enemy,
-			"world_position": (enemy as Node2D).global_position,
-		})
+		_play_actor_feedback(
+			enemy,
+			PRESENTATION_ENEMY_DEFAULT,
+			VFX_CUES.SPAWN
+		)
 
 
 func _connect_enemy_attack_feedback(enemy: Node) -> void:
@@ -7691,8 +7693,9 @@ func _on_enemy_attack_windup_started(
 	_action_id: String,
 	context: Dictionary
 ) -> void:
-	_play_feedback(
-		_actor_profile_id(enemy, PRESENTATION_ENEMY_DEFAULT),
+	_play_actor_feedback(
+		enemy,
+		PRESENTATION_ENEMY_DEFAULT,
 		VFX_CUES.ENEMY_ATTACK_TELEGRAPH,
 		context
 	)
@@ -7703,8 +7706,9 @@ func _on_enemy_attack_committed(
 	_action_id: String,
 	context: Dictionary
 ) -> void:
-	_play_feedback(
-		_actor_profile_id(enemy, PRESENTATION_ENEMY_DEFAULT),
+	_play_actor_feedback(
+		enemy,
+		PRESENTATION_ENEMY_DEFAULT,
 		VFX_CUES.ENEMY_ATTACK_IMPACT,
 		context
 	)

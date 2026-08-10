@@ -6,7 +6,7 @@
 ## 职责与边界
 
 - `VisualEffects` autoload 只加载、索引 `visual_effects.json` / `presentation_profiles.json` 并发布闪屏 / 震屏许可策略；它不持有当前战斗世界。
-- 每局 `VfxHost` 管理地面、世界和屏幕层，负责实例化、附着、取消、完成与回池；`GameplayFeedbackController` 把业务 cue 解析成视觉、音频和相机反馈。
+- 每局 `VfxHost` 管理地面、世界和屏幕层，负责实例化、附着、取消、完成与回池；`GameplayFeedbackController` 把业务 cue 解析成视觉、音频和相机反馈，并集中处理 actor 的 `Presentation` 接口、profile fallback 与 cue context。RunLoop 不直接读取角色的 `Presentation` 子节点。
 - 角色表现由 `ActorPresentationController + AnimationPlayer` 承接；所有正式角色的 `Visual` 必须实现 `set_presentation_state(tint, alpha, scale)` 并自行完整应用表现状态。控制器不直接修改 `Body` / `Outline`，也不保留旧角色回退。玩家 / 敌人业务脚本不再维护受击颜色计时、死亡缩放插值或直接生成命中反馈。
 - 正式效果是可继承、可编辑的 `PackedScene` 或受控 target-animation preset。程序几何只能作为 Ring、Arc、Wedge、RectTelegraph、RayBurst、ShockRing、RibbonTrail、ShardBurst、SegmentedShell、FocusTicks 等组合模板内部骨架，不能作为 catalog 裸资源。
 - 当前不引入离线 3D、AI / DCC 预渲染或节点式 VFX Graph；命中停顿字段只保留数据接口，不驱动 `GameClock`。
@@ -76,6 +76,18 @@
 
 `VfxPlayRequest` 只携带 owner、anchor、world position、rotation、scale、seed 和表现 payload。`duration` payload 可把带时间轴的地面预警缩放到玩法配置时长，不改变 `GameClock`。`VfxHandle.cancel(immediate)` 是外部唯一取消入口。
 
+### `GameplayFeedbackController`
+
+| API | 返回 | 说明 |
+|-----|------|------|
+| `configure_host(host)` | `void` | 保留原有 Host 注入接口；不接管 Host 的 pool、handle、取消或清理生命周期 |
+| `play(profile_id, cue, context = {})` | `Array[VfxHandle]` | 保留原有通用 cue 路由；缺 Host 时 warning 并返回空句柄数组 |
+| `resolve_actor_profile_id(actor, fallback_profile_id)` | `String` | 通过 actor 的 `Presentation.resolved_profile_id()` 解析；缺 actor、缺节点或缺接口时返回 fallback |
+| `configure_actor_profile(actor, profile_id)` | `bool` | 只通过 `Presentation.configure_profile_id()` 配置；缺节点或缺接口返回 `false`，不扩大为 Run 启动失败 |
+| `play_actor(actor, fallback_profile_id, cue, context = {})` | `Array[VfxHandle]` | 深拷贝调用方 context，在调用方未提供时补 `owner=actor` 与 `Node2D.global_position`，再按 actor profile 播放 cue |
+
+后三个 actor API 不保存 actor、profile 或 cue 状态；敌人 lifecycle / signal ownership、恢复编排和 VFX handle 所有权仍留在既有 RunLoop / `VfxHost` 边界。正式场景缺少 `VfxHost` 或 `GameplayFeedbackController` 仍由 RunLoop fail-fast，缺角色 `Presentation` 只使用声明的 fallback。
+
 ### 效果实例
 
 组合场景实现 `configure(VfxPlayRequest)`、`play()`、`cancel(immediate := false)`、`finished`、`_pool_reset()`、`_pool_release()`。效果不得调用 `Combat`、修改玩法状态或自行驱动音频；完成后的回池 / 释放由 Host 决定。
@@ -129,6 +141,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `Enemy.attack_windup_started` 统一路由 `enemy_attack_telegraph`：爆猎者使用圆形 96 px 预警，群袭者使用锁向 100° / 52 px 扇形，伏击者 / 壁垒者使用按锁向旋转和二维缩放的冲撞通道。突击枪手 profile 不绑定该 cue，因此 0.32 秒前摇期间不显示弹道线、枪口蓄光或其他枪口视觉；信号与 context 继续服务玩法计时和续局恢复。
 - `Enemy.attack_committed` 路由 `enemy_attack_impact`；当前爆猎者绑定池化世界爆炸冲击。impact request 使用 detached `world_position`，因此源敌人进入退场并回池后，冲击效果仍独立播放完成。
 - `presentation_weapon_default.weapon_fire.effects` 为空，只保留 `weapon_recoil_shake`；正式 Player 的连续五点前缘鼓包和 38 px 常驻 `FacingBeam` 属于角色视觉，不是枪口闪光，也不进入 VFX catalog。突击枪手的逐发 `enemy_attack_impact` 同样无视觉绑定。
+- 玩家武器提交后的表现顺序固定为 `Player.apply_weapon_fire_visual_impulse()` → `Player.apply_weapon_recoil()` → `GameplayFeedbackController.play()`；其中前两步只经 Player 公共门面访问角色内部状态。Combat 成功事件仍先进入 gameplay effect runtime，再路由 actor 表现 cue。
 - 敌人攻击预警只表现玩法已有的范围、方向、时间或局部起手提示，不自行读取目标、不调用 `Combat`，也不消耗 gameplay RNG。攻击源退场时 `cancel_owner()` 只取消附着表现，不得取消 detached 爆炸冲击。
 - ADR #181 后正式 `bullet_basic` 不属于 VFX catalog，也不使用 `RibbonTrail`、Shader、高光或外发光；其唯一 `BulletSlimeVisual` 由场景内四个持久边缘节点一次生成 64 点平色 `Body + Rim`，阵营差异只切换白色系 / 红色系。通用 `VfxRibbonTrail` 组件仍保留给其他精选组合效果，baker 不再向子弹场景自动补回拖尾。敌人退场仍生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影独立完成 0.45 秒余韵。
 - ADR #183 后正式玩家 `PlayerSlimeVisual` 不进入 VFX catalog：它使用 scene-authored ShaderMaterial、Gradient 和 Line2D，运行时只更新现有 uniform / 点列 / 颜色。角色本地坐标中的两股涡旋分别使用 `main_primary` / `sub_primary`；3 px Outline 与 38 px FacingBeam 使用主色原值，1 px WetRim 使用主色提亮派生。软体状态不进入 Run v19 / Replay v9，也不得消耗任何 RNG；旧 Run v18 / Replay v8 保持原样但拒绝继续 / 播放。
@@ -140,6 +153,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `python tools/sync_contracts.py --check`
 - `python tools/godot_bridge.py --project client vfx-bake`
 - `python tools/godot_bridge.py --project client vfx-smoke`
+- `python tools/godot_bridge.py --project client gut --test-dir res://tests/integration`
 - `python tools/godot_bridge.py --project client actor-scene-smoke`
 - `python tools/godot_bridge.py --project client runtime-smoke`
 - `python tools/godot_bridge.py --project client headless-boot`

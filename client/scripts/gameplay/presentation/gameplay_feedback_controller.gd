@@ -16,6 +16,48 @@ func configure_host(host: VfxHost) -> void:
 	_host = host
 
 
+func resolve_actor_profile_id(actor: Node, fallback_profile_id: String) -> String:
+	var fallback: String = fallback_profile_id.strip_edges()
+	if actor == null or not is_instance_valid(actor):
+		return fallback
+	var presentation: Node = actor.get_node_or_null("Presentation")
+	if presentation == null or not presentation.has_method("resolved_profile_id"):
+		return fallback
+	var resolved: String = String(
+		presentation.call("resolved_profile_id", fallback)
+	).strip_edges()
+	return fallback if resolved.is_empty() else resolved
+
+
+func configure_actor_profile(actor: Node, profile_id: String) -> bool:
+	if actor == null or not is_instance_valid(actor):
+		return false
+	var presentation: Node = actor.get_node_or_null("Presentation")
+	if presentation == null or not presentation.has_method("configure_profile_id"):
+		return false
+	presentation.call("configure_profile_id", profile_id)
+	return true
+
+
+func play_actor(
+	actor: Node,
+	fallback_profile_id: String,
+	cue: String,
+	context: Dictionary = {}
+) -> Array[VfxHandle]:
+	var actor_context: Dictionary = context.duplicate(true)
+	if actor != null and is_instance_valid(actor):
+		if not actor_context.has("owner"):
+			actor_context["owner"] = actor
+		if actor is Node2D and not actor_context.has("world_position"):
+			actor_context["world_position"] = (actor as Node2D).global_position
+	return play(
+		resolve_actor_profile_id(actor, fallback_profile_id),
+		cue,
+		actor_context
+	)
+
+
 func play(
 		profile_id: String,
 		cue: String,

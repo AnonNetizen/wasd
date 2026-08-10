@@ -173,6 +173,26 @@ func configure(base_stats: Dictionary) -> void:
 	add_to_group(ACTIVE_PLAYER_GROUP)
 
 
+func configure_visual_palette(palette: Dictionary) -> bool:
+	if (
+		not _resolve_slime_visual(false)
+		or not _slime_visual.has_method("configure_palette")
+	):
+		return false
+	_slime_visual.call("configure_palette", palette)
+	return true
+
+
+func apply_weapon_fire_visual_impulse(direction: Vector2) -> bool:
+	if (
+		not _resolve_slime_visual(false)
+		or not _slime_visual.has_method("apply_fire_impulse")
+	):
+		return false
+	_slime_visual.call("apply_fire_impulse", direction)
+	return true
+
+
 func current_life() -> float:
 	return _life_points
 
@@ -1304,8 +1324,12 @@ func _ensure_presentation() -> void:
 
 
 func _ensure_slime_visual() -> void:
+	_resolve_slime_visual(true)
+
+
+func _resolve_slime_visual(report_error: bool) -> bool:
 	if _slime_visual != null and is_instance_valid(_slime_visual):
-		return
+		return true
 	_slime_visual = null
 	var candidate: Node2D = get_node_or_null("Visual") as Node2D
 	if (
@@ -1313,9 +1337,11 @@ func _ensure_slime_visual() -> void:
 		or not candidate.has_method("advance_visual")
 		or not candidate.has_method("configure_radius")
 	):
-		push_error("[Player] missing scene-authored PlayerSlimeVisual")
-		return
+		if report_error:
+			push_error("[Player] missing scene-authored PlayerSlimeVisual")
+		return false
 	_slime_visual = candidate
+	return true
 
 
 func _apply_body_radius() -> void:
