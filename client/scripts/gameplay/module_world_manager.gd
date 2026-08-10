@@ -9,6 +9,9 @@ const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_dir
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const RNG_STREAMS := preload("res://scripts/contracts/rng_streams.gd")
+const ModuleChunkStreamingControllerRuntime := preload(
+	"res://scripts/gameplay/module_chunk_streaming_controller.gd"
+)
 const ModuleNavigationFieldRuntime := preload("res://scripts/gameplay/module_navigation_field.gd")
 const ModuleSlotStateCodecRuntime := preload("res://scripts/gameplay/module_slot_state_codec.gd")
 
@@ -27,13 +30,10 @@ const ROTATION_FULL: int = 360
 const ASSIGNMENT_SEED_MODULUS: int = 2_147_483_647
 const INVALID_COORD: Vector2i = Vector2i(-1, -1)
 const MODULE_TERRAIN_Z_INDEX: int = -90
-const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 4
 
 var _world_def: Dictionary = {}
 var _registry_by_id: Dictionary = {}
 var _templates_by_id: Dictionary = {}
-var _generated_scene_paths_by_id: Dictionary = {}
-var _packed_scene_cache: Dictionary = {}
 var _run_seed: int = 1
 var _cell_size: float = 160.0
 var _world_origin: Vector2 = Vector2.ZERO
@@ -50,8 +50,9 @@ var _slot_state_codec: ModuleSlotStateCodecRuntime = ModuleSlotStateCodecRuntime
 	WORLD_ROWS
 )
 var _pinned_slots: Dictionary = {}
-var _active_chunks: Dictionary = {}
-var _chunk_pool: Array[ModuleChunk] = []
+var _chunk_streaming_controller: ModuleChunkStreamingControllerRuntime = (
+	ModuleChunkStreamingControllerRuntime.new()
+)
 var _configured: bool = false
 
 
@@ -67,12 +68,20 @@ func configure(
 	run_seed: int,
 	navigation_flow_radius_cells: int
 ) -> bool:
-	_deactivate_all_chunks()
+	var streaming_configuration := (
+		ModuleChunkStreamingControllerRuntime.Configure.new()
+	)
+	streaming_configuration.generated_scene_paths_by_id = (
+		generated_scene_paths_by_id
+	)
+	streaming_configuration.chunk_pool = _module_chunk_children()
+	streaming_configuration.expected_chunk_count = MAX_ACTIVE_CHUNKS
+	var chunk_pool_valid: bool = _chunk_streaming_controller.configure(
+		streaming_configuration
+	)
 	_world_def = world_def.duplicate(true)
 	_registry_by_id = registry_by_id.duplicate(true)
 	_templates_by_id = templates_by_id.duplicate(true)
-	_generated_scene_paths_by_id = generated_scene_paths_by_id.duplicate()
-	_packed_scene_cache.clear()
 	_run_seed = run_seed
 	_cell_size = float(_world_def.get("cell_size", 160.0))
 	_world_origin = _vector_from_variant(_world_def.get("world_origin", {}), Vector2.ZERO)
@@ -87,8 +96,15 @@ func configure(
 	if not _configured:
 		push_error("[ModuleWorldManager] world geometry, generated scenes, cell size, or navigation flow radius are invalid")
 		return false
-	if not _ensure_chunk_pool():
+	if not chunk_pool_valid:
 		_configured = false
+		push_error(
+			"[ModuleWorldManager] scene must contain exactly %d ModuleChunk children, got %d"
+			% [
+				MAX_ACTIVE_CHUNKS,
+				_chunk_streaming_controller.chunk_pool_size(),
+			]
+		)
 		return false
 	return build_assignment()
 
@@ -311,7 +327,7 @@ func visited_module_coords() -> Array[Vector2i]:
 
 
 func active_module_coords() -> Array[Vector2i]:
-	return _coords_from_set(_active_chunks)
+	return _chunk_streaming_controller.active_module_coords()
 
 
 func is_module_revealed(module_coord: Vector2i) -> bool:
@@ -323,7 +339,7 @@ func is_module_visited(module_coord: Vector2i) -> bool:
 
 
 func is_module_active(module_coord: Vector2i) -> bool:
-	return _active_chunks.has(_slot_key(module_coord))
+	return _chunk_streaming_controller.is_module_active(module_coord)
 
 
 func set_slot_pinned(module_coord: Vector2i, pinned: bool) -> bool:
@@ -385,7 +401,6 @@ func restore_state(state: Dictionary) -> bool:
 		return false
 	var restored_assignment: Dictionary = {}
 	var previous_assignment: Dictionary = _assignment
-	var previous_packed_scene_cache: Dictionary = _packed_scene_cache.duplicate()
 	_assignment = restored_assignment
 	if not _load_explicit_assignment(state.get("assignment", []), true):
 		_assignment = previous_assignment
@@ -395,9 +410,11 @@ func restore_state(state: Dictionary) -> bool:
 		return false
 	var previous_run_seed: int = _run_seed
 	_run_seed = int(state.get("run_seed", _run_seed))
-	if not _preload_assignment_scenes():
+	var prepared_assignment: ModuleChunkStreamingControllerRuntime.PreparedAssignment = (
+		_prepare_assignment_scenes()
+	)
+	if not prepared_assignment.is_valid():
 		_assignment = previous_assignment
-		_packed_scene_cache = previous_packed_scene_cache
 		_run_seed = previous_run_seed
 		return false
 	var restored_hash: String = _compute_map_hash()
@@ -405,11 +422,14 @@ func restore_state(state: Dictionary) -> bool:
 	if not saved_hash.is_empty() and saved_hash != restored_hash:
 		push_error("[ModuleWorldManager] snapshot map hash does not match assignment")
 		_assignment = previous_assignment
-		_packed_scene_cache = previous_packed_scene_cache
+		_run_seed = previous_run_seed
+		return false
+	if not _chunk_streaming_controller.commit_prepared(prepared_assignment):
+		_assignment = previous_assignment
 		_run_seed = previous_run_seed
 		return false
 
-	_deactivate_all_chunks()
+	_chunk_streaming_controller.clear_active()
 	_map_hash = restored_hash
 	_rebuild_navigation_field()
 	_revealed = _set_from_coord_array(state.get("revealed", []))
@@ -444,7 +464,7 @@ func debug_summary() -> Dictionary:
 		"current_module": _coord_to_dict(_current_module_coord) if _is_module_coord_valid(_current_module_coord) else {},
 		"revealed_count": _revealed.size(),
 		"visited_count": _visited.size(),
-		"active_count": _active_chunks.size(),
+		"active_count": _chunk_streaming_controller.active_count(),
 		"pinned_count": _pinned_slots.size(),
 		"pinned_slots": _coords_to_dict_array(pinned_module_coords()),
 		"world_event_assignment_count": _world_event_assignment_count(),
@@ -452,8 +472,8 @@ func debug_summary() -> Dictionary:
 		"revealed_slots": _coords_to_dict_array(revealed_module_coords()),
 		"visited_slots": _coords_to_dict_array(visited_module_coords()),
 		"active_slots": _coords_to_dict_array(active_module_coords()),
-		"chunk_pool_size": _chunk_pool.size(),
-		"preloaded_scene_count": _packed_scene_cache.size(),
+		"chunk_pool_size": _chunk_streaming_controller.chunk_pool_size(),
+		"preloaded_scene_count": _chunk_streaming_controller.preloaded_scene_count(),
 		"navigation": _navigation_field.debug_summary(),
 	}
 
@@ -707,9 +727,15 @@ func _make_assignment_entry(module_coord: Vector2i, template_id: String, rotatio
 func _finalize_assignment() -> bool:
 	if not _assignment_is_valid():
 		return false
-	if not _preload_assignment_scenes():
+	var prepared_assignment: ModuleChunkStreamingControllerRuntime.PreparedAssignment = (
+		_prepare_assignment_scenes()
+	)
+	if not prepared_assignment.is_valid():
 		return false
-	_map_hash = _compute_map_hash()
+	var next_map_hash: String = _compute_map_hash()
+	if not _chunk_streaming_controller.commit_prepared(prepared_assignment):
+		return false
+	_map_hash = next_map_hash
 	_rebuild_navigation_field()
 	return true
 
@@ -892,93 +918,38 @@ func _is_sealed_module(module_coord: Vector2i) -> bool:
 
 
 func _refresh_active_modules(center_coord: Vector2i) -> Dictionary:
-	var desired_keys: Dictionary = {}
-	if _is_module_coord_valid(center_coord):
-		for row_offset: int in range(-_active_radius, _active_radius + 1):
-			for column_offset: int in range(-_active_radius, _active_radius + 1):
-				var module_coord: Vector2i = (
-					center_coord + Vector2i(column_offset, row_offset)
-				)
-				if _is_module_coord_valid(module_coord):
-					desired_keys[_slot_key(module_coord)] = true
-	for pinned_key: String in _pinned_slots.keys():
-		desired_keys[pinned_key] = true
-	var deactivated: Array[Dictionary] = []
-	for active_key: String in _active_chunks.keys():
-		if desired_keys.has(active_key):
-			continue
-		var chunk: ModuleChunk = _active_chunks[active_key] as ModuleChunk
-		deactivated.append(_coord_to_dict(chunk.module_coord()))
-		chunk.clear()
-		_active_chunks.erase(active_key)
-	var activated: Array[Dictionary] = []
-	for row_index: int in range(WORLD_ROWS):
-		for column_index: int in range(WORLD_COLUMNS):
-			var module_coord := Vector2i(column_index, row_index)
-			var slot_key: String = _slot_key(module_coord)
-			if not desired_keys.has(slot_key) or _active_chunks.has(slot_key):
-				continue
-			var available_chunk: ModuleChunk = _available_chunk()
-			if available_chunk == null:
-				push_error("[ModuleWorldManager] active chunk pool exhausted")
-				continue
-			var entry: Dictionary = assignment_at(module_coord)
-			var template_id: String = String(entry.get("template_id", ""))
-			var rotation: int = int(entry.get("rotation", 0))
-			var generated_scene: PackedScene = _packed_scene_cache.get(
-				template_id
-			) as PackedScene
-			var chunk_configured: bool = available_chunk.configure(
-				generated_scene,
-				module_coord,
-				rotation,
-				_masked_edges_for_coord(module_coord),
-				_cell_size,
-				_world_origin
-			)
-			if not chunk_configured:
-				continue
-			_active_chunks[slot_key] = available_chunk
-			activated.append(_coord_to_dict(module_coord))
+	var request := ModuleChunkStreamingControllerRuntime.StreamRequest.new()
+	request.center_coord = center_coord
+	request.pinned_coords = pinned_module_coords()
+	request.columns = WORLD_COLUMNS
+	request.rows = WORLD_ROWS
+	request.active_radius = _active_radius
+	request.cell_size = _cell_size
+	request.world_origin = _world_origin
+	request.assignment_provider = Callable(self, "assignment_at")
+	request.masked_edges_provider = Callable(self, "_masked_edges_for_coord")
+	var change: ModuleChunkStreamingControllerRuntime.StreamChange = (
+		_chunk_streaming_controller.refresh(request)
+	)
+	for _failure_index: int in range(change.pool_exhausted_count()):
+		push_error("[ModuleWorldManager] active chunk pool exhausted")
 	return {
-		"activated": activated,
-		"deactivated": deactivated,
+		"activated": _coords_to_dict_array(change.activated_coords()),
+		"deactivated": _coords_to_dict_array(change.deactivated_coords()),
 	}
 
 
-func _ensure_chunk_pool() -> bool:
-	_chunk_pool.clear()
+func _module_chunk_children() -> Array[ModuleChunk]:
+	var result: Array[ModuleChunk] = []
 	for child: Node in get_children():
 		if child is ModuleChunk:
-			_chunk_pool.append(child as ModuleChunk)
-	if _chunk_pool.size() != MAX_ACTIVE_CHUNKS:
-		push_error("[ModuleWorldManager] scene must contain exactly %d ModuleChunk children, got %d" % [MAX_ACTIVE_CHUNKS, _chunk_pool.size()])
-		return false
-	for chunk: ModuleChunk in _chunk_pool:
-		chunk.clear()
-	return true
-
-
-func _available_chunk() -> ModuleChunk:
-	for chunk: ModuleChunk in _chunk_pool:
-		if not _active_chunks.values().has(chunk):
-			return chunk
-	return null
-
-
-func _deactivate_all_chunks() -> Array[Dictionary]:
-	var deactivated: Array[Dictionary] = []
-	for active_key: String in _active_chunks.keys():
-		var chunk: ModuleChunk = _active_chunks[active_key] as ModuleChunk
-		deactivated.append(_coord_to_dict(chunk.module_coord()))
-		chunk.clear()
-	_active_chunks.clear()
-	return deactivated
+			result.append(child as ModuleChunk)
+	return result
 
 
 func _reset_world_state() -> void:
-	_deactivate_all_chunks()
-	_packed_scene_cache.clear()
+	_chunk_streaming_controller.clear_active()
+	_chunk_streaming_controller.clear_cache()
 	_navigation_field.clear()
 	_assignment.clear()
 	_map_hash = ""
@@ -1177,66 +1148,39 @@ func _normalize_rotation(rotation_degrees: int) -> int:
 
 
 func _has_valid_generated_scene_paths() -> bool:
+	var template_ids: Array[String] = []
 	for template_id_value: Variant in _templates_by_id.keys():
-		var template_id: String = String(template_id_value)
-		var value: Variant = _generated_scene_paths_by_id.get(template_id)
-		if value is PackedScene:
-			continue
-		if not value is String or not ResourceLoader.exists(String(value), "PackedScene"):
-			return false
-	return not _templates_by_id.is_empty()
+		template_ids.append(String(template_id_value))
+	return _chunk_streaming_controller.has_valid_generated_scene_paths(
+		template_ids
+	)
 
 
-func _preload_assignment_scenes() -> bool:
-	_packed_scene_cache.clear()
-	for entry: Dictionary in _assignment_entries():
-		var template_id: String = String(entry.get("template_id", ""))
-		if _packed_scene_cache.has(template_id):
-			continue
-		var configured_value: Variant = _generated_scene_paths_by_id.get(
-			template_id
+func _prepare_assignment_scenes() -> ModuleChunkStreamingControllerRuntime.PreparedAssignment:
+	var prepared: ModuleChunkStreamingControllerRuntime.PreparedAssignment = (
+		_chunk_streaming_controller.prepare_assignment(
+			_assignment_entries()
 		)
-		var packed: PackedScene
-		if configured_value is PackedScene:
-			packed = configured_value as PackedScene
-		elif configured_value is String:
-			packed = ResourceLoader.load(
-				String(configured_value),
-				"PackedScene"
-			) as PackedScene
-		if packed == null:
+	)
+	match prepared.error_code():
+		ModuleChunkStreamingControllerRuntime.PrepareError.LOAD_FAILED:
 			push_error(
 				"[ModuleWorldManager] failed to preload generated scene %s"
-				% template_id
+				% prepared.template_id()
 			)
-			_packed_scene_cache.clear()
-			return false
-		var probe: Node = packed.instantiate()
-		if not probe is GeneratedModuleScene:
-			if probe != null:
-				probe.free()
+		ModuleChunkStreamingControllerRuntime.PrepareError.ROOT_INVALID:
 			push_error(
 				"[ModuleWorldManager] %s root is not GeneratedModuleScene"
-				% template_id
+				% prepared.template_id()
 			)
-			_packed_scene_cache.clear()
-			return false
-		var generated: GeneratedModuleScene = probe as GeneratedModuleScene
-		var metadata_valid: bool = (
-			generated.baker_schema_version
-			== GENERATED_MODULE_BAKER_SCHEMA_VERSION
-			and generated.module_id == template_id
-			and generated.module_rotation_degrees == 0
-		)
-		generated.free()
-		if not metadata_valid:
+		ModuleChunkStreamingControllerRuntime.PrepareError.METADATA_STALE:
 			push_error(
-				"[ModuleWorldManager] %s metadata is stale" % template_id
+				"[ModuleWorldManager] %s metadata is stale"
+				% prepared.template_id()
 			)
-			_packed_scene_cache.clear()
-			return false
-		_packed_scene_cache[template_id] = packed
-	return not _packed_scene_cache.is_empty()
+		_:
+			pass
+	return prepared
 
 
 func _has_supported_geometry() -> bool:

@@ -15,7 +15,7 @@
 - 从旋转 / 封边后的完整 49 槽地形构建 77×77 walkability mask；玩家跨格时只更新感知范围驱动的局部共享流场，并提供全图 AStar、视线和敌人半径走廊查询。导航不依赖当前激活 chunk。
 - 按世界槽位返回稳定行列顺序的有效空 floor 格心：使用旋转、邻接与外圈封边后的真实地形，并排除全部 gameplay placement footprint；只提供几何查询，不消耗 RNG、不读取动态实体、不生成敌人。
 
-`ModuleSlotStateCodec` 是 Manager 内部持有的纯 `RefCounted` 边界：它负责 7×7 槽坐标与 `"x" / "y"` wire、`"x,y"` slot key、坐标集合的 row-major 序列化、pins 的重复 / 越界 / 上限校验，以及 slot payload 的深拷贝存取。Manager 仍独占配置、assignment、导航、chunk 流式、pin 变更后的活跃窗口刷新和 Run v19 模块子快照顶层组装；Codec 不是 Node、autoload 或新的 gameplay facade。
+`ModuleSlotStateCodec` 是 Manager 内部持有的纯 `RefCounted` 边界：它负责 7×7 槽坐标与 `"x" / "y"` wire、`"x,y"` slot key、坐标集合的 row-major 序列化、pins 的重复 / 越界 / 上限校验，以及 slot payload 的深拷贝存取。`ModuleChunkStreamingController` 是另一条纯 `RefCounted` 边界：它只持有规范生成场景路径 / 已提交缓存、12 个 scene-authored `ModuleChunk` 的池和当前挂载映射，负责候选场景预加载、提交及 3×3 + pins 的卸载 / 挂载。Manager 仍独占配置、assignment、map hash、导航、当前 / revealed / visited、pin 规则和 Run v19 模块子快照顶层组装；两个纯对象都不是 Node、autoload 或新的 gameplay facade。
 
 `GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 局内 Gear Mod / `completes_run` 目标 / 世界事件 primitive 的实体生成、首次进入遭遇计划、效果 Runtime、预警、内容可用池过滤、`DifficultyProgression`、敌人生成时金币锁定、`Combat`、`PoolManager` 和 Run v19 总快照。`ModuleWorldManager` 不直接生成玩法实体，只提供严格同向 7×7 坐标 / 空地查询、组合事件模块并维护 pin。玩家实际位于 `module_role_start` 时，RunLoop 暂停威胁时间并锁定武器 / 四技能；Manager 只提供当前位置 / role 数据，不冻结底层 `GameClock`。
 
@@ -25,7 +25,9 @@
 |----------|------|
 | `client/scripts/gameplay/module_world_manager.gd` | `Node2D` 公共 facade、assignment / 地形 / 导航 / 流式和 Run v19 模块快照编排 |
 | `client/scripts/gameplay/module_slot_state_codec.gd` | 坐标 wire、row-major 集合、pins 验证及 typed `SlotState` 深拷贝 store |
+| `client/scripts/gameplay/module_chunk_streaming_controller.gd` | 生成场景候选缓存、12 chunk 池与 active mapping；按 row-major 计算 3×3 + pins 的挂载变化 |
 | `client/tests/unit/test_module_slot_state_codec.gd` | Codec 未知字段、顺序、引用隔离和拒绝矩阵的纯 GUT 覆盖 |
+| `client/tests/unit/test_module_chunk_streaming_controller.gd` | 候选 cache 事务、池容量、pin-only、卸载 / 复用顺序、部分失败及 Manager rebuild / restore 回滚的 GUT 覆盖 |
 
 - 世界配置：`client/data/module_worlds.json`
 - 模块注册表：`client/data/module_templates.json`
@@ -36,7 +38,7 @@
 
 当前 `module_worlds.json` schema v5 用 `objective_spawn` 声明 `module_objective_core` 与三个等概率候选角落；`RNG.world` 在限量事件和普通模板之前选择一次，并把结果固化进 assignment。世界事件组继续从五个 `module_role_world_event` approved 模板中等权无放回选三种，每种 `count_per_floor=1`，再用 `module_flat_ground` 填满其他非固定槽。schema 不含撤离字段；模块 JSON 为 schema v4。fallback 完整覆盖 49 格后覆盖所选意识核角落，技术切片固定使用防御、生存、占点各一次。
 
-运行时用 JSON 计算 assignment、导航、placement 和 map hash，并直接实例化预加载的生成 TSCN；不会从 JSON 构建 TileMap 或碰撞，也不连接 LLM。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
+运行时用 JSON 计算 assignment、导航、placement 和 map hash，并直接实例化预加载的生成 TSCN；不会从 JSON 构建 TileMap 或碰撞，也不连接 LLM。场景预加载使用候选 cache：只有 assignment、生成根 metadata 与 restore map hash 全部通过后才替换已提交 cache；显式 `build_*()` 重建会先清 active 与旧 cache，失败不得留下“空 / 半成品世界 + 旧场景缓存”。restore 失败则必须保留原 assignment、hash、active coords 与 cache。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
 
 ## 3. 公共 API
 
@@ -75,7 +77,7 @@ Manager 的 `set_slot_state()` / `slot_state()` / `snapshot()` / `restore_state(
 
 ## 5. ModuleChunk
 
-`ModuleChunk` 是 12 个预置流式槽位共用的薄场景：九个覆盖玩家 3×3 邻域，三个为持续事件或其残敌模块提供后台固定容量。激活时挂载一个缓存的规范朝向 `PackedScene`；生成实例已经包含 Ground / Obstacles / Decoration 三个 `TileMapLayer`、合并后的基础碰撞和四个边缘封锁视觉 / 碰撞子树。Chunk 只对生成根节点应用正交旋转与 1600 px 方形枢轴补偿，并把世界封边方向反映射到规范方向后切换对应子树。它不解析 JSON 建 TileMap、不创建碰撞节点、不扫描 121 格、不重算碰撞，也不应用 `TileMapPattern`。
+`ModuleChunk` 是 12 个预置流式槽位共用的薄场景：九个覆盖玩家 3×3 邻域，三个为持续事件或其残敌模块提供后台固定容量。`ModuleChunkStreamingController` 先卸载全部离开 desired set 的 chunk，再按全局 `y → x` 顺序挂载当前 3×3 与 pins 的并集；池取得或单个 `configure()` 失败不回滚本轮已成功挂载项。激活时挂载一个已提交 cache 中的规范朝向 `PackedScene`；生成实例已经包含 Ground / Obstacles / Decoration 三个 `TileMapLayer`、合并后的基础碰撞和四个边缘封锁视觉 / 碰撞子树。Chunk 只对生成根节点应用正交旋转与 1600 px 方形枢轴补偿，并把世界封边方向反映射到规范方向后切换对应子树。它不解析 JSON 建 TileMap、不创建碰撞节点、不扫描 121 格、不重算碰撞，也不应用 `TileMapPattern`。
 
 生成场景的 `TerrainCollision` 显式位于物理层 bit 1、mask 为 0；玩家和敌人都必须保留 `CollisionShape2D`，否则 `CharacterBody2D` 不会与这些边界发生碰撞。敌人的碰撞层不与玩家或其他敌人物理互顶，只用 mask 命中模块地形；原有中心分离继续负责实体间距。`Bullet` 也只查询 bit 1：默认以 `hit_radius` 圆形做首帧重叠和逐帧扫掠，命中后通过 `PoolManager` 回收；`wall_pierce_enabled=true` 时才忽略地形。bit 1 是 ModuleChunk 与 Bullet 的稳定内部契约，不应用玩家、敌人、机关 Area 或伤害目标复用该查询语义。`ModuleWorldManager` 使用显式 `z_index=-90`，使模块地形位于 `WorldBackground(-100)` / `MapManager(-95)` 之上，同时稳定处于玩家、敌人、机关和目标实体之下；不能依赖场景树加入顺序决定遮挡关系。禁止为 121 个格逐格创建 Node，也禁止同时实例化 49 个 chunk。
 
@@ -96,6 +98,10 @@ python tools/godot_bridge.py --project client save-smoke
 
 `module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、三个意识核候选角、49 槽 / 77×77 坐标、流式恢复、迷雾、意识核直接完成、Run v19 子快照，以及刷怪笼 10 秒触发、离开清零、多实例独立计时、同向坐标、冻结敌池 / 固定 RNG、动态占位重试、普通奖励链和保存恢复不重抽。旧 Run v18 保持源文件但不继续。ADR #195 后 `module-world-technical-slice-smoke` 是 full 的伴随验证：仍以独立进程覆盖中心 3×3 / 外圈 40 槽封锁、技术 streaming / cage / objective / restore，但不重复 full 已执行的多 manager 确定性组合段；需要技术首片证据时必须先有同轮 full PASS。
 
-`test_module_slot_state_codec.gd` 专项 unit 必须覆盖：原 payload 与未知嵌套字段无损、输入 / getter / 输出深拷贝、slot state 的 row-major roundtrip、非法 slot / 非字典值隔离、坐标 wire 兼容以及 pins 的重复 / 越界 / 超限拒绝。修改 Codec 或 Manager 委托时，专项 unit、`module-world-smoke` 和 `module-world-technical-slice-smoke` 三者均为必跑；technical 仍必须在同轮 full PASS 之后执行。
+`test_module_slot_state_codec.gd` 专项 unit 必须覆盖：原 payload 与未知嵌套字段无损、输入 / getter / 输出深拷贝、slot state 的 row-major roundtrip、非法 slot / 非字典值隔离、坐标 wire 兼容以及 pins 的重复 / 越界 / 超限拒绝。
+
+`test_module_chunk_streaming_controller.gd` 必须覆盖：候选 preload 失败不污染已提交 cache、metadata 拒绝、12 chunk 精确池、3×3 + pins / pins-only desired set、全局 row-major 挂载、先卸载后复用、池满与 mount 失败的部分成功语义、reconfigure 清 active，以及 Manager 显式 rebuild 失败清 active/cache/map、篡改 hash restore 保留原 assignment/hash/active/cache。测试中的预期拒绝不得向 Bridge GUT fatal-log 门禁泄漏 `push_error`。
+
+修改 Codec、StreamingController 或 Manager 委托时，两组专项 unit、`module-world-smoke` 和 `module-world-technical-slice-smoke` 均为必跑；technical 仍必须在同轮 full PASS 之后执行。
 
 `module_resource_cache` 与 `module_crossroads` 因奖励从旧 dust 改为局内金币后 gameplay hash 变化，烘焙器已自动降为 `module_review_candidate`。AI 不得重新批准；在人工玩法复核前，它们不会进入正式 approved 池，技术切片临时使用 `module_flat_ground`。
