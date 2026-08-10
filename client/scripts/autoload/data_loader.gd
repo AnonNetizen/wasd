@@ -34,6 +34,9 @@ const CONTENT_UNLOCK_RULE_MODES := preload(
 const CONTENT_UNLOCK_PROGRESS_COUNTERS := preload(
 	"res://scripts/contracts/content_unlock_progress_counters.gd"
 )
+const DATA_REFERENCE_INDEX_BUILDER := preload(
+	"res://scripts/data/data_reference_index_builder.gd"
+)
 const DATA_FINGERPRINT_BUILDER := preload(
 	"res://scripts/data/data_fingerprint_builder.gd"
 )
@@ -208,42 +211,88 @@ func validate_project_data() -> bool:
 	is_valid = _validate_locale_strings(locale_keys) and is_valid
 	is_valid = _validate_player_json() and is_valid
 	is_valid = _validate_camera_feedback_json() and is_valid
-	var camera_feedback_ids: Dictionary = _collect_camera_feedback_ids()
+	var camera_feedback_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_camera_feedback_ids(
+			load_json(CAMERA_FEEDBACK_PATH)
+		)
+	)
 	is_valid = _validate_visual_effects_json() and is_valid
-	var visual_effect_ids: Dictionary = _collect_visual_effect_ids()
+	var visual_effect_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_visual_effect_ids(
+			load_json(VISUAL_EFFECTS_PATH)
+		)
+	)
 	is_valid = _validate_presentation_profiles_json(
 		visual_effect_ids,
 		camera_feedback_ids
 	) and is_valid
-	var presentation_profile_ids: Dictionary = _collect_presentation_profile_ids()
+	var presentation_profile_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_presentation_profile_ids(
+			load_json(PRESENTATION_PROFILES_PATH)
+		)
+	)
 	is_valid = _validate_presentation_profile_references(
 		presentation_profile_ids
 	) and is_valid
 	is_valid = _validate_elements_json(locale_keys) and is_valid
 	is_valid = _validate_hero_passives_json(locale_keys) and is_valid
-	var hero_passive_ids: Dictionary = _collect_hero_passive_ids()
+	var hero_passive_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_hero_passive_ids(
+			load_json(HERO_PASSIVES_PATH)
+		)
+	)
 	is_valid = _validate_weapons_json(locale_keys) and is_valid
-	var weapon_ids: Dictionary = _collect_weapon_ids()
+	var weapon_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_weapon_ids(
+			load_json(WEAPONS_PATH)
+		)
+	)
 	is_valid = _validate_enemy_ai_profiles_json() and is_valid
-	var enemy_ai_profile_ids: Dictionary = _collect_enemy_ai_profile_ids()
+	var enemy_ai_profile_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_enemy_ai_profile_ids(
+			load_json(ENEMY_AI_PROFILES_PATH)
+		)
+	)
 	is_valid = _validate_enemy_rewards_json() and is_valid
 	is_valid = _validate_enemies_csv(locale_keys, enemy_ai_profile_ids) and is_valid
-	var enemy_ids: Dictionary = _collect_enemy_ids()
+	var enemy_ids: Dictionary = DATA_REFERENCE_INDEX_BUILDER.collect_enemy_ids(
+		load_csv(ENEMIES_PATH)
+	)
 	_isolate_invalid_mod_gameplay_packages(locale_keys, enemy_ids)
 	_last_schema_counts["mods"] = _mod_count()
 	is_valid = _validate_gear_mods_json(locale_keys) and is_valid
-	var gear_mod_ids: Dictionary = _collect_gear_mod_ids()
+	var gear_mod_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_gear_mod_ids(
+			load_json(GEAR_MODS_PATH)
+		)
+	)
 	is_valid = _validate_world_events_json(locale_keys, gear_mod_ids) and is_valid
-	var world_event_ids: Dictionary = _collect_world_event_ids()
+	var world_event_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_world_event_ids(
+			load_json(WORLD_EVENTS_PATH)
+		)
+	)
 	is_valid = _validate_gear_mod_drop_tables_csv(enemy_ids, gear_mod_ids) and is_valid
 	is_valid = _validate_hazards_csv(locale_keys) and is_valid
-	var hazard_ids: Dictionary = _collect_hazard_ids()
+	var hazard_ids: Dictionary = DATA_REFERENCE_INDEX_BUILDER.collect_hazard_ids(
+		load_csv(HAZARDS_PATH)
+	)
 	is_valid = _validate_active_items_json(locale_keys) and is_valid
-	var active_item_ids: Dictionary = _collect_active_item_ids()
+	var active_item_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_active_item_ids(
+			load_json(ACTIVE_ITEMS_PATH)
+		)
+	)
 	is_valid = _validate_consumables_json(locale_keys) and is_valid
-	var consumable_ids: Dictionary = _collect_consumable_ids()
+	var consumable_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_consumable_ids(
+			load_json(CONSUMABLES_PATH)
+		)
+	)
 	is_valid = _validate_skills_json(locale_keys) and is_valid
-	var skill_ids: Dictionary = _collect_skill_ids()
+	var skill_ids: Dictionary = DATA_REFERENCE_INDEX_BUILDER.collect_skill_ids(
+		load_json(SKILLS_PATH)
+	)
 	is_valid = _validate_credits_json(locale_keys) and is_valid
 	is_valid = _validate_characters_json(
 		locale_keys,
@@ -253,21 +302,48 @@ func validate_project_data() -> bool:
 		skill_ids,
 		hero_passive_ids
 	) and is_valid
-	var character_ids: Dictionary = _collect_character_ids()
+	var character_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_character_ids(
+			load_json(CHARACTERS_PATH)
+		)
+	)
 	is_valid = _validate_level_progression_json() and is_valid
 	is_valid = _validate_reward_choice_pools(locale_keys) and is_valid
 	is_valid = _validate_difficulty_profiles(locale_keys) and is_valid
-	var difficulty_profile_ids: Dictionary = _collect_difficulty_profile_ids()
+	var difficulty_profile_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_difficulty_profile_ids(
+			load_json(DIFFICULTY_PROFILES_PATH)
+		)
+	)
 	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids) and is_valid
 	is_valid = _validate_content_unlock_data(
 		character_ids,
 		gear_mod_ids,
 		enemy_ids
 	) and is_valid
-	var game_mode_ids: Dictionary = _collect_game_mode_ids()
+	var game_mode_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_game_mode_ids(
+			load_json(GAME_MODES_PATH)
+		)
+	)
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
-	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids()) and is_valid
+	var wave_ids_by_mode: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_spawn_wave_ids_by_mode(
+			load_csv(SPAWN_WAVES_PATH)
+		)
+	)
+	var map_layout_ids: Dictionary = (
+		DATA_REFERENCE_INDEX_BUILDER.collect_map_layout_ids(
+			load_json(MAP_LAYOUTS_PATH)
+		)
+	)
+	is_valid = _validate_warzone_directors_json(
+		game_mode_ids,
+		wave_ids_by_mode,
+		hazard_ids,
+		map_layout_ids
+	) and is_valid
 	var module_tile_catalog: Dictionary = _validate_module_tile_catalog()
 	is_valid = not module_tile_catalog.is_empty() and is_valid
 	is_valid = _validate_module_world_data(
@@ -998,20 +1074,6 @@ func _validate_presentation_binding(
 	return is_valid
 
 
-func _collect_camera_feedback_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(CAMERA_FEEDBACK_PATH)
-	if not data is Dictionary:
-		return ids
-	for raw_key: Variant in (data as Dictionary).keys():
-		var profile_id: String = String(raw_key)
-		if profile_id == "schema_version":
-			continue
-		if (data as Dictionary).get(raw_key) is Dictionary:
-			ids[profile_id] = true
-	return ids
-
-
 func _validate_vfx_resource_path(
 		field: String,
 		value: Variant,
@@ -1072,42 +1134,6 @@ func _presentation_profile_has_cycle(
 		return true
 	visited[profile_id] = true
 	return false
-
-
-func _collect_visual_effect_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(VISUAL_EFFECTS_PATH)
-	if not data is Dictionary:
-		return ids
-	var effects: Variant = (data as Dictionary).get("effects")
-	if not effects is Array:
-		return ids
-	for raw_effect: Variant in effects:
-		if not raw_effect is Dictionary:
-			continue
-		var effect_id: String = String((raw_effect as Dictionary).get("id", ""))
-		if not effect_id.is_empty():
-			ids[effect_id] = true
-	return ids
-
-
-func _collect_presentation_profile_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(PRESENTATION_PROFILES_PATH)
-	if not data is Dictionary:
-		return ids
-	var profiles: Variant = (data as Dictionary).get("profiles")
-	if not profiles is Array:
-		return ids
-	for raw_profile: Variant in profiles:
-		if not raw_profile is Dictionary:
-			continue
-		var profile_id: String = String(
-			(raw_profile as Dictionary).get("id", "")
-		)
-		if not profile_id.is_empty():
-			ids[profile_id] = true
-	return ids
 
 
 func _validate_presentation_profile_references(
@@ -6039,138 +6065,6 @@ func _validate_stat_value(resource_path: String, field: String, stat: String, va
 	return _require_number(resource_path, field, value)
 
 
-func _collect_character_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(CHARACTERS_PATH)
-	if not data is Dictionary:
-		return ids
-	var characters: Variant = (data as Dictionary).get("characters")
-	if not characters is Array:
-		return ids
-	for character: Variant in characters:
-		if character is Dictionary and (character as Dictionary).get("id") is String:
-			ids[String((character as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_hero_passive_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(HERO_PASSIVES_PATH)
-	if not data is Dictionary:
-		return ids
-	var passives: Variant = (data as Dictionary).get("passives")
-	if not passives is Array:
-		return ids
-	for passive: Variant in passives:
-		if passive is Dictionary and (passive as Dictionary).get("id") is String:
-			ids[String((passive as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_weapon_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(WEAPONS_PATH)
-	if not data is Dictionary:
-		return ids
-	var weapons: Variant = (data as Dictionary).get("weapons")
-	if not weapons is Array:
-		return ids
-	for weapon: Variant in weapons:
-		if weapon is Dictionary and (weapon as Dictionary).get("id") is String:
-			ids[String((weapon as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_enemy_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var rows: Array[Dictionary] = load_csv(ENEMIES_PATH)
-	for row: Dictionary in rows:
-		var enemy_id: String = String(row.get("id", ""))
-		if not enemy_id.is_empty():
-			ids[enemy_id] = true
-	return ids
-
-
-func _collect_enemy_ai_profile_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(ENEMY_AI_PROFILES_PATH)
-	if not data is Dictionary:
-		return ids
-	var profiles: Variant = (data as Dictionary).get("profiles")
-	if not profiles is Array:
-		return ids
-	for profile: Variant in profiles:
-		if profile is Dictionary and (profile as Dictionary).get("id") is String:
-			ids[String((profile as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_hazard_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var rows: Array[Dictionary] = load_csv(HAZARDS_PATH)
-	for row: Dictionary in rows:
-		var hazard_id: String = String(row.get("id", ""))
-		if not hazard_id.is_empty():
-			ids[hazard_id] = maxi(String(row.get("radius_tiles", "1")).to_int(), 1)
-	return ids
-
-
-func _collect_active_item_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(ACTIVE_ITEMS_PATH)
-	if not data is Dictionary:
-		return ids
-	var active_items: Variant = (data as Dictionary).get("active_items")
-	if not active_items is Array:
-		return ids
-	for active_item: Variant in active_items:
-		if active_item is Dictionary and (active_item as Dictionary).get("id") is String:
-			ids[String((active_item as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_consumable_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(CONSUMABLES_PATH)
-	if not data is Dictionary:
-		return ids
-	var consumables: Variant = (data as Dictionary).get("consumables")
-	if not consumables is Array:
-		return ids
-	for consumable: Variant in consumables:
-		if consumable is Dictionary and (consumable as Dictionary).get("id") is String:
-			ids[String((consumable as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_skill_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(SKILLS_PATH)
-	if not data is Dictionary:
-		return ids
-	var skills: Variant = (data as Dictionary).get("skills")
-	if not skills is Array:
-		return ids
-	for skill: Variant in skills:
-		if skill is Dictionary and (skill as Dictionary).get("id") is String:
-			ids[String((skill as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_gear_mod_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(GEAR_MODS_PATH)
-	if not data is Dictionary:
-		return ids
-	var mods: Variant = (data as Dictionary).get("mods")
-	if not mods is Array:
-		return ids
-	for mod: Variant in mods:
-		if mod is Dictionary and (mod as Dictionary).get("id") is String:
-			ids[String((mod as Dictionary).get("id"))] = true
-	return ids
-
-
 func _validate_world_events_json(
 	locale_keys: Dictionary,
 	_gear_mod_ids: Dictionary
@@ -6686,20 +6580,6 @@ func _validate_world_event_mod_pool_reference(
 			"mod pool defined in world_events.json"
 		)
 	return true
-
-
-func _collect_world_event_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(WORLD_EVENTS_PATH)
-	if not data is Dictionary:
-		return ids
-	var raw_events: Variant = (data as Dictionary).get("events")
-	if not raw_events is Array:
-		return ids
-	for raw_event: Variant in raw_events as Array:
-		if raw_event is Dictionary and (raw_event as Dictionary).get("id") is String:
-			ids[String((raw_event as Dictionary).get("id"))] = true
-	return ids
 
 
 func _validate_content_tags(resource_path: String, field: String, value: Variant) -> bool:
@@ -8232,64 +8112,6 @@ func _dictionaries_share_key(left: Dictionary, right: Dictionary) -> bool:
 		if right.has(key):
 			return true
 	return false
-
-
-func _collect_game_mode_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(GAME_MODES_PATH)
-	if not data is Dictionary:
-		return ids
-	var modes: Variant = (data as Dictionary).get("modes")
-	if not modes is Array:
-		return ids
-	for mode: Variant in modes:
-		if mode is Dictionary and (mode as Dictionary).get("id") is String:
-			ids[String((mode as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_difficulty_profile_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(DIFFICULTY_PROFILES_PATH)
-	if not data is Dictionary:
-		return ids
-	var profiles: Variant = (data as Dictionary).get("profiles")
-	if not profiles is Array:
-		return ids
-	for profile: Variant in profiles:
-		if profile is Dictionary and (profile as Dictionary).get("id") is String:
-			ids[String((profile as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_map_layout_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(MAP_LAYOUTS_PATH)
-	if not data is Dictionary:
-		return ids
-	var layouts: Variant = (data as Dictionary).get("layouts")
-	if not layouts is Array:
-		return ids
-	for layout: Variant in layouts:
-		if layout is Dictionary and (layout as Dictionary).get("id") is String:
-			ids[String((layout as Dictionary).get("id"))] = true
-	return ids
-
-
-func _collect_spawn_wave_ids_by_mode() -> Dictionary:
-	var ids_by_mode: Dictionary = {}
-	var rows: Array[Dictionary] = load_csv(SPAWN_WAVES_PATH)
-	for row: Dictionary in rows:
-		var mode_id: String = String(row.get("mode_id", ""))
-		var wave_id: String = String(row.get("id", ""))
-		if mode_id.is_empty() or wave_id.is_empty():
-			continue
-		if not ids_by_mode.has(mode_id):
-			ids_by_mode[mode_id] = {}
-		var mode_waves: Dictionary = ids_by_mode[mode_id]
-		mode_waves[wave_id] = true
-		ids_by_mode[mode_id] = mode_waves
-	return ids_by_mode
 
 
 func _collect_locale_keys() -> Dictionary:
