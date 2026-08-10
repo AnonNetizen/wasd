@@ -13,7 +13,7 @@ const ModuleChunkStreamingControllerRuntime := preload(
 	"res://scripts/gameplay/module_chunk_streaming_controller.gd"
 )
 const ModuleNavigationFieldRuntime := preload("res://scripts/gameplay/module_navigation_field.gd")
-const ModuleSlotStateCodecRuntime := preload("res://scripts/gameplay/module_slot_state_codec.gd")
+const ModuleWorldStateRuntime := preload("res://scripts/gameplay/module_world_state.gd")
 
 const WORLD_COLUMNS: int = 7
 const WORLD_ROWS: int = 7
@@ -42,14 +42,12 @@ var _navigation_flow_radius_cells: int = 1
 var _assignment: Dictionary = {}
 var _map_hash: String = ""
 var _navigation_field: ModuleNavigationFieldRuntime = ModuleNavigationFieldRuntime.new()
-var _current_module_coord: Vector2i = INVALID_COORD
-var _revealed: Dictionary = {}
-var _visited: Dictionary = {}
-var _slot_state_codec: ModuleSlotStateCodecRuntime = ModuleSlotStateCodecRuntime.new(
+var _world_state: ModuleWorldStateRuntime = ModuleWorldStateRuntime.new(
 	WORLD_COLUMNS,
-	WORLD_ROWS
+	WORLD_ROWS,
+	MAX_PINNED_CHUNKS,
+	INVALID_COORD
 )
-var _pinned_slots: Dictionary = {}
 var _chunk_streaming_controller: ModuleChunkStreamingControllerRuntime = (
 	ModuleChunkStreamingControllerRuntime.new()
 )
@@ -153,7 +151,7 @@ func tick(player_position: Vector2) -> Dictionary:
 	var next_coord: Vector2i = module_and_local.get("module_coord", INVALID_COORD) as Vector2i
 	if not _is_module_coord_valid(next_coord):
 		var outside_streaming_change: Dictionary = _refresh_active_modules(INVALID_COORD)
-		_current_module_coord = INVALID_COORD
+		_world_state.leave_world()
 		return {
 			"current_module": {},
 			"entered": false,
@@ -164,20 +162,16 @@ func tick(player_position: Vector2) -> Dictionary:
 			"outside_world": true,
 		}
 
-	var entered: bool = next_coord != _current_module_coord
-	_current_module_coord = next_coord
-	var slot_key: String = _slot_key(next_coord)
-	var revealed_now: bool = not _revealed.has(slot_key)
-	var visited_now: bool = not _visited.has(slot_key)
-	_revealed[slot_key] = true
-	_visited[slot_key] = true
+	var visit_change: ModuleWorldStateRuntime.VisitChange = (
+		_world_state.enter_module(next_coord)
+	)
 	var streaming_change: Dictionary = _refresh_active_modules(next_coord)
 	return {
 		"current_module": _coord_to_dict(next_coord),
 		"local_cell": _coord_to_dict(module_and_local.get("local_cell", INVALID_COORD) as Vector2i),
-		"entered": entered,
-		"revealed_now": revealed_now,
-		"visited_now": visited_now,
+		"entered": visit_change.entered(),
+		"revealed_now": visit_change.revealed_now(),
+		"visited_now": visit_change.visited_now(),
 		"activated": streaming_change.get("activated", []),
 		"deactivated": streaming_change.get("deactivated", []),
 		"outside_world": false,
@@ -315,15 +309,15 @@ func map_hash() -> String:
 
 
 func current_module_coord() -> Vector2i:
-	return _current_module_coord
+	return _world_state.current_module_coord()
 
 
 func revealed_module_coords() -> Array[Vector2i]:
-	return _coords_from_set(_revealed)
+	return _world_state.revealed_module_coords()
 
 
 func visited_module_coords() -> Array[Vector2i]:
-	return _coords_from_set(_visited)
+	return _world_state.visited_module_coords()
 
 
 func active_module_coords() -> Array[Vector2i]:
@@ -331,11 +325,11 @@ func active_module_coords() -> Array[Vector2i]:
 
 
 func is_module_revealed(module_coord: Vector2i) -> bool:
-	return _revealed.has(_slot_key(module_coord))
+	return _world_state.is_module_revealed(module_coord)
 
 
 func is_module_visited(module_coord: Vector2i) -> bool:
-	return _visited.has(_slot_key(module_coord))
+	return _world_state.is_module_visited(module_coord)
 
 
 func is_module_active(module_coord: Vector2i) -> bool:
@@ -348,41 +342,43 @@ func set_slot_pinned(module_coord: Vector2i, pinned: bool) -> bool:
 	var slot_key: String = _slot_key(module_coord)
 	if not _assignment.has(slot_key):
 		return false
-	if pinned:
-		if _pinned_slots.has(slot_key):
-			return true
-		if _pinned_slots.size() >= MAX_PINNED_CHUNKS:
+	var mutation_result: int = _world_state.mutate_pin(module_coord, pinned)
+	match mutation_result:
+		ModuleWorldStateRuntime.PinMutationResult.REJECTED:
 			return false
-		_pinned_slots[slot_key] = true
-	else:
-		_pinned_slots.erase(slot_key)
-	_refresh_active_modules(_current_module_coord)
+		ModuleWorldStateRuntime.PinMutationResult.ACCEPTED_NO_REFRESH:
+			return true
+		ModuleWorldStateRuntime.PinMutationResult.ACCEPTED_REFRESH:
+			_refresh_active_modules(current_module_coord())
+		_:
+			return false
 	return true
 
 
 func pinned_module_coords() -> Array[Vector2i]:
-	return _coords_from_set(_pinned_slots)
+	return _world_state.pinned_module_coords()
 
 
 func set_slot_state(module_coord: Vector2i, state: Dictionary) -> void:
-	_slot_state_codec.set_state(module_coord, state)
+	_world_state.set_slot_state(module_coord, state)
 
 
 func slot_state(module_coord: Vector2i) -> Dictionary:
-	return _slot_state_codec.state(module_coord)
+	return _world_state.slot_state(module_coord)
 
 
 func snapshot() -> Dictionary:
+	var state_fields: Dictionary = _world_state.snapshot_fields()
 	return {
 		"world_id": String(_world_def.get("id", "")),
 		"run_seed": _run_seed,
 		"assignment": _assignment_entries(),
 		"map_hash": _map_hash,
-		"current_module": _coord_to_dict(_current_module_coord) if _is_module_coord_valid(_current_module_coord) else {},
-		"revealed": _coords_to_dict_array(revealed_module_coords()),
-		"visited": _coords_to_dict_array(visited_module_coords()),
-		"pinned_slots": _coords_to_dict_array(pinned_module_coords()),
-		"slot_states": _ordered_slot_states(),
+		"current_module": state_fields.get("current_module", {}),
+		"revealed": state_fields.get("revealed", []),
+		"visited": state_fields.get("visited", []),
+		"pinned_slots": state_fields.get("pinned_slots", []),
+		"slot_states": state_fields.get("slot_states", {}),
 	}
 
 
@@ -394,10 +390,10 @@ func restore_state(state: Dictionary) -> bool:
 	if not saved_world_id.is_empty() and saved_world_id != configured_world_id:
 		push_error("[ModuleWorldManager] snapshot world id does not match configured world")
 		return false
-	var restored_pins_result: Dictionary = _validated_pinned_slots(
-		state.get("pinned_slots", [])
+	var restored_world_state: ModuleWorldStateRuntime.RestoreCandidate = (
+		_world_state.prepare_restore(state)
 	)
-	if not bool(restored_pins_result.get("is_valid", false)):
+	if not restored_world_state.is_valid():
 		return false
 	var restored_assignment: Dictionary = {}
 	var previous_assignment: Dictionary = _assignment
@@ -432,16 +428,10 @@ func restore_state(state: Dictionary) -> bool:
 	_chunk_streaming_controller.clear_active()
 	_map_hash = restored_hash
 	_rebuild_navigation_field()
-	_revealed = _set_from_coord_array(state.get("revealed", []))
-	_visited = _set_from_coord_array(state.get("visited", []))
-	_pinned_slots = (
-		restored_pins_result.get("pinned_slots", {}) as Dictionary
-	).duplicate()
-	_slot_state_codec.restore_states(state.get("slot_states", {}))
-	_current_module_coord = _coord_from_variant(state.get("current_module", {}), INVALID_COORD)
-	if _is_module_coord_valid(_current_module_coord):
-		_refresh_active_modules(_current_module_coord)
-	elif not _pinned_slots.is_empty():
+	_world_state.commit_restore(restored_world_state)
+	if _is_module_coord_valid(current_module_coord()):
+		_refresh_active_modules(current_module_coord())
+	elif not pinned_module_coords().is_empty():
 		_refresh_active_modules(INVALID_COORD)
 	return true
 
@@ -461,11 +451,11 @@ func debug_summary() -> Dictionary:
 		"world_origin": _vector_to_dict(_world_origin),
 		"assignment_count": _assignment.size(),
 		"map_hash": _map_hash,
-		"current_module": _coord_to_dict(_current_module_coord) if _is_module_coord_valid(_current_module_coord) else {},
-		"revealed_count": _revealed.size(),
-		"visited_count": _visited.size(),
+		"current_module": _coord_to_dict(current_module_coord()) if _is_module_coord_valid(current_module_coord()) else {},
+		"revealed_count": revealed_module_coords().size(),
+		"visited_count": visited_module_coords().size(),
 		"active_count": _chunk_streaming_controller.active_count(),
-		"pinned_count": _pinned_slots.size(),
+		"pinned_count": pinned_module_coords().size(),
 		"pinned_slots": _coords_to_dict_array(pinned_module_coords()),
 		"world_event_assignment_count": _world_event_assignment_count(),
 		"world_event_template_ids": _world_event_template_ids(),
@@ -953,15 +943,7 @@ func _reset_world_state() -> void:
 	_navigation_field.clear()
 	_assignment.clear()
 	_map_hash = ""
-	_current_module_coord = INVALID_COORD
-	_revealed.clear()
-	_visited.clear()
-	_slot_state_codec.clear_states()
-	_pinned_slots.clear()
-
-
-func _validated_pinned_slots(value: Variant) -> Dictionary:
-	return _slot_state_codec.validate_pinned_slots(value, MAX_PINNED_CHUNKS)
+	_world_state.reset()
 
 
 func _world_event_template_ids() -> Array[String]:
@@ -1197,7 +1179,7 @@ func _is_global_cell_valid(global_cell: Vector2i) -> bool:
 
 
 func _is_module_coord_valid(module_coord: Vector2i) -> bool:
-	return _slot_state_codec.is_coord_valid(module_coord)
+	return _world_state.is_coord_valid(module_coord)
 
 
 func _is_local_cell_valid(local_cell: Vector2i) -> bool:
@@ -1205,7 +1187,7 @@ func _is_local_cell_valid(local_cell: Vector2i) -> bool:
 
 
 func _slot_key(module_coord: Vector2i) -> String:
-	return _slot_state_codec.slot_key(module_coord)
+	return _world_state.slot_key(module_coord)
 
 
 func _global_cell_key(global_cell: Vector2i) -> String:
@@ -1213,15 +1195,15 @@ func _global_cell_key(global_cell: Vector2i) -> String:
 
 
 func _coord_to_dict(coord: Vector2i) -> Dictionary:
-	return _slot_state_codec.coord_to_wire(coord)
+	return _world_state.coord_to_wire(coord)
 
 
 func _coords_to_dict_array(coords: Array[Vector2i]) -> Array[Dictionary]:
-	return _slot_state_codec.coords_to_wire(coords)
+	return _world_state.coords_to_wire(coords)
 
 
 func _coord_from_variant(raw_value: Variant, fallback: Vector2i) -> Vector2i:
-	return _slot_state_codec.coord_from_wire(raw_value, fallback)
+	return _world_state.coord_from_wire(raw_value, fallback)
 
 
 func _vector_from_variant(raw_value: Variant, fallback: Vector2) -> Vector2:
@@ -1236,18 +1218,6 @@ func _vector_to_dict(value: Vector2) -> Dictionary:
 		"x": value.x,
 		"y": value.y,
 	}
-
-
-func _coords_from_set(source: Dictionary) -> Array[Vector2i]:
-	return _slot_state_codec.coords_from_set(source)
-
-
-func _set_from_coord_array(raw_value: Variant) -> Dictionary:
-	return _slot_state_codec.set_from_wire(raw_value)
-
-
-func _ordered_slot_states() -> Dictionary:
-	return _slot_state_codec.ordered_states()
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:

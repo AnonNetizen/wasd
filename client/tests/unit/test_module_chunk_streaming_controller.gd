@@ -23,6 +23,7 @@ const MODULE_COLUMNS: int = 11
 const MODULE_ROWS: int = 11
 const EXPECTED_CHUNK_COUNT: int = 12
 const TEMPLATE_ID: String = "module_test"
+const ALTERNATE_TEMPLATE_ID: String = "module_alternate"
 const INVALID_TEMPLATE_ID: String = "module_invalid_neighbors"
 
 
@@ -307,14 +308,56 @@ func test_tampered_hash_restore_preserves_committed_world_and_streaming() -> voi
 	var manager: MODULE_WORLD_MANAGER_SCRIPT = _configured_world_manager()
 	var player_position: Vector2 = manager.global_cell_to_world(Vector2i(5, 5))
 	manager.tick(player_position)
-	var original_assignment: Dictionary = manager.assignment()
-	var original_hash: String = manager.map_hash()
-	var original_active: Array[Vector2i] = manager.active_module_coords()
-	var original_preloaded_count: int = int(
-		manager.debug_summary().get("preloaded_scene_count", 0)
+	assert_true(manager.set_slot_pinned(Vector2i(6, 6), true))
+	manager.set_slot_state(Vector2i(4, 4), {
+		"initialized": true,
+		"future": {"nested": [1, 2, 3]},
+	})
+	var before: Dictionary = _capture_manager_state(
+		manager,
+		Vector2i(4, 4),
+		Vector2i(0, 0)
 	)
+	assert_eq(int(before.get("preloaded_scene_count", 0)), 1)
+	assert_true(int(before.get("active_scene_instance_id", 0)) != 0)
 	var tampered_snapshot: Dictionary = manager.snapshot()
+	var candidate_assignment: Array = (
+		(tampered_snapshot.get("assignment", []) as Array).duplicate(true)
+	)
+	assert_true(_replace_assignment_template(
+		candidate_assignment,
+		Vector2i(3, 3),
+		ALTERNATE_TEMPLATE_ID
+	))
+	tampered_snapshot["assignment"] = candidate_assignment
+	tampered_snapshot["run_seed"] = int(before.get("run_seed", 0)) + 1
 	tampered_snapshot["map_hash"] = "tampered-map-hash"
+	tampered_snapshot["current_module"] = {"x": 6, "y": 6}
+	tampered_snapshot["revealed"] = [{"x": 6, "y": 6}]
+	tampered_snapshot["visited"] = [{"x": 5, "y": 5}]
+	tampered_snapshot["pinned_slots"] = [{"x": 0, "y": 6}]
+	tampered_snapshot["slot_states"] = {
+		"5,5": {"candidate_only": true},
+	}
+	var valid_candidate: Dictionary = tampered_snapshot.duplicate(true)
+	valid_candidate["map_hash"] = ""
+	var candidate_probe: MODULE_WORLD_MANAGER_SCRIPT = _configured_world_manager()
+	assert_true(candidate_probe.restore_state(valid_candidate))
+	assert_eq(
+		String(candidate_probe.assignment_at(Vector2i(3, 3)).get(
+			"template_id",
+			""
+		)),
+		ALTERNATE_TEMPLATE_ID
+	)
+	assert_eq(
+		int(candidate_probe.snapshot().get("run_seed", 0)),
+		int(before.get("run_seed", 0)) + 1
+	)
+	assert_eq(
+		int(candidate_probe.debug_summary().get("preloaded_scene_count", 0)),
+		2
+	)
 
 	var previous_print_error_messages: bool = Engine.print_error_messages
 	Engine.print_error_messages = false
@@ -322,13 +365,155 @@ func test_tampered_hash_restore_preserves_committed_world_and_streaming() -> voi
 	Engine.print_error_messages = previous_print_error_messages
 
 	assert_false(restore_succeeded)
-	assert_eq(manager.assignment(), original_assignment)
-	assert_eq(manager.map_hash(), original_hash)
-	assert_eq(manager.active_module_coords(), original_active)
+	_assert_manager_state_unchanged(
+		manager,
+		before,
+		Vector2i(4, 4),
+		Vector2i(0, 0)
+	)
+	assert_eq(manager.slot_state(Vector2i(5, 5)), {})
+	assert_true(manager.set_slot_pinned(Vector2i(6, 6), false))
+	manager.tick(Vector2(1_000_000.0, 1_000_000.0))
+	assert_eq(manager.active_module_coords(), [])
+	manager.tick(player_position)
+	assert_eq(manager.active_module_coords(), [Vector2i(0, 0)])
+	assert_eq(
+		_active_scene_instance_id(manager, Vector2i(0, 0)),
+		int(before.get("active_scene_instance_id", 0))
+	)
+	assert_eq(int(manager.debug_summary().get("preloaded_scene_count", 0)), 1)
+
+
+func test_malformed_assignment_restore_preserves_world_and_dynamic_state() -> void:
+	var manager: MODULE_WORLD_MANAGER_SCRIPT = _configured_world_manager()
+	manager.tick(manager.global_cell_to_world(Vector2i(5, 5)))
+	assert_true(manager.set_slot_pinned(Vector2i(6, 6), true))
+	manager.set_slot_state(Vector2i(4, 4), {
+		"initialized": true,
+		"future": {"stable": true},
+	})
+	var before: Dictionary = _capture_manager_state(
+		manager,
+		Vector2i(4, 4),
+		Vector2i(0, 0)
+	)
+	assert_eq(int(before.get("preloaded_scene_count", 0)), 1)
+	assert_true(int(before.get("active_scene_instance_id", 0)) != 0)
+	var malformed_snapshot: Dictionary = manager.snapshot()
+	var malformed_assignment: Array = (
+		(malformed_snapshot.get("assignment", []) as Array).duplicate(true)
+	)
+	malformed_assignment.pop_back()
+	malformed_snapshot["assignment"] = malformed_assignment
+	malformed_snapshot["run_seed"] = int(before.get("run_seed", 0)) + 1
+	malformed_snapshot["current_module"] = {"x": 6, "y": 6}
+	malformed_snapshot["revealed"] = [{"x": 6, "y": 6}]
+	malformed_snapshot["visited"] = [{"x": 5, "y": 5}]
+	malformed_snapshot["pinned_slots"] = [{"x": 0, "y": 6}]
+	malformed_snapshot["slot_states"] = {
+		"5,5": {"candidate_only": true},
+	}
+
+	assert_false(manager.restore_state(malformed_snapshot))
+	_assert_manager_state_unchanged(
+		manager,
+		before,
+		Vector2i(4, 4),
+		Vector2i(0, 0)
+	)
+	assert_eq(manager.slot_state(Vector2i(5, 5)), {})
+
+
+func _capture_manager_state(
+	manager: MODULE_WORLD_MANAGER_SCRIPT,
+	slot_state_coord: Vector2i,
+	active_coord: Vector2i
+) -> Dictionary:
+	var snapshot_state: Dictionary = manager.snapshot()
+	return {
+		"assignment": manager.assignment(),
+		"run_seed": int(snapshot_state.get("run_seed", 0)),
+		"map_hash": manager.map_hash(),
+		"active": manager.active_module_coords(),
+		"current": manager.current_module_coord(),
+		"revealed": manager.revealed_module_coords(),
+		"visited": manager.visited_module_coords(),
+		"pins": manager.pinned_module_coords(),
+		"slot_state": manager.slot_state(slot_state_coord),
+		"preloaded_scene_count": int(
+			manager.debug_summary().get("preloaded_scene_count", 0)
+		),
+		"active_scene_instance_id": _active_scene_instance_id(
+			manager,
+			active_coord
+		),
+	}
+
+
+func _assert_manager_state_unchanged(
+	manager: MODULE_WORLD_MANAGER_SCRIPT,
+	before: Dictionary,
+	slot_state_coord: Vector2i,
+	active_coord: Vector2i
+) -> void:
+	assert_eq(manager.assignment(), before.get("assignment"))
+	assert_eq(
+		int(manager.snapshot().get("run_seed", 0)),
+		int(before.get("run_seed", 0))
+	)
+	assert_eq(manager.map_hash(), before.get("map_hash"))
+	assert_eq(manager.active_module_coords(), before.get("active"))
+	assert_eq(manager.current_module_coord(), before.get("current"))
+	assert_eq(manager.revealed_module_coords(), before.get("revealed"))
+	assert_eq(manager.visited_module_coords(), before.get("visited"))
+	assert_eq(manager.pinned_module_coords(), before.get("pins"))
+	assert_eq(
+		manager.slot_state(slot_state_coord),
+		before.get("slot_state")
+	)
 	assert_eq(
 		int(manager.debug_summary().get("preloaded_scene_count", 0)),
-		original_preloaded_count
+		int(before.get("preloaded_scene_count", 0))
 	)
+	assert_eq(
+		_active_scene_instance_id(manager, active_coord),
+		int(before.get("active_scene_instance_id", 0))
+	)
+
+
+func _replace_assignment_template(
+	assignment_entries: Array,
+	module_coord: Vector2i,
+	template_id: String
+) -> bool:
+	for raw_entry: Variant in assignment_entries:
+		if not raw_entry is Dictionary:
+			continue
+		var entry: Dictionary = raw_entry as Dictionary
+		var raw_slot: Variant = entry.get("slot", {})
+		if not raw_slot is Dictionary:
+			continue
+		var slot: Dictionary = raw_slot as Dictionary
+		if (
+			int(slot.get("x", -1)) == module_coord.x
+			and int(slot.get("y", -1)) == module_coord.y
+		):
+			entry["template_id"] = template_id
+			return true
+	return false
+
+
+func _active_scene_instance_id(
+	manager: MODULE_WORLD_MANAGER_SCRIPT,
+	module_coord: Vector2i
+) -> int:
+	for child: Node in manager.get_children():
+		if not child is RecordingChunk:
+			continue
+		var chunk: RecordingChunk = child as RecordingChunk
+		if chunk.module_coord() == module_coord:
+			return chunk.configured_scene_instance_id()
+	return 0
 
 
 func _configured_world_manager() -> MODULE_WORLD_MANAGER_SCRIPT:
@@ -342,6 +527,7 @@ func _configured_world_manager() -> MODULE_WORLD_MANAGER_SCRIPT:
 		_manager_templates(),
 		{
 			TEMPLATE_ID: _generated_scene(TEMPLATE_ID),
+			ALTERNATE_TEMPLATE_ID: _generated_scene(ALTERNATE_TEMPLATE_ID),
 			INVALID_TEMPLATE_ID: _generated_scene(INVALID_TEMPLATE_ID),
 		},
 		8_109,
@@ -380,6 +566,7 @@ func _manager_world_definition() -> Dictionary:
 func _manager_registry() -> Dictionary:
 	return {
 		TEMPLATE_ID: _registry_entry(TEMPLATE_ID),
+		ALTERNATE_TEMPLATE_ID: _registry_entry(ALTERNATE_TEMPLATE_ID),
 		INVALID_TEMPLATE_ID: _registry_entry(INVALID_TEMPLATE_ID),
 	}
 
@@ -396,6 +583,10 @@ func _registry_entry(template_id: String) -> Dictionary:
 func _manager_templates() -> Dictionary:
 	return {
 		TEMPLATE_ID: _template_data(TEMPLATE_ID, true),
+		ALTERNATE_TEMPLATE_ID: _template_data(
+			ALTERNATE_TEMPLATE_ID,
+			true
+		),
 		INVALID_TEMPLATE_ID: _template_data(INVALID_TEMPLATE_ID, false),
 	}
 
@@ -554,6 +745,7 @@ class RecordingChunk:
 	var configure_should_fail: bool = false
 	var call_log: Array[String] = []
 	var _recorded_coord: Vector2i = Vector2i(-1, -1)
+	var _configured_scene_instance_id: int = 0
 
 
 	func configure(
@@ -571,6 +763,7 @@ class RecordingChunk:
 		if _generated_scene == null or configure_should_fail:
 			return false
 		_recorded_coord = module_coord_value
+		_configured_scene_instance_id = _generated_scene.get_instance_id()
 		return true
 
 
@@ -579,7 +772,12 @@ class RecordingChunk:
 			"clear:%d,%d" % [_recorded_coord.x, _recorded_coord.y]
 		)
 		_recorded_coord = Vector2i(-1, -1)
+		_configured_scene_instance_id = 0
 
 
 	func module_coord() -> Vector2i:
 		return _recorded_coord
+
+
+	func configured_scene_instance_id() -> int:
+		return _configured_scene_instance_id
