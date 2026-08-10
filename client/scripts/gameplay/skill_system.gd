@@ -196,6 +196,12 @@ func cast_slot(slot_id: String) -> Dictionary:
 	var targets: Array[Node] = _targets_for_skill(skill)
 	if targets.is_empty():
 		return _failed_cast(skill_id, "no_targets", {"slot_id": slot_id})
+	if not _register_cast_programs(skill, slot_id):
+		return _failed_cast(
+			skill_id,
+			"invalid_effect_program",
+			{"slot_id": slot_id}
+		)
 
 	if not _debug_free_casts:
 		_pay_costs(skill)
@@ -733,16 +739,6 @@ func _execute_skill_programs(
 	targets: Array[Node],
 	slot_id: String
 ) -> int:
-	_ensure_effect_runtime()
-	var programs: Array[Dictionary] = _scaled_programs(skill)
-	_effect_runtime.register_source(
-		"skill",
-		String(skill.get("id", "")),
-		slot_id,
-		0,
-		programs,
-		{"source_actor": _caster, "source_team": TEAM_PLAYER}
-	)
 	var result: Dictionary = _effect_runtime.emit_event(
 		EffectPrimitiveRegistry.TRIGGER_SKILL_ACTIVATED,
 		{
@@ -761,6 +757,19 @@ func _execute_skill_programs(
 		}
 	)
 	return int(result.get("applied_targets", 0))
+
+
+func _register_cast_programs(skill: Dictionary, slot_id: String) -> bool:
+	_ensure_effect_runtime()
+	var programs: Array[Dictionary] = _scaled_programs(skill)
+	return _effect_runtime.register_source(
+		"skill",
+		String(skill.get("id", "")),
+		slot_id,
+		0,
+		programs,
+		{"source_actor": _caster, "source_team": TEAM_PLAYER}
+	)
 
 
 func _scaled_programs(skill: Dictionary) -> Array[Dictionary]:

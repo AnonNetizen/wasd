@@ -17,6 +17,8 @@ def main() -> int:
         ("missing locale translation fails", _test_missing_locale_translation_fails),
         ("release preset dev tools fail", _test_release_preset_dev_tools_fail),
         ("release preset missing debug excludes fails", _test_release_preset_missing_debug_excludes_fails),
+        ("release preset missing GUT excludes fails", _test_release_preset_missing_gut_excludes_fails),
+        ("enabled GUT editor plugin fails", _test_enabled_gut_editor_plugin_fails),
         ("formal arena coupling fails", _test_formal_arena_coupling_fails),
     ]
 
@@ -39,6 +41,7 @@ def _test_golden_project_rules_pass() -> None:
         assert not lint_project_rules._check_data_fields_documented()
         assert not lint_project_rules._check_locale_bilingual()
         assert not lint_project_rules._check_release_presets()
+        assert not lint_project_rules._check_gut_editor_plugin_disabled()
 
 
 def _test_undocumented_data_field_fails() -> None:
@@ -97,6 +100,60 @@ def _test_release_preset_missing_debug_excludes_fails() -> None:
         errors = lint_project_rules._check_release_presets()
         assert any(
             "test-arena resources" in error.message
+            for error in errors
+        ), [error.format() for error in errors]
+
+
+def _test_release_preset_missing_gut_excludes_fails() -> None:
+    with _temporary_project() as root:
+        _write_minimal_project(root)
+        (root / "client" / "export_presets.cfg").write_text(
+            "\n".join(
+                [
+                    "[preset.0]",
+                    'name="Windows"',
+                    'export_path="build/windows/wasd.exe"',
+                    'custom_features=""',
+                    (
+                        'exclude_filter="scenes/debug/*,scripts/debug/*,'
+                        'tools/debug_test_arena_smoke.gd,'
+                        'tools/debug_tools_smoke.gd"'
+                    ),
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        _with_project_root(root)
+        errors = lint_project_rules._check_release_presets()
+        assert any(
+            error.rule == "release-test-assets"
+            and "addons/gut/*" in error.message
+            and "tests/*" in error.message
+            for error in errors
+        ), [error.format() for error in errors]
+
+
+def _test_enabled_gut_editor_plugin_fails() -> None:
+    with _temporary_project() as root:
+        _write_minimal_project(root)
+        (root / "client" / "project.godot").write_text(
+            "\n".join(
+                [
+                    "[editor_plugins]",
+                    (
+                        'enabled=PackedStringArray('
+                        '"res://addons/gut/plugin.cfg")'
+                    ),
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        _with_project_root(root)
+        errors = lint_project_rules._check_gut_editor_plugin_disabled()
+        assert any(
+            error.rule == "gut-editor-plugin-offline"
             for error in errors
         ), [error.format() for error in errors]
 
@@ -162,12 +219,17 @@ def _write_minimal_project(root: Path, *, item: dict[str, str] | None = None, lo
                 'custom_features=""',
                 (
                     'exclude_filter="scenes/debug/*,scripts/debug/*,'
+                    '.gutconfig.json,addons/gut/*,tests/*,'
                     'tools/debug_test_arena_smoke.gd,'
                     'tools/debug_tools_smoke.gd"'
                 ),
                 "",
             ]
         ),
+        encoding="utf-8",
+    )
+    (root / "client" / "project.godot").write_text(
+        "[editor_plugins]\nenabled=PackedStringArray()\n",
         encoding="utf-8",
     )
     (boot_dir / "formal_client_boot.gd").write_text(
@@ -199,6 +261,7 @@ def _with_project_root(root: Path) -> None:
     lint_project_rules.DATA_README = lint_project_rules.CLIENT_DATA / "README.md"
     lint_project_rules.LOCALE_CSV = root / "client" / "locale" / "strings.csv"
     lint_project_rules.EXPORT_PRESETS = root / "client" / "export_presets.cfg"
+    lint_project_rules.PROJECT_GODOT = root / "client" / "project.godot"
     lint_project_rules.FORMAL_CLIENT_BOOT = (
         root / "client" / "scripts" / "boot" / "formal_client_boot.gd"
     )

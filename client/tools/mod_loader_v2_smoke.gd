@@ -8,6 +8,13 @@ const TEST_ROOTS: Array[String] = [
 	"user://mods/l1_mod_v2_deep_bad",
 	"user://mods/l1_mod_v2_manifest_bad",
 	"user://mods/l1_mod_v2_zeta",
+	"user://mods/l1_mod_v2_manifest_budget",
+	"user://mods/l1_mod_v2_patch_budget",
+	"user://mods/l1_mod_v2_total_budget",
+	"user://mods/l1_mod_v2_json_depth_budget",
+	"user://mods/l1_mod_v2_json_node_budget",
+	"user://mods/l1_mod_v2_csv_row_budget",
+	"user://mods/l1_mod_v2_csv_column_budget",
 ]
 
 var _failures: Array[String] = []
@@ -27,9 +34,17 @@ func _run() -> void:
 	_write_invalid_package()
 	_write_deep_invalid_package()
 	_write_invalid_manifest_package()
+	_write_resource_budget_packages()
 	_expect(_reload_packages(), "main-menu package reload should succeed")
 	_expect(int(_mod_loader.call("enabled_mod_count")) == 3, "package validation should keep the DataLoader-level fixture until full schema validation")
 	_expect(_diagnostics_contain("manifest v2 fields only"), "manifest v2 should reject undeclared top-level fields")
+	_expect(_diagnostics_contain("JSON file budget of %d bytes" % MOD_LOADER_SCRIPT.MAX_MANIFEST_BYTES), "oversized manifest should be isolated")
+	_expect(_diagnostics_contain("file at most %d bytes" % MOD_LOADER_SCRIPT.MAX_GAMEPLAY_PATCH_FILE_BYTES), "oversized gameplay patch should be isolated")
+	_expect(_diagnostics_contain("patch declarations totaling at most %d bytes" % MOD_LOADER_SCRIPT.MAX_GAMEPLAY_PATCH_TOTAL_BYTES), "repeated gameplay patch declarations should count toward the package budget")
+	_expect(_diagnostics_contain("JSON depth budget of %d" % MOD_LOADER_SCRIPT.MAX_GAMEPLAY_JSON_DEPTH), "overly deep gameplay JSON should be isolated")
+	_expect(_diagnostics_contain("JSON node budget of %d" % MOD_LOADER_SCRIPT.MAX_GAMEPLAY_JSON_NODES), "oversized gameplay JSON tree should be isolated")
+	_expect(_diagnostics_contain("CSV row budget of %d" % MOD_LOADER_SCRIPT.MAX_GAMEPLAY_CSV_ROWS), "oversized gameplay CSV row set should be isolated")
+	_expect(_diagnostics_contain("CSV column budget of %d" % MOD_LOADER_SCRIPT.MAX_GAMEPLAY_CSV_COLUMNS), "oversized gameplay CSV column set should be isolated")
 
 	var environment: Array[Dictionary] = _mod_loader.call("mod_environment") as Array[Dictionary]
 	_expect(environment.size() == 3, "environment should contain package-level valid gameplay packages")
@@ -369,6 +384,131 @@ func _write_invalid_manifest_package() -> void:
 			"\t"
 		)
 	)
+
+
+func _write_resource_budget_packages() -> void:
+	_write_manifest_budget_package()
+	_write_patch_budget_package()
+	_write_total_budget_package()
+	_write_json_depth_budget_package()
+	_write_json_node_budget_package()
+	_write_csv_row_budget_package()
+	_write_csv_column_budget_package()
+
+
+func _write_manifest_budget_package() -> void:
+	var root: String = TEST_ROOTS[5]
+	DirAccess.make_dir_recursive_absolute(root)
+	var manifest: Dictionary = _budget_manifest("l1_mod_v2_manifest_budget", [])
+	_write_text(
+		root.path_join("mod.json"),
+		" ".repeat(MOD_LOADER_SCRIPT.MAX_MANIFEST_BYTES) + JSON.stringify(manifest)
+	)
+
+
+func _write_patch_budget_package() -> void:
+	var root: String = TEST_ROOTS[6]
+	DirAccess.make_dir_recursive_absolute(root.path_join("data"))
+	var patches: Array = [_json_budget_patch("data/oversized.json")]
+	_write_text(root.path_join("mod.json"), JSON.stringify(_budget_manifest("l1_mod_v2_patch_budget", patches), "\t"))
+	_write_text(
+		root.path_join("data/oversized.json"),
+		" ".repeat(MOD_LOADER_SCRIPT.MAX_GAMEPLAY_PATCH_FILE_BYTES + 1)
+	)
+
+
+func _write_total_budget_package() -> void:
+	var root: String = TEST_ROOTS[7]
+	DirAccess.make_dir_recursive_absolute(root.path_join("data"))
+	var patches: Array = []
+	var file_count: int = 5
+	var padding_size: int = int(MOD_LOADER_SCRIPT.MAX_GAMEPLAY_PATCH_TOTAL_BYTES / file_count) + 1
+	var relative_path: String = "data/reused.json"
+	_write_text(
+		root.path_join(relative_path),
+		" ".repeat(padding_size)
+		+ JSON.stringify({"reward_pool_contributions": []})
+	)
+	for index: int in range(file_count):
+		patches.append(_json_budget_patch(relative_path))
+	_write_text(root.path_join("mod.json"), JSON.stringify(_budget_manifest("l1_mod_v2_total_budget", patches), "\t"))
+
+
+func _write_json_depth_budget_package() -> void:
+	var root: String = TEST_ROOTS[8]
+	DirAccess.make_dir_recursive_absolute(root.path_join("data"))
+	_write_text(
+		root.path_join("mod.json"),
+		JSON.stringify(_budget_manifest("l1_mod_v2_json_depth_budget", [_json_budget_patch("data/deep.json")]), "\t")
+	)
+	var nesting: int = MOD_LOADER_SCRIPT.MAX_GAMEPLAY_JSON_DEPTH
+	_write_text(
+		root.path_join("data/deep.json"),
+		'{"reward_pool_contributions":' + "[".repeat(nesting) + "0" + "]".repeat(nesting) + "}"
+	)
+
+
+func _write_json_node_budget_package() -> void:
+	var root: String = TEST_ROOTS[9]
+	DirAccess.make_dir_recursive_absolute(root.path_join("data"))
+	_write_text(
+		root.path_join("mod.json"),
+		JSON.stringify(_budget_manifest("l1_mod_v2_json_node_budget", [_json_budget_patch("data/wide.json")]), "\t")
+	)
+	var values: PackedStringArray = PackedStringArray()
+	values.resize(MOD_LOADER_SCRIPT.MAX_GAMEPLAY_JSON_NODES * 2)
+	values.fill("0")
+	_write_text(root.path_join("data/wide.json"), '{"reward_pool_contributions":[' + ",".join(values) + "]}")
+
+
+func _write_csv_row_budget_package() -> void:
+	var root: String = TEST_ROOTS[10]
+	DirAccess.make_dir_recursive_absolute(root.path_join("data"))
+	var patch: Dictionary = {
+		"type": "csv_append",
+		"target": "strings.csv",
+		"path": "data/rows.csv",
+	}
+	_write_text(root.path_join("mod.json"), JSON.stringify(_budget_manifest("l1_mod_v2_csv_row_budget", [patch]), "\t"))
+	var lines: PackedStringArray = PackedStringArray(["keys,zh_CN,en"])
+	for index: int in range(MOD_LOADER_SCRIPT.MAX_GAMEPLAY_CSV_ROWS + 1):
+		lines.append("mod_l1_mod_v2_csv_row_budget_%d,zh,en" % index)
+	_write_text(root.path_join("data/rows.csv"), "\n".join(lines) + "\n")
+
+
+func _write_csv_column_budget_package() -> void:
+	var root: String = TEST_ROOTS[11]
+	DirAccess.make_dir_recursive_absolute(root.path_join("data"))
+	var patch: Dictionary = {
+		"type": "csv_append",
+		"target": "strings.csv",
+		"path": "data/columns.csv",
+	}
+	_write_text(root.path_join("mod.json"), JSON.stringify(_budget_manifest("l1_mod_v2_csv_column_budget", [patch]), "\t"))
+	var headers: PackedStringArray = PackedStringArray()
+	for index: int in range(MOD_LOADER_SCRIPT.MAX_GAMEPLAY_CSV_COLUMNS + 1):
+		headers.append("column_%d" % index)
+	_write_text(root.path_join("data/columns.csv"), ",".join(headers) + "\n")
+
+
+func _budget_manifest(package_id: String, patches: Array) -> Dictionary:
+	return {
+		"schema_version": 2,
+		"id": package_id,
+		"name": "Budget fixture",
+		"version": "1.0.0",
+		"contract_extensions": {},
+		"data_patches": patches,
+	}
+
+
+func _json_budget_patch(relative_path: String) -> Dictionary:
+	return {
+		"type": "json_array_append",
+		"target": "gear_mods.json",
+		"path": relative_path,
+		"array_key": "reward_pool_contributions",
+	}
 
 
 func _has_audio(audio_id: String) -> bool:

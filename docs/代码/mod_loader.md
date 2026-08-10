@@ -136,9 +136,21 @@
 
 路径必须是包目录内的 `/` 分隔相对路径；拒绝绝对路径、`..`、反斜杠、协议和盘符。append 不能覆盖基础记录。
 
+### 玩法 patch 资源预算
+
+| 对象 | 上限 |
+|------|------|
+| `mod.json` | 256 KiB |
+| 单个 JSON / CSV patch 文件 | 1 MiB |
+| 单包全部 patch 声明 | 4 MiB；同一文件被多个 append 声明复用时按每次声明重复计费，防止反复解析 / 深拷贝绕过预算 |
+| JSON | 最大深度 32、最多 50,000 个 value 节点 |
+| CSV | 最多 10,000 个非空数据行、每行（含 header）最多 64 列 |
+
+预算在内容进入缓存和 DataLoader 前执行；JSON 节点在加入待校验栈时即计数，待处理结构本身也不会越过 50,000 节点上限。任一玩法 patch 超限都会沿用现有 `invalid` 包级隔离，不保留部分 patch，也不影响基础数据或其他包。
+
 ## 包级隔离与环境指纹
 
-- 每个包先独立解析与校验，再进入基础数据合并；manifest、玩法 schema、ID 所有权或跨表失败会把该包标为 `invalid`。
+- 每个包先独立解析与校验，再进入基础数据合并；manifest、资源预算、玩法 schema、ID 所有权或跨表失败会把该包标为 `invalid`。
 - patch 内容在扫描时深拷贝缓存；磁盘变化必须等主菜单显式 `reload_packages()` 才可见。
 - `gameplay_hash` 覆盖包拥有的 Gear Mod id、玩法 components、掉落与奖励池贡献；locale、图片、音频、`codex_icon_path` 与 `placement_sfx_id` 不影响玩法 hash。
 - Run / Replay 必须保存 `mod_environment()`；环境缺失、版本或 hash 不符由 Save / Replay 阻止继续，不把文件当损坏档隔离。
@@ -179,6 +191,7 @@
 
 - 必跑 `py -3 tools/godot_bridge.py --project client mod-loader-smoke`。
 - 同时跑 ModLoader / AudioManager / Localization 目标 GDScript lint、数据校验和 headless boot。
+- 修改玩法 patch 读取边界时覆盖 manifest / 单文件 / 包总字节、JSON 深度 / 节点数和 CSV 行 / 列预算负例。
 - 修改 Gear Mod 最终 schema 时补 DataLoader schema 测试；修改环境指纹时补 Save / Replay mismatch 测试。
 - 真实本地包安装、主菜单诊断可读性、图片观感、音效质量和中英文 1920×1080 布局保持“待人工验收”。
 

@@ -1492,7 +1492,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `actions[].params.granted_ability_tags` | array[string] | ability tag id | 状态存续期间授予的能力标签，可为空 |
 | `actions[].params.modifiers[]` | array[object] | `{stat,type,value}` | `apply_status` / `temporary_modifier` 应用的属性修正 |
 | `actions[].params.modifiers[].scale_mode` | string | action 支持的缩放模式，可选 | 当前减速使用 `inverse_from_magnitude`；其他 modifier 可省略 |
-| `actions[].params.radius` / `hp` / `max_active` | number / number / int | `>= 0` / `> 0` / `>= 1` | `spawn_barrier` 半径、生命与同来源最大活动数量 |
+| `actions[].params.radius` / `hp` / `max_active` | number / number / int | `> 0` / `> 0` / `>= 1` | `spawn_barrier` 半径、生命与同来源最大活动数量 |
 | `actions[].params.recast_policy` | string | 当前 `replace` | 屏障重施策略；不允许内容自定义脚本策略 |
 
 `skills.json` 是技能本体数据；英雄只通过 `hero_skill_ids` 引用技能。冷却、消耗、目标选择与能力缩放仍由 `SkillSystem` 管理，效果执行统一迁入每局 `GameplayEffectRuntime`。当前四技能分别组合 `spawn_barrier`、`apply_status` 与 `temporary_modifier` action；运行时按 `skill_1`～`skill_4` 解释，禁止按技能或英雄 id 特判。

@@ -465,11 +465,11 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及 GM 指令或 runtime debug API 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；命令影响局内战斗时追加 `runtime-smoke`。
 - 涉及 `DEBUG_TEST_ARENA`、训练靶、作弊、伤害统计、测试岛死亡或存档 / 服务隔离时，必跑 `debug-test-arena-smoke` 与 `debug-tools-release-smoke`；正式 Player / Weapon / Skill / Enemy / Combat / Pool 适配变化追加 runtime、save、Gear Mod、L1、actor、完整 / 技术切片 module-world 和四条黄金回放。不得自动运行性能 probe。
 - 涉及模块世界、事件 placement、chunk / pin、迷雾、地图 hash 或 Run v19 恢复时，追加 `world-event-smoke`、`module-world-smoke`、`effect-runtime-smoke` 与 `save-smoke`，并跑 contracts、data 和 schema 检查。
-- 涉及默认解锁、规则组合、内容池过滤、Meta / Run / Replay 内容字段、图鉴锁定隐私或结算新解锁时，追加 `content-progression-smoke`、`codex-smoke`、`mod-loader-v2-smoke`、`runtime-smoke`、`save-smoke` 与四条 Replay v9 黄金回放；不得运行性能 probe 代替这些确定性门禁。
+- 涉及默认解锁、规则组合、内容池过滤、Meta / Run / Replay 内容字段、图鉴锁定隐私或结算新解锁时，追加 `content-progression-smoke`、`codex-smoke`、`mod-loader-smoke`、`runtime-smoke`、`save-smoke` 与四条 Replay v9 黄金回放；不得运行性能 probe 代替这些确定性门禁。
 - 涉及子弹地形阻挡、`wall_pierce` 或子弹能力快照时，必须跑完整与技术切片 `module-world-smoke`、`runtime-smoke`、`save-smoke`、`l1-smoke`、正式 headless boot 和四条黄金回放；契约或武器字段变化追加双端 schema 与契约同步。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 地图 / 机关数量、对象池生命周期或性能相关变化仍按对应功能 smoke 验证；影响稳定运行时摘要时重跑 checked-in golden replay runner。`startup-probe` / `perf-probe` 只有用户当次明确要求性能测试时才追加。
-- 当前没有 GUT runner，F4 首切片用 L0 + L2 + `runtime-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
+- GUT v9.7.1 已固定入库，项目测试按 `client/tests/unit/`、`integration/` 与 `support/` 分层；新增可独测领域边界优先补公开 API GUT，再按风险追加 L1 / L2 smoke，人工体验项仍单独标记待人工验收。
 
 ## 迁移 / 兼容
 

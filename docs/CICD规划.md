@@ -3,7 +3,7 @@
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
 > 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
-> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`；本地 `.pre-commit-config.yaml` 已复用同一批 Stage 1 脚本，并追加 Steamworks Lab toolchain 单元回归、模块相关路径条件式只读 `module-bake-check` 与 staged whitespace fix/check。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康检查和 whitespace diff；本地还守 Steamworks Lab console / 隔离 / App ID，以及模块 JSON v3、tile catalog、审核 hash 和生成 TSCN 规范指纹。常规 CI 暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
+> 当前状态：已启用 Stage 1 基础 workflow `.github/workflows/docs-check.yml` 与运行时 workflow `.github/workflows/godot-runtime.yml`。前者跑契约生成同步、数据 / locale、DataLoader schema、三档 GDScript / 项目规则 lint、文档健康和 whitespace；后者从 Godot 官方发布页下载并校验固定 SHA-512 的 `4.7.1`，串行执行版本门禁、正式 headless boot、GUT `9.7.1`、JUnit `tests > 0 / failures = 0 / errors = 0` 和稳定隔离 L1 smoke。黄金回放、平衡 sim、性能探针、commitlint 与复杂矩阵仍不进入常规 CI。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。ADR #143 后性能测试只由用户当次明确触发，不进入默认 CI 或 pre-commit。ADR #192 只改变本地验证编排、不改变本页 CI / hook 内容：每项任务先跑目标快检，交付前仍跑一次对应 pre-commit；完整门禁不得无诊断目的地重复。
 >
@@ -15,7 +15,7 @@
 
 | 特点 | 对 CI/CD 的影响 |
 |------|----------------|
-| **Godot 4.7.1 stable + GDScript**，正式 `client/` 已落地 | 可分阶段开：Stage 1 先守文档 / 数据 / lint；Godot headless、回放与平衡矩阵后续逐步接入 CI |
+| **Godot 4.7.1 stable + GDScript**，正式 `client/` 已落地 | Stage 1 守文档 / 数据 / lint；独立 runtime workflow 已守 Godot headless + GUT，回放与平衡矩阵后续再接入 |
 | **数据驱动**（`res://data/*.json`）+ 强契约（`词表与契约.md`） | CI 重点在「契约不漂移、数据不失效」 |
 | **文档密集**（GDD / AI导航 / ADR / 修改建议） | 重点防文档脱节、链接死链、版本号不同步 |
 | **代码-文档同源**（`docs/代码文档规范.md` + `docs/代码/`） | 代码落地后要检查长期模块是否有对应文档 |
@@ -49,7 +49,7 @@
 
 - Markdown lint（标题层级、行内格式）
 - 独立 Node / markdownlint 工具链
-- Godot headless、GUT、黄金回放和平衡 sim
+- Stage 1 workflow 本身不混跑运行时检查；Godot headless / GUT 已迁入独立 runtime workflow，黄金回放和平衡 sim 仍暂缓
 
 后续可在脚本稳定后把 1.B、1.C、1.D 拆成独立 workflow 或并入本 workflow。
 
@@ -96,7 +96,7 @@
 
 ### 2.E GDScript Lint + Format ⭐⭐⭐
 - 当前 Stage 1 已先启用 `tools/lint_gdscript_rules.py` 作为低误报项目红线 lint，并启用 `tools/lint_project_rules.py` 覆盖数据 / locale / release 边界，另以非阻塞 `tools/lint_semantic_rules.py` 提示较高误报风险的语义问题；本阶段继续补齐更完整的第三方格式化与静态分析。
-- DebugTools 已有本地 headless 验证：`python tools/godot_bridge.py --project client debug-tools-smoke` 覆盖 debug/dev_tools 控制台和 GM 命令，`python tools/godot_bridge.py --project client debug-test-arena-smoke` 直接启动并覆盖隔离的独立开发者测试岛，`python tools/godot_bridge.py --project client debug-tools-release-smoke` 覆盖 release guard，并临时导出 release PCK 后挂载检查调试目录 / smoke 不存在；项目 lint 另行强制正式 boot / title 对测试岛零引用。Godot headless CI 接入时应纳入这些边界检查。
+- DebugTools 已有本地 headless 验证：`python tools/godot_bridge.py --project client debug-tools-smoke` 覆盖 debug/dev_tools 控制台和 GM 命令，`python tools/godot_bridge.py --project client debug-test-arena-smoke` 直接启动并覆盖隔离的独立开发者测试岛，`python tools/godot_bridge.py --project client debug-tools-release-smoke` 覆盖 release guard，并临时导出 release PCK 后挂载检查调试目录 / smoke 不存在；项目 lint 另行强制正式 boot / title 对测试岛零引用。当前 runtime workflow 只纳入稳定 L1 子集，后续发布型 CI 再追加这些较重边界。
 - 使用 [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit)：
   - `gdlint`：静态检查（命名、未使用变量、复杂度）
   - `gdformat --check`：格式化检查
@@ -117,15 +117,17 @@
 - CI 用 `ajv-cli` 跑校验：字段缺失 / 类型错 / 取值越界 → 失败，输出精确路径（如 `gear_mods.json.mods[3].components[0].program.actions[0]`）
 - 与 1.B 的词表校验配合，形成「**结构对、id 也对**」双重保险
 
-### 2.G Godot Headless 启动验证 ⭐⭐⭐
-- 用官方 [`barichello/godot-ci`](https://github.com/abarichello/godot-ci) Docker 镜像
-- 跑：`godot --headless --quit`
-- 只要项目能成功启动并退出，就排除致命错误（脚本编译错、缺 autoload、场景引用断链）
-- 对 AI agent 价值极大——改完 push 上来 CI 能立即判定有没有崩
+### 2.G Godot Headless 启动验证 ⭐⭐⭐（已启用）
+- workflow：`.github/workflows/godot-runtime.yml`
+- 直接下载 Godot 官方 `4.7.1-stable` Linux 二进制并核对官方 SHA-512；随后要求 `--version` 精确等于 `4.7.1.stable.official.a13da4feb`
+- 通过 `python tools/godot_bridge.py --project client headless-boot` 串行执行 headless editor 扫描与正式客户端启动，且把 XDG data / config / cache 映射到 runner 临时目录
+- 任一脚本编译、autoload、场景引用、成功标记或致命日志门禁失败即中止
 
-### 2.H GUT 单元测试 ⭐⭐
-- [GUT](https://github.com/bitwes/Gut) 是 Godot 标配单测框架
-- F8 首片在 GUT 插件接入前，先用 `python tools/godot_bridge.py --project client l1-smoke` 作为临时 headless L1 runner，覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager` 和 `Combat` 的最小基础设施行为；RNG seed mixer / 子流集合变化追加 `python tools/godot_bridge.py --project client rng-audit` 做跨子流相关性审计；后续再迁入正式 GUT。
+### 2.H GUT 单元测试 ⭐⭐（已启用首片）
+- 固定 [GUT `v9.7.1`](https://github.com/bitwes/Gut/releases/tag/v9.7.1)（commit `aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605`），vendoring 官方 `addons/gut/`；插件代码使用 MIT，随包 Anonymous Pro、Courier Prime、Lobster Two、Adobe Source Code Pro 四个字体族使用 SIL OFL 1.1，保留 Anonymous Pro / Lobster 的 Reserved Font Name 约束以及 Source Code Pro 的 Reserved Font Name `Source`。完整离线 copyright notice 见 `client/addons/GUT_THIRD_PARTY_NOTICES.md`，OFL 文本与原始 metadata 按 `client/addons/README.md`、`CREDITS.md` 保留。发布归档 SHA-256 记录在 `client/addons/README.md`
+- `client/.gutconfig.json` 扫描 `tests/unit` 与 `tests/integration`；`tests/support/smoke_harness.gd` 只经公开 API 恢复确定性 fixture。首个真实用例覆盖 `RNG` 同 seed 序列与 snapshot restore
+- 本地与 CI 统一调用 `python tools/godot_bridge.py --project client gut`。Bridge 默认运行 unit + integration，在临时 `APPDATA` / XDG / `HOME` 下隔离 `user://`，拒绝 GUT / Godot fatal 与 GDScript 解析 / 加载错误，并要求 JUnit 文件存在、可解析且 `tests > 0 / failures = 0 / errors = 0`；不能把 Godot / GUT 退出码 0 单独当成通过
+- `l1-smoke` 与 `effect-runtime-smoke` 作为稳定隔离 L1 补充串行运行；其他旧 smoke 按测试策略继续保留，不因 GUT 首片立刻删除
 - 优先覆盖：
   - `ModifierEngine`：属性聚合 `(基础+加法)×乘法` 公式
   - `DataLoader`：坏数据能 fail-fast
@@ -242,8 +244,8 @@
 | 1 | E. 本地 pre-commit hook | **已配置** | 高 | 低 |
 | 2 | E. GDScript lint | 第一档与第三档 advisory 已并入 docs-check；完整 gdtoolkit 待代码规模扩大后 | 高 | 低 |
 | 2 | F. 数据 schema 校验 | 代码落地后 | 极高 | 中 |
-| 2 | G. Godot headless 启动 | 代码落地后 | 高 | 低 |
-| 2 | H. GUT 单测 | 核心系统就位后 | 中 | 中 |
+| 2 | G. Godot headless 启动 | **已启用运行时 workflow** | 高 | 低 |
+| 2 | H. GUT 单测 | **已启用首片与 tests>0 门禁** | 中 | 中 |
 | 2 | H+. 代码-文档对应检查 | 代码落地后 | 中 | 低 |
 | 3 | I. 多平台构建 + Release | 准备发布时 | 高 | 中 |
 | 3 | I+. 自动 CHANGELOG | 发布前 | 中 | 低 |
@@ -264,8 +266,8 @@
 1. **第一批（已启用基础版）**：1.A + 1.B + 1.C —— 契约同步、数据 / locale、DataLoader schema、第一档 GDScript lint、第二档项目规则 lint、第三档语义 advisory、文档健康与 whitespace 守门
 2. **第二批（下一步）**：1.D + 增量 watch —— commitlint 与保存即检体验；本地 pre-commit 已先落地
 3. **第三批（数据/locale 扩大后）**：2.F —— 更细 JSON Schema 与内容数据完整性校验
-4. **第四批（代码落地后）**：2.E + 2.G + 2.H+ —— GDScript 质量、启动验证与代码文档覆盖
-5. **第五批（核心系统稳定后）**：2.H —— 关键模块单测
+4. **第四批（已启用 2.G；其余渐进）**：2.E + 2.G + 2.H+ —— GDScript 质量、启动验证与代码文档覆盖
+5. **第五批（已启用 2.H 首片）**：继续把关键模块从白盒 smoke 迁到公开 API 的 GUT unit / integration 测试
 6. **第六批（准备发布时）**：3.I + 3.K —— 自动构建 + Web demo
 7. **第七批（回放系统落地后）**：4.L 健康度 + 4.M 回放回归
 8. **第八批（多人协作或体量大时）**：4.P 文档同步 + 4.O 标签 + 4.Q 依赖 + 4.N 平衡 sim

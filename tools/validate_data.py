@@ -48,6 +48,7 @@ GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
 CONTENT_UNLOCK_RULES_JSON = ROOT / "client" / "data" / "content_unlock_rules.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
+SNAKE_CASE_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
 
 INT_STATS = {"bullet_count", "pierce_count"}
@@ -93,6 +94,26 @@ WEAPON_STATS = {
     "spread_angle_max",
     "crit_chance",
     "crit_mult",
+}
+HERO_GEAR_STATS = {
+    "max_hp",
+    "max_shield",
+    "max_energy",
+    "health_regen",
+    "move_speed",
+    "ability_strength",
+    "ability_range",
+    "ability_efficiency",
+    "ability_duration",
+    "player_separation_radius",
+    "pickup_range",
+    "luck",
+    "armor",
+}
+TEMPORARY_MODIFIER_STATS_BY_SLOT = {
+    "actor": HERO_GEAR_STATS,
+    "weapon": WEAPON_STATS,
+    "both": HERO_GEAR_STATS | WEAPON_STATS,
 }
 REQUIRED_WEAPON_STATS = {
     "damage",
@@ -1783,7 +1804,7 @@ def _validate_effect_programs(
             ctx, path, f"{program_field}.program_id", program.get("program_id")
         )
         if program_id:
-            if not LOCALE_KEY_RE.fullmatch(program_id):
+            if not SNAKE_CASE_ID_RE.fullmatch(program_id):
                 ctx.error(path, f"{program_field}.program_id", "must be snake_case")
             elif program_id in seen_program_ids:
                 ctx.error(path, f"{program_field}.program_id", "must be unique within source")
@@ -1834,6 +1855,12 @@ def _validate_effect_programs(
                 f"{program_field}.reset_on_condition_fail",
                 program.get("reset_on_condition_fail"),
             )
+            if trigger_id != "interval":
+                ctx.error(
+                    path,
+                    f"{program_field}.reset_on_condition_fail",
+                    "is only valid for interval trigger",
+                )
         conditions = _require_list(
             ctx, path, f"{program_field}.conditions", program.get("conditions")
         )
@@ -1867,7 +1894,9 @@ def _validate_effect_programs(
                 )
                 if params.get("field") not in {"source_team", "target_team"}:
                     ctx.error(path, f"{params_field}.field", "must be source_team or target_team")
-                _require_non_empty_string(ctx, path, f"{params_field}.value", params.get("value"))
+                _require_trimmed_non_empty_string(
+                    ctx, path, f"{params_field}.value", params.get("value")
+                )
             elif condition_id == "element":
                 _validate_exact_object_keys(ctx, path, params_field, params, {"value"})
                 _require_registered(ctx, path, f"{params_field}.value", params.get("value"), "elements")
@@ -1875,7 +1904,9 @@ def _validate_effect_programs(
                 _validate_exact_object_keys(
                     ctx, path, params_field, params, {"value", "present"}
                 )
-                _require_non_empty_string(ctx, path, f"{params_field}.value", params.get("value"))
+                _require_trimmed_non_empty_string(
+                    ctx, path, f"{params_field}.value", params.get("value")
+                )
                 _require_bool(ctx, path, f"{params_field}.present", params.get("present"))
             elif condition_id == "actor_tag":
                 _validate_exact_object_keys(
@@ -1971,9 +2002,67 @@ def _validate_effect_action_params(
         _require_registered(ctx, path, f"{item_field}.params.stack_rule", params.get("stack_rule"), "status_stack_rules")
         _validate_registered_string_list(ctx, path, f"{item_field}.params.granted_ability_tags", params.get("granted_ability_tags", []), "ability_tags", allow_empty=True)
         if "modifiers" in params:
-            _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+            _validate_effect_modifiers(
+                ctx,
+                path,
+                f"{item_field}.params.modifiers",
+                params.get("modifiers"),
+                allow_inverse_from_magnitude="magnitude" in params,
+                allow_empty=True,
+            )
+        for optional_number in {
+            "magnitude",
+            "magnitude_cap",
+            "incoming_damage_per_stack",
+        }:
+            if optional_number in params:
+                _require_number(
+                    ctx,
+                    path,
+                    f"{item_field}.params.{optional_number}",
+                    params.get(optional_number),
+                    minimum=0,
+                )
+        if "tick_interval" in params:
+            _require_number(
+                ctx,
+                path,
+                f"{item_field}.params.tick_interval",
+                params.get("tick_interval"),
+                minimum=0,
+                exclusive_minimum=True,
+            )
+        if "max_stacks" in params:
+            _require_int(
+                ctx,
+                path,
+                f"{item_field}.params.max_stacks",
+                params.get("max_stacks"),
+                minimum=1,
+            )
+        if "incoming_damage_source_team" in params:
+            _require_trimmed_non_empty_string(
+                ctx,
+                path,
+                f"{item_field}.params.incoming_damage_source_team",
+                params.get("incoming_damage_source_team"),
+            )
         if "element_id" in params:
             _require_registered(ctx, path, f"{item_field}.params.element_id", params.get("element_id"), "elements")
+        if (
+            isinstance(params.get("magnitude"), (int, float))
+            and not isinstance(params.get("magnitude"), bool)
+            and params.get("magnitude", 0) > 0
+            and isinstance(params.get("tick_interval"), (int, float))
+            and not isinstance(params.get("tick_interval"), bool)
+            and params.get("tick_interval", 0) > 0
+            and "element_id" not in params
+        ):
+            ctx.error(
+                path,
+                f"{item_field}.params.element_id",
+                "is required for damage tick",
+            )
     if action_id == "temporary_modifier":
         _validate_required_optional_object_keys(
             ctx,
@@ -1986,7 +2075,21 @@ def _validate_effect_action_params(
         if params.get("slot") not in {"actor", "weapon", "both"}:
             ctx.error(path, f"{item_field}.params.slot", "must be actor, weapon, or both")
         _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
-        _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+        slot = params.get("slot")
+        _validate_effect_modifiers(
+            ctx,
+            path,
+            f"{item_field}.params.modifiers",
+            params.get("modifiers"),
+            supported_stats=TEMPORARY_MODIFIER_STATS_BY_SLOT.get(slot),
+            supported_label=f"{slot} slot" if slot in TEMPORARY_MODIFIER_STATS_BY_SLOT else "",
+        )
+        if "stack_rule" in params and params.get("stack_rule") != "REFRESH":
+            ctx.error(
+                path,
+                f"{item_field}.params.stack_rule",
+                "must equal REFRESH when provided",
+            )
     if action_id in {"heal", "grant_shield", "grant_overshield"}:
         _validate_exact_object_keys(ctx, path, f"{item_field}.params", params, {"amount"})
         _require_number(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=0, exclusive_minimum=True)
@@ -3999,7 +4102,16 @@ def _validate_stat_value(ctx: ValidationContext, path: Path, field: str, stat: s
         _require_number(ctx, path, field, value)
 
 
-def _validate_modifiers(ctx: ValidationContext, path: Path, field: str, data: Any, *, require_value_per_level: bool) -> None:
+def _validate_modifiers(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+    *,
+    require_value_per_level: bool,
+    supported_stats: set[str] | None = None,
+    supported_label: str = "",
+) -> None:
     modifiers = _require_list(ctx, path, field, data)
     for index, modifier in enumerate(modifiers):
         item_field = f"{field}[{index}]"
@@ -4018,6 +4130,70 @@ def _validate_modifiers(ctx: ValidationContext, path: Path, field: str, data: An
             _require_number(ctx, path, f"{item_field}.{value_field}", value, minimum=0)
         elif stat:
             _validate_stat_value(ctx, path, f"{item_field}.{value_field}", stat, value)
+        if stat and supported_stats is not None and stat not in supported_stats:
+            ctx.error(
+                path,
+                f"{item_field}.stat",
+                f"must be supported by {supported_label}",
+            )
+
+
+def _validate_effect_modifiers(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+    *,
+    supported_stats: set[str] | None = None,
+    supported_label: str = "",
+    allow_inverse_from_magnitude: bool = False,
+    allow_empty: bool = False,
+) -> None:
+    _validate_modifiers(
+        ctx,
+        path,
+        field,
+        data,
+        require_value_per_level=False,
+        supported_stats=supported_stats,
+        supported_label=supported_label,
+    )
+    modifiers = _require_list(ctx, path, field, data)
+    if not modifiers and not allow_empty:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, modifier in enumerate(modifiers):
+        item_field = f"{field}[{index}]"
+        if not isinstance(modifier, dict):
+            continue
+        _validate_required_optional_object_keys(
+            ctx,
+            path,
+            item_field,
+            modifier,
+            {"stat", "type", "value"},
+            {"scale_mode"},
+        )
+        if (
+            "scale_mode" in modifier
+            and modifier.get("scale_mode") != "inverse_from_magnitude"
+        ):
+            ctx.error(
+                path,
+                f"{item_field}.scale_mode",
+                "must equal inverse_from_magnitude",
+            )
+        if "scale_mode" in modifier and not allow_inverse_from_magnitude:
+            ctx.error(
+                path,
+                f"{item_field}.scale_mode",
+                "is only valid for apply_status with magnitude",
+            )
+        if "scale_mode" in modifier and modifier.get("type") != "mult":
+            ctx.error(
+                path,
+                f"{item_field}.type",
+                "must equal mult when scale_mode is present",
+            )
 
 
 def _validate_behaviors(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
@@ -5648,6 +5824,18 @@ def _require_registered(ctx: ValidationContext, path: Path, field: str, value: A
 def _require_non_empty_string(ctx: ValidationContext, path: Path, field: str, value: Any) -> str | None:
     if not isinstance(value, str) or not value:
         ctx.error(path, field, "must be a non-empty string")
+        return None
+    return value
+
+
+def _require_trimmed_non_empty_string(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        ctx.error(path, field, "must be a non-whitespace string")
         return None
     return value
 

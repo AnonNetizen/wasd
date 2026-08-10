@@ -5,49 +5,26 @@ extends Node
 
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
-const ACTOR_SCENE_SMOKE_SCRIPT_PATH: String = "res://tools/actor_scene_smoke.gd"
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const GEAR_MOD_PICKUP_CAPTURE_SCRIPT_PATH: String = (
 	"res://tools/capture_gear_mod_pickup_runtime.gd"
 )
 const CODEX_PANEL_SCENE := preload("res://scenes/ui/codex_panel.tscn")
-const CODEX_SMOKE_SCRIPT_PATH: String = "res://tools/codex_smoke.gd"
-const CONTENT_PROGRESSION_SMOKE_SCRIPT_PATH: String = (
-	"res://tools/content_progression_smoke.gd"
-)
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
-const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
-const EFFECT_RUNTIME_SMOKE_SCRIPT_PATH: String = (
-	"res://tools/effect_runtime_smoke.gd"
-)
-const F9_DEMO_SMOKE_SCRIPT_PATH: String = "res://tools/f9_demo_smoke.gd"
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
-const GEAR_MOD_SMOKE_SCRIPT_PATH: String = "res://tools/gear_mod_smoke.gd"
-const GEAR_MOD_PICKUP_SMOKE_SCRIPT_PATH: String = (
-	"res://tools/gear_mod_pickup_smoke.gd"
-)
 const GOLDEN_REPLAY_CAPTURE_SCRIPT_PATH: String = "res://tools/golden_replay_capture.gd"
 const HERO_COMPOSITION_PANEL_SCENE := preload("res://scenes/ui/hero_composition_panel.tscn")
-const INPUT_SMOKE_SCRIPT_PATH: String = "res://tools/input_smoke.gd"
-const L1_SMOKE_SCRIPT_PATH: String = "res://tools/l1_smoke.gd"
 const LOADING_SCREEN_SCENE := preload("res://scenes/ui/loading_screen.tscn")
-const LOADING_SMOKE_SCRIPT_PATH: String = "res://tools/loading_smoke.gd"
-const MODULE_WORLD_SMOKE_SCRIPT_PATH: String = "res://tools/module_world_smoke.gd"
 const MOD_PANEL_SCENE := preload("res://scenes/ui/mod_panel.tscn")
-const RUNTIME_SMOKE_SCRIPT_PATH: String = "res://tools/runtime_smoke.gd"
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
-const UI_MANAGER_SMOKE_SCRIPT_PATH: String = "res://tools/ui_manager_smoke.gd"
-const VFX_SMOKE_SCRIPT_PATH: String = "res://tools/vfx_smoke.gd"
 const PERF_PROBE_SCRIPT_PATH: String = "res://tools/perf_probe.gd"
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
-const REPLAY_INPUT_SMOKE_SCRIPT_PATH: String = "res://tools/replay_input_smoke.gd"
 const REPLAY_RUNNER_SCRIPT_PATH: String = "res://tools/replay_runner.gd"
-const REPLAY_SMOKE_SCRIPT_PATH: String = "res://tools/replay_smoke.gd"
 const RNG_AUDIT_SCRIPT_PATH: String = "res://tools/rng_audit.gd"
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
-const SAVE_SMOKE_SCRIPT_PATH: String = "res://tools/save_manager_smoke.gd"
-const SETTINGS_SMOKE_SCRIPT_PATH: String = "res://tools/settings_smoke.gd"
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
+const SMOKE_COMMAND_CATALOG_PATH: String = "res://tools/smoke_commands.json"
+const SMOKE_COMMAND_CATALOG_SCHEMA_VERSION: int = 1
 const STARTUP_PROBE_SCRIPT_PATH: String = "res://tools/startup_probe.gd"
 
 enum PlayerLoadMode {
@@ -131,40 +108,17 @@ func _ready() -> void:
 		RNG.run_seed(),
 	])
 
-	if _is_content_progression_smoke_enabled():
-		_install_dynamic_runner(
-			CONTENT_PROGRESSION_SMOKE_SCRIPT_PATH,
-			"ContentProgressionSmoke"
-		)
-	elif _is_codex_smoke_enabled():
-		_install_dynamic_runner(CODEX_SMOKE_SCRIPT_PATH, "CodexSmoke")
-	elif _is_actor_scene_smoke_enabled():
-		_install_dynamic_runner(
-			ACTOR_SCENE_SMOKE_SCRIPT_PATH,
-			"ActorSceneSmoke"
-		)
-	elif _is_effect_runtime_smoke_enabled():
-		_install_dynamic_runner(
-			EFFECT_RUNTIME_SMOKE_SCRIPT_PATH,
-			"EffectRuntimeSmoke"
-		)
-	elif _is_l1_smoke_enabled():
-		_install_dynamic_runner(L1_SMOKE_SCRIPT_PATH, "L1Smoke")
-	elif _is_replay_smoke_enabled():
-		_install_dynamic_runner(REPLAY_SMOKE_SCRIPT_PATH, "ReplaySmoke")
+	var test_command_request: Dictionary = _resolve_test_command_request()
+	if not bool(test_command_request.get("valid", false)):
+		return
+	if bool(test_command_request.get("requested", false)):
+		var test_command_id: String = String(test_command_request.get("id", ""))
+		var test_command: Dictionary = _load_formal_test_command(test_command_id)
+		if test_command.is_empty():
+			return
+		_launch_formal_test_command(test_command, data_schema_ok)
 	elif _is_replay_runner_enabled():
 		_install_dynamic_runner(REPLAY_RUNNER_SCRIPT_PATH, "ReplayRunner")
-	elif _is_replay_input_smoke_enabled():
-		_install_dynamic_runner(
-			REPLAY_INPUT_SMOKE_SCRIPT_PATH,
-			"ReplayInputSmoke"
-		)
-	elif _is_input_smoke_enabled():
-		_install_dynamic_runner(INPUT_SMOKE_SCRIPT_PATH, "InputSmoke")
-	elif _is_loading_smoke_enabled():
-		if data_schema_ok:
-			_show_title_menu()
-		_install_dynamic_runner(LOADING_SMOKE_SCRIPT_PATH, "LoadingSmoke")
 	elif _is_rng_audit_enabled():
 		_install_dynamic_runner(RNG_AUDIT_SCRIPT_PATH, "RNGAudit")
 	elif _is_golden_replay_capture_enabled():
@@ -180,42 +134,6 @@ func _ready() -> void:
 		if data_schema_ok:
 			_start_gameplay_run()
 		_install_dynamic_runner(STARTUP_PROBE_SCRIPT_PATH, "StartupProbe")
-	elif _is_debug_tools_smoke_enabled():
-		if data_schema_ok:
-			_start_gameplay_run()
-		_install_dynamic_runner(
-			DEBUG_TOOLS_SMOKE_SCRIPT_PATH,
-			"DebugToolsSmoke"
-		)
-	elif _is_f9_demo_smoke_enabled():
-		if data_schema_ok:
-			_open_warzone_launch = true
-			_start_gameplay_run({}, true)
-		_install_dynamic_runner(F9_DEMO_SMOKE_SCRIPT_PATH, "F9DemoSmoke")
-	elif _is_module_world_smoke_enabled():
-		if data_schema_ok:
-			_start_gameplay_run()
-		_install_dynamic_runner(
-			MODULE_WORLD_SMOKE_SCRIPT_PATH,
-			"ModuleWorldSmoke"
-		)
-	elif _is_runtime_smoke_enabled():
-		if data_schema_ok:
-			_open_warzone_launch = true
-			_start_gameplay_run({}, true)
-		_install_dynamic_runner(RUNTIME_SMOKE_SCRIPT_PATH, "RuntimeSmoke")
-	elif _is_save_smoke_enabled():
-		_install_dynamic_runner(SAVE_SMOKE_SCRIPT_PATH, "SaveManagerSmoke")
-	elif _is_gear_mod_smoke_enabled():
-		_install_dynamic_runner(GEAR_MOD_SMOKE_SCRIPT_PATH, "GearModSmoke")
-	elif _is_gear_mod_pickup_smoke_enabled():
-		if data_schema_ok:
-			_open_warzone_launch = true
-			_start_gameplay_run({}, true)
-		_install_dynamic_runner(
-			GEAR_MOD_PICKUP_SMOKE_SCRIPT_PATH,
-			"GearModPickupSmoke"
-		)
 	elif _is_gear_mod_pickup_capture_enabled():
 		if data_schema_ok:
 			_open_warzone_launch = true
@@ -224,15 +142,6 @@ func _ready() -> void:
 			GEAR_MOD_PICKUP_CAPTURE_SCRIPT_PATH,
 			"GearModPickupCapture"
 		)
-	elif _is_settings_smoke_enabled():
-		_install_dynamic_runner(SETTINGS_SMOKE_SCRIPT_PATH, "SettingsSmoke")
-	elif _is_ui_manager_smoke_enabled():
-		_install_dynamic_runner(
-			UI_MANAGER_SMOKE_SCRIPT_PATH,
-			"UIManagerSmoke"
-		)
-	elif _is_vfx_smoke_enabled():
-		_install_dynamic_runner(VFX_SMOKE_SCRIPT_PATH, "VfxSmoke")
 	elif _module_world_technical_slice_launch:
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -258,28 +167,151 @@ func debug_active_run_loop() -> Node:
 	return _run_loop if _run_loop != null and is_instance_valid(_run_loop) else null
 
 
-func _is_runtime_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
+func _resolve_test_command_request() -> Dictionary:
+	var requested: bool = false
+	var command_id: String = ""
+	var user_args: PackedStringArray = OS.get_cmdline_user_args()
+	for index: int in range(user_args.size()):
+		if user_args[index] != "--test-command":
+			continue
+		if requested:
+			_fail_test_command("--test-command may only be provided once")
+			return {"requested": true, "valid": false}
+		requested = true
+		if index + 1 >= user_args.size():
+			_fail_test_command("--test-command requires a command id")
+			return {"requested": true, "valid": false}
+		command_id = user_args[index + 1].strip_edges()
+		if command_id.is_empty() or command_id.begins_with("--"):
+			_fail_test_command("--test-command requires a command id")
+			return {"requested": true, "valid": false}
+	return {
+		"requested": requested,
+		"valid": true,
+		"id": command_id,
+	}
 
 
-func _is_effect_runtime_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--effect-runtime-smoke")
+func _load_formal_test_command(command_id: String) -> Dictionary:
+	if not FileAccess.file_exists(SMOKE_COMMAND_CATALOG_PATH):
+		_fail_test_command(
+			"missing smoke command catalog: %s"
+			% SMOKE_COMMAND_CATALOG_PATH
+		)
+		return {}
+	var parser := JSON.new()
+	var parse_error: Error = parser.parse(
+		FileAccess.get_file_as_string(SMOKE_COMMAND_CATALOG_PATH)
+	)
+	if parse_error != OK:
+		_fail_test_command(
+			"invalid smoke command catalog JSON at line %d: %s"
+			% [parser.get_error_line(), parser.get_error_message()]
+		)
+		return {}
+	if not (parser.data is Dictionary):
+		_fail_test_command("smoke command catalog root must be an object")
+		return {}
+	var payload: Dictionary = parser.data as Dictionary
+	if int(payload.get("schema_version", -1)) != SMOKE_COMMAND_CATALOG_SCHEMA_VERSION:
+		_fail_test_command(
+			"unsupported smoke command catalog schema: %s"
+			% str(payload.get("schema_version", null))
+		)
+		return {}
+	var raw_commands: Variant = payload.get("commands", null)
+	if not (raw_commands is Array) or (raw_commands as Array).is_empty():
+		_fail_test_command("smoke command catalog commands must be a non-empty array")
+		return {}
+	var selected: Dictionary = {}
+	var seen_ids: Dictionary = {}
+	for raw_descriptor: Variant in raw_commands as Array:
+		if not (raw_descriptor is Dictionary):
+			_fail_test_command("smoke command descriptor must be an object")
+			return {}
+		var descriptor: Dictionary = raw_descriptor as Dictionary
+		var descriptor_id: String = String(descriptor.get("id", ""))
+		if descriptor_id.is_empty():
+			_fail_test_command("smoke command descriptor requires a non-empty id")
+			return {}
+		if seen_ids.has(descriptor_id):
+			_fail_test_command("duplicate smoke command id: %s" % descriptor_id)
+			return {}
+		seen_ids[descriptor_id] = true
+		if descriptor_id == command_id:
+			selected = descriptor.duplicate(true)
+	if selected.is_empty():
+		_fail_test_command("unknown test command: %s" % command_id)
+		return {}
+	if String(selected.get("runner_type", "")) != "formal_boot":
+		_fail_test_command(
+			"test command is not a FormalClientBoot runner: %s" % command_id
+		)
+		return {}
+	var runner_path: String = String(selected.get("runner_path", ""))
+	if (
+		not runner_path.begins_with("res://")
+		or not runner_path.ends_with(".gd")
+		or runner_path.contains("..")
+		or not ResourceLoader.exists(runner_path)
+	):
+		_fail_test_command(
+			"invalid FormalClientBoot runner path for %s: %s"
+			% [command_id, runner_path]
+		)
+		return {}
+	var runner_node_name: String = String(selected.get("runner_node_name", ""))
+	if runner_node_name.is_empty():
+		_fail_test_command("test command requires runner_node_name: %s" % command_id)
+		return {}
+	var setup: String = String(selected.get("formal_boot_setup", ""))
+	if setup not in [
+		"runner_only",
+		"show_title_menu",
+		"start_gameplay",
+		"start_open_warzone",
+		"start_module_world_technical",
+	]:
+		_fail_test_command(
+			"unsupported FormalClientBoot setup for %s: %s"
+			% [command_id, setup]
+		)
+		return {}
+	return selected
 
 
-func _is_content_progression_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--content-progression-smoke")
+func _launch_formal_test_command(
+	descriptor: Dictionary,
+	data_schema_ok: bool
+) -> void:
+	var setup: String = String(descriptor.get("formal_boot_setup", ""))
+	match setup:
+		"runner_only":
+			pass
+		"show_title_menu":
+			if data_schema_ok:
+				_show_title_menu()
+		"start_gameplay", "start_module_world_technical":
+			if setup == "start_module_world_technical":
+				_module_world_technical_slice_launch = true
+			if data_schema_ok:
+				_start_gameplay_run()
+		"start_open_warzone":
+			if data_schema_ok:
+				_open_warzone_launch = true
+				_start_gameplay_run({}, true)
+		_:
+			_fail_test_command("unsupported FormalClientBoot setup: %s" % setup)
+			return
+	_install_dynamic_runner(
+		String(descriptor.get("runner_path", "")),
+		String(descriptor.get("runner_node_name", ""))
+	)
 
 
-func _is_codex_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--codex-smoke")
-
-
-func _is_actor_scene_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--actor-scene-smoke")
-
-
-func _is_module_world_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--module-world-smoke")
+func _fail_test_command(message: String) -> void:
+	push_error("%s test command rejected: %s" % [BOOT_LOG_PREFIX, message])
+	get_tree().quit(1)
 
 
 func _is_module_world_technical_slice_launch_enabled() -> bool:
@@ -292,28 +324,8 @@ func _is_open_warzone_launch_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--open-warzone")
 
 
-func _is_l1_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--l1-smoke")
-
-
-func _is_replay_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--replay-smoke")
-
-
 func _is_replay_runner_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--replay-runner")
-
-
-func _is_replay_input_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--replay-input-smoke")
-
-
-func _is_input_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--input-smoke")
-
-
-func _is_loading_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--loading-smoke")
 
 
 func _is_rng_audit_enabled() -> bool:
@@ -332,45 +344,13 @@ func _is_startup_probe_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--startup-probe")
 
 
-func _is_debug_tools_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--debug-tools-smoke")
-
-
-func _is_f9_demo_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--f9-demo-smoke")
-
-
-func _is_save_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--save-smoke")
-
-
-func _is_gear_mod_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--gear-mod-smoke")
-
-
-func _is_gear_mod_pickup_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--gear-mod-pickup-smoke")
-
-
 func _is_gear_mod_pickup_capture_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--capture-gear-mod-pickup")
 
 
-func _is_settings_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--settings-smoke")
-
-
-func _is_ui_manager_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--ui-manager-smoke")
-
-
-func _is_vfx_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--vfx-smoke")
-
-
 func _is_automation_progress_isolated() -> bool:
 	for argument: String in OS.get_cmdline_user_args():
-		if argument.ends_with("-smoke"):
+		if argument == "--test-command":
 			return true
 		if argument in [
 			"--replay-runner",

@@ -9,6 +9,8 @@
 - `SkillSystem.cast_slot(slot_id)` 管理四槽独立冷却、共享能量、目标筛选、激活事件提交和 Run v19 快照。冷却键永远是槽位，不是 skill id；技能与被动随所属英雄整包解锁，不建立独立资格。
 - ADR #166 后 RunLoop 通过 `configure_combat_gate()` 注入起点房门禁；锁定时释放返回 `reason=combat_locked`，不消耗能量、不进入冷却，且技能必须松开后重新按键。
 - 主英雄 `ability_strength` / `ability_range` / `ability_efficiency` / `ability_duration` 作用于全部四槽，但只缩放技能数据明确声明的参数。
+- `SkillValueResolver` 只更新 action 原本声明的字段；例如没有 `modifiers` 的屏障 / 伤害 action 不会因 strength 缩放被补入空字段，确保缩放后的程序仍通过 primitive 精确参数契约。
+- `cast_slot()` 在扣除资源、添加临时 activation tag 和写入槽位 cooldown 前，必须先让缩放后的非空 programs 通过 `GameplayEffectRuntime.register_source()`；空 programs、非法 program envelope 或 primitive 参数都会返回 `invalid_effect_program`，不消耗资源、不进入 cooldown，也不发出效果。
 - 技能行为只能由 skills v3 `programs[]` 和共享 trigger / condition / action 原语表达；首版技能程序只使用 `skill_activated` trigger，禁止按 hero id 或 skill id 写分支。
 - `SkillSystem` 保留成本、冷却、目标和能力缩放；效果执行迁入每局 `GameplayEffectRuntime`，所有副作用经 `EffectExecutionGateway`。不实现局内换子英雄、技能轮盘、网络预测或组合专属技能。
 

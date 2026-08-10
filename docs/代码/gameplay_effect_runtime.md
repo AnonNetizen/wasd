@@ -6,7 +6,7 @@
 ## 职责
 
 - `GameplayEffectRuntime` 每局管理技能与 Gear Mod 效果来源、FIFO 事件队列、程序内部冷却、周期累计、动作状态、确定性顺序、快照与诊断。
-- `EffectPrimitiveRegistry` 把已登记 trigger / condition / action 映射到通用 handler；新增原语不修改内容 id 分支。
+- `EffectPrimitiveRegistry` 把已登记 trigger / condition / action 映射到通用 handler，并在来源注册前按原语执行参数级校验；新增原语不修改内容 id 分支。
 - `EffectExecutionGateway` 是效果动作访问 `Combat`、`StatusEffectComponent`、临时 modifier、金币、投射物、敌人、屏障及后续 `AudioManager` 的唯一出口。
 - 本模块不负责技能冷却 / 消耗 / 目标选择、Gear Mod 棋盘合法性、内容解锁、数据加载或存档 envelope。
 
@@ -43,7 +43,7 @@
 | 阶段 | 行为 | 确定性约束 |
 |------|------|------------|
 | 配置 | `configure(registry, gateway)` 清空来源、队列、诊断和预算 | 每局新建；不复用上一局状态 |
-| 注册来源 | 技能按 skill id / slot，Gear Mod 按 mod id / instance id / 组件顺序注册 programs | 来源按 type → content id → instance id → component order 排序；program 按数据顺序 |
+| 注册来源 | 技能按 skill id / slot，Gear Mod 按 mod id / instance id / 组件顺序注册非空 programs；Runtime 先校验 program 顶层精确字段、类型、trigger 专属字段与非空 actions，Registry 再校验每个 condition / action 的参数 | 来源按 type → content id → instance id → component order 排序；program 按数据顺序；非法 envelope / 参数在进入队列、预算和 cooldown 前拒绝 |
 | 触发事件 | `emit_event()` 深拷贝 context 并加入 FIFO；嵌套触发追加到队尾 | 最大链深 8；超限记录诊断并拒绝该链 |
 | 条件 / 概率 | 依次检查全部 conditions，再判定 `proc_chance` | 概率只走 `RNG.combat`；`1.0` 不消费 roll |
 | 执行动作 | actions 按数组顺序经 Registry → Gateway 执行 | 每 gameplay tick 最多 256 个动作；超限清空剩余队列并记录诊断 |
@@ -55,7 +55,7 @@
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
 | `configure(registry, gateway)` | `EffectPrimitiveRegistry`, `EffectExecutionGateway` | `void` | 两者必须是本局受控实例 |
-| `register_source(source_type, content_id, instance_id, component_order, programs, metadata)` | 稳定来源字段与程序数组 | `bool` | program id 来源内唯一；trigger / conditions / actions 全部已登记且结构合法 |
+| `register_source(source_type, content_id, instance_id, component_order, programs, metadata)` | 稳定来源字段与非空程序数组 | `bool` | program id 为 snake_case 且来源内唯一；顶层只允许必需字段和 interval / reset 可选字段，数值 / bool 类型精确；trigger / conditions / actions 全部已登记且每个 primitive 参数通过 Registry 校验；失败来源不会进入运行态或消耗预算 / cooldown |
 | `unregister_source(source_key)` | 稳定来源 key | `void` | 移除定义与运行态 |
 | `unregister_source_type(source_type)` | 来源类型 | `void` | 技能重新配置时批量替换来源 |
 | `source_key(...)` | 与注册来源相同的标识字段 | `String` | 供定向事件和快照对齐，不由内容作者手写 |
@@ -74,6 +74,8 @@
 
 首版 action：`damage`、`apply_status`、`temporary_modifier`、`heal`、`grant_shield`、`grant_overshield`、`grant_gold`、`spawn_projectile`、`spawn_enemy`、`spawn_barrier`。动作项固定为 `{action,params}`；伤害必须走 `Combat.apply_damage()`，状态走 `StatusEffectComponent`，生成与金币通过 GameplayRunLoop 注入的 Gateway delegate。
 
+Registry 的参数校验是 Runtime 公共扩展边界，不依赖调用方先经过 DataLoader。它与 DataLoader 的正式内容 schema 保持同一核心约束：必需 / 可选 key、有限正数、stat 对应的整数 / 比例 / 正数 / 非负范围、生成契约 id、exact-key 的 modifier 结构、投射物目标组和生成策略必须在 `register_source()` 时合法。`apply_status.modifiers` 是可选附加项并允许空数组，必填的 `temporary_modifier.modifiers` 必须非空。modifier 当前唯一可选缩放模式 `inverse_from_magnitude` 只允许出现在携带 `magnitude` 的 `apply_status`，且对应 modifier 必须是 `mult`；其他 action、缺失 magnitude 或加法 modifier 都在注册阶段拒绝。`apply_status` 在 `magnitude` 与 `tick_interval` 都为正时必须提供已登记 `element_id`，避免执行期才得到无效 DoT。`temporary_modifier` 还必须保证 `actor` 只携带 Player 消费的 hero stat、`weapon` 只携带 WeaponSystem 消费的 weapon stat，`both` 可使用两者并集；不允许注册后静默丢弃不属于目标 slot 的 stat。其 `stack_rule` 当前只允许省略或 `REFRESH`，因为 Player / Weapon 的来源语义是同 source 替换并刷新时长；其余状态叠层策略不得静默映射成 refresh。Gateway 仍保留执行期目标 / callback 检查，但不得承担静态参数兜底。
+
 通用程序固定为：
 
 ```json
@@ -87,7 +89,7 @@
 }
 ```
 
-`interval` 额外要求正 `interval_seconds`；可用 `reset_on_condition_fail` 控制条件失败时是否清空累计时间与动作状态。
+`interval` 额外要求正 `interval_seconds`；只有该 trigger 可选用 `reset_on_condition_fail` 控制条件失败时是否清空累计时间与动作状态，其他 trigger 携带任一周期专属字段都会在注册阶段被拒绝。
 
 ## 依赖
 
@@ -116,7 +118,7 @@
 
 | 现象 | 优先检查 |
 |------|----------|
-| 来源注册失败 | program id 是否重复、trigger / condition / action 是否登记、actions 是否为空、概率 / 冷却是否越界 |
+| 来源注册失败 | program id 是否重复、trigger / condition / action 是否登记、primitive params 是否缺字段 / 类型越界 / 引用未知生成契约、actions 是否为空、概率 / 冷却是否越界 |
 | 周期程序不触发 | `interval_seconds`、条件、当前模块 context、`reset_on_condition_fail` 与 Runtime tick 是否推进 |
 | 读档失败 | 是否在 restore 前重建相同来源；source / program id、组件顺序和 action_state 是否与当前数据一致 |
 | 动作没有效果 | Gateway 是否配置对应 callback；目标 context、team、element / status / pool 引用是否有效 |
@@ -126,7 +128,7 @@
 
 - 必跑 `py -3 tools/godot_bridge.py --project client effect-runtime-smoke`。
 - 改原语或程序 schema：追加 contracts、`validate_data`、DataLoader schema、L1、runtime、Gear Mod、module-world、save、replay 与 headless boot。
-- 改确定性行为：验证 FIFO、来源 / 组件顺序、`RNG.combat` 消费、内部冷却、链深 8、动作预算 256、周期计划不重抽和快照 roundtrip；有意改变 gameplay 指纹时重录并逐条复跑四条 Replay v9 golden。
+- 改确定性行为：验证 FIFO、来源 / 组件顺序、`RNG.combat` 消费、内部冷却、链深 8、动作预算 256、周期计划不重抽和快照 roundtrip；专项 smoke 还必须逐类覆盖非法 primitive params 在注册阶段拒绝，且不消耗动作预算或写入 cooldown。有意改变 gameplay 指纹时重录并逐条复跑四条 Replay v9 golden。
 - 性能 probe 不属于默认验收；只在用户当次明确要求时运行。
 
 ## 迁移 / 兼容

@@ -1697,6 +1697,58 @@ func _expect_skill_system_aoe_damage() -> void:
 	add_child(skill_system)
 	var skills: Array[Dictionary] = [_l1_damage_skill()]
 	var resources: Array[Dictionary] = [_l1_mana_resource()]
+	var invalid_primitive_skill: Dictionary = _l1_damage_skill()
+	var invalid_programs: Array = (
+		invalid_primitive_skill.get("programs", []) as Array
+	)
+	var invalid_program: Dictionary = invalid_programs[0] as Dictionary
+	var invalid_actions: Array = invalid_program.get("actions", []) as Array
+	var invalid_action: Dictionary = invalid_actions[0] as Dictionary
+	var invalid_params: Dictionary = invalid_action.get("params", {}) as Dictionary
+	invalid_params.erase("element_id")
+	var empty_program_skill: Dictionary = _l1_damage_skill()
+	empty_program_skill["programs"] = []
+	var invalid_skills: Array[Dictionary] = [
+		invalid_primitive_skill,
+		empty_program_skill,
+	]
+	for index: int in range(invalid_skills.size()):
+		skill_system.call(
+			"configure",
+			caster,
+			world,
+			[invalid_skills[index]],
+			resources
+		)
+		GameState.change_state(
+			GameState.PLAYING,
+			{"source": "l1_invalid_skill_program_%d" % index}
+		)
+		var energy_before_invalid_cast: float = float(
+			skill_system.call("resource_amount", SKILL_RESOURCES.ENERGY)
+		)
+		var invalid_cast: Dictionary = skill_system.call("cast_primary_skill")
+		_expect(
+			not bool(invalid_cast.get("ok", true))
+			and String(invalid_cast.get("reason", ""))
+			== "invalid_effect_program",
+			"SkillSystem should reject invalid effect programs before casting"
+		)
+		_expect(
+			is_equal_approx(
+				float(skill_system.call(
+					"resource_amount",
+					SKILL_RESOURCES.ENERGY
+				)),
+				energy_before_invalid_cast
+			)
+			and is_zero_approx(float(skill_system.call(
+				"cooldown_remaining",
+				SKILL_SLOTS.SKILL_1
+			)))
+			and is_equal_approx(target.life, 10.0),
+			"invalid skill source should consume no resource, cooldown, or effect"
+		)
 	skill_system.call("configure", caster, world, [_l1_self_silence_skill()], resources)
 	GameState.change_state(GameState.PLAYING, {"source": "l1_skill_status_smoke"})
 	var status_result: Dictionary = skill_system.call("cast_primary_skill")

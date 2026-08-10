@@ -24,7 +24,7 @@ This project keeps two credits records in sync:
 
 ## Development Tools
 
-These Godot plugins are vendored under `client/addons/` as project-maintained forks. Their upstream copyright and MIT license files remain part of the source tree; the current credits data treats them as included in distributable project resources.
+These Godot plugins are vendored under `client/addons/` at fixed versions. Their upstream copyright and license files remain part of the source tree. Runtime/editor resources may be distributable; GUT is development-only and explicitly excluded from release exports, so it remains repository-facing credit only.
 
 | Name | Usage | License | Notice |
 |------|-------|---------|--------|
@@ -32,6 +32,11 @@ These Godot plugins are vendored under `client/addons/` as project-maintained fo
 | [Script-IDE](https://github.com/Maran23/script-ide) | Godot script editor tabs, outline and quick-open workflow | MIT | Keep `client/addons/script-ide/LICENSE` with redistributed source or resources. |
 | [Phantom Camera](https://github.com/ramokz/phantom-camera) | Godot runtime camera framework and player-damage screen shake | MIT | Keep `client/addons/phantom_camera/LICENSE` with redistributed source or resources. |
 | [G.U.I.D.E](https://github.com/godotneers/G.U.I.D.E) by Jan Thomä | Godot runtime input mapping, remapping, contexts and prompt rendering | MIT | Keep `client/addons/guide/LICENSE.md` with redistributed source or resources. |
+| [GUT](https://github.com/bitwes/Gut) by Tom “Butch” Wesley | Godot unit and integration test framework | MIT | Fixed at `v9.7.1`; keep `client/addons/gut/LICENSE.md` with vendored source. Excluded from game exports. |
+| [Anonymous Pro](https://www.marksimonson.com/fonts/view/anonymous-pro) by Mark Simonson | Font bundled with GUT | SIL Open Font License 1.1 | Keep `client/addons/GUT_THIRD_PARTY_NOTICES.md` and `client/addons/gut/fonts/OFL.txt`; Reserved Font Name `Anonymous Pro`. Excluded from game exports with GUT. |
+| Courier Prime | Font bundled with GUT | SIL Open Font License 1.1 | Keep `client/addons/GUT_THIRD_PARTY_NOTICES.md` plus the original copyright and license records embedded in the TTF name metadata. Excluded from game exports with GUT. |
+| Lobster Two | Font bundled with GUT | SIL Open Font License 1.1 | Keep `client/addons/GUT_THIRD_PARTY_NOTICES.md` plus the original TTF metadata; Reserved Font Name `Lobster`. Excluded from game exports with GUT. |
+| [Source Code Pro](https://github.com/adobe-fonts/source-code-pro) by Adobe | Bitmap font resource bundled with GUT | SIL Open Font License 1.1 | Keep `client/addons/GUT_THIRD_PARTY_NOTICES.md` and the vendored OFL text; Reserved Font Name `Source`. Excluded from game exports with GUT. |
 | [Xelu's Free Controller & Key Prompts](https://thoseawesomeguys.com/prompts/) by Nicolae Berbece | Controller and keyboard prompt artwork bundled with G.U.I.D.E | CC0 1.0 | Preserve provenance in `client/addons/guide/THIRD_PARTY_NOTICES.md`; CC0 does not require attribution. |
 | [Lato](https://www.latofonts.com/) | Keyboard prompt font bundled with G.U.I.D.E | SIL Open Font License 1.1 | Keep `client/addons/guide/THIRD_PARTY_NOTICES.md` with the font and do not use the reserved font name for a modified font. |
 

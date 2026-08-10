@@ -45,6 +45,13 @@ const MAX_IMAGE_BYTES: int = 4 * 1024 * 1024
 const MAX_IMAGE_DIMENSION: int = 1024
 const MAX_AUDIO_BYTES: int = 8 * 1024 * 1024
 const MAX_AUDIO_SECONDS: float = 30.0
+const MAX_MANIFEST_BYTES: int = 256 * 1024
+const MAX_GAMEPLAY_PATCH_FILE_BYTES: int = 1024 * 1024
+const MAX_GAMEPLAY_PATCH_TOTAL_BYTES: int = 4 * 1024 * 1024
+const MAX_GAMEPLAY_JSON_DEPTH: int = 32
+const MAX_GAMEPLAY_JSON_NODES: int = 50_000
+const MAX_GAMEPLAY_CSV_ROWS: int = 10_000
+const MAX_GAMEPLAY_CSV_COLUMNS: int = 64
 
 var _diagnostics: Array[String] = []
 var _enabled_mods: Array[Dictionary] = []
@@ -317,7 +324,7 @@ func _load_mod_directory(mod_root: String) -> void:
 		return
 
 	var local_diagnostics: Array[String] = []
-	var manifest: Variant = _load_json_file(manifest_path, local_diagnostics)
+	var manifest: Variant = _load_json_file(manifest_path, local_diagnostics, MAX_MANIFEST_BYTES, false)
 	if not manifest is Dictionary:
 		_record_invalid_package(mod_root.get_file(), "", 0, local_diagnostics)
 		return
@@ -470,6 +477,7 @@ func _cache_gameplay_patches(mod: Dictionary, manifest_path: String, cached_patc
 	var mod_id: String = String(mod.get("id", ""))
 	var declared_ids: Array = (mod.get("contract_extensions", {}) as Dictionary).get("gear_mod_ids", []) as Array
 	var is_valid: bool = true
+	var total_patch_bytes: int = 0
 	for index: int in range((mod.get("data_patches", []) as Array).size()):
 		var patch: Dictionary = (mod.get("data_patches", []) as Array)[index] as Dictionary
 		var cached: Dictionary = {
@@ -481,8 +489,40 @@ func _cache_gameplay_patches(mod: Dictionary, manifest_path: String, cached_patc
 		if not FileAccess.file_exists(patch_path):
 			is_valid = _package_fail(package_diagnostics, manifest_path, "data_patches[%d].path" % index, "readable package file") and is_valid
 			continue
+		var patch_file: FileAccess = FileAccess.open(patch_path, FileAccess.READ)
+		if patch_file == null:
+			is_valid = _package_fail(package_diagnostics, manifest_path, "data_patches[%d].path" % index, "readable package file") and is_valid
+			continue
+		var patch_bytes: int = patch_file.get_length()
+		if patch_bytes > MAX_GAMEPLAY_PATCH_FILE_BYTES:
+			is_valid = _package_fail(
+				package_diagnostics,
+				manifest_path,
+				"data_patches[%d].path" % index,
+				"file at most %d bytes" % MAX_GAMEPLAY_PATCH_FILE_BYTES
+			) and is_valid
+			continue
+		total_patch_bytes += patch_bytes
+		if total_patch_bytes > MAX_GAMEPLAY_PATCH_TOTAL_BYTES:
+			is_valid = _package_fail(
+				package_diagnostics,
+				manifest_path,
+				"data_patches",
+				"patch declarations totaling at most %d bytes"
+				% MAX_GAMEPLAY_PATCH_TOTAL_BYTES
+			) and is_valid
+			continue
 		if String(patch.get("type", "")) == "json_array_append":
-			var payload: Variant = _load_json_file(patch_path, package_diagnostics)
+			var diagnostics_before: int = package_diagnostics.size()
+			var payload: Variant = _load_json_file(
+				patch_path,
+				package_diagnostics,
+				MAX_GAMEPLAY_PATCH_FILE_BYTES,
+				true
+			)
+			if package_diagnostics.size() > diagnostics_before:
+				is_valid = false
+				continue
 			var array_key: String = String(patch.get("array_key", ""))
 			var items: Array = []
 			if payload is Array:
@@ -498,7 +538,11 @@ func _cache_gameplay_patches(mod: Dictionary, manifest_path: String, cached_patc
 				is_valid = _validate_reward_pool_contributions(manifest_path, index, mod_id, declared_ids, items, package_diagnostics) and is_valid
 			cached["items"] = items.duplicate(true)
 		else:
+			var diagnostics_before: int = package_diagnostics.size()
 			var rows: Array[Dictionary] = _load_csv_file(patch_path, package_diagnostics)
+			if package_diagnostics.size() > diagnostics_before:
+				is_valid = false
+				continue
 			var csv_target: String = String(patch.get("target", "")).get_file()
 			if csv_target == "gear_mod_drop_tables.csv":
 				is_valid = _validate_owned_drop_rows(manifest_path, index, mod_id, declared_ids, rows, package_diagnostics) and is_valid
@@ -961,22 +1005,62 @@ func _patch_targets_resource(patch: Dictionary, resource_path: String) -> bool:
 	return String(patch.get("target", "")) == resource_path.get_file()
 
 
-func _load_json_file(path: String, package_diagnostics: Array[String]) -> Variant:
+func _load_json_file(
+	path: String,
+	package_diagnostics: Array[String],
+	max_bytes: int,
+	validate_gameplay_structure: bool
+) -> Variant:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		package_diagnostics.append("%s is not readable JSON" % path)
+		return null
+	if file.get_length() > max_bytes:
+		package_diagnostics.append("%s exceeds JSON file budget of %d bytes" % [path, max_bytes])
 		return null
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if parsed == null:
 		package_diagnostics.append("%s is not valid JSON" % path)
 		return null
+	if validate_gameplay_structure and not _validate_json_resource_budget(parsed, path, package_diagnostics):
+		return null
 	return parsed
+
+
+func _validate_json_resource_budget(payload: Variant, path: String, package_diagnostics: Array[String]) -> bool:
+	var pending: Array[Dictionary] = [{"value": payload, "depth": 1}]
+	var discovered_nodes: int = 1
+	while not pending.is_empty():
+		var frame: Dictionary = pending.pop_back()
+		var depth: int = int(frame.get("depth", 0))
+		if depth > MAX_GAMEPLAY_JSON_DEPTH:
+			package_diagnostics.append("%s exceeds JSON depth budget of %d" % [path, MAX_GAMEPLAY_JSON_DEPTH])
+			return false
+		var value: Variant = frame.get("value")
+		if value is Dictionary:
+			for key_variant: Variant in (value as Dictionary).keys():
+				discovered_nodes += 1
+				if discovered_nodes > MAX_GAMEPLAY_JSON_NODES:
+					package_diagnostics.append("%s exceeds JSON node budget of %d" % [path, MAX_GAMEPLAY_JSON_NODES])
+					return false
+				pending.append({"value": (value as Dictionary)[key_variant], "depth": depth + 1})
+		elif value is Array:
+			for item: Variant in value as Array:
+				discovered_nodes += 1
+				if discovered_nodes > MAX_GAMEPLAY_JSON_NODES:
+					package_diagnostics.append("%s exceeds JSON node budget of %d" % [path, MAX_GAMEPLAY_JSON_NODES])
+					return false
+				pending.append({"value": item, "depth": depth + 1})
+	return true
 
 
 func _load_csv_file(path: String, package_diagnostics: Array[String]) -> Array[Dictionary]:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		package_diagnostics.append("%s is not readable CSV" % path)
+		return []
+	if file.get_length() > MAX_GAMEPLAY_PATCH_FILE_BYTES:
+		package_diagnostics.append("%s exceeds CSV file budget of %d bytes" % [path, MAX_GAMEPLAY_PATCH_FILE_BYTES])
 		return []
 	var rows: Array[Dictionary] = []
 	var headers: PackedStringArray = PackedStringArray()
@@ -985,10 +1069,19 @@ func _load_csv_file(path: String, package_diagnostics: Array[String]) -> Array[D
 	if headers.is_empty():
 		package_diagnostics.append("%s has no CSV header" % path)
 		return rows
+	if headers.size() > MAX_GAMEPLAY_CSV_COLUMNS:
+		package_diagnostics.append("%s exceeds CSV column budget of %d" % [path, MAX_GAMEPLAY_CSV_COLUMNS])
+		return []
 	while not file.eof_reached():
 		var values: PackedStringArray = file.get_csv_line()
 		if values.size() == 0 or (values.size() == 1 and String(values[0]).strip_edges().is_empty()):
 			continue
+		if values.size() > MAX_GAMEPLAY_CSV_COLUMNS:
+			package_diagnostics.append("%s exceeds CSV column budget of %d" % [path, MAX_GAMEPLAY_CSV_COLUMNS])
+			return []
+		if rows.size() >= MAX_GAMEPLAY_CSV_ROWS:
+			package_diagnostics.append("%s exceeds CSV row budget of %d" % [path, MAX_GAMEPLAY_CSV_ROWS])
+			return []
 		var row: Dictionary = {}
 		for index: int in range(headers.size()):
 			row[String(headers[index])] = values[index] if index < values.size() else ""

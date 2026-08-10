@@ -100,11 +100,12 @@ static func scaled_action_params(
 					float(params.get("magnitude_cap", magnitude))
 				)
 			params["magnitude"] = magnitude
-		params["modifiers"] = _scaled_modifiers(
-			params.get("modifiers", []),
-			strength,
-			float(params.get("magnitude", 0.0))
-		)
+		if params.has("modifiers"):
+			params["modifiers"] = _scaled_modifiers(
+				params.get("modifiers", []),
+				strength,
+				float(params.get("magnitude", 0.0))
+			)
 	return params
 
 

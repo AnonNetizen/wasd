@@ -1947,11 +1947,61 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
+            "skill program id must start with a letter",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_program_id("1bad"),
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].program_id",
+                "must be snake_case",
+            ],
+        ),
+        (
+            "skill non-interval program rejects reset on condition fail",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_program_reset_on_condition_fail(True),
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].reset_on_condition_fail",
+                "only valid for interval trigger",
+            ],
+        ),
+        (
             "skill program conditions must be registered",
             _mutate_json("client/data/skills.json", _set_skill_program_condition("condition_missing")),
             [
                 "client/data/skills.json:skills[0].programs[0].conditions[0].condition",
                 "unknown id condition_missing; expected one of effect_conditions",
+            ],
+        ),
+        (
+            "skill team condition rejects whitespace value",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_effect_condition(
+                    "team",
+                    {"field": "source_team", "value": " "},
+                ),
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].conditions[0].params.value",
+                "non-whitespace",
+            ],
+        ),
+        (
+            "skill damage flag condition rejects whitespace value",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_effect_condition(
+                    "damage_flag",
+                    {"value": " ", "present": True},
+                ),
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].conditions[0].params.value",
+                "non-whitespace",
             ],
         ),
         (
@@ -2027,6 +2077,36 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
+            "skill status damage tick requires element",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_status_damage_tick_without_element,
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.element_id",
+                "damage tick",
+            ],
+        ),
+        (
+            "skill apply status allows empty optional modifier list",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_apply_status_empty_modifiers,
+            ),
+            [],
+        ),
+        (
+            "skill apply status rejects whitespace incoming team",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_apply_status_incoming_team(" "),
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.incoming_damage_source_team",
+                "non-whitespace",
+            ],
+        ),
+        (
             "skill damage element must be registered",
             _mutate_json("client/data/skills.json", _set_skill_damage_element("element_missing")),
             [
@@ -2043,11 +2123,101 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
+            "temporary modifier list must be non-empty",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_temporary_modifiers([]),
+            ),
+            [
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.modifiers",
+                "non-empty",
+            ],
+        ),
+        (
+            "temporary modifier scale mode must be supported",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_temporary_modifier_scale_mode("bogus"),
+            ),
+            [
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.modifiers[0].scale_mode",
+                "inverse_from_magnitude",
+            ],
+        ),
+        (
+            "temporary modifier rejects inverse magnitude scaling",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_temporary_modifier_scale_mode(
+                    "inverse_from_magnitude"
+                ),
+            ),
+            [
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.modifiers[0].scale_mode",
+                "only valid for apply_status with magnitude",
+            ],
+        ),
+        (
+            "apply status inverse scaling requires magnitude",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_apply_status_inverse_modifier(False, "mult"),
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.modifiers[0].scale_mode",
+                "only valid for apply_status with magnitude",
+            ],
+        ),
+        (
+            "apply status inverse scaling requires multiplier",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_apply_status_inverse_modifier(True, "add"),
+            ),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.modifiers[0].type",
+                "mult when scale_mode is present",
+            ],
+        ),
+        (
+            "temporary modifier rejects surplus fields",
+            _mutate_json(
+                "client/data/skills.json",
+                _add_skill_temporary_modifier_surplus_field,
+            ),
+            [
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.modifiers[0].typo",
+                "is not allowed",
+            ],
+        ),
+        (
+            "temporary modifier only supports refresh stacking",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_weapon_modifier_stack_rule("ADD_DURATION"),
+            ),
+            [
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.stack_rule",
+                "must equal REFRESH when provided",
+            ],
+        ),
+        (
             "skill weapon modifier stat must be registered",
             _mutate_json("client/data/skills.json", _set_skill_weapon_modifier_stat("stat_missing")),
             [
                 "client/data/skills.json:skills[2].programs[0].actions[0].params.modifiers[0].stat",
                 "unknown id stat_missing; expected one of stats",
+            ],
+        ),
+        (
+            "skill weapon modifier stat must be consumed by weapon slot",
+            _mutate_json(
+                "client/data/skills.json",
+                _set_skill_weapon_modifier_stat("max_hp"),
+            ),
+            [
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.modifiers[0].stat",
+                "must be supported by weapon slot",
             ],
         ),
         (
@@ -3434,10 +3604,36 @@ def _set_skill_program_trigger(value: str) -> JsonMutator:
     return mutate
 
 
+def _set_skill_program_id(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["programs"][0]["program_id"] = value
+
+    return mutate
+
+
+def _set_skill_program_reset_on_condition_fail(value: bool) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["programs"][0]["reset_on_condition_fail"] = value
+
+    return mutate
+
+
 def _set_skill_program_condition(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["skills"][0]["programs"][0]["conditions"] = [
             {"condition": value, "params": {}}
+        ]
+
+    return mutate
+
+
+def _set_skill_effect_condition(
+    condition_id: str,
+    params: dict[str, Any],
+) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["programs"][0]["conditions"] = [
+            {"condition": condition_id, "params": params}
         ]
 
     return mutate
@@ -3511,6 +3707,30 @@ def _set_skill_apply_status_granted_tag(value: str) -> JsonMutator:
     return mutate
 
 
+def _set_skill_status_damage_tick_without_element(payload: dict[str, Any]) -> None:
+    payload["skills"][0]["programs"][0]["actions"][0] = (
+        _apply_status_action_payload()
+    )
+    params = payload["skills"][0]["programs"][0]["actions"][0]["params"]
+    params["magnitude"] = 1.0
+    params["tick_interval"] = 1.0
+
+
+def _set_skill_apply_status_empty_modifiers(payload: dict[str, Any]) -> None:
+    payload["skills"][1]["programs"][0]["actions"][0]["params"][
+        "modifiers"
+    ] = []
+
+
+def _set_skill_apply_status_incoming_team(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        action = _apply_status_action_payload()
+        action["params"]["incoming_damage_source_team"] = value
+        payload["skills"][0]["programs"][0]["actions"][0] = action
+
+    return mutate
+
+
 def _apply_status_action_payload() -> dict[str, Any]:
     return {
         "action": "apply_status",
@@ -3544,9 +3764,66 @@ def _set_skill_weapon_modifier_duration(value: float) -> JsonMutator:
     return mutate
 
 
+def _set_skill_temporary_modifiers(value: list[dict[str, Any]]) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][2]["programs"][0]["actions"][0]["params"][
+            "modifiers"
+        ] = value
+
+    return mutate
+
+
+def _set_skill_temporary_modifier_scale_mode(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][2]["programs"][0]["actions"][0]["params"][
+            "modifiers"
+        ][0]["scale_mode"] = value
+
+    return mutate
+
+
+def _set_skill_apply_status_inverse_modifier(
+    include_magnitude: bool,
+    modifier_type: str,
+) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        action = _apply_status_action_payload()
+        if include_magnitude:
+            action["params"]["magnitude"] = 0.2
+        action["params"]["modifiers"] = [
+            {
+                "stat": "move_speed",
+                "type": modifier_type,
+                "value": 0.8,
+                "scale_mode": "inverse_from_magnitude",
+            }
+        ]
+        payload["skills"][0]["programs"][0]["actions"][0] = action
+
+    return mutate
+
+
+def _add_skill_temporary_modifier_surplus_field(payload: dict[str, Any]) -> None:
+    payload["skills"][2]["programs"][0]["actions"][0]["params"][
+        "modifiers"
+    ][0]["typo"] = True
+
+
+def _set_skill_weapon_modifier_stack_rule(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][2]["programs"][0]["actions"][0]["params"][
+            "stack_rule"
+        ] = value
+
+    return mutate
+
+
 def _set_skill_weapon_modifier_stat(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][2]["programs"][0]["actions"][0]["params"]["modifiers"][0]["stat"] = value
+        params = payload["skills"][2]["programs"][0]["actions"][0]["params"]
+        params["slot"] = "weapon"
+        params["modifiers"] = [params["modifiers"][0]]
+        params["modifiers"][0]["stat"] = value
 
     return mutate
 

@@ -24,6 +24,9 @@ FULL_SCAN_PATHS = {
 }
 
 IGNORE_PARTS = {"draft", "DRAFT", ".git", "__pycache__"}
+IGNORED_PREFIXES = {
+    ("client", "addons", "gut"),
+}
 NON_LONG_TERM_PARTS = {"contracts", "tests", "test", "templates", "debug", "dev_tools"}
 
 SPECIAL_BRANCH_RE = re.compile(
@@ -239,7 +242,7 @@ def _argument_path(argument: str) -> Path:
 def _argument_relative_path(argument: str) -> str:
     path = _argument_path(argument)
     try:
-        return path.resolve().relative_to(ROOT).as_posix()
+        return "/".join(_relative_parts(path, ROOT))
     except ValueError:
         return path.as_posix()
 
@@ -614,33 +617,50 @@ def _comment_free_part(line: str) -> str:
 
 
 def _is_ignored(path: Path) -> bool:
-    return bool(set(path.relative_to(ROOT).parts).intersection(IGNORE_PARTS))
+    relative_parts = _relative_parts(path, ROOT)
+    if set(relative_parts).intersection(IGNORE_PARTS):
+        return True
+    return any(relative_parts[: len(prefix)] == prefix for prefix in IGNORED_PREFIXES)
 
 
 def _is_relative_to(path: Path, parent: Path) -> bool:
     try:
-        path.resolve().relative_to(parent.resolve())
+        _relative_parts(path, parent)
         return True
-    except ValueError:
+    except (OSError, ValueError):
         return False
 
 
 def _relative_parts(path: Path, parent: Path) -> tuple[str, ...]:
-    """Return relative parts after the caller established containment.
+    """Return relative parts while tolerating Windows long/8.3 aliases.
 
-    Windows may resolve the same temporary directory through a long path in
-    ``path`` and an 8.3 alias in ``parent``. ``Path.relative_to`` compares
-    those spellings lexically, so slice the already-resolved component lists
-    after the case-insensitive containment guard instead.
+    ``Path.relative_to`` compares path spellings lexically. When a temporary
+    directory appears once through its long name and once through an 8.3
+    alias, verify the candidate ancestor with ``samefile`` before slicing.
     """
-    path_parts = path.resolve().parts
-    parent_parts = parent.resolve().parts
-    return path_parts[len(parent_parts):]
+    try:
+        return path.relative_to(parent).parts
+    except ValueError:
+        pass
+    resolved_path = path.resolve()
+    resolved_parent = parent.resolve()
+    try:
+        return resolved_path.relative_to(resolved_parent).parts
+    except ValueError:
+        depth = len(resolved_path.parts) - len(resolved_parent.parts)
+        if depth < 0:
+            raise
+        candidate = resolved_path
+        for _index in range(depth):
+            candidate = candidate.parent
+        if not candidate.samefile(resolved_parent):
+            raise
+        return resolved_path.parts[len(resolved_parent.parts):]
 
 
 def _rel(path: Path) -> str:
     try:
-        return path.resolve().relative_to(ROOT).as_posix()
+        return "/".join(_relative_parts(path, ROOT))
     except ValueError:
         return path.as_posix()
 

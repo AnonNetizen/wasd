@@ -187,7 +187,7 @@ Run v19 payload 延续模块、事件和敌人奖励确定性字段，并保存�
 ## 测试义务
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，并跑 `python tools/godot_bridge.py --project client save-smoke`。
-- 改 Meta v4 英雄组合 / 内容进度或 Run v19 Gear Mod 棋盘 / Runtime / 地面实例 / 冻结池 / mod environment / 7×7 assignment 字段时追加 `content-progression-smoke`、`save-smoke`、`effect-runtime-smoke`、`mod-loader-v2-smoke`、`gear-mod-smoke`、`gear-mod-pickup-smoke`、`module-world-smoke` 与 `runtime-smoke`；Meta 必须断言不存在局内或本地 `gear_mods`。
+- 改 Meta v4 英雄组合 / 内容进度或 Run v19 Gear Mod 棋盘 / Runtime / 地面实例 / 冻结池 / mod environment / 7×7 assignment 字段时追加 `content-progression-smoke`、`save-smoke`、`effect-runtime-smoke`、`mod-loader-smoke`、`gear-mod-smoke`、`gear-mod-pickup-smoke`、`module-world-smoke` 与 `runtime-smoke`；Meta 必须断言不存在局内或本地 `gear_mods`。
 - 后续引入 GUT 后，`SaveManager` 必须覆盖 envelope 字段、hash mismatch、原子写入 / `.bak`、迁移链、坏档隔离、`meta` / `run` roundtrip、slot 校验和删除行为；当前 smoke 的主 / 备 3×3 矩阵固定覆盖主文件缺失 / 普通损坏 / 需保留不兼容 × 备份有效 / 普通损坏 / 需保留不兼容，并逐项断言返回值、`last_error()`、原字节保留与 `.broken` 隔离状态；另以 `.broken` 路径碰撞覆盖“损坏主档隔离失败时不读取有效备份”。还须从 FormalBoot 继续按钮路径验证“损坏主档 + 不兼容备份”失败后退出 `LOADING`、显示不可用提示且备份字节不变。
 - 改存档 schema 必须注册 migration 并补迁移测试；改 `run` 续局字段还要跑适用的自动 roundtrip，L5 存档 checklist 保持待人工验收并由用户执行。影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
 

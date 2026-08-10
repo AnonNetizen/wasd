@@ -13,6 +13,9 @@ const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const EFFECT_ACTIONS := preload("res://scripts/contracts/effect_actions.gd")
 const EFFECT_CONDITIONS := preload("res://scripts/contracts/effect_conditions.gd")
 const EFFECT_TRIGGERS := preload("res://scripts/contracts/effect_triggers.gd")
+const STATUS_STACK_RULES := preload(
+	"res://scripts/contracts/status_stack_rules.gd"
+)
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const GEAR_MOD_BOARD_RULES := preload(
 	"res://scripts/contracts/gear_mod_board_rules.gd"
@@ -2812,6 +2815,15 @@ func _validate_effect_programs(
 				"%s.interval_seconds" % program_field,
 				"only valid for interval trigger"
 			) and is_valid
+		if (
+			trigger_id != EFFECT_TRIGGERS.INTERVAL
+			and program.has("reset_on_condition_fail")
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.reset_on_condition_fail" % program_field,
+				"only valid for interval trigger"
+			) and is_valid
 		is_valid = _validate_effect_conditions(
 			resource_path,
 			"%s.conditions" % program_field,
@@ -2878,7 +2890,7 @@ func _validate_effect_conditions(
 					"%s.params.field" % condition_field,
 					"source_team or target_team"
 				) and is_valid
-			is_valid = _require_non_empty_string(
+			is_valid = _require_trimmed_non_empty_string(
 				resource_path,
 				"%s.params.value" % condition_field,
 				params.get("value")
@@ -2903,7 +2915,7 @@ func _validate_effect_conditions(
 				params,
 				["value", "present"]
 			) and is_valid
-			is_valid = _require_non_empty_string(
+			is_valid = _require_trimmed_non_empty_string(
 				resource_path,
 				"%s.params.value" % condition_field,
 				params.get("value")
@@ -3128,11 +3140,46 @@ func _validate_effect_action_params(
 			true
 		) and is_valid
 		if params.has("modifiers"):
-			is_valid = _validate_modifiers(
+			is_valid = _validate_effect_modifiers(
 				resource_path,
 				"%s.params.modifiers" % action_field,
 				params.get("modifiers"),
-				false
+				params.has("magnitude"),
+				true
+			) and is_valid
+		for optional_number: String in [
+			"magnitude",
+			"magnitude_cap",
+			"incoming_damage_per_stack",
+		]:
+			if params.has(optional_number):
+				is_valid = _require_number(
+					resource_path,
+					"%s.params.%s" % [action_field, optional_number],
+					params.get(optional_number),
+					0.0
+				) and is_valid
+		if params.has("tick_interval"):
+			is_valid = _require_number(
+				resource_path,
+				"%s.params.tick_interval" % action_field,
+				params.get("tick_interval"),
+				0.0,
+				null,
+				true
+			) and is_valid
+		if params.has("max_stacks"):
+			is_valid = _require_int(
+				resource_path,
+				"%s.params.max_stacks" % action_field,
+				params.get("max_stacks"),
+				1
+			) and is_valid
+		if params.has("incoming_damage_source_team"):
+			is_valid = _require_trimmed_non_empty_string(
+				resource_path,
+				"%s.params.incoming_damage_source_team" % action_field,
+				params.get("incoming_damage_source_team")
 			) and is_valid
 		if params.has("element_id"):
 			is_valid = _require_registered(
@@ -3141,6 +3188,20 @@ func _validate_effect_action_params(
 				params.get("element_id"),
 				"elements"
 			) != "" and is_valid
+		var magnitude_value: Variant = params.get("magnitude", 0.0)
+		var tick_interval_value: Variant = params.get("tick_interval", 0.0)
+		if (
+			(magnitude_value is int or magnitude_value is float)
+			and (tick_interval_value is int or tick_interval_value is float)
+			and float(magnitude_value) > 0.0
+			and float(tick_interval_value) > 0.0
+			and not params.has("element_id")
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params.element_id" % action_field,
+				"registered element id for damage tick"
+			) and is_valid
 	elif action_id == EFFECT_ACTIONS.TEMPORARY_MODIFIER:
 		is_valid = _validate_dictionary_keys(
 			resource_path,
@@ -3164,12 +3225,28 @@ func _validate_effect_action_params(
 			null,
 			true
 		) and is_valid
-		is_valid = _validate_modifiers(
+		is_valid = _validate_effect_modifiers(
 			resource_path,
 			"%s.params.modifiers" % action_field,
-			params.get("modifiers"),
-			false
+			params.get("modifiers")
 		) and is_valid
+		if slot in ["actor", "weapon", "both"]:
+			is_valid = _validate_effect_modifier_stats_for_slot(
+				resource_path,
+				"%s.params.modifiers" % action_field,
+				params.get("modifiers"),
+				slot
+			) and is_valid
+		if (
+			params.has("stack_rule")
+			and String(params.get("stack_rule", ""))
+			!= STATUS_STACK_RULES.REFRESH
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params.stack_rule" % action_field,
+				"REFRESH or omitted"
+			) and is_valid
 	elif action_id in [
 		EFFECT_ACTIONS.HEAL,
 		EFFECT_ACTIONS.GRANT_SHIELD,
@@ -5863,6 +5940,112 @@ func _validate_modifiers(resource_path: String, field: String, data: Variant, re
 	return is_valid
 
 
+func _validate_effect_modifiers(
+	resource_path: String,
+	field: String,
+	data: Variant,
+	allow_inverse_from_magnitude: bool = false,
+	allow_empty: bool = false
+) -> bool:
+	var is_valid: bool = _validate_modifiers(
+		resource_path,
+		field,
+		data,
+		false
+	)
+	if not data is Array:
+		return false
+	var modifiers: Array = data as Array
+	if modifiers.is_empty() and not allow_empty:
+		is_valid = _schema_fail(
+			resource_path,
+			field,
+			"non-empty Array"
+		) and is_valid
+	for index: int in range(modifiers.size()):
+		var raw_modifier: Variant = modifiers[index]
+		if not raw_modifier is Dictionary:
+			continue
+		var item_field: String = "%s[%d]" % [field, index]
+		var modifier: Dictionary = raw_modifier as Dictionary
+		is_valid = _validate_dictionary_keys(
+			resource_path,
+			item_field,
+			modifier,
+			["stat", "type", "value"],
+			["scale_mode"]
+		) and is_valid
+		if (
+			modifier.has("scale_mode")
+			and String(modifier.get("scale_mode", ""))
+			!= "inverse_from_magnitude"
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.scale_mode" % item_field,
+				"inverse_from_magnitude"
+			) and is_valid
+		if (
+			modifier.has("scale_mode")
+			and not allow_inverse_from_magnitude
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.scale_mode" % item_field,
+				"only valid for apply_status with magnitude"
+			) and is_valid
+		if (
+			modifier.has("scale_mode")
+			and String(modifier.get("type", "")) != "mult"
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.type" % item_field,
+				"mult when scale_mode is present"
+			) and is_valid
+	return is_valid
+
+
+func _validate_effect_modifier_stats_for_slot(
+	resource_path: String,
+	field: String,
+	data: Variant,
+	slot: String
+) -> bool:
+	if not data is Array:
+		return false
+	var is_valid: bool = true
+	var modifiers: Array = data as Array
+	for index: int in range(modifiers.size()):
+		var raw_modifier: Variant = modifiers[index]
+		if not raw_modifier is Dictionary:
+			continue
+		var stat: String = String(
+			(raw_modifier as Dictionary).get("stat", "")
+		)
+		if (
+			has_contract_value("stats", stat)
+			and not _is_effect_modifier_stat_supported_for_slot(stat, slot)
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s[%d].stat" % [field, index],
+				"stat supported by %s slot" % slot
+			) and is_valid
+	return is_valid
+
+
+func _is_effect_modifier_stat_supported_for_slot(
+	stat: String,
+	slot: String
+) -> bool:
+	if slot == "actor":
+		return HERO_GEAR_STATS.has(stat)
+	if slot == "weapon":
+		return WEAPON_STATS.has(stat)
+	return HERO_GEAR_STATS.has(stat) or WEAPON_STATS.has(stat)
+
+
 func _validate_behaviors(resource_path: String, field: String, data: Variant) -> bool:
 	var behaviors: Array = _require_array(resource_path, field, data)
 	var is_valid: bool = true
@@ -8329,6 +8512,16 @@ func _reject_removed_field(resource_path: String, parent_field: String, payload:
 func _require_non_empty_string(resource_path: String, field: String, value: Variant) -> bool:
 	if not value is String or String(value).is_empty():
 		return _schema_fail(resource_path, field, "non-empty string")
+	return true
+
+
+func _require_trimmed_non_empty_string(
+	resource_path: String,
+	field: String,
+	value: Variant
+) -> bool:
+	if not value is String or String(value).strip_edges().is_empty():
+		return _schema_fail(resource_path, field, "non-whitespace string")
 	return true
 
 

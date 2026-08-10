@@ -50,7 +50,7 @@
 | `server/` | 服务器端预留（当前为单机项目，暂占位） |
 | `output/steamworks_lab/` | 长期维护的独立 Godot 4.7.1 Steam 应用，专属 App ID `4955670`；ADR #135 后玩家本地多人是单进程同屏（P1 键鼠 + P2–P4 独立手柄），Steam 仍是一设备一玩家，ENet 仅保留内部协议回归。Windows 当前开发 / 发布验证标准为 Godot 4.7.1 + GodotSteam 4.20 GDExtension + Steamworks 1.64，工具锁仍按 4.7 minor 系列保持补丁兼容；插件进忽略的 `addons/godotsteam/`，editor 直接走 `--godot` / `GODOT_PATH`，templates 按 editor 模式走 Godot 标准用户目录或 self-contained `editor_data/`，不再创建 `.toolchain/`；完整边界见其 `README.md`，不等同于正式 `client/PlatformServices` 接入 |
 | `tools/` | 本地校验与桥接工具：`sync_contracts.py`、`validate_data.py`、`test_data_loader_schema.py`、`lint_gdscript_rules.py`、`lint_project_rules.py`、`lint_semantic_rules.py`、`docs_health_check.py`、`godot_bridge.py`、`steamworks_lab_toolchain.py` |
-| `.github/` | GitHub Issue / PR 模板与 Actions workflows；当前启用 Stage 1 基础 `docs-check` CI |
+| `.github/` | GitHub Issue / PR 模板与 Actions workflows；当前启用 Stage 1 静态 `docs-check` 与固定 Godot 4.7.1 的 `godot-runtime`（正式 boot、GUT/JUnit、隔离 L1 smoke） |
 | `CREDITS.md` | 代码库级致谢与第三方来源清单；游戏内 Credits 数据源为 `client/data/credits.json` |
 | `draft/` / `DRAFT/` | 用户人工草稿，AI 禁止读取 / 搜索 / 修改 / 整理 / 引用，除非用户明确点名授权 |
 
@@ -65,7 +65,7 @@
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 模块等文件脚手架模板；Gear Mod 组件模板在数据配表目录中声明 |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
-| `client/addons/`（即 `res://addons/`） | 固定版本插件及 editor-only 工具；项目自有“数据配表”“Module JSON”“VFX 效果库”均由 release preset 排除，契约见 `docs/代码/data_table_editor.md`、`module_authoring_pipeline.md`、`visual_effects.md` |
+| `client/addons/`（即 `res://addons/`） | 固定版本插件及 editor-only 工具；GUT 9.7.1 仅供 CLI / CI 且默认不启用 EditorPlugin，GUT、项目 tests 与自有“数据配表”“Module JSON”“VFX 效果库”均由 release preset 排除，契约见 `client/addons/README.md`、`docs/代码/data_table_editor.md`、`module_authoring_pipeline.md`、`visual_effects.md` |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `VisualEffects` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `InputService` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `ContentUnlockSystem` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `GUIDE` 与 `PhantomCameraManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
@@ -162,7 +162,7 @@
 | **加 / 改游戏模式** | 在 `client/data/game_modes.json` schema v3 声明 `difficulty_profile_id`、可用角色 / 武器 / 敌人 / 机关 / 主动道具 / 技能 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；Gear Mod 由专用奖励池 / 掉落表贡献，不挂在 mode 资源池。mode id 先登记 `docs/词表与契约.md`，difficulty profile 必须存在；资源本体保持模式无关，禁止为模式复制资源或在代码写 `if mode_id == ...` |
 | **改敌人金币 / 金币等级 / 通用奖励选择** | 查 ADR #169 / #170 / #173 / #175 / #188 / #189 / #191 / #194 / #196、GDD §7.1、EnemyRewardResolver / Gameplay Runtime 与数据手册。金币余额可消费、累计金币只增；Gear Mod 确认放置后作为独立实例生效，不转金币。Run v19 保存金币、祭坛事务、效果程序状态、棋盘 / 未拾取 Mod 与未完成选择 |
 | **改 Roguelike 默认循环** | 默认标准模式是 7×7 无缝模块世界：左下角起点 → 意识核等概率位于其余三个角落 → 6–12 次跨越 → 直接完成，不要求清空 49 模块；开放战区通过 `--open-warzone` 保留为回归路径。局内 Gear Mod 不写 Meta，不存在撤离或 pending loot |
-| **改局内 Gear Mod / 通用效果** | 查 GDD §7.2、最新 ADR、`docs/代码/gear_mod_system.md` 与效果运行时文档；`gear_mods.json` schema v6 定义 7×7 棋盘和可组合组件，`GameplayEffectRuntime` 管稳定事件队列、触发状态 / 冷却 / 周期 / 快照，Registry 按 handler 注册原语，Gateway 是 Combat / StatusEffect / PoolManager / 金币 / 生成 / Audio 唯一出口。Run v19 按来源实例与 component/program id 保存状态；本地包只组合内置原语。改组件 / trigger / condition / action / pool 前先登记契约并同步数据、locale、schema、指纹与 smoke |
+| **改局内 Gear Mod / 通用效果** | 查 GDD §7.2、最新 ADR、`docs/代码/gear_mod_system.md` 与效果运行时文档；`gear_mods.json` schema v6 定义 7×7 棋盘和可组合组件，`GameplayEffectRuntime` 管稳定事件队列、触发状态 / 冷却 / 周期 / 快照，Registry 为每个 condition / action 同时注册 handler 与参数 validator，Gateway 是 Combat / StatusEffect / PoolManager / 金币 / 生成 / Audio 唯一出口。非法来源必须在注册阶段拒绝且不得消耗预算 / cooldown。Run v19 按来源实例与 component/program id 保存状态；本地包只组合内置原语。改组件 / trigger / condition / action / pool 前先登记契约并同步数据、locale、schema、指纹与 smoke |
 | **加 / 改内容解锁或图鉴** | 先读 ADR #189 / #191 / #194 / #196、GDD §7.4、ContentUnlock / DataLoader / Save / Replay / Gameplay / UI 文档。锁定内容只登记在稀疏规则；英雄 / Gear Mod / 敌池在 RNG 前与 Run v19 / Replay v9 快照求交，锁定 Mod 的地面 / placement 快照必须拒绝，核心不进图鉴；本地 Gear Mod 安装即开放且不写 Meta；不运行性能 probe |
 | **维护旧局外成长历史** | 旧 `MetaProgressionSystem` 运行时和 UI 已按 ADR #117 删除；项目尚未上线，ADR #118 后旧测试档迁移、`meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿路径也已删除。需要查历史时看 F6 工作包与 ADR 记录；不要恢复旧永久升级树作为当前成长方向 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；Godot 编辑器插件同时维护 `client/addons/README.md` 的版本、哈希、本地补丁和升级流程；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
@@ -187,11 +187,11 @@
 | **校验语义风险** | 跑 `python tools/lint_semantic_rules.py`；当前第三档默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、正式 gameplay/UI 的长期 Node/Control `.new()` 挂树、缺类型签名、长期脚本缺 `# Doc:` 与未知 contract 常量；已注册对象池 factory 与行模板实例化不报 `runtime-node-construction`；改语义 lint 时追加 `python tools/test_semantic_rules_lint.py` |
 | **本地提交前验证** | 已提供路径感知 `.pre-commit-config.yaml`；日常先跑目标 smoke，再对本次文件只跑一次 `pre-commit run --files ...`。schema / lint / Steamworks 工具自测只在相关路径变化时触发；改 hook / validator / linter、大型全仓交付或发版前才跑一次 `--all-files`。未暂存文件另用路径限定 `git diff --check`，不能把 staged whitespace 的 no-op 当作已覆盖 |
 | **运行 Windows / PowerShell 命令** | 先读当前平台编码规则第 29 节与 `docs/AI协作/工具适配指南.md` 的「Windows PowerShell 稳定执行」；固定字符串优先 `rg -F`，全部 `rg` 选项放在 `--` 前，cmdlet 路径走 `-LiteralPath`，原生程序立即检查 `$LASTEXITCODE`，合法非零码先归一化再进入并行或 fail-fast；`git diff --no-index=1` 仅在输入已校验为文件后表示差异；不混用 Bash 转义、`cmd` 或 `Invoke-Expression` |
-| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree`、`python tools/godot_bridge.py headless-boot` 及命中当前风险的专项 smoke；headless smoke 默认隔离 `user://`，必须命中精确成功标记且拒绝标准 fatal，不能以进程退出码 0 代替测试通过。F8 全量 golden 使用单进程、隔离用户目录的 `replay-regression`，单文件 `replay-runner --replay-file ... --rerun-runtime-summary` 仅用于定位。FormalClientBoot 只动态加载被请求 runner。`startup-probe` / `perf-probe` 只在用户当次明确要求性能测试时运行 |
+| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree`、`python tools/godot_bridge.py headless-boot` 及命中当前风险的专项 smoke；`client/tools/smoke_commands.json` 是 smoke parser / runner / policy 的单一描述表。headless smoke 默认隔离 `user://`，必须命中精确成功标记；逐命令整行 allowlist 过滤后仍拒绝任何标准 fatal，不能以进程退出码 0 代替测试通过。F8 全量 golden 使用单进程、隔离用户目录的 `replay-regression`，单文件 `replay-runner --replay-file ... --rerun-runtime-summary` 仅用于定位。FormalClientBoot 只接受 `--test-command <id>` 动态加载被请求 runner；其他 replay / capture / perf / bake 专用入口保持独立。`startup-probe` / `perf-probe` 只在用户当次明确要求性能测试时运行 |
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode / Claude 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`、`.claude/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
-| **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
+| **加 / 改效果原语** | 先在 `词表与契约.md` 登记 trigger / condition / action id；在 `EffectPrimitiveRegistry` 同时实现 handler 与精确参数 validator，经 `EffectExecutionGateway` 接正式系统，再由数据引用。必须补合法样例、非法参数注册拒绝与“不消耗预算 / cooldown”测试，禁止内容 id 分支 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
-| **预留 / 维护玩家 mod 接口** | 看 `docs/代码/mod_loader.md`、`docs/代码/data_loader.md` 与 GDD §9.21；当前只支持 `user://mods/<mod_id>/mod.json` 声明式 JSON / CSV append，不接创意工坊、不执行玩家脚本、不绕过 `DataLoader` schema；未来创意工坊只作为分发层 |
+| **预留 / 维护玩家 mod 接口** | 看 `docs/代码/mod_loader.md`、`docs/代码/data_loader.md` 与 GDD §9.21；当前只支持 `user://mods/<mod_id>/mod.json` 声明式 JSON / CSV append，不接创意工坊、不执行玩家脚本、不绕过 `DataLoader` schema。ModLoader 在解析前限制 manifest / 单 patch / 包总字节、JSON 深度与节点、CSV 行列，任一超限走整包 invalid 隔离；未来创意工坊只作为分发层 |
 | **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文；若用户只给一种语言，AI 自动补齐另一语言首版译文，人工复核后代码 / 数据用 `tr("key")` 或 `name_key`；涉及 UI 按钮、面板或 HUD 时以英文 `en` 长度验收尺寸，跑对应 smoke，当前按钮类英文适配由 `settings-smoke` 覆盖 |
 | **加一个设置项** | 先在 `Settings` 加配置（键/类型/默认/范围）并接入下游 `setting_changed` 即时生效；只有完成生效链路后才在设置面板显示 UI 控件，暂未接线的预留 key 保留为隐藏 / 禁用 |
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |

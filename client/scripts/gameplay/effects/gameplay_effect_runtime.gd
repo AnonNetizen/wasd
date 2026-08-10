@@ -38,7 +38,12 @@ func register_source(
 	programs: Array[Dictionary],
 	metadata: Dictionary = {}
 ) -> bool:
-	if _registry == null or source_type.is_empty() or content_id.is_empty():
+	if (
+		_registry == null
+		or source_type.is_empty()
+		or content_id.is_empty()
+		or programs.is_empty()
+	):
 		return false
 	var source_key: String = _source_key(
 		source_type,
@@ -354,20 +359,42 @@ func _default_states(programs: Array[Dictionary]) -> Dictionary:
 
 
 func _is_valid_program(program: Dictionary) -> bool:
-	var proc_chance: float = float(program.get("proc_chance", -1.0))
-	var internal_cooldown: float = float(program.get("internal_cooldown", -1.0))
+	if not _has_valid_program_keys(program):
+		return false
+	if not _is_snake_case_identifier(program.get("program_id")):
+		return false
+	if not program.get("trigger") is String:
+		return false
 	if (
-		not is_finite(proc_chance)
-		or proc_chance < 0.0
+		not _is_finite_number(program.get("proc_chance"))
+		or not _is_finite_number(program.get("internal_cooldown"))
+	):
+		return false
+	var proc_chance: float = float(program.get("proc_chance"))
+	var internal_cooldown: float = float(program.get("internal_cooldown"))
+	if (
+		proc_chance < 0.0
 		or proc_chance > 1.0
-		or not is_finite(internal_cooldown)
 		or internal_cooldown < 0.0
 	):
 		return false
-	if String(program.get("trigger", "")) == EffectPrimitiveRegistry.TRIGGER_INTERVAL:
-		var interval: float = float(program.get("interval_seconds", 0.0))
-		if not is_finite(interval) or interval <= 0.0:
+	var trigger_id: String = String(program.get("trigger"))
+	if trigger_id == EffectPrimitiveRegistry.TRIGGER_INTERVAL:
+		if (
+			not _is_finite_number(program.get("interval_seconds"))
+			or float(program.get("interval_seconds")) <= 0.0
+		):
 			return false
+		if (
+			program.has("reset_on_condition_fail")
+			and not program.get("reset_on_condition_fail") is bool
+		):
+			return false
+	elif (
+		program.has("interval_seconds")
+		or program.has("reset_on_condition_fail")
+	):
+		return false
 	var conditions: Array[Dictionary] = _typed_dictionary_array(
 		program.get("conditions", [])
 	)
@@ -383,6 +410,45 @@ func _is_valid_program(program: Dictionary) -> bool:
 		if not _registry.validate_action(action):
 			return false
 	return true
+
+
+func _has_valid_program_keys(program: Dictionary) -> bool:
+	var required_keys: Array[String] = [
+		"program_id",
+		"trigger",
+		"conditions",
+		"actions",
+		"proc_chance",
+		"internal_cooldown",
+	]
+	var optional_keys: Array[String] = [
+		"interval_seconds",
+		"reset_on_condition_fail",
+	]
+	for required_key: String in required_keys:
+		if not program.has(required_key):
+			return false
+	for raw_key: Variant in program.keys():
+		if not raw_key is String:
+			return false
+		var key: String = String(raw_key)
+		if not required_keys.has(key) and not optional_keys.has(key):
+			return false
+	return true
+
+
+func _is_snake_case_identifier(value: Variant) -> bool:
+	if not value is String:
+		return false
+	var identifier: String = String(value)
+	if identifier.is_empty():
+		return false
+	var pattern: RegEx = RegEx.create_from_string("^[a-z][a-z0-9_]*$")
+	return pattern.search(identifier) != null
+
+
+func _is_finite_number(value: Variant) -> bool:
+	return (value is int or value is float) and is_finite(float(value))
 
 
 func _array_size(raw_value: Variant) -> int:

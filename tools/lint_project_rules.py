@@ -17,6 +17,7 @@ CLIENT_DATA = ROOT / "client" / "data"
 DATA_README = CLIENT_DATA / "README.md"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 EXPORT_PRESETS = ROOT / "client" / "export_presets.cfg"
+PROJECT_GODOT = ROOT / "client" / "project.godot"
 FORMAL_CLIENT_BOOT = (
     ROOT / "client" / "scripts" / "boot" / "formal_client_boot.gd"
 )
@@ -36,6 +37,12 @@ REQUIRED_RELEASE_DEBUG_EXCLUDES = {
     "tools/debug_test_arena_smoke.gd",
     "tools/debug_tools_smoke.gd",
 }
+REQUIRED_RELEASE_TEST_EXCLUDES = {
+    ".gutconfig.json",
+    "addons/gut/*",
+    "tests/*",
+}
+GUT_EDITOR_PLUGIN_PATH = "res://addons/gut/plugin.cfg"
 
 
 @dataclass(frozen=True)
@@ -56,6 +63,7 @@ def main() -> int:
     errors.extend(_check_data_fields_documented())
     errors.extend(_check_locale_bilingual())
     errors.extend(_check_release_presets())
+    errors.extend(_check_gut_editor_plugin_disabled())
     errors.extend(_check_debug_test_arena_standalone())
 
     if errors:
@@ -234,8 +242,50 @@ def _check_release_presets() -> list[LintError]:
                     f"resources: {', '.join(missing)}",
                 )
             )
+        missing_tests = sorted(REQUIRED_RELEASE_TEST_EXCLUDES - excluded)
+        if missing_tests:
+            errors.append(
+                LintError(
+                    EXPORT_PRESETS,
+                    f"line {exclude_line}" if exclude_line > 0 else section,
+                    "release-test-assets",
+                    "release preset must explicitly exclude GUT and test "
+                    f"resources: {', '.join(missing_tests)}",
+                )
+            )
 
     return errors
+
+
+def _check_gut_editor_plugin_disabled() -> list[LintError]:
+    if not PROJECT_GODOT.exists():
+        return []
+
+    current_section = ""
+    for line_number, raw_line in enumerate(
+        PROJECT_GODOT.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        line = raw_line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            current_section = line[1:-1]
+            continue
+        if (
+            current_section == "editor_plugins"
+            and line.startswith("enabled=")
+            and GUT_EDITOR_PLUGIN_PATH in line
+        ):
+            return [
+                LintError(
+                    PROJECT_GODOT,
+                    f"line {line_number}",
+                    "gut-editor-plugin-offline",
+                    "GUT EditorPlugin must stay disabled because it performs "
+                    "an online update check during headless editor boot; use "
+                    "res://addons/gut/gut_cmdln.gd instead",
+                )
+            ]
+    return []
 
 
 def _check_debug_test_arena_standalone() -> list[LintError]:

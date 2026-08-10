@@ -1,0 +1,77 @@
+name: godot-runtime
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_RELEASE: 4.7.1-stable
+  GODOT_ARCHIVE: Godot_v4.7.1-stable_linux.x86_64.zip
+  GODOT_SHA512: 4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9
+  GODOT_EXPECTED_VERSION: 4.7.1.stable.official.a13da4feb
+
+jobs:
+  runtime-tests:
+    name: Godot boot, GUT, and isolated L1 smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install official Godot 4.7.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT_DIR="$RUNNER_TEMP/godot"
+          GODOT_USER_ROOT="$RUNNER_TEMP/wasd-godot"
+          mkdir -p \
+            "$GODOT_DIR" \
+            "$GODOT_USER_ROOT/data" \
+            "$GODOT_USER_ROOT/config" \
+            "$GODOT_USER_ROOT/cache"
+          curl --fail --location --retry 3 \
+            "https://github.com/godotengine/godot-builds/releases/download/$GODOT_RELEASE/$GODOT_ARCHIVE" \
+            --output "$GODOT_DIR/$GODOT_ARCHIVE"
+          echo "$GODOT_SHA512  $GODOT_DIR/$GODOT_ARCHIVE" | sha512sum --check --strict
+          unzip -q "$GODOT_DIR/$GODOT_ARCHIVE" -d "$GODOT_DIR"
+          chmod +x "$GODOT_DIR/Godot_v${GODOT_RELEASE}_linux.x86_64"
+          echo "GODOT_PATH=$GODOT_DIR/Godot_v${GODOT_RELEASE}_linux.x86_64" >> "$GITHUB_ENV"
+          echo "XDG_DATA_HOME=$GODOT_USER_ROOT/data" >> "$GITHUB_ENV"
+          echo "XDG_CONFIG_HOME=$GODOT_USER_ROOT/config" >> "$GITHUB_ENV"
+          echo "XDG_CACHE_HOME=$GODOT_USER_ROOT/cache" >> "$GITHUB_ENV"
+
+      - name: Gate exact Godot version
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_VERSION="$($GODOT_PATH --version | tr -d '\r\n')"
+          if [ "$ACTUAL_VERSION" != "$GODOT_EXPECTED_VERSION" ]; then
+            echo "Expected Godot $GODOT_EXPECTED_VERSION, got $ACTUAL_VERSION" >&2
+            exit 1
+          fi
+          python tools/godot_bridge.py --project client godot-version
+
+      - name: Run formal headless boot
+        run: python tools/godot_bridge.py --project client headless-boot
+
+      - name: Run GUT unit and integration suites
+        run: python tools/godot_bridge.py --project client gut
+
+      - name: Run isolated core L1 smoke
+        run: python tools/godot_bridge.py --project client l1-smoke
+
+      - name: Run isolated effect runtime smoke
+        run: python tools/godot_bridge.py --project client effect-runtime-smoke

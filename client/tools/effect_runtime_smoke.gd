@@ -115,6 +115,7 @@ func _run() -> void:
 	_expect_all_triggers()
 	_expect_all_conditions()
 	_expect_all_actions()
+	_expect_invalid_primitive_params_rejected()
 	_expect_probability_cooldown_and_interval()
 	_expect_interval_plan_retention()
 	_expect_chain_depth_limit()
@@ -265,6 +266,10 @@ func _expect_all_conditions() -> void:
 		}
 		var conditions: Array[Dictionary] = [condition]
 		_expect(
+			registry.validate_condition(condition),
+			"condition %s params should validate" % condition["condition"]
+		)
+		_expect(
 			registry.conditions_met(
 				conditions,
 				condition_case.get("context", {}) as Dictionary
@@ -280,6 +285,441 @@ func _expect_all_conditions() -> void:
 		)
 	source.queue_free()
 	target.queue_free()
+
+
+func _expect_invalid_primitive_params_rejected() -> void:
+	var registry: EffectPrimitiveRegistry = EFFECT_REGISTRY_SCRIPT.new()
+	_expect(
+		registry.validate_action({
+			"action": EFFECT_ACTIONS.APPLY_STATUS,
+			"params": {
+				"status": STATUS_EFFECTS.SILENCE,
+				"duration": 1.0,
+				"stack_rule": STATUS_STACK_RULES.REFRESH,
+				"granted_ability_tags": [],
+				"modifiers": [],
+			},
+		}),
+		"apply_status should allow an empty optional modifier list"
+	)
+	var invalid_conditions: Array[Dictionary] = [
+		{"condition": EFFECT_CONDITIONS.TEAM, "params": {"value": "team_player"}},
+		{
+			"condition": EFFECT_CONDITIONS.TEAM,
+			"params": {"field": "source_team", "value": " "},
+		},
+		{"condition": EFFECT_CONDITIONS.ELEMENT, "params": {"value": "unknown"}},
+		{
+			"condition": EFFECT_CONDITIONS.DAMAGE_FLAG,
+			"params": {"value": "is_dot", "present": "true"},
+		},
+		{
+			"condition": EFFECT_CONDITIONS.DAMAGE_FLAG,
+			"params": {"value": " ", "present": true},
+		},
+		{
+			"condition": EFFECT_CONDITIONS.ACTOR_TAG,
+			"params": {"actor": "other", "value": ABILITY_TAGS.ABILITY_TAG_SKILL, "present": true},
+		},
+		{
+			"condition": EFFECT_CONDITIONS.HEALTH_RATIO,
+			"params": {"actor": "target", "comparison": "lte", "value": 2.0},
+		},
+		{
+			"condition": EFFECT_CONDITIONS.BOARD_CELL_RELATION,
+			"params": {"value": "diagonal"},
+		},
+		{
+			"condition": EFFECT_CONDITIONS.MODULE_RELATION,
+			"params": {"value": "unknown"},
+		},
+	]
+	for condition: Dictionary in invalid_conditions:
+		_expect(
+			not registry.validate_condition(condition),
+			"condition %s should reject invalid params"
+			% String(condition.get("condition", ""))
+		)
+
+	var invalid_actions: Array[Dictionary] = [
+		{"action": EFFECT_ACTIONS.DAMAGE, "params": {"amount": 3.0}},
+		{
+			"action": EFFECT_ACTIONS.APPLY_STATUS,
+			"params": {
+				"status": STATUS_EFFECTS.SILENCE,
+				"duration": 0.0,
+				"stack_rule": STATUS_STACK_RULES.REFRESH,
+				"granted_ability_tags": [],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.APPLY_STATUS,
+			"params": {
+				"status": STATUS_EFFECTS.SILENCE,
+				"duration": 1.0,
+				"stack_rule": STATUS_STACK_RULES.REFRESH,
+				"granted_ability_tags": [],
+				"incoming_damage_source_team": " ",
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.APPLY_STATUS,
+			"params": {
+				"status": STATUS_EFFECTS.SILENCE,
+				"duration": 1.0,
+				"stack_rule": STATUS_STACK_RULES.REFRESH,
+				"granted_ability_tags": [],
+				"magnitude": 1.0,
+				"tick_interval": 1.0,
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.APPLY_STATUS,
+			"params": {
+				"status": STATUS_EFFECTS.SILENCE,
+				"duration": 1.0,
+				"stack_rule": STATUS_STACK_RULES.REFRESH,
+				"granted_ability_tags": [],
+				"modifiers": [{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": 0.8,
+					"scale_mode": "inverse_from_magnitude",
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.APPLY_STATUS,
+			"params": {
+				"status": STATUS_EFFECTS.SILENCE,
+				"duration": 1.0,
+				"stack_rule": STATUS_STACK_RULES.REFRESH,
+				"granted_ability_tags": [],
+				"magnitude": 0.2,
+				"modifiers": [{
+					"stat": STATS.MOVE_SPEED,
+					"type": "add",
+					"value": 0.8,
+					"scale_mode": "inverse_from_magnitude",
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {"slot": "actor", "duration": 1.0, "modifiers": []},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "actor",
+				"duration": 1.0,
+				"modifiers": [{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": 0.8,
+					"scale_mode": "unknown",
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "actor",
+				"duration": 1.0,
+				"modifiers": [{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": 0.8,
+					"scale_mode": "inverse_from_magnitude",
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "actor",
+				"duration": 1.0,
+				"modifiers": [{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": 1.1,
+					"typo": true,
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "actor",
+				"duration": 1.0,
+				"stack_rule": STATUS_STACK_RULES.ADD_DURATION,
+				"modifiers": [{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": 1.1,
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "actor",
+				"duration": 1.0,
+				"modifiers": [{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": -1.0,
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "weapon",
+				"duration": 1.0,
+				"modifiers": [{
+					"stat": STATS.BULLET_COUNT,
+					"type": "add",
+					"value": 1.5,
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "weapon",
+				"duration": 1.0,
+				"modifiers": [{
+					"stat": STATS.MAX_HP,
+					"type": "mult",
+					"value": 2.0,
+				}],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+			"params": {
+				"slot": "actor",
+				"duration": 1.0,
+				"modifiers": [{
+					"stat": STATS.FIRE_RATE,
+					"type": "mult",
+					"value": 1.1,
+				}],
+			},
+		},
+		{"action": EFFECT_ACTIONS.HEAL, "params": {"amount": 0.0}},
+		{"action": EFFECT_ACTIONS.GRANT_SHIELD, "params": {"amount": -1.0}},
+		{
+			"action": EFFECT_ACTIONS.GRANT_OVERSHIELD,
+			"params": {"amount": INF},
+		},
+		{
+			"action": EFFECT_ACTIONS.GRANT_GOLD,
+			"params": {"amount": 0, "reason_id": GOLD_TRANSACTION_REASONS.EVENT_REWARD},
+		},
+		{
+			"action": EFFECT_ACTIONS.SPAWN_PROJECTILE,
+			"params": {
+				"pool_id": POOL_IDS.BULLET_BASIC,
+				"amount": 3.0,
+				"element_id": ELEMENTS.ELEMENT_NEUTRAL,
+				"speed": 800.0,
+				"range": 600.0,
+				"hit_radius": 8.0,
+				"lifetime": 2.0,
+				"count": 0,
+				"spread_degrees": 10.0,
+				"pierce_count": 0,
+				"wall_pierce": false,
+				"damage_target_groups": [DAMAGE_TARGET_GROUPS.ACTIVE_ENEMIES],
+			},
+		},
+		{
+			"action": EFFECT_ACTIONS.SPAWN_ENEMY,
+			"params": {"normal_rewards": true, "current_layer_only": false},
+		},
+		{
+			"action": EFFECT_ACTIONS.SPAWN_BARRIER,
+			"params": {
+				"pool_id": POOL_IDS.PROJECTILE_BARRIER,
+				"radius": 64.0,
+				"hp": 100.0,
+				"max_active": 0,
+				"recast_policy": "replace",
+			},
+		},
+	]
+	for action: Dictionary in invalid_actions:
+		_expect(
+			not registry.validate_action(action),
+			"action %s should reject invalid params"
+			% String(action.get("action", ""))
+		)
+	var json_roundtrip_action: Variant = JSON.parse_string(JSON.stringify({
+		"action": EFFECT_ACTIONS.SPAWN_BARRIER,
+		"params": {
+			"pool_id": POOL_IDS.PROJECTILE_BARRIER,
+			"radius": 64.0,
+			"hp": 100.0,
+			"max_active": 1,
+			"recast_policy": "replace",
+		},
+	}))
+	_expect(
+		json_roundtrip_action is Dictionary
+		and registry.validate_action(json_roundtrip_action as Dictionary),
+		"JSON int-like primitive fields should match DataLoader validation"
+	)
+	var both_slot_action: Dictionary = {
+		"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+		"params": {
+			"slot": "both",
+			"duration": 1.0,
+			"modifiers": [
+				{"stat": STATS.MOVE_SPEED, "type": "mult", "value": 1.1},
+				{"stat": STATS.FIRE_RATE, "type": "mult", "value": 1.1},
+			],
+		},
+	}
+	_expect(
+		registry.validate_action(both_slot_action),
+		"both temporary modifier slot should accept actor and weapon stats"
+	)
+
+	_primitive_calls.clear()
+	var runtime: GameplayEffectRuntime = _new_runtime(
+		Callable(self, "_record_primitive_action")
+	)
+	var invalid_program: Dictionary = _program("invalid_runtime_boundary")
+	invalid_program["actions"] = [
+		{"action": EFFECT_ACTIONS.DAMAGE, "params": {"amount": 3.0}},
+	]
+	var invalid_programs: Array[Dictionary] = [invalid_program]
+	_expect(
+		not runtime.register_source(
+			"test",
+			"invalid_runtime_boundary",
+			1,
+			0,
+			invalid_programs
+		),
+		"runtime should reject invalid primitive params before dispatch"
+	)
+	var invalid_slot_stat_program: Dictionary = _program(
+		"invalid_slot_stat_boundary"
+	)
+	invalid_slot_stat_program["actions"] = [{
+		"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+		"params": {
+			"slot": "weapon",
+			"duration": 1.0,
+			"modifiers": [{
+				"stat": STATS.MAX_HP,
+				"type": "mult",
+				"value": 2.0,
+			}],
+		},
+	}]
+	var invalid_slot_stat_programs: Array[Dictionary] = [
+		invalid_slot_stat_program,
+	]
+	_expect(
+		not runtime.register_source(
+			"test",
+			"invalid_slot_stat_boundary",
+			2,
+			0,
+			invalid_slot_stat_programs
+		),
+		"runtime should reject modifiers whose slot cannot consume the stat"
+	)
+	var invalid_damage_tick_program: Dictionary = _program(
+		"invalid_damage_tick_boundary"
+	)
+	invalid_damage_tick_program["actions"] = [{
+		"action": EFFECT_ACTIONS.APPLY_STATUS,
+		"params": {
+			"status": STATUS_EFFECTS.SILENCE,
+			"duration": 1.0,
+			"stack_rule": STATUS_STACK_RULES.REFRESH,
+			"granted_ability_tags": [],
+			"magnitude": 1.0,
+			"tick_interval": 1.0,
+		},
+	}]
+	var invalid_damage_tick_programs: Array[Dictionary] = [
+		invalid_damage_tick_program,
+	]
+	_expect(
+		not runtime.register_source(
+			"test",
+			"invalid_damage_tick_boundary",
+			3,
+			0,
+			invalid_damage_tick_programs
+		),
+		"runtime should reject damage ticks without a registered element"
+	)
+	var empty_programs: Array[Dictionary] = []
+	_expect(
+		not runtime.register_source(
+			"test",
+			"empty_runtime_boundary",
+			4,
+			0,
+			empty_programs
+		),
+		"runtime should reject sources without programs"
+	)
+	var invalid_envelopes: Array[Dictionary] = []
+	var extra_field_program: Dictionary = _program("extra_field")
+	extra_field_program["surprise"] = true
+	invalid_envelopes.append(extra_field_program)
+	var string_probability_program: Dictionary = _program("string_probability")
+	string_probability_program["proc_chance"] = "1.0"
+	invalid_envelopes.append(string_probability_program)
+	var string_cooldown_program: Dictionary = _program("string_cooldown")
+	string_cooldown_program["internal_cooldown"] = "0.0"
+	invalid_envelopes.append(string_cooldown_program)
+	var string_reset_program: Dictionary = _program("string_reset")
+	string_reset_program["reset_on_condition_fail"] = "false"
+	invalid_envelopes.append(string_reset_program)
+	var non_interval_reset_program: Dictionary = _program("non_interval_reset")
+	non_interval_reset_program["reset_on_condition_fail"] = true
+	invalid_envelopes.append(non_interval_reset_program)
+	var non_interval_program: Dictionary = _program("non_interval_seconds")
+	non_interval_program["interval_seconds"] = 1.0
+	invalid_envelopes.append(non_interval_program)
+	var missing_interval_program: Dictionary = _program("missing_interval")
+	missing_interval_program["trigger"] = EFFECT_TRIGGERS.INTERVAL
+	invalid_envelopes.append(missing_interval_program)
+	var invalid_id_program: Dictionary = _program("valid_id")
+	invalid_id_program["program_id"] = "Invalid-Id"
+	invalid_envelopes.append(invalid_id_program)
+	var leading_digit_id_program: Dictionary = _program("valid_id")
+	leading_digit_id_program["program_id"] = "1bad"
+	invalid_envelopes.append(leading_digit_id_program)
+	for index: int in range(invalid_envelopes.size()):
+		var invalid_envelope_programs: Array[Dictionary] = [
+			invalid_envelopes[index],
+		]
+		_expect(
+			not runtime.register_source(
+				"test",
+				"invalid_envelope_%d" % index,
+				index + 5,
+				0,
+				invalid_envelope_programs
+			),
+			"runtime should reject invalid program envelope %d" % index
+		)
+	var result: Dictionary = runtime.emit_event(EFFECT_TRIGGERS.SKILL_ACTIVATED)
+	_expect(
+		int(result.get("executed_actions", 0)) == 0
+		and _primitive_calls.is_empty(),
+		"rejected source should not consume action budget or set cooldown"
+	)
 
 
 func _expect_all_actions() -> void:
@@ -456,10 +896,13 @@ func _expect_action_budget() -> void:
 	)
 	var program: Dictionary = _program("budget")
 	var actions: Array[Dictionary] = []
-	for index: int in GameplayEffectRuntime.MAX_ACTIONS_PER_TICK + 1:
+	for _index: int in GameplayEffectRuntime.MAX_ACTIONS_PER_TICK + 1:
 		actions.append({
 			"action": EFFECT_ACTIONS.SPAWN_ENEMY,
-			"params": {"serial": index},
+			"params": {
+				"normal_rewards": true,
+				"current_layer_only": true,
+			},
 		})
 	program["actions"] = actions
 	var programs: Array[Dictionary] = [program]
@@ -569,7 +1012,13 @@ func _program(program_id: String) -> Dictionary:
 		"trigger": EFFECT_TRIGGERS.SKILL_ACTIVATED,
 		"conditions": [],
 		"actions": [
-			{"action": EFFECT_ACTIONS.SPAWN_ENEMY, "params": {}},
+			{
+				"action": EFFECT_ACTIONS.SPAWN_ENEMY,
+				"params": {
+					"normal_rewards": true,
+					"current_layer_only": true,
+				},
+			},
 		],
 		"proc_chance": 1.0,
 		"internal_cooldown": 0.0,
