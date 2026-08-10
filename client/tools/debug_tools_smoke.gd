@@ -22,7 +22,7 @@ func _run() -> void:
 		await _run_release_sim_smoke()
 	else:
 		await _run_debug_smoke()
-	_finish(release_sim)
+	await _finish(release_sim)
 
 
 func _run_debug_smoke() -> void:
@@ -176,9 +176,33 @@ func _expect(condition: bool, message: String) -> void:
 
 
 func _finish(release_sim: bool) -> void:
+	var exit_code: int = 0 if _failures.is_empty() else 1
 	if _failures.is_empty():
 		print("[DebugToolsSmoke] passed; release_sim=%s" % str(release_sim))
-		get_tree().quit(0)
-		return
-	print("[DebugToolsSmoke] failed; release_sim=%s failures=%d" % [str(release_sim), _failures.size()])
-	get_tree().quit(1)
+	else:
+		print(
+			"[DebugToolsSmoke] failed; release_sim=%s failures=%d"
+			% [str(release_sim), _failures.size()]
+		)
+	await _teardown_before_quit()
+	get_tree().quit(exit_code)
+
+
+func _teardown_before_quit() -> void:
+	UIManager.clear(true)
+	GameState.change_state(
+		GameState.MAIN_MENU,
+		{"source": "debug_tools_smoke_teardown"}
+	)
+	var boot: Node = _find_node_by_name(
+		get_tree().root,
+		"FormalClientBoot"
+	)
+	if boot != null:
+		reparent(get_tree().root)
+		boot.queue_free()
+	await get_tree().process_frame
+	PoolManager.clear_all()
+	GUIDEInputFormatter.cleanup()
+	await get_tree().process_frame
+	await get_tree().process_frame

@@ -44,6 +44,9 @@ const ENEMY_REWARD_RESOLVER_SCRIPT := preload(
 const ENEMY_SPAWN_SERVICE_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_spawn_service.gd"
 )
+const GAMEPLAY_DEBUG_FACADE_SCRIPT := preload(
+	"res://scripts/gameplay/gameplay_debug_facade.gd"
+)
 const RUN_SNAPSHOT_COORDINATOR_SCRIPT := preload(
 	"res://scripts/gameplay/run_snapshot_coordinator.gd"
 )
@@ -103,9 +106,6 @@ const GEAR_MOD_BOARD_PANEL_SCENE := preload(
 )
 const PROJECTILE_BARRIER_SCENE := preload(
 	"res://scenes/gameplay/projectile_barrier.tscn"
-)
-const REWARD_CHOICE_TRIGGERS := preload(
-	"res://scripts/contracts/reward_choice_triggers.gd"
 )
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
@@ -230,6 +230,9 @@ var _gear_mod_board_panel: Node = null
 var _gear_mod_pickup_config: Dictionary = {}
 var _gold_drop_config: Dictionary = {}
 var _gold_progression: GoldProgression = null
+var _gameplay_debug_facade: GAMEPLAY_DEBUG_FACADE_SCRIPT = (
+	GAMEPLAY_DEBUG_FACADE_SCRIPT.new()
+)
 var _gameplay_feedback: GameplayFeedbackController = null
 var _game_over_panel: CanvasLayer = null
 var _hazard_rows: Dictionary = {}
@@ -550,10 +553,10 @@ func debug_request_reward_choice(
 	candidate_count: int = 3,
 	pool_id: String = DEFAULT_DEBUG_REWARD_POOL
 ) -> Dictionary:
-	return request_reward_choice(
-		pool_id,
-		REWARD_CHOICE_TRIGGERS.DEBUG_COMMAND,
-		candidate_count
+	return _gameplay_debug_facade.request_reward_choice(
+		_gameplay_debug_context(),
+		candidate_count,
+		pool_id
 	)
 
 
@@ -1806,151 +1809,61 @@ func request_reward_choice(
 
 
 func debug_summary() -> Dictionary:
-	return {
-		"level": current_level(),
-		"gold_balance": gold_balance(),
-		"gold_earned_total": gold_earned_total(),
-		"level_gold": current_level_gold(),
-		"level_gold_required": current_level_gold_required(),
-		"reward_choice_active": (
-			_reward_choice_controller.is_busy()
-			if _reward_choice_controller != null
-			else false
-		),
-		"kills": _kills,
-		"hero_composition": {
-			"main_hero_id": _main_hero_id,
-			"sub_hero_id": _sub_hero_id,
-			"name": _composition_display_name(),
-			"palette": _dictionary_or_empty(
-				_hero_composition.get("palette", {})
-			),
-			"passive_id": String(
-				_hero_composition.get("passive_id", "")
-			),
-		},
-		"player_life": float(_player.call("current_life")) if _player != null and _player.has_method("current_life") else 0.0,
-		"player_max_life": float(_player.call("max_life")) if _player != null and _player.has_method("max_life") else 0.0,
-		"player_shield": float(_player.call("current_shield")) if _player != null and _player.has_method("current_shield") else 0.0,
-		"player_max_shield": float(_player.call("max_shield")) if _player != null and _player.has_method("max_shield") else 0.0,
-		"player_overshield": float(_player.call("current_overshield")) if _player != null and _player.has_method("current_overshield") else 0.0,
-		"active_enemies": _active_enemy_count(),
-		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
-		"interest_points": _interest_point_debug_summary(),
-		"gear_mods": _run_gear_mod_snapshot(),
-		"difficulty": _difficulty_snapshot(),
-		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
-		"module_world": _module_world_manager.call("debug_summary") if _module_world_manager != null and _module_world_manager.has_method("debug_summary") else {},
-		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
-		"warzone_director": _warzone_director.debug_summary(_difficulty_elapsed()) if _warzone_director != null else {},
-	}
+	return _gameplay_debug_facade.summary(_gameplay_debug_summary_state())
 
 
 func debug_spawn_enemy(enemy_id: String, count: int = 1) -> Dictionary:
-	if _active_world == null or _player == null:
-		return _debug_result(false, "run_not_ready")
-	if not _enemy_rows.has(enemy_id):
-		return _debug_result(false, "unknown_enemy")
-	var spawn_count: int = clampi(count, 1, ENEMY_POOL_SIZE)
-	var spawned: int = 0
-	var wave_key: String = "debug_%s" % enemy_id
-	var state: Dictionary = _spawn_states.get(wave_key, {
-		"next_time": GameClock.now(),
-		"spawned": 0,
-		"alive": 0,
-	})
-	for _index: int in range(spawn_count):
-		if _spawn_enemy({"enemy_id": enemy_id}, wave_key):
-			spawned += 1
-	state["spawned"] = int(state.get("spawned", 0)) + spawned
-	state["alive"] = int(state.get("alive", 0)) + spawned
-	state["next_time"] = GameClock.now()
-	_spawn_states[wave_key] = state
-	return {
-		"ok": spawned > 0,
-		"reason": "" if spawned > 0 else "pool_unavailable",
-		"spawned": spawned,
-	}
+	return _gameplay_debug_facade.spawn_enemy(
+		_gameplay_debug_context(),
+		enemy_id,
+		count
+	)
 
 
 func debug_give_gold(amount: int) -> Dictionary:
-	return add_gold(amount, GOLD_TRANSACTION_REASONS.DEBUG_COMMAND)
+	return _gameplay_debug_facade.give_gold(
+		_gameplay_debug_context(),
+		amount
+	)
 
 
 func debug_heal_player(amount: float) -> Dictionary:
-	if _player == null or not _player.has_method("debug_heal"):
-		return _debug_result(false, "player_unavailable")
-	var result: Dictionary = _player.call("debug_heal", amount)
-	result["ok"] = true
-	return result
+	return _gameplay_debug_facade.heal_player(
+		_gameplay_debug_context(),
+		amount
+	)
 
 
 func debug_set_player_hp(amount: float) -> Dictionary:
-	if _player == null or not _player.has_method("debug_set_life"):
-		return _debug_result(false, "player_unavailable")
-	var result: Dictionary = _player.call("debug_set_life", amount)
-	result["ok"] = true
-	return result
+	return _gameplay_debug_facade.set_player_hp(
+		_gameplay_debug_context(),
+		amount
+	)
 
 
 func debug_damage_player(amount: float) -> Dictionary:
-	if _player == null:
-		return _debug_result(false, "player_unavailable")
-	var applied_amount: float = maxf(amount, 0.0)
-	if applied_amount <= 0.0:
-		return _debug_result(false, "non_positive_amount")
-	if _player.has_method("debug_clear_invulnerability"):
-		_player.call("debug_clear_invulnerability")
-	var result: Dictionary = Combat.apply_damage(_player, _damage_info(applied_amount, _player))
-	return {
-		"ok": bool(result.get("applied", false)),
-		"reason": String(result.get("reason", "")),
-		"life": float(_player.call("current_life")) if _player.has_method("current_life") else 0.0,
-		"max_life": float(_player.call("max_life")) if _player.has_method("max_life") else 0.0,
-		"combat_result": result.duplicate(true),
-	}
+	return _gameplay_debug_facade.damage_player(
+		_gameplay_debug_context(),
+		amount
+	)
 
 
 func debug_kill_player() -> Dictionary:
-	if _player == null or not _player.has_method("max_life"):
-		return _debug_result(false, "player_unavailable")
-	if _player.has_method("debug_set_shield"):
-		_player.call("debug_set_shield", 0.0, 0.0)
-	if _player.has_method("debug_clear_invulnerability"):
-		_player.call("debug_clear_invulnerability")
-	return debug_damage_player(float(_player.call("max_life")) * 10.0)
+	return _gameplay_debug_facade.kill_player(
+		_gameplay_debug_context()
+	)
 
 
 func debug_kill_enemies() -> Dictionary:
-	var killed: int = 0
-	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
-		if not _is_active_world_entity(enemy):
-			continue
-		var result: Dictionary = Combat.apply_damage(enemy, _damage_info(999999.0, enemy))
-		if bool(result.get("applied", false)):
-			killed += 1
-	return {
-		"ok": true,
-		"count": killed,
-	}
+	return _gameplay_debug_facade.kill_enemies(
+		_gameplay_debug_context()
+	)
 
 
 func debug_clear_enemies() -> Dictionary:
-	var cleared: int = 0
-	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
-		if not _is_active_world_entity(enemy):
-			continue
-		if PoolManager.release(enemy):
-			cleared += 1
-	for wave_key: String in _spawn_states.keys():
-		if String(wave_key).begins_with("debug_"):
-			var state: Dictionary = _spawn_states[wave_key]
-			state["alive"] = 0
-			_spawn_states[wave_key] = state
-	return {
-		"ok": true,
-		"count": cleared,
-	}
+	return _gameplay_debug_facade.clear_enemies(
+		_gameplay_debug_context()
+	)
 
 
 func debug_module_world_enabled() -> bool:
@@ -1998,18 +1911,22 @@ func debug_module_world_tick() -> Dictionary:
 
 
 func debug_difficulty_snapshot() -> Dictionary:
-	return _difficulty_snapshot()
+	return _gameplay_debug_facade.difficulty_snapshot(
+		_difficulty_snapshot()
+	)
 
 
 func debug_set_player_position(world_position: Vector2) -> void:
-	if _player != null and is_instance_valid(_player):
-		_player.global_position = world_position
+	_gameplay_debug_facade.set_player_position(
+		_gameplay_debug_context(),
+		world_position
+	)
 
 
 func debug_cast_primary_skill() -> Dictionary:
-	if _skill_system == null or not _skill_system.has_method("cast_primary_skill"):
-		return _debug_result(false, "skill_system_unavailable")
-	return _skill_system.call("cast_primary_skill") as Dictionary
+	return _gameplay_debug_facade.cast_primary_skill(
+		_gameplay_debug_context()
+	)
 
 
 func debug_test_arena_spawn_at(
@@ -8273,6 +8190,116 @@ func _choice_ids(choices: Array[Dictionary]) -> Array[String]:
 	for choice: Dictionary in choices:
 		result.append(String(choice.get("id", "")))
 	return result
+
+
+func _gameplay_debug_context() -> GAMEPLAY_DEBUG_FACADE_SCRIPT.ActiveRunContext:
+	var context: GAMEPLAY_DEBUG_FACADE_SCRIPT.ActiveRunContext = (
+		GAMEPLAY_DEBUG_FACADE_SCRIPT.ActiveRunContext.new()
+	)
+	context.owner = self
+	context.tree = get_tree()
+	context.active_world = _active_world
+	context.player = _player
+	context.skill_system = _skill_system
+	context.enemy_rows = _enemy_rows
+	context.spawn_states = _spawn_states
+	context.max_spawn_count = ENEMY_POOL_SIZE
+	context.now = Callable(GameClock, "now")
+	context.spawn_enemy = Callable(self, "_spawn_enemy")
+	context.add_gold = Callable(self, "add_gold")
+	context.request_reward_choice = Callable(
+		self,
+		"request_reward_choice"
+	)
+	context.make_damage_info = Callable(self, "_damage_info")
+	context.is_active_world_entity = Callable(
+		self,
+		"_is_active_world_entity"
+	)
+	context.release_entity = Callable(PoolManager, "release")
+	return context
+
+
+func _gameplay_debug_summary_state() -> GAMEPLAY_DEBUG_FACADE_SCRIPT.SummaryState:
+	var state: GAMEPLAY_DEBUG_FACADE_SCRIPT.SummaryState = (
+		GAMEPLAY_DEBUG_FACADE_SCRIPT.SummaryState.new()
+	)
+	state.level = current_level()
+	state.gold_balance = gold_balance()
+	state.gold_earned_total = gold_earned_total()
+	state.level_gold = current_level_gold()
+	state.level_gold_required = current_level_gold_required()
+	state.reward_choice_active = (
+		_reward_choice_controller.is_busy()
+		if _reward_choice_controller != null
+		else false
+	)
+	state.kills = _kills
+	state.main_hero_id = _main_hero_id
+	state.sub_hero_id = _sub_hero_id
+	state.composition_name = _composition_display_name()
+	state.composition_palette = _dictionary_or_empty(
+		_hero_composition.get("palette", {})
+	)
+	state.passive_id = String(
+		_hero_composition.get("passive_id", "")
+	)
+	state.player_life = (
+		float(_player.call("current_life"))
+		if _player != null and _player.has_method("current_life")
+		else 0.0
+	)
+	state.player_max_life = (
+		float(_player.call("max_life"))
+		if _player != null and _player.has_method("max_life")
+		else 0.0
+	)
+	state.player_shield = (
+		float(_player.call("current_shield"))
+		if _player != null and _player.has_method("current_shield")
+		else 0.0
+	)
+	state.player_max_shield = (
+		float(_player.call("max_shield"))
+		if _player != null and _player.has_method("max_shield")
+		else 0.0
+	)
+	state.player_overshield = (
+		float(_player.call("current_overshield"))
+		if _player != null and _player.has_method("current_overshield")
+		else 0.0
+	)
+	state.active_enemies = _active_enemy_count()
+	state.active_hazards = PoolManager.active_count(
+		POOL_IDS.HAZARD_SPIKE
+	)
+	state.interest_points = _interest_point_debug_summary()
+	state.gear_mods = _run_gear_mod_snapshot()
+	state.difficulty = _difficulty_snapshot()
+	state.map = (
+		_map_manager.call("debug_summary") as Dictionary
+		if _map_manager != null and _map_manager.has_method("debug_summary")
+		else {}
+	)
+	state.module_world = (
+		_module_world_manager.call("debug_summary") as Dictionary
+		if (
+			_module_world_manager != null
+			and _module_world_manager.has_method("debug_summary")
+		)
+		else {}
+	)
+	state.skills = (
+		_skill_system.call("debug_summary") as Dictionary
+		if _skill_system != null and _skill_system.has_method("debug_summary")
+		else {}
+	)
+	state.warzone_director = (
+		_warzone_director.debug_summary(_difficulty_elapsed())
+		if _warzone_director != null
+		else {}
+	)
+	return state
 
 
 func _damage_info(amount: float, target: Node) -> RefCounted:

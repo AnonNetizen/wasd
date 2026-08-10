@@ -41,6 +41,7 @@
 | 改 HUD 文案 / 详细数值面板 | `client/scripts/gameplay/gameplay_hud.gd`、`client/scenes/gameplay/gameplay_hud.tscn`、`client/locale/strings.csv` |
 | 改稳定节点结构 / UI 层级 | `client/scenes/gameplay/*.tscn`、`client/scenes/ui/*.tscn` |
 | 改 GM 指令影响局内状态 | `docs/代码/debug_tools.md`、`client/scripts/debug/gm_command_registry.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` |
+| 改标准对局 debug API 的校验 / 路由 / 摘要 | `client/scripts/gameplay/gameplay_debug_facade.gd`；RunLoop 只保留同名公共薄包装和每次调用即时构造的 typed context |
 | 改开发者测试岛 | `docs/代码/debug_test_arena.md`、`client/scenes/debug/`、`client/scripts/debug/debug_test_arena_*.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` |
 
 ## 代码位置
@@ -63,6 +64,7 @@
 | `client/scenes/ui/title_menu.tscn` / `codex_panel.tscn` / `gear_mod_board_panel.tscn` / 其余正式 UI | 标题页只提供图鉴；Gear Mod 面板是对局内非暂停的地图 / 棋盘查看、拾取放置与 Attributes 页面 |
 | `client/scenes/ui/stats_row.tscn` / `reward_choice_button.tscn` / `input_binding_row.tscn` | 数据驱动重复 UI 的可编辑行模板；运行时允许实例化模板并填入文本 / signal，不允许逐个 `Label.new()` / `Button.new()` 拼装长期行结构 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
+| `client/scripts/gameplay/gameplay_debug_facade.gd` | 无状态的标准对局 debug 门面实现；通过每次调用新建的 `ActiveRunContext` 借用当前 Player、敌人表、spawn state 与受控 Callable ports，并由一次性 `SummaryState` 按旧 key / 顺序深拷贝组装摘要。RunLoop 继续拥有 13 个同名公共入口、节点生命周期和 `DamageInfo.source=self` |
 | `client/scripts/gameplay/enemy_spawn_service.gd` | RunLoop 直属的敌人材化服务；统一 fresh / fixed / debug / restore 的获池后顺序、`wave_key` / `module_slot` 清理、serial、bounds 与 lifecycle；资格、规划、奖励策略和 Run v19 外层仍由 RunLoop 持有 |
 | `client/scripts/gameplay/run_snapshot_coordinator.gd` | 纯 `RefCounted` Run v19 协调器；保有 30 个顶层字段的插入顺序与验证 / 恢复顺序，通过 typed state / Callable ports 调用 RunLoop leaf，不持有场景节点 |
 | `client/scripts/data/difficulty_progression.gd` | 模式级威胁时间、难度系数、90 秒阶段、敌人出生倍率和 Run v19 快照；由 RunLoop 决定每帧是否推进 |
@@ -202,7 +204,7 @@ ADR #159 另有一个非 carrier、非 game mode 的内部运行用途 `DEBUG_TE
 | UI 布局 | HUD 使用全屏锚点下的容器布局；难度标记器挂在右上小地图下方，详细数值面板显示时向左让位。阶段变化使用固定的非模态颜色、描边和缩放 Tween 高亮。升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度 | `GameplayHud.set_difficulty_snapshot()`、`Control.set_anchors_preset()` |
 | 运行时语言刷新 | `Localization.locale_changed` 发出后，标题、暂停、设置、HUD、升级和结果页用自身缓存的状态或配置数据刷新文本；订阅的 UI 在 `_exit_tree()` 断开 signal，避免离树节点收到后续语言切换 | `Localization.locale_changed`、`refresh_texts()` |
 | 失败 / 完成 / 重开 | 玩家生命归零或意识核 `completes_run` 目标完成后，把本局进度增量原子合并到 Meta、一次评估新解锁，再删除 `run` 存档、清空局内 Gear Mod、进入 `GameState.GAME_OVER`、冻结底层时钟并显示唯一结果面板；结果页显示最终本局构筑和非空新解锁列表。主动放弃或重开不提交增量；Replay、smoke、开发者测试岛禁止提交。GameState 结果 payload、埋点和 Replay `run_end` 统一使用 `DifficultyProgression.elapsed` 作为本局用时，并附等级及敌人生命 / 伤害倍率 | `ContentUnlockSystem.commit_run_progress()`、`SaveManager.delete(run)`、`UIManager.push()`、`GameState.change_state()`、`GameplayRunLoop.restart_requested` |
-| DebugTools smoke | `debug-tools-smoke` 启动一局并通过 `DebugConsole` 调用 `GMCommandRegistry`，验证 help/stats/spawn/gold/hp/damage/heal/kill/clear；`debug-tools-release-smoke` 模拟 release guard，确认没有 `DebugConsole` / `GMCommandRegistry` 或 debug action | `client/tools/debug_tools_smoke.gd` / `docs/代码/debug_tools.md` |
+| DebugTools smoke | `debug-tools-smoke` 启动一局并通过 `DebugConsole` 调用 `GMCommandRegistry`，验证 help/stats/spawn/gold/hp/damage/heal/kill/clear。标准对局的 13 个 RunLoop debug wrapper 每次即时构造 `GameplayDebugFacade.ActiveRunContext`，不缓存可被 smoke 替换的 `_enemy_rows` / `_spawn_states`；`debug-tools-release-smoke` 模拟 release guard，确认没有 `DebugConsole` / `GMCommandRegistry` 或 debug action | `client/tests/integration/test_gameplay_debug_facade.gd`、`client/tools/debug_tools_smoke.gd` / `docs/代码/debug_tools.md` |
 | 自动 smoke / 按需 probe | Gear Mod / effect-runtime / mod-loader-v2 / pickup / input / UI / runtime / module-world / save / replay smoke 覆盖棋盘、事务、输入锁、本地环境、刷怪笼、Run v19 与 Replay v9；数据、schema、三层 lint 与 headless boot 串行执行。仅当用户明确要求性能测试时才运行 `perf-probe` | 对应 smoke / runner 工具 |
 
 ## 公共 API
@@ -272,7 +274,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `GameplayRunLoop.debug_difficulty_snapshot()` | 无 | `Dictionary` | 只读返回 profile/name/difficulty coefficient、当前威胁 elapsed / level / progress / 生命 / 伤害倍率，供 smoke 与 debug summary |
 | `GameplayRunLoop.configure_player_loading_mode(enabled)` | `bool` | `void` | 必须在节点入树前调用；`true` 启用线程资源读取、分帧准备和外部激活，默认 `false` 保留工具同步时序 |
 | `GameplayRunLoop.activate_prepared_run()` | 无 | `bool` | 仅在准备成功且尚未激活时有效；切换 `PLAYING` 后才恢复保存的暂停 / 奖励选择 UI |
-| `GameplayRunLoop.debug_summary()` / `debug_spawn_enemy()` / `debug_give_gold()` / `debug_request_reward_choice()` / `debug_heal_player()` / `debug_set_player_hp()` / `debug_damage_player()` / `debug_kill_player()` / `debug_kill_enemies()` / `debug_clear_enemies()` / `debug_damage_interest_point_target()` | GM 指令参数 | `Dictionary` | 只作为 DebugTools / smoke / golden replay 的受控 runtime API；刷怪走对象池，伤害 / 击杀走 `Combat`，金币走正式交易，奖励走正式请求 API |
+| `GameplayRunLoop.debug_request_reward_choice()` / `debug_summary()` / `debug_spawn_enemy()` / `debug_give_gold()` / `debug_heal_player()` / `debug_set_player_hp()` / `debug_damage_player()` / `debug_kill_player()` / `debug_kill_enemies()` / `debug_clear_enemies()` / `debug_difficulty_snapshot()` / `debug_set_player_position()` / `debug_cast_primary_skill()` | 原有 GM / smoke 参数与默认值 | 原有 `Dictionary` / `void` | 公共签名、默认值、结果 key / 插入顺序保持；RunLoop 是薄包装并在每次调用传入当前 typed context。刷怪限制仍为 `1..96`、只累计成功实例；伤害 / 击杀走 `Combat`，且 `DamageInfo` 仍由 RunLoop port 创建以保持 `source=self`；设置位置不 clamp、不额外 tick |
+| `GameplayDebugFacade.request_reward_choice()` / `summary()` / `spawn_enemy()` / 其余标准 debug 方法 | `ActiveRunContext` 或 `SummaryState` + 原入口参数 | `Dictionary` / `void` | Facade 为无状态 `RefCounted`，不缓存节点、字典或 summary；context 的 `enemy_rows` / `spawn_states` 是当次借用，容器摘要在输出时 deep copy。预树开关、ModuleWorld / world event / Gear Mod / effect、兴趣点与测试岛专用入口不属于本门面 |
+| `GameplayRunLoop.debug_damage_interest_point_target()` 及 ModuleWorld / world event / Gear Mod / effect / 测试岛 debug API | 各领域参数 | `Dictionary` / `void` | 继续由 RunLoop 和对应领域控制器持有；本次标准门面提取不改变这些 specialized API |
 | `GameplayRunLoop.debug_enable_open_warzone()` | 无 | `void` | 仅测试 / 对照回归显式切到 F12 open-warzone；正式标准模式默认模块世界 |
 | `RewardChoicePanel.configure(choices)` / `choose_index(index)` | 奖励候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应；按 `pause` action 时发出 `pause_requested`；语言切换时重用 `_choices` 重建按钮 |
 | `GameplayHud.set_life()` / `set_kills()` / `set_level()` / `set_gold_progress()` / `set_difficulty_snapshot()` / `show_gear_mod_drop_feedback()` / `show_gear_mod_no_space_feedback()` | HUD 状态 | `void` | 常驻 HUD 与 Gear Mod 放置 / 无空间反馈；详细属性由 `GearModBoardPanel` 的 Attributes 页面显示 |
@@ -332,11 +336,11 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - Gear Mod 掉落：仅玩家归因击杀调用 `GearModSystem.roll_drop_for_enemy()` 并走 `RNG.drop`；追击者伤害 Mod 5%、喷吐者扩散 Mod 2.5%、壁垒者后坐 Mod 15%。命中后生成手动拾取实体，成功交互才通过统一单份授予入口追加、应用并显示 HUD 反馈；奖励源不按已持有 id 过滤，怪物互杀或非玩家归因击杀不会授予。缓存、世界事件与敌人掉落共用同一原子入口，Run 恢复不重抽、不重复发奖。
 - 伤害类型：从 `weapons.json` / `enemies.csv` / `hazards.csv` 读取，交给 `Combat` 校验。
 - UI / HUD / 奖励文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_gold_progress`、`ui_stats_*`、`ui_reward_choice_title`、`ui_reward_applied`、`ui_level_reached`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_result_*`、`ui_gear_mod_*`，奖励候选使用 `reward_choice_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
-- GM / DebugTools：`debug_*` action 只由 `DebugConsole` 在 debug/dev_tools guard 通过后注册；GM 对局内状态的变更集中走本节公开 `debug_*` runtime API，且不得写入正式 analytics。
+- GM / DebugTools：`debug_*` action 只由 `DebugConsole` 在 debug/dev_tools guard 通过后注册；GM 对局内状态的变更集中走本节公开 `debug_*` runtime API，且不得写入正式 analytics。13 个标准对局入口由无状态 `GameplayDebugFacade` 实现，RunLoop wrapper 每次构造新的 typed context；`DamageInfo` 构造、节点 / signal 生命周期和所有 specialized debug 入口仍留在 RunLoop / 领域系统。
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`DifficultyProgression`、`EnemyRewardResolver`、`RNG.spawn`、`RNG.world`、`RNG.world_event`、`RNG.economy`、`RNG.ui_choice`、`RNG.camera_fx`、`InputService`、`PoolManager`、`UIManager`、`SaveManager`、`GearModSystem`、`Combat`、`StatusEffectComponent`、`PhantomCameraManager`、`MapManager`、`WarzoneDirector`、`difficulty_profiles.json`、`enemy_rewards.json`、`game_modes.json`、`camera_feedback.json`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、locale。
+- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`DifficultyProgression`、`EnemyRewardResolver`、`GameplayDebugFacade`、`RNG.spawn`、`RNG.world`、`RNG.world_event`、`RNG.economy`、`RNG.ui_choice`、`RNG.camera_fx`、`InputService`、`PoolManager`、`UIManager`、`SaveManager`、`GearModSystem`、`Combat`、`StatusEffectComponent`、`PhantomCameraManager`、`MapManager`、`WarzoneDirector`、`difficulty_profiles.json`、`enemy_rewards.json`、`game_modes.json`、`camera_feedback.json`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、locale。
 - 下游调用方：当前无；后续可拆分为正式 Player / WeaponSystem / Spawner / HUD 模块。
 - 禁止依赖：不得复制历史 MVP 代码；不得绕过正式 `.tscn` 场景资源临时拼长期 UI / runtime 节点；不得绕过 `PoolManager` 创建高频实体；不得直接扣生命；不得绕过 `InputService` 读取 GUIDE / `Input` / `InputMap` 或物理输入；不得用裸随机或原始时间。
 
@@ -358,6 +362,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 改普通新局 seed：只在 `FormalClientBoot` 的人工开始 / 重开入口生成新主 seed；不要在 `GameplayRunLoop` 内部、继续游戏、回放 runner 或 golden capture 路径隐式随机化。
 - 扩展死亡后奖励：旧 `MetaProgressionSystem` 与 Gear Mod 跨局结算已删除。若要新增死亡后奖励或局外资源来源，必须先写 ADR / 数据契约并建立独立系统，不能复用局内 Gear Mod 状态。
 - 扩展 GM 指令：先在 `GMCommandRegistry` 增命令，再在目标系统补受控 API；禁止在命令注册表里直接改 gameplay 私有字段、节点树或存档文件。
+- 扩展标准对局 debug 实现：优先在 `GameplayDebugFacade` 增加方法并让 RunLoop 保留同名薄包装；每次调用重建 typed context，只通过已有正式 API / Callable port 产生副作用。测试岛、预树开关和领域专用入口不要为追求统一而迁入。
 
 ## 常见改动入口
 
@@ -388,6 +393,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 改标题菜单或恢复局内配置入口 | `client/scenes/ui/title_menu.tscn`、对应脚本、`client/scripts/boot/formal_client_boot.gd` | 本文档、FormalClientBoot / GearModSystem 文档；局内手动配置需新 ADR | `headless-boot` + `gear-mod-smoke` + 人工标题菜单验收 |
 | 改旧局外升级删除边界 | `client/scenes/ui/title_menu.tscn`、`client/scripts/ui/title_menu.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/project.godot` | 本文档、FormalClientBoot / GearModSystem / SaveManager 文档 | `headless-boot` + `runtime-smoke` + `gear-mod-smoke` |
 | 改 GM 指令影响运行时 | `client/scripts/debug/gm_command_registry.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、目标系统脚本 | 本文档、DebugTools 文档、测试策略 | `debug-tools-smoke` + `debug-tools-release-smoke`，必要时追加 `runtime-smoke` / `gear-mod-smoke` |
+| 改标准对局 debug 门面 / RunLoop wrapper | `gameplay_debug_facade.gd`、`gameplay_run_loop.gd`、`test_gameplay_debug_facade.gd` | 本文档、DebugTools 文档、测试策略 | 专项 GUT + `debug-tools-smoke` / release + runtime + module-world full / technical + debug-test-arena + f9 + save/loading/headless + 四条 Replay v9 golden |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `runtime-smoke`，必要时补 L1 |
 | 改鼠标 / 手柄瞄准手感或俯视相机 / 地图显示参数 | `client/scripts/gameplay/player.gd`、`gameplay_run_loop.gd/.tscn`、`gameplay_camera_controller.gd/.tscn`、`world_background.gd`、`weapon_system.gd`、`client/tools/runtime_smoke.gd` | 本文档、Phantom Camera 文档、GDD、ADR、测试策略 | `lint_gdscript_rules` + `lint_semantic_rules` + `actor-scene-smoke` + `settings-smoke` + `runtime-smoke` |
 
@@ -458,6 +464,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 继续游戏后状态效果丢失 | 玩家 / 敌人 / 技能快照是否包含 `status_effects` 与 `owned_tag_counts`；恢复已有 tag 计数时是否避免状态组件重复授予 tags |
 | 池化敌人带着上一只怪的状态 | `Enemy.configure()`、`_pool_release()`、`_pool_reset()` 是否调用状态清理；L1 是否覆盖 configure 复用后旧状态被清空 |
 | GM 命令没有生效 | 当前是否为 debug/dev_tools 构建；`DebugConsole` 是否存在；命令是否通过 `GameplayRunLoop.debug_*` / `GearModSystem.debug_*` 受控 API，而不是直接改节点 |
+| 标准 debug API 读到旧敌人表 / spawn state，或 summary 被调用方改写后污染下一次 | RunLoop wrapper 是否每次调用 `_gameplay_debug_context()` / `_gameplay_debug_summary_state()`；Facade 是否错误缓存 context / Dictionary；运行 `test_gameplay_debug_facade.gd` 的替换字典与 deep-copy 用例 |
 | 测试岛进入普通模块世界 / 结算 | `configure_debug_test_arena()` 是否在入树前调用；`RunPurpose` 分支是否在准备、process、死亡、击杀和 snapshot 路径完整 guard |
 | 测试岛污染正式存档 | 测试用途是否误调用 SaveManager / GearMod profile API；跑 `debug-test-arena-smoke` 的 meta/run 哨兵断言 |
 | 固定靶移动或对象池串状态 | `Enemy.configure()` 后是否调用训练靶配置；`_pool_reset()` / `_pool_release()` 是否清掉测试 metadata 与 AI 开关 |
@@ -483,6 +490,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及标题 / 暂停设置入口、设置面板关闭、`ui_back` 返回或运行时语言刷新时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 涉及局内 Gear Mod 棋盘 placements、拾取配置、固定效果、重复实例、掉落、地图行为或 modifier 重建时追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 与 `gear-mod-pickup-smoke`；如果改了死亡接入、敌人击杀归因或结果面板，同时跑 `runtime-smoke`、`save-smoke`。
 - 涉及 GM 指令或 runtime debug API 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；命令影响局内战斗时追加 `runtime-smoke`。
+- 修改 `GameplayDebugFacade` 或 13 个标准 RunLoop debug wrapper 时，先跑 `client/tests/integration/test_gameplay_debug_facade.gd`，覆盖参数拒绝、spawn `1..96` / 成功计数 / `GameClock.now()` 时序、替换字典即时生效、RunLoop `DamageInfo` source port、active-world kill / clear 过滤、summary 精确 key 顺序与 deep copy；再跑 debug tools / release、runtime、module-world full / technical、debug-test-arena、f9、save、loading、headless boot 与四条 Replay v9 golden。保持 Run v19 / Replay v9，不运行性能 probe。
 - 涉及 `DEBUG_TEST_ARENA`、训练靶、作弊、伤害统计、测试岛死亡或存档 / 服务隔离时，必跑 `debug-test-arena-smoke` 与 `debug-tools-release-smoke`；正式 Player / Weapon / Skill / Enemy / Combat / Pool 适配变化追加 runtime、save、Gear Mod、L1、actor、完整 / 技术切片 module-world 和四条黄金回放。不得自动运行性能 probe。
 - 涉及模块世界、事件 placement、chunk / pin、迷雾、地图 hash 或 Run v19 恢复时，追加 `world-event-smoke`、`module-world-smoke`、`effect-runtime-smoke` 与 `save-smoke`，并跑 contracts、data 和 schema 检查。
 - 涉及默认解锁、规则组合、内容池过滤、Meta / Run / Replay 内容字段、图鉴锁定隐私或结算新解锁时，追加 `content-progression-smoke`、`codex-smoke`、`mod-loader-smoke`、`runtime-smoke`、`save-smoke` 与四条 Replay v9 黄金回放；不得运行性能 probe 代替这些确定性门禁。
