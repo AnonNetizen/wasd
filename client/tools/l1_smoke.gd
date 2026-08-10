@@ -10,6 +10,9 @@ const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd
 const DIFFICULTY_PROGRESSION_SCRIPT := preload(
 	"res://scripts/data/difficulty_progression.gd"
 )
+const DATA_FINGERPRINT_BUILDER_SCRIPT := preload(
+	"res://scripts/data/data_fingerprint_builder.gd"
+)
 const ENEMY_REWARD_RESOLVER_SCRIPT := preload(
 	"res://scripts/data/enemy_reward_resolver.gd"
 )
@@ -98,6 +101,7 @@ func _run() -> void:
 
 	_expect_rng_same_seed_stable()
 	_expect_rng_snapshot_restore()
+	_expect_data_fingerprint_builder_equivalence()
 	_expect_enemy_reward_resolution()
 	_expect_difficulty_progression_boundaries()
 	_expect_enemy_difficulty_spawn_scaling()
@@ -146,6 +150,158 @@ func _expect_rng_snapshot_restore() -> void:
 	RNG.combat.randi()
 	RNG.restore_snapshot(snapshot)
 	_expect(RNG.combat.randi() == expected_roll, "RNG snapshot should restore stream state")
+
+
+func _expect_data_fingerprint_builder_equivalence() -> void:
+	var fixture: Dictionary = {
+		"schema_version": "6",
+		"board": {
+			"width": "7",
+			"height": 7.0,
+			"center": {"x": "3", "y": 3.0},
+			"initial_unlocked_cells": [
+				{"x": "3", "y": "2"},
+				"ignored",
+			],
+		},
+		"pickup": {
+			"pool_id": "gear_mod_pickup",
+			"interaction_radius": "64.5",
+			"spawn_vertical_offset": "2",
+			"spawn_spread": 5,
+		},
+		"reward_pools": [
+			{"id": "pool_a", "mod_ids": ["mod_a", &"mod_b"]},
+		],
+		"reward_pool_contributions": [
+			{"pool_id": "pool_a", "mod_ids": ["mod_c"]},
+		],
+		"mods": [
+			{
+				"id": "mod_a",
+				"default_unlocked": false,
+				"rarity": "common",
+				"components": [
+					{
+						"component_id": "component_a",
+						"type": "modifier",
+						"amount": 2.0,
+					},
+				],
+				"name_key": "excluded_display_field",
+			},
+		],
+	}
+	var drop_rows: Array[Dictionary] = [
+		{
+			"source_enemy_id": "enemy_a",
+			"mod_id": "mod_a",
+			"drop_chance": "0.25",
+			"min_enemy_level": "2",
+			"max_enemy_level": "5",
+		},
+	]
+	var actual: Dictionary = (
+		DATA_FINGERPRINT_BUILDER_SCRIPT.gear_mod_gameplay_payload(
+			fixture,
+			drop_rows
+		)
+	)
+	var expected: Dictionary = {
+		"schema_version": 6,
+		"board": {
+			"width": 7,
+			"height": 7,
+			"center": {"x": 3, "y": 3},
+			"initial_unlocked_cells": [{"x": 3, "y": 2}],
+		},
+		"pickup": {
+			"pool_id": "gear_mod_pickup",
+			"interaction_radius": 64.5,
+			"spawn_vertical_offset": 2.0,
+			"spawn_spread": 5.0,
+		},
+		"reward_pools": [
+			{"id": "pool_a", "mod_ids": ["mod_a", "mod_b"]},
+		],
+		"reward_pool_contributions": [
+			{"pool_id": "pool_a", "mod_ids": ["mod_c"]},
+		],
+		"mods": [
+			{
+				"id": "mod_a",
+				"default_unlocked": false,
+				"rarity": "common",
+				"components": [
+					{
+						"component_id": "component_a",
+						"type": "modifier",
+						"amount": 2.0,
+					},
+				],
+			},
+		],
+		"drop_rows": [
+			{
+				"source_enemy_id": "enemy_a",
+				"mod_id": "mod_a",
+				"drop_chance": 0.25,
+				"min_enemy_level": 2,
+				"max_enemy_level": 5,
+			},
+		],
+	}
+	_expect(
+		actual == expected,
+		"DataFingerprintBuilder should preserve the legacy normalized payload"
+	)
+	var fixture_mods: Array = fixture.get("mods", []) as Array
+	var fixture_mod: Dictionary = fixture_mods[0] as Dictionary
+	var fixture_components: Array = fixture_mod.get("components", []) as Array
+	var fixture_component: Dictionary = fixture_components[0] as Dictionary
+	fixture_component["amount"] = 99.0
+	var actual_mods: Array = actual.get("mods", []) as Array
+	var actual_mod: Dictionary = actual_mods[0] as Dictionary
+	var actual_components: Array = actual_mod.get("components", []) as Array
+	_expect(
+		float((actual_components[0] as Dictionary).get("amount", 0.0)) == 2.0,
+		"DataFingerprintBuilder should deep-copy component payloads"
+	)
+	_expect(
+		DATA_FINGERPRINT_BUILDER_SCRIPT.gear_mod_gameplay_payload([], [])
+		== {},
+		"DataFingerprintBuilder should reject a non-Dictionary Gear Mod root"
+	)
+
+	var current_gear_mods: Variant = DataLoader.load_json(
+		DataLoader.GEAR_MODS_PATH
+	)
+	var current_drop_rows: Array[Dictionary] = DataLoader.load_csv(
+		DataLoader.GEAR_MOD_DROP_TABLES_PATH
+	)
+	var direct_gear_payload: Dictionary = (
+		DATA_FINGERPRINT_BUILDER_SCRIPT.gear_mod_gameplay_payload(
+			current_gear_mods,
+			current_drop_rows
+		)
+	)
+	_expect(
+		DataLoader.gear_mod_gameplay_fingerprint_payload()
+		== direct_gear_payload,
+		"DataLoader should preserve its Gear Mod fingerprint API"
+	)
+	var current_skills: Variant = DataLoader.load_json(DataLoader.SKILLS_PATH)
+	var direct_effect_payload: Dictionary = (
+		DATA_FINGERPRINT_BUILDER_SCRIPT.effect_gameplay_payload(
+			current_skills,
+			direct_gear_payload
+		)
+	)
+	_expect(
+		DataLoader.effect_gameplay_fingerprint_payload()
+		== direct_effect_payload,
+		"DataLoader should preserve its effect fingerprint API"
+	)
 
 
 func _expect_enemy_reward_resolution() -> void:

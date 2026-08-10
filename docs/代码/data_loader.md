@@ -7,6 +7,7 @@
 
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
+- 将合并后的技能、Gear Mod 与掉落表交给纯 `DataFingerprintBuilder` 归一化；`DataLoader` 只负责数据源与 Mod 环境，Replay 继续负责最终 SHA-256。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
 - 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json` v3、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json` v6、`gear_mod_drop_tables.csv`、`content_unlock_rules.json`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
@@ -26,6 +27,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
+| `client/scripts/data/data_fingerprint_builder.gd` | 纯、类型化的玩法指纹 payload 归一化；不读取文件、不访问 autoload、不改变数组顺序 |
 | `client/scripts/autoload/mod_loader.gd` | 本地 mod manifest 扫描与数据 patch 合并入口 |
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
 | `client/data/player.json` | schema v4 玩家统一身体半径、基础属性、防御、冲刺与掉落规则 |
@@ -67,6 +69,7 @@
 | autoload `_ready()` | 加载 `_contracts.json` | `reload_contracts()` |
 | 配置读取 | 调用方按需读 JSON / CSV，并叠加已启用本地 mod patch | `load_json()`、`load_csv()` |
 | schema 校验 | 启动 smoke 或工具调用正式数据校验；运行时会校验合并后的数据 | `validate_project_data()`、`schema_counts()` |
+| 指纹构建 | `DataLoader` 先应用官方数据与有效 Mod patch，再把结果交给 builder 排除展示字段、归一化标量并深拷贝嵌套玩法字段 | `gear_mod_gameplay_fingerprint_payload()`、`effect_gameplay_fingerprint_payload()` |
 | 契约查询 | 调用方查询白名单；允许的 mod 动态扩展 id 会并入返回值 | `contract_values()`、`has_contract_value()` |
 | 重新加载 | 覆盖 `_contracts` 并通知订阅方 | `data_reloaded` |
 
@@ -84,6 +87,8 @@
 | `load_csv(resource_path, has_header)` | `String`, `bool` | `Array[Dictionary]` | 默认首行为表头；返回值会追加匹配的 mod CSV patch 行 |
 | `data_path(file_name)` | `String` | `String` | 拼出 `res://data/<file_name>` |
 | `mod_diagnostics()` | 无 | `Array[String]` | 返回 `ModLoader` 的 manifest / patch 诊断 |
+| `gear_mod_gameplay_fingerprint_payload()` | 无 | `Dictionary` | 保持原公开 API；输入包含当前有效 Mod 合并结果，数组顺序保持为玩法顺序，展示字段不进入 payload |
+| `effect_gameplay_fingerprint_payload()` | 无 | `Dictionary` | 保持原公开 API；返回 skills 深拷贝与同一份 Gear Mod 玩法 payload，供 Replay 数据指纹使用 |
 
 ## Signal / Event
 
@@ -131,6 +136,7 @@
 ## 依赖
 
 - 上游依赖：Godot `FileAccess`、`JSON`、生成契约文件、`ModLoader`。
+- 内部纯依赖：`DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]`，不得反向读取 `DataLoader`、`ModLoader` 或 `user://`。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -140,6 +146,7 @@
 - 新约定字符串必须先改 `docs/词表与契约.md` 并跑契约同步，不在 DataLoader 内硬编码白名单。
 - 热重载可复用 `data_reloaded` 信号扩展。
 - 本地 mod 只能通过 `ModLoader` manifest v2 给 Gear Mod 定义、奖励池贡献、掉落和 locale 做声明式 append；不得让业务系统绕过 `DataLoader` 直接读取 `user://mods`。
+- 新增玩法指纹字段时在 `DataFingerprintBuilder` 明确加入归一化规则；不得直接哈希整份展示数据，也不得在 builder 内自行重新加载文件或扫描 Mod。
 
 ## 常见改动入口
 
@@ -175,6 +182,7 @@
 - 改 mod 接口或 `contract_values()` 合并逻辑时跑 `tools/godot_bridge.py --project client l1-smoke`。
 - 改契约 / 数据时跑 `tools/sync_contracts.py --check` 与 `tools/validate_data.py`。
 - F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
+- 指纹 builder 或两条公开 payload API 变更需跑 `l1-smoke` 的固定归一化样例与公开转发等价断言，并跑 `replay-smoke` / checked-in golden 确认当前数据指纹不变；仅当玩法数据有意改变时才更新 fingerprint 基线。
 - 内容解锁 schema 变更还必须覆盖默认开放、缺规则 / 闲置规则、非法 subject、锁定条件对象、技能锁定、初始英雄 / 敌池 / Mod 池枯竭，并跑 `content-progression-smoke`。
 
 ## 迁移 / 兼容
