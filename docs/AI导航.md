@@ -153,6 +153,7 @@
 | **改玩家相机 / 瞄准引导 / 震屏** | 先读 GDD §5.2、ADR #148 / #156 / #165 / #167、`docs/代码/phantom_camera.md` 的项目接入段和 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，瞄准换算改 `player.gd`，数值改 `camera_feedback.json`。保持 Phantom Camera GLUED 跟随、瞄准方向平滑偏移、等比缩放、无滚转 / 边界 / drag，稳定引导与 `RNG.camera_fx` 噪声分离；改完按测试策略相机整行义务验证 |
 | **维护 / 升级 Phantom Camera 内部** | 先读 `docs/代码/phantom_camera.md`、`client/addons/README.md`、ADR #148 与目标源码；按 Runtime Core / Resource / Editor / C# wrapper 边界定位，升级只用官方固定版本发布包并逐项重放本地补丁。保持项目固定 Manager autoload、Updater Off、`physics_jitter_fix=0.5`、`RNG.camera_fx` 和 lint 零豁免；完成后跑完整 pre-commit、headless boot、headless editor 与相机回归 |
 | **加 / 改模块内容** | 查 ADR #190、Module Authoring、ModuleWorldManager、F13 与数据手册；在 `Module JSON` 编辑 `modules/<id>.json` schema v4 并 Save / Validate / Bake / Approve。世界事件 placement 用登记 id 下拉，payload 只有 `{world_event_id}`；模块不保存敌人出生点，禁止手改生成 TSCN |
+| **改 ModuleWorld slot state / pins / Run v19 wire** | 先读 ADR #197、`docs/代码/module_world_manager.md` 与测试策略；`ModuleSlotStateCodec` 只拥有合法坐标、row-major wire、完整 slot payload 深拷贝与 pins 校验，Manager 继续作为 `Node2D` 门面并保留现有字典 API、49 槽与最多三 pin。必跑 codec unit、完整 / technical module-world、runtime 与 save；保持 Run v19 顶层结构、未知嵌套字段、map hash 和 Replay v9 不变，不运行性能 probe |
 | **改模块角色 / 地形 / 摆放 / 边缘 / 审核状态** | 先改 `docs/词表与契约.md` §15，运行 `python tools/sync_contracts.py` 生成对应 `module_*` 常量，再由 DataLoader、ModuleWorldManager 和 JSON 引用；禁止在运行时代码裸写白名单 id |
 | **改模块首次进入刷怪** | 改 `client/data/module_worlds.json.first_visit_enemy_spawn` 的数量、预警时长与按 `DifficultyProgression.elapsed` 解锁的敌种权重；位置只能由 `ModuleWorldManager.empty_floor_positions_at()` 返回旋转 / 封边后的 floor 且排除 placement footprint，再由 `GameplayRunLoop` 用 `RNG.spawn` 无放回抽取并立即保存计划。敌人在预警结束真正生成时取得当前生命 / 伤害倍率，并按实际生成阶段消费一次 `RNG.economy` 锁定金币。不要恢复 spawn marker、动态占位避让或安全半径；改完跑 data/schema、VFX、完整 / 技术首片 module-world、runtime/save 和黄金回放 |
 | **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；人工使用 Godot `Module JSON` 中央主编辑区编辑同一 JSON schema。工具必须保持 JSON→生成 TSCN 单向、磁盘 hash 冲突门禁和人工 `approved` 门禁，不得增加 TSCN 反向导入 |
@@ -226,7 +227,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`FormalClientBoot` / `LoadingScreen` / `CodexPanel` / `GameplayRunLoop` / `RunSnapshotCoordinator` / `GameplayEffectRuntime` / `EffectPrimitiveRegistry` / `EffectExecutionGateway` / `DeveloperTestArena(debug/dev_tools)` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleNavigationField` / `WorldEventController` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GoldProgression` / `RewardChoiceController` / `GearModSystem` / `ContentUnlockSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PlayerSlimeVisual` / `EnemyPresentationVisual` / `PauseMenu` / `Combat` / `StatusEffectComponent`。统一效果模块见 `docs/代码/gameplay_effect_runtime.md`。
+**业务模块**：`FormalClientBoot` / `LoadingScreen` / `CodexPanel` / `GameplayRunLoop` / `RunSnapshotCoordinator` / `GameplayEffectRuntime` / `EffectPrimitiveRegistry` / `EffectExecutionGateway` / `DeveloperTestArena(debug/dev_tools)` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleSlotStateCodec` / `ModuleNavigationField` / `WorldEventController` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GoldProgression` / `RewardChoiceController` / `GearModSystem` / `ContentUnlockSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PlayerSlimeVisual` / `EnemyPresentationVisual` / `PauseMenu` / `Combat` / `StatusEffectComponent`。统一效果模块见 `docs/代码/gameplay_effect_runtime.md`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -434,7 +435,7 @@ flowchart LR
 
 > 改某个模块前先在图中追踪上下游箭头，避免遗漏影响。新增系统模块时**同步更新此图**（规则 14）。
 > 三类节点：**基础设施**（蓝） / **协调中枢**（红） / **资源管理**（绿）。
-> `ModuleWorldManager` 不是 autoload：由 `GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动，依赖世界 / 注册表 / 模块 JSON 与每模块一份的单向生成规范 TSCN。它组图、转坐标、管迷雾和 3×3 chunk，并保存槽位状态；Enemy 只经 Manager 门面查询导航。首次进入计划、预警、对象池生成、击杀归因、目标和局内奖励仍由 `GameplayRunLoop` 负责。
+> `ModuleWorldManager` 不是 autoload：由 `GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动，依赖世界 / 注册表 / 模块 JSON 与每模块一份的单向生成规范 TSCN。它组图、管迷雾和 3×3 chunk，并通过纯 `ModuleSlotStateCodec` 保持坐标、slot state 与 pins 的既有字典 / wire；Enemy 只经 Manager 门面查询导航。首次进入计划、预警、对象池生成、击杀归因、目标和局内奖励仍由 `GameplayRunLoop` 负责。
 > `OnlineServices`、GodotSteam 与 Talo 节点是 ADR #150 的未来规划，不表示当前 autoload、插件或网络依赖已经存在；正式 `client` 当前仍由 `PlatformServices` 的 `none` 后端离线退化。
 
 ## 6. 红线（最易踩坑）

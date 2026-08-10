@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-10",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 GameplayRunLoop 的 EnemySpawnService 与 RunSnapshotCoordinator 两个渐进提取点，以及 DataLoader 的 DataFingerprintBuilder 提取。敌人材化、Run v19 的 30 个 gameplay payload 字段与 sync / staged 跨域恢复顺序、官方数据 fingerprint 均有独立门禁；Meta v4、Run v19、Replay v9、游戏 v1.18、data hash、玩法结果与四条 golden 摘要不变。下一步继续 ModuleWorld codec / streaming、ModifierStack 与其余领域拆分。人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 GameplayRunLoop 的 EnemySpawnService / RunSnapshotCoordinator、DataLoader 的 DataFingerprintBuilder，以及 ModuleWorld 的 ModuleSlotStateCodec 渐进提取。slot state、坐标集合与 pins 已集中到纯 codec，Manager 的 Node2D 门面、Run v19 wire、row-major、未知字段、map hash 与玩法结果不变。下一步继续 ModuleWorld streaming/state、ModifierStack 与其余领域拆分。Meta v4、Run v19、Replay v9、游戏 v1.18 和四条 golden 摘要不变；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / ModuleWorld 状态编码首片：新增纯 ModuleSlotStateCodec，集中合法坐标、row-major wire、完整 slot payload 深拷贝与 pins 校验；ModuleWorldManager 保留 Node2D 门面和全部旧字典 API，Run v19 / map hash / Replay v9 不变。",
     "ADR #197 / GameplayRunLoop 快照编排提取：新增纯 RunSnapshotCoordinator，以 30 个固定顺序 gameplay 字段和 typed RestoreBindings 统一 sync / staged 恢复；RunLoop 保留生命周期、signals、领域 leaf 与激活后 ui_restore，SaveManager 继续独占 mod_environment。Run v19 / Replay v9 与四条 golden 摘要不变。",
     "ADR #197 / DataLoader 指纹职责提取：新增 DataFingerprintBuilder，保留 gear JSON→drop CSV、skills→gear 的读取与 source-order payload，官方 data hash 和四条 Replay v9 golden 摘要逐项不变。",
     "ADR #197 / GameplayRunLoop 渐进拆分首片：新增 scene-authored EnemySpawnService，统一 fresh / fixed / debug / restore 的 pool acquire 后材化、metadata、difficulty / navigation、runtime serial、bounds 与 lifecycle；失败不消费位置 RNG 或 serial，armed restore 在实体 restore 前完成接线。Run v19 / Replay v9 / game v1.18 与四条 golden 摘要不变。",
@@ -191,7 +192,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "继续 ADR #197 的协议不变渐进拆分：EnemySpawnService / EntityMaterializer 已完成；下一独立切片提取 RunSnapshotCoordinator，再依次处理 ModuleWorld codec / streaming、GameplayFeedbackController 与 DebugFacade。DataLoader fingerprint / validator、ModifierStack 与 Enemy Brain/action 各自形成独立可回滚提交。",
+    "继续 ADR #197 的协议不变渐进拆分：EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder 与 ModuleSlotStateCodec 已完成；下一独立切片提取 ModuleChunkStreamingController / ModuleWorldState，再处理 GameplayFeedbackController 与 DebugFacade。ModifierStack 与 Enemy Brain/action 各自形成独立可回滚提交。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",

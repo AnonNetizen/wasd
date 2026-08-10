@@ -15,9 +15,17 @@
 - 从旋转 / 封边后的完整 49 槽地形构建 77×77 walkability mask；玩家跨格时只更新感知范围驱动的局部共享流场，并提供全图 AStar、视线和敌人半径走廊查询。导航不依赖当前激活 chunk。
 - 按世界槽位返回稳定行列顺序的有效空 floor 格心：使用旋转、邻接与外圈封边后的真实地形，并排除全部 gameplay placement footprint；只提供几何查询，不消耗 RNG、不读取动态实体、不生成敌人。
 
+`ModuleSlotStateCodec` 是 Manager 内部持有的纯 `RefCounted` 边界：它负责 7×7 槽坐标与 `"x" / "y"` wire、`"x,y"` slot key、坐标集合的 row-major 序列化、pins 的重复 / 越界 / 上限校验，以及 slot payload 的深拷贝存取。Manager 仍独占配置、assignment、导航、chunk 流式、pin 变更后的活跃窗口刷新和 Run v19 模块子快照顶层组装；Codec 不是 Node、autoload 或新的 gameplay facade。
+
 `GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 局内 Gear Mod / `completes_run` 目标 / 世界事件 primitive 的实体生成、首次进入遭遇计划、效果 Runtime、预警、内容可用池过滤、`DifficultyProgression`、敌人生成时金币锁定、`Combat`、`PoolManager` 和 Run v19 总快照。`ModuleWorldManager` 不直接生成玩法实体，只提供严格同向 7×7 坐标 / 空地查询、组合事件模块并维护 pin。玩家实际位于 `module_role_start` 时，RunLoop 暂停威胁时间并锁定武器 / 四技能；Manager 只提供当前位置 / role 数据，不冻结底层 `GameClock`。
 
 ## 2. 数据边界
+
+| 代码位置 | 责任 |
+|----------|------|
+| `client/scripts/gameplay/module_world_manager.gd` | `Node2D` 公共 facade、assignment / 地形 / 导航 / 流式和 Run v19 模块快照编排 |
+| `client/scripts/gameplay/module_slot_state_codec.gd` | 坐标 wire、row-major 集合、pins 验证及 typed `SlotState` 深拷贝 store |
+| `client/tests/unit/test_module_slot_state_codec.gd` | Codec 未知字段、顺序、引用隔离和拒绝矩阵的纯 GUT 覆盖 |
 
 - 世界配置：`client/data/module_worlds.json`
 - 模块注册表：`client/data/module_templates.json`
@@ -51,6 +59,8 @@
 | `snapshot()` / `restore_state()` | Run v19 中的 assignment（含目标角落）、内容敏感 map hash、迷雾、固定模块和槽位状态（含带 instance_id 的未拾取 Mod）roundtrip；恢复时事务式重建场景缓存，hash / assignment / 生成场景不一致时返回失败，不继续恢复旧实体 |
 | `debug_summary()` | 输出几何、assignment/hash、访问 / 活跃数、预加载场景数及导航目标格、局部半径 / 边界 / 本次访问格数、流场重建次数和可达格数 |
 
+Manager 的 `set_slot_state()` / `slot_state()` / `snapshot()` / `restore_state()` 字典 API 与 Run v19 wire 保持不变：顶层 key 及插入顺序不由 Codec 改写，`slot_states` 按 `y → x` 的 row-major 顺序输出。Typed `SlotState` 保存完整原 payload；`initialized` / encounter / snapshot 等已知 getter 只读取已知语义，不会过滤未知 key 或未知嵌套字段。写入、读取、restore 与 snapshot 边界均深拷贝，调用方不能通过持有的 `Dictionary` / `Array` 反向篡改 store。Pins 仍最多三个：公共 `set_slot_pinned()` 保留 configured / assignment 资格与 chunk 刷新，Codec 只校验恢复 wire 的数组类型、合法坐标、不重复和数量上限。
+
 ## 4. ModuleNavigationField
 
 `ModuleNavigationField` 是 `RefCounted` 内部数据对象，不创建格子 Node：
@@ -75,6 +85,7 @@
 python tools/sync_contracts.py --check
 python tools/validate_data.py
 python tools/test_data_loader_schema.py
+python tools/godot_bridge.py --project client gut --test-dir unit
 python tools/godot_bridge.py --project client headless-boot
 python tools/godot_bridge.py --project client module-world-smoke
 python tools/godot_bridge.py --project client module-world-technical-slice-smoke
@@ -84,5 +95,7 @@ python tools/godot_bridge.py --project client save-smoke
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
 `module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、三个意识核候选角、49 槽 / 77×77 坐标、流式恢复、迷雾、意识核直接完成、Run v19 子快照，以及刷怪笼 10 秒触发、离开清零、多实例独立计时、同向坐标、冻结敌池 / 固定 RNG、动态占位重试、普通奖励链和保存恢复不重抽。旧 Run v18 保持源文件但不继续。ADR #195 后 `module-world-technical-slice-smoke` 是 full 的伴随验证：仍以独立进程覆盖中心 3×3 / 外圈 40 槽封锁、技术 streaming / cage / objective / restore，但不重复 full 已执行的多 manager 确定性组合段；需要技术首片证据时必须先有同轮 full PASS。
+
+`test_module_slot_state_codec.gd` 专项 unit 必须覆盖：原 payload 与未知嵌套字段无损、输入 / getter / 输出深拷贝、slot state 的 row-major roundtrip、非法 slot / 非字典值隔离、坐标 wire 兼容以及 pins 的重复 / 越界 / 超限拒绝。修改 Codec 或 Manager 委托时，专项 unit、`module-world-smoke` 和 `module-world-technical-slice-smoke` 三者均为必跑；technical 仍必须在同轮 full PASS 之后执行。
 
 `module_resource_cache` 与 `module_crossroads` 因奖励从旧 dust 改为局内金币后 gameplay hash 变化，烘焙器已自动降为 `module_review_candidate`。AI 不得重新批准；在人工玩法复核前，它们不会进入正式 approved 池，技术切片临时使用 `module_flat_ground`。

@@ -10,6 +10,7 @@ const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_s
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const RNG_STREAMS := preload("res://scripts/contracts/rng_streams.gd")
 const ModuleNavigationFieldRuntime := preload("res://scripts/gameplay/module_navigation_field.gd")
+const ModuleSlotStateCodecRuntime := preload("res://scripts/gameplay/module_slot_state_codec.gd")
 
 const WORLD_COLUMNS: int = 7
 const WORLD_ROWS: int = 7
@@ -44,7 +45,10 @@ var _navigation_field: ModuleNavigationFieldRuntime = ModuleNavigationFieldRunti
 var _current_module_coord: Vector2i = INVALID_COORD
 var _revealed: Dictionary = {}
 var _visited: Dictionary = {}
-var _slot_states: Dictionary = {}
+var _slot_state_codec: ModuleSlotStateCodecRuntime = ModuleSlotStateCodecRuntime.new(
+	WORLD_COLUMNS,
+	WORLD_ROWS
+)
 var _pinned_slots: Dictionary = {}
 var _active_chunks: Dictionary = {}
 var _chunk_pool: Array[ModuleChunk] = []
@@ -345,13 +349,11 @@ func pinned_module_coords() -> Array[Vector2i]:
 
 
 func set_slot_state(module_coord: Vector2i, state: Dictionary) -> void:
-	if not _is_module_coord_valid(module_coord):
-		return
-	_slot_states[_slot_key(module_coord)] = state.duplicate(true)
+	_slot_state_codec.set_state(module_coord, state)
 
 
 func slot_state(module_coord: Vector2i) -> Dictionary:
-	return _dictionary_or_empty(_slot_states.get(_slot_key(module_coord), {}))
+	return _slot_state_codec.state(module_coord)
 
 
 func snapshot() -> Dictionary:
@@ -415,7 +417,7 @@ func restore_state(state: Dictionary) -> bool:
 	_pinned_slots = (
 		restored_pins_result.get("pinned_slots", {}) as Dictionary
 	).duplicate()
-	_slot_states = _validated_slot_states(state.get("slot_states", {}))
+	_slot_state_codec.restore_states(state.get("slot_states", {}))
 	_current_module_coord = _coord_from_variant(state.get("current_module", {}), INVALID_COORD)
 	if _is_module_coord_valid(_current_module_coord):
 		_refresh_active_modules(_current_module_coord)
@@ -983,28 +985,12 @@ func _reset_world_state() -> void:
 	_current_module_coord = INVALID_COORD
 	_revealed.clear()
 	_visited.clear()
-	_slot_states.clear()
+	_slot_state_codec.clear_states()
 	_pinned_slots.clear()
 
 
 func _validated_pinned_slots(value: Variant) -> Dictionary:
-	var result: Dictionary = {"is_valid": false, "pinned_slots": {}}
-	if not value is Array:
-		return result
-	var pinned_slots: Dictionary = {}
-	for raw_coord: Variant in value as Array:
-		var module_coord: Vector2i = _coord_from_variant(raw_coord, INVALID_COORD)
-		if not _is_module_coord_valid(module_coord):
-			return result
-		var slot_key: String = _slot_key(module_coord)
-		if pinned_slots.has(slot_key):
-			return result
-		pinned_slots[slot_key] = true
-	if pinned_slots.size() > MAX_PINNED_CHUNKS:
-		return result
-	result["is_valid"] = true
-	result["pinned_slots"] = pinned_slots
-	return result
+	return _slot_state_codec.validate_pinned_slots(value, MAX_PINNED_CHUNKS)
 
 
 func _world_event_template_ids() -> Array[String]:
@@ -1267,7 +1253,7 @@ func _is_global_cell_valid(global_cell: Vector2i) -> bool:
 
 
 func _is_module_coord_valid(module_coord: Vector2i) -> bool:
-	return module_coord.x >= 0 and module_coord.y >= 0 and module_coord.x < WORLD_COLUMNS and module_coord.y < WORLD_ROWS
+	return _slot_state_codec.is_coord_valid(module_coord)
 
 
 func _is_local_cell_valid(local_cell: Vector2i) -> bool:
@@ -1275,7 +1261,7 @@ func _is_local_cell_valid(local_cell: Vector2i) -> bool:
 
 
 func _slot_key(module_coord: Vector2i) -> String:
-	return "%d,%d" % [module_coord.x, module_coord.y]
+	return _slot_state_codec.slot_key(module_coord)
 
 
 func _global_cell_key(global_cell: Vector2i) -> String:
@@ -1283,24 +1269,15 @@ func _global_cell_key(global_cell: Vector2i) -> String:
 
 
 func _coord_to_dict(coord: Vector2i) -> Dictionary:
-	return {
-		"x": coord.x,
-		"y": coord.y,
-	}
+	return _slot_state_codec.coord_to_wire(coord)
 
 
 func _coords_to_dict_array(coords: Array[Vector2i]) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for coord: Vector2i in coords:
-		result.append(_coord_to_dict(coord))
-	return result
+	return _slot_state_codec.coords_to_wire(coords)
 
 
 func _coord_from_variant(raw_value: Variant, fallback: Vector2i) -> Vector2i:
-	if not raw_value is Dictionary:
-		return fallback
-	var value: Dictionary = raw_value as Dictionary
-	return Vector2i(int(value.get("x", fallback.x)), int(value.get("y", fallback.y)))
+	return _slot_state_codec.coord_from_wire(raw_value, fallback)
 
 
 func _vector_from_variant(raw_value: Variant, fallback: Vector2) -> Vector2:
@@ -1318,47 +1295,15 @@ func _vector_to_dict(value: Vector2) -> Dictionary:
 
 
 func _coords_from_set(source: Dictionary) -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
-	for row_index: int in range(WORLD_ROWS):
-		for column_index: int in range(WORLD_COLUMNS):
-			var module_coord := Vector2i(column_index, row_index)
-			if source.has(_slot_key(module_coord)):
-				result.append(module_coord)
-	return result
+	return _slot_state_codec.coords_from_set(source)
 
 
 func _set_from_coord_array(raw_value: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	if not raw_value is Array:
-		return result
-	for raw_coord: Variant in raw_value as Array:
-		var module_coord: Vector2i = _coord_from_variant(raw_coord, INVALID_COORD)
-		if _is_module_coord_valid(module_coord):
-			result[_slot_key(module_coord)] = true
-	return result
-
-
-func _validated_slot_states(raw_value: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	if not raw_value is Dictionary:
-		return result
-	var source: Dictionary = raw_value as Dictionary
-	for row_index: int in range(WORLD_ROWS):
-		for column_index: int in range(WORLD_COLUMNS):
-			var slot_key: String = _slot_key(Vector2i(column_index, row_index))
-			if source.get(slot_key) is Dictionary:
-				result[slot_key] = (source.get(slot_key) as Dictionary).duplicate(true)
-	return result
+	return _slot_state_codec.set_from_wire(raw_value)
 
 
 func _ordered_slot_states() -> Dictionary:
-	var result: Dictionary = {}
-	for row_index: int in range(WORLD_ROWS):
-		for column_index: int in range(WORLD_COLUMNS):
-			var slot_key: String = _slot_key(Vector2i(column_index, row_index))
-			if _slot_states.get(slot_key) is Dictionary:
-				result[slot_key] = (_slot_states.get(slot_key) as Dictionary).duplicate(true)
-	return result
+	return _slot_state_codec.ordered_states()
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
