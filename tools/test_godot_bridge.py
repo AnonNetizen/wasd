@@ -742,6 +742,63 @@ class GodotBridgeTests(unittest.TestCase):
         self.assertEqual(unexpected, 1)
         self.assertEqual(ordinary, 1)
 
+    def test_module_world_policy_is_exact_for_both_runners(self) -> None:
+        descriptor = self.catalog["module-world-smoke"]
+        technical = self.catalog["module-world-technical-slice-smoke"]
+        self.assertEqual(
+            descriptor["expected_error_allow_patterns"],
+            technical["expected_error_allow_patterns"],
+        )
+        self.assertEqual(
+            descriptor["shutdown_allow_patterns"],
+            technical["shutdown_allow_patterns"],
+        )
+        marker = descriptor["success_markers"][0]
+        known_lines = [
+            "ERROR: [ModuleWorldManager] snapshot map hash does not match assignment",
+            "ERROR: [GameplayRunLoop] module-world snapshot restore failed",
+            (
+                "ERROR: 32 RID allocations of type "
+                "'PN13RendererDummy14TextureStorage12DummyTextureE' "
+                "were leaked at exit."
+            ),
+            (
+                "ERROR: 2 RID allocations of type "
+                "'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit."
+            ),
+            "ERROR: 41 resources still in use at exit (run with --verbose for details).",
+        ]
+
+        def probe(lines: list[str]) -> list[str]:
+            script = "; ".join(f"print({line!r})" for line in [marker, *lines])
+            return [sys.executable, "-c", script]
+
+        patterns = tuple(
+            descriptor["expected_error_allow_patterns"]
+            + descriptor["shutdown_allow_patterns"]
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            accepted = godot_bridge._run_command(
+                probe(known_lines),
+                cwd=root,
+                failure_markers=godot_bridge.STANDARD_FATAL_MARKERS,
+                success_markers=(marker,),
+                ignored_failure_patterns=patterns,
+                print_output=False,
+            )
+            rejected = godot_bridge._run_command(
+                probe([*known_lines, "ERROR: unexpected module-world failure"]),
+                cwd=root,
+                failure_markers=godot_bridge.STANDARD_FATAL_MARKERS,
+                success_markers=(marker,),
+                ignored_failure_patterns=patterns,
+                print_output=False,
+            )
+
+        self.assertEqual(accepted, 0)
+        self.assertEqual(rejected, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -41,6 +41,9 @@ const DIFFICULTY_PROGRESSION_SCRIPT := preload(
 const ENEMY_REWARD_RESOLVER_SCRIPT := preload(
 	"res://scripts/data/enemy_reward_resolver.gd"
 )
+const ENEMY_SPAWN_SERVICE_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_spawn_service.gd"
+)
 const ENEMY_DEFEAT_CAUSES := preload(
 	"res://scripts/contracts/enemy_defeat_causes.gd"
 )
@@ -210,6 +213,7 @@ var _configured_content_availability: Dictionary = {}
 var _content_availability: Dictionary = {}
 var _content_progress_commits_enabled: bool = true
 var _content_progress_delta: Dictionary = {}
+var _enemy_spawn_service: ENEMY_SPAWN_SERVICE_SCRIPT = null
 var _enemy_rows: Dictionary = {}
 var _enemy_reward_config: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
@@ -245,7 +249,6 @@ var _module_world_enabled: bool = true
 var _module_world_technical_slice: bool = false
 var _module_world_manager: Node2D = null
 var _module_encounter_vfx: Dictionary = {}
-var _next_enemy_spawn_serial: int = 1
 var _next_gear_mod_instance_id: int = 1
 var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
@@ -563,7 +566,11 @@ func create_run_snapshot() -> Dictionary:
 			else {}
 		),
 		"kills": _kills,
-		"next_enemy_spawn_serial": _next_enemy_spawn_serial,
+		"next_enemy_spawn_serial": (
+			_enemy_spawn_service.next_spawn_serial()
+			if _enemy_spawn_service != null
+			else 1
+		),
 		"game_clock": GameClock.snapshot(),
 		"difficulty": (
 			_difficulty_progression.snapshot()
@@ -615,11 +622,20 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 				restore_snapshot.get("content_progress_delta", {})
 			)
 		)
-	_next_enemy_spawn_serial = 1
 	_active_world = get_node_or_null("ActiveWorld") as Node2D
 	if _active_world == null:
 		_fail_run_start("missing ActiveWorld scene node", not restore_snapshot.is_empty())
 		return
+	_enemy_spawn_service = get_node_or_null(
+		"EnemySpawnService"
+	) as ENEMY_SPAWN_SERVICE_SCRIPT
+	if _enemy_spawn_service == null:
+		_fail_run_start(
+			"missing EnemySpawnService scene node",
+			not restore_snapshot.is_empty()
+		)
+		return
+	_enemy_spawn_service.reset_spawn_serial()
 	if _is_debug_test_arena():
 		_debug_test_arena_controller = get_node_or_null(
 			"DebugTestArenaController"
@@ -996,6 +1012,20 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	var map_player_start: Vector2 = _map_manager.call("player_start")
 	_player.global_position = map_player_start
 	_apply_player_movement_bounds()
+	if not _enemy_spawn_service.configure(
+		_active_world,
+		_player,
+		Callable(self, "_enemy_navigation_provider"),
+		Callable(self, "_enemy_spawn_difficulty"),
+		Callable(self, "_resolve_enemy_reward_snapshot"),
+		Callable(self, "_apply_enemy_movement_bounds"),
+		Callable(self, "_connect_enemy_defeated")
+	):
+		_fail_run_start(
+			"enemy spawn service configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
 	var camera_feedback: Dictionary = DataLoader.load_json(DataLoader.CAMERA_FEEDBACK_PATH)
 	_camera_controller.call("configure", _player, camera_feedback)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
@@ -1977,18 +2007,39 @@ func debug_test_arena_spawn_at(
 	var enemy_data: Dictionary = (
 		_enemy_rows[enemy_id] as Dictionary
 	).duplicate(true)
-	var pool_id: String = String(enemy_data.get("pool_id", ""))
-	var raw_node: Node = PoolManager.acquire(pool_id)
-	if not raw_node is Node2D or not raw_node.has_method("configure"):
-		return _debug_result(false, "pool_unavailable")
-	var enemy: Node2D = raw_node as Node2D
-	enemy.global_position = spawn_position
-	_reparent_to_active_world(enemy)
-	enemy.set_meta("wave_key", "debug_test_arena_%s" % target_kind)
-	if enemy.has_meta("module_slot"):
-		enemy.remove_meta("module_slot")
-	enemy.call("configure", enemy_data, _player, null)
-	_assign_enemy_spawn_serial(enemy)
+	var spawn_result: Dictionary = _enemy_spawn_service.spawn_fresh({
+		"enemy_data": enemy_data,
+		"wave_key": "debug_test_arena_%s" % target_kind,
+		"world_position": spawn_position,
+		"normal_rewards": false,
+		"use_default_navigation": false,
+		"fixed_spawn_difficulty": {
+			"health_multiplier": 1.0,
+			"damage_multiplier": 1.0,
+		},
+		"pre_lifecycle_hook": Callable(
+			self,
+			"_configure_debug_test_arena_enemy"
+		).bind(
+			target_kind,
+			stationary_max_hp,
+			spawn_position
+		),
+	})
+	if not bool(spawn_result.get("ok", false)):
+		return _debug_result(
+			false,
+			String(spawn_result.get("reason", "pool_unavailable"))
+		)
+	return spawn_result
+
+
+func _configure_debug_test_arena_enemy(
+	enemy: Node2D,
+	target_kind: String,
+	stationary_max_hp: float,
+	spawn_position: Vector2
+) -> void:
 	enemy.set_meta("debug_test_arena_kind", target_kind)
 	if (
 		target_kind == DEBUG_TEST_ARENA_STATIONARY
@@ -1999,16 +2050,6 @@ func debug_test_arena_spawn_at(
 			stationary_max_hp,
 			spawn_position
 		)
-	_apply_enemy_movement_bounds(enemy)
-	_connect_enemy_defeated(
-		enemy,
-		"debug_test_arena_%s" % target_kind
-	)
-	return {
-		"ok": true,
-		"reason": "",
-		"enemy": enemy,
-	}
 
 
 func debug_test_arena_clear_targets(
@@ -2298,39 +2339,13 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	if not _enemy_rows.has(requested_id):
 		return false
 	var enemy_data: Dictionary = _enemy_rows[requested_id]
-	var pool_id: String = String(enemy_data.get("pool_id", ""))
-	var raw_node: Node = PoolManager.acquire(pool_id)
-	if not raw_node is Node2D or not raw_node.has_method("configure"):
-		return false
-
-	var enemy: Node2D = raw_node as Node2D
-	var spawn_context: Dictionary = {}
-	if not _is_debug_test_arena():
-		var reward_snapshot: Dictionary = _resolve_enemy_reward_snapshot(
-			enemy_data,
-			spawn_context
-		)
-		if reward_snapshot.is_empty():
-			PoolManager.release(enemy)
-			return false
-		spawn_context["reward_snapshot"] = reward_snapshot
-	enemy.global_position = _spawn_position()
-	_reparent_to_active_world(enemy)
-	enemy.set_meta("wave_key", wave_key)
-	if enemy.has_meta("module_slot"):
-		enemy.remove_meta("module_slot")
-	enemy.call(
-		"configure",
-		enemy_data,
-		_player,
-		_enemy_navigation_provider(),
-		_enemy_spawn_difficulty(),
-		spawn_context
-	)
-	_assign_enemy_spawn_serial(enemy)
-	_apply_enemy_movement_bounds(enemy)
-	_connect_enemy_defeated(enemy, wave_key)
-	return true
+	var spawn_result: Dictionary = _enemy_spawn_service.spawn_fresh({
+		"enemy_data": enemy_data,
+		"wave_key": wave_key,
+		"position_provider": Callable(self, "_spawn_position"),
+		"normal_rewards": not _is_debug_test_arena(),
+	})
+	return bool(spawn_result.get("ok", false))
 
 
 func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
@@ -4154,45 +4169,16 @@ func _spawn_enemy_at(
 	if not module_slot.is_empty() and not _is_module_world_position_walkable(spawn_position):
 		return false
 	var enemy_data: Dictionary = _enemy_rows[enemy_id]
-	var pool_id: String = String(enemy_data.get("pool_id", ""))
-	var raw_node: Node = PoolManager.acquire(pool_id)
-	if not raw_node is Node2D or not raw_node.has_method("configure"):
-		return false
-	var enemy: Node2D = raw_node as Node2D
-	var configured_spawn_context: Dictionary = spawn_context.duplicate(true)
-	if not _is_debug_test_arena():
-		var reward_snapshot: Dictionary = _resolve_enemy_reward_snapshot(
-			enemy_data,
-			configured_spawn_context
-		)
-		if reward_snapshot.is_empty():
-			PoolManager.release(enemy)
-			return false
-		configured_spawn_context["reward_snapshot"] = reward_snapshot
-	enemy.global_position = spawn_position
-	_reparent_to_active_world(enemy)
-	enemy.set_meta("wave_key", spawn_key)
-	if module_slot.is_empty():
-		if enemy.has_meta("module_slot"):
-			enemy.remove_meta("module_slot")
-	else:
-		enemy.set_meta("module_slot", module_slot)
-	enemy.call(
-		"configure",
-		enemy_data,
-		_player,
-		_enemy_navigation_provider(),
-		(
-			fixed_spawn_difficulty
-			if not fixed_spawn_difficulty.is_empty()
-			else _enemy_spawn_difficulty()
-		),
-		configured_spawn_context
-	)
-	_assign_enemy_spawn_serial(enemy)
-	_apply_enemy_movement_bounds(enemy)
-	_connect_enemy_defeated(enemy, spawn_key)
-	return true
+	var spawn_result: Dictionary = _enemy_spawn_service.spawn_fresh({
+		"enemy_data": enemy_data,
+		"wave_key": spawn_key,
+		"module_slot": module_slot,
+		"world_position": spawn_position,
+		"spawn_context": spawn_context,
+		"fixed_spawn_difficulty": fixed_spawn_difficulty,
+		"normal_rewards": not _is_debug_test_arena(),
+	})
+	return bool(spawn_result.get("ok", false))
 
 
 func _register_all_module_interest_points() -> void:
@@ -7014,9 +7000,11 @@ func _restore_run_snapshot(
 		push_error("[GameplayRunLoop] reward choice restore failed")
 		return false
 	_kills = maxi(int(snapshot_data.get("kills", 0)), 0)
-	_next_enemy_spawn_serial = maxi(
-		int(snapshot_data.get("next_enemy_spawn_serial", 1)),
-		1
+	_enemy_spawn_service.reset_spawn_serial(
+		maxi(
+			int(snapshot_data.get("next_enemy_spawn_serial", 1)),
+			1
+		)
 	)
 	_next_gear_mod_instance_id = int(
 		(snapshot_data.get("gear_mods", {}) as Dictionary).get(
@@ -7402,21 +7390,7 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 		if not module_slot.is_empty() and not _is_module_world_position_walkable(restored_position):
 			continue
 		var enemy_data: Dictionary = _enemy_rows[enemy_id]
-		var pool_id: String = String(enemy_data.get("pool_id", ""))
-		var raw_node: Node = PoolManager.acquire(pool_id)
-		if not raw_node is Node2D or not raw_node.has_method("configure"):
-			continue
-
-		var enemy: Node2D = raw_node as Node2D
-		_reparent_to_active_world(enemy)
-		enemy.global_position = restored_position
 		var wave_key: String = String(snapshot_data.get("wave_key", ""))
-		enemy.set_meta("wave_key", wave_key)
-		if module_slot.is_empty():
-			if enemy.has_meta("module_slot"):
-				enemy.remove_meta("module_slot")
-		else:
-			enemy.set_meta("module_slot", module_slot)
 		var restored_spawn_context: Dictionary = _world_event_spawn_context(
 			String(snapshot_data.get("event_instance_id", "")),
 			String(
@@ -7429,12 +7403,13 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 		restored_spawn_context["reward_snapshot"] = _dictionary_or_empty(
 			snapshot_data.get("reward_snapshot", {})
 		)
-		enemy.call(
-			"configure",
-			enemy_data,
-			_player,
-			_enemy_navigation_provider(),
-			{
+		_enemy_spawn_service.restore_enemy({
+			"enemy_data": enemy_data,
+			"wave_key": wave_key,
+			"module_slot": module_slot,
+			"world_position": restored_position,
+			"spawn_context": restored_spawn_context,
+			"fixed_spawn_difficulty": {
 				"health_multiplier": float(
 					snapshot_data.get("spawn_health_multiplier", 1.0)
 				),
@@ -7442,22 +7417,12 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 					snapshot_data.get("spawn_damage_multiplier", 1.0)
 				),
 			},
-			restored_spawn_context
-		)
-		if enemy.has_method("set_runtime_spawn_serial"):
-			var restored_serial: int = maxi(
+			"runtime_spawn_serial": maxi(
 				int(snapshot_data.get("runtime_spawn_serial", 0)),
 				0
-			)
-			enemy.call("set_runtime_spawn_serial", restored_serial)
-			_next_enemy_spawn_serial = maxi(
-				_next_enemy_spawn_serial,
-				restored_serial + 1
-			)
-		_apply_enemy_movement_bounds(enemy)
-		_connect_enemy_defeated(enemy, wave_key)
-		if enemy.has_method("restore_snapshot"):
-			enemy.call("restore_snapshot", snapshot_data)
+			),
+			"snapshot": snapshot_data,
+		})
 
 
 func _is_module_world_position_walkable(world_position: Vector2) -> bool:
@@ -7626,13 +7591,6 @@ func _on_enemy_attack_committed(
 		VFX_CUES.ENEMY_ATTACK_IMPACT,
 		context
 	)
-
-
-func _assign_enemy_spawn_serial(enemy: Node) -> void:
-	if enemy == null or not enemy.has_method("set_runtime_spawn_serial"):
-		return
-	enemy.call("set_runtime_spawn_serial", _next_enemy_spawn_serial)
-	_next_enemy_spawn_serial += 1
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:

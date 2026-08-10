@@ -2,6 +2,9 @@ extends Node
 
 
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
+const CONTENT_UNLOCK_TYPES := preload(
+	"res://scripts/contracts/content_unlock_types.gd"
+)
 const ENEMY_BASE_PATH: String = "res://scenes/gameplay/actors/enemy_base.tscn"
 const ENEMY_SCRIPT := preload("res://scripts/gameplay/enemy.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
@@ -13,6 +16,7 @@ const CALM_PRIMARY := Color("68bcdd")
 const ANGRY_PRIMARY := Color("ed2f72")
 
 var _failures: Array[String] = []
+var _prepare_failure_reason: String = ""
 var _restore_failure_observed: bool = false
 
 
@@ -342,20 +346,39 @@ func _validate_missing_run_loop_camera_fails_restore() -> void:
 	if camera_controller != null:
 		camera_controller.free()
 	_restore_failure_observed = false
+	_prepare_failure_reason = ""
 	run_loop.connect("restore_failed", _on_restore_failure_observed)
+	run_loop.connect("run_prepare_failed", _on_run_prepare_failed)
+	run_loop.call("configure_player_loading_mode", true)
 	run_loop.call("configure_restore_snapshot", {
 		"character": CHARACTER_IDS.CHARACTER_PRIMARY_A,
+		"content_availability": (
+			ContentUnlockSystem.build_run_availability_snapshot()
+		),
 	})
+	var print_errors_before_missing_camera: bool = Engine.print_error_messages
+	Engine.print_error_messages = false
 	get_tree().root.add_child(run_loop)
+	Engine.print_error_messages = print_errors_before_missing_camera
 	_expect(
 		_restore_failure_observed,
 		"missing run-level camera rig should fail closed during restore"
+	)
+	_expect(
+		_prepare_failure_reason
+		== "missing or invalid GameplayCameraController scene node",
+		"missing run-level camera rig should report its exact failure reason"
 	)
 	run_loop.free()
 
 
 func _on_restore_failure_observed() -> void:
 	_restore_failure_observed = true
+
+
+func _on_run_prepare_failed(reason: String, restoring: bool) -> void:
+	if restoring:
+		_prepare_failure_reason = reason
 
 
 func _validate_enemy_configuration(enemy_row: Dictionary) -> void:
@@ -531,12 +554,24 @@ func _validate_enemy_pool_registration_rollback(enemies: Array[Dictionary]) -> v
 		String(first_enemy.get("id", "first")): first_enemy,
 		String(duplicate_pool_enemy.get("id", "duplicate")): duplicate_pool_enemy,
 	})
+	run_loop.set("_content_availability", {
+		CONTENT_UNLOCK_TYPES.ENEMY: [
+			String(first_enemy.get("id", "first")),
+			String(duplicate_pool_enemy.get("id", "duplicate")),
+		],
+	})
 	_expect(
 		bool(run_loop.call("_cache_actor_scene", String(first_enemy.get("scene_path", "")))),
 		"rollback fixture should cache the first enemy scene"
 	)
+	var print_errors_before_duplicate: bool = Engine.print_error_messages
+	Engine.print_error_messages = false
+	var registration_succeeded: bool = bool(
+		run_loop.call("_register_enemy_pools")
+	)
+	Engine.print_error_messages = print_errors_before_duplicate
 	_expect(
-		not bool(run_loop.call("_register_enemy_pools")),
+		not registration_succeeded,
 		"duplicate enemy pool registration should fail"
 	)
 	_expect(

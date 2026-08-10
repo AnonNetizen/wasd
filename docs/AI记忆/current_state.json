@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-10",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前两阶段：fail-closed 首片修复 Replay、Save、隔离 smoke、Run 准备、世界奖励与 UI/Input 所有权；可重构边界首片引入固定 GUT v9.7.1 / Godot 4.7.1 运行时 CI、隔离且带 JUnit 门禁的统一 GUT 入口、28 命令单一 smoke catalog、效果 source 注册前的三端参数 / program envelope 校验，以及 Mod 文件、包、JSON、CSV 资源预算。Meta v4、Run v19、Replay v9、游戏 v1.18 与玩法协议不变；RunLoop、DataLoader、modifier 与 Enemy 继续按单一职责独立提取。人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 GameplayRunLoop 渐进拆分首片：EnemySpawnService 统一普通、定点、Debug Test Arena 与 Run v19 恢复的对象池材化、metadata、难度 / 导航、运行序号、边界和生命周期顺序；RunLoop 继续持有资格、空间、奖励与快照外层策略。专项 GUT、runtime / actor / module-world / world-event / save / boot 和四条 Replay v9 golden 等价通过。Meta v4、Run v19、Replay v9、游戏 v1.18 与玩法协议不变；下一切片为 RunSnapshotCoordinator。人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / GameplayRunLoop 渐进拆分首片：新增 scene-authored EnemySpawnService，统一 fresh / fixed / debug / restore 的 pool acquire 后材化、metadata、difficulty / navigation、runtime serial、bounds 与 lifecycle；失败不消费位置 RNG 或 serial，armed restore 在实体 restore 前完成接线。Run v19 / Replay v9 / game v1.18 与四条 golden 摘要不变。",
     "ADR #197 / 架构治理可重构边界首片：固定 GUT v9.7.1 与 Godot 4.7.1 运行时 CI，本地 / CI 共用隔离 user:// 且要求非空 JUnit 的 Bridge 入口；28 个旧 smoke CLI 统一由单一 catalog 描述隔离、成功、fatal 与命令级预期错误；效果 Registry / DataLoader / Python schema 在扣费和 cooldown 前一致拒绝非法 primitive、空 program、错误 envelope、无效 slot-stat 与跨字段组合；ModLoader 对 manifest、patch、包总量、JSON 深度 / 节点和 CSV 行列实施 fail-closed 预算。",
     "ADR #197 / 架构治理 fail-closed 首片：不完整 Replay 拒绝持久化，Save preserve 主 / 备份不被 fallback 或 Boot 删除，全部 smoke 默认隔离并使用精确 marker，四类 Run 准备失败统一回收，世界奖励成功投放后才提交，UIManager 单向推送栈事实给 InputService；版本与协议不变。",
     "ADR #196 / 统一效果框架与本地 Gear Mod：新增每局 GameplayEffectRuntime、Registry 和 Gateway；skills v3 programs 与 gear_mods v6 components 共用内置原语。Manifest v2 限定本地包只能新增 namespaced Gear Mod / 掉落 / 奖励池 / 双语媒体；Run v19 / Replay v9 / 游戏 v1.18 精确保存 mod_environment，旧 v18 / v8 不迁移。",
@@ -188,7 +189,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "继续 ADR #197 的协议不变渐进拆分：先完成 EnemySpawnService / EntityMaterializer 的黄金回放与 Run v19 等价门禁，再依次提取 RunSnapshotCoordinator、ModuleWorld codec / streaming、GameplayFeedbackController 与 DebugFacade；DataLoader fingerprint / validator、ModifierStack 与 Enemy Brain/action 各自形成独立可回滚提交。",
+    "继续 ADR #197 的协议不变渐进拆分：EnemySpawnService / EntityMaterializer 已完成；下一独立切片提取 RunSnapshotCoordinator，再依次处理 ModuleWorld codec / streaming、GameplayFeedbackController 与 DebugFacade。DataLoader fingerprint / validator、ModifierStack 与 Enemy Brain/action 各自形成独立可回滚提交。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",
@@ -236,6 +237,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-10",
+      "command": "targeted GDScript and semantic lint; EnemySpawnService GUT and full GUT; runtime, actor-scene, full/technical module-world, world-event and save smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; bridge/catalog Python regressions; docs health and diff checks; independent factual code review",
+      "result": "passed for ADR #197 GameplayRunLoop extraction slice 1. EnemySpawnService preserves fresh/fixed/debug/restore materialization order, pool and reward failure consumption, reused metadata cleanup, frozen world-event context/difficulty, runtime spawn serial and armed restore lifecycle ordering. Actor-scene fixtures now exercise duplicate-pool rollback and the exact missing-camera loading failure; module-world catalog policies allow only command-scoped observed negative fixtures and shutdown lines. All four Replay v9 goldens passed without rewrite; Meta v4, Run v19, Replay v9, game v1.18 and gameplay results remain unchanged. No performance probe or manual acceptance ran; visual, audio and feel checks remain pending user acceptance."
+    },
     {
       "date": "2026-08-10",
       "command": "effect-runtime, L1, ModLoader, debug-release and runtime smokes; GUT unit/integration; Godot 4.7.1 formal headless boot; bridge/catalog Python regressions; contracts/data/schema; three-tier lint and lint regressions; JSON/docs health/diff checks; independent factual code review; staged-file pre-commit",

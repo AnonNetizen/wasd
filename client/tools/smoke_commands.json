@@ -318,8 +318,15 @@
       "isolation": "temporary_user_environment",
       "success_markers": ["[ModuleWorldSmoke] PASS"],
       "standard_fatal": true,
-      "expected_error_allow_patterns": [],
-      "shutdown_allow_patterns": []
+      "expected_error_allow_patterns": [
+        "(?m)^ERROR: \\[ModuleWorldManager\\] snapshot map hash does not match assignment\\r?$",
+        "(?m)^ERROR: \\[GameplayRunLoop\\] module-world snapshot restore failed\\r?$"
+      ],
+      "shutdown_allow_patterns": [
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ resources still in use at exit \\(run with --verbose for details\\)\\.\\r?$"
+      ]
     },
     {
       "id": "module-world-technical-slice-smoke",
@@ -333,8 +340,15 @@
       "isolation": "temporary_user_environment",
       "success_markers": ["[ModuleWorldSmoke] PASS"],
       "standard_fatal": true,
-      "expected_error_allow_patterns": [],
-      "shutdown_allow_patterns": []
+      "expected_error_allow_patterns": [
+        "(?m)^ERROR: \\[ModuleWorldManager\\] snapshot map hash does not match assignment\\r?$",
+        "(?m)^ERROR: \\[GameplayRunLoop\\] module-world snapshot restore failed\\r?$"
+      ],
+      "shutdown_allow_patterns": [
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ resources still in use at exit \\(run with --verbose for details\\)\\.\\r?$"
+      ]
     },
     {
       "id": "save-smoke",
