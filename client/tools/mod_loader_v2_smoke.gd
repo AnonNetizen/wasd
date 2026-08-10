@@ -2,6 +2,9 @@ extends SceneTree
 
 
 const MOD_LOADER_SCRIPT := preload("res://scripts/autoload/mod_loader.gd")
+const GEAR_MOD_DROP_TABLES_PATH: String = (
+	"res://data/gear_mod_drop_tables.csv"
+)
 const TEST_ROOTS: Array[String] = [
 	"user://mods/l1_mod_v2_alpha",
 	"user://mods/l1_mod_v2_bad",
@@ -57,6 +60,13 @@ func _run() -> void:
 		_expect((gameplay_payloads[0].get("mods", []) as Array).size() == 1, "package gameplay payload should contain cached Gear Mods")
 		_expect((gameplay_payloads[0].get("reward_pool_contributions", []) as Array).size() == 1, "package gameplay payload should contain reward pool contributions")
 		_expect((gameplay_payloads[0].get("drop_rows", []) as Array).size() == 1, "package gameplay payload should contain enemy drop rows")
+		_expect(
+			String(gameplay_payloads[2].get("id", ""))
+			== "l1_mod_v2_deep_bad"
+			and (gameplay_payloads[2].get("drop_rows", []) as Array).size()
+			== 1,
+			"DataLoader-level invalid package should begin with a legal drop row"
+		)
 		var alpha_definition: Dictionary = (gameplay_payloads[0].get("mods") as Array)[0] as Dictionary
 		var zeta_definition: Dictionary = (gameplay_payloads[1].get("mods") as Array)[0] as Dictionary
 		_expect(String(alpha_definition.get("codex_icon_path", "")) == "mod_l1_mod_v2_alpha_icon", "valid package icon media id should remain registered")
@@ -101,6 +111,34 @@ func _run() -> void:
 		data_loader.call("reload_contracts")
 		_expect(bool(data_loader.call("validate_project_data")), "full DataLoader schema should isolate a bad package without failing base data")
 		_expect(int(global_mod_loader.call("enabled_mod_count")) == 2, "DataLoader should disable only the package with an invalid hero-slot stat")
+		var schema_counts: Dictionary = (
+			data_loader.call("schema_counts") as Dictionary
+		)
+		_expect(
+			int(schema_counts.get("gear_mod_drop_rows", -1)) == 7,
+			"merged drop count should exclude the isolated package"
+		)
+		var merged_drop_rows: Array[Dictionary] = data_loader.call(
+			"load_csv",
+			GEAR_MOD_DROP_TABLES_PATH
+		) as Array[Dictionary]
+		var merged_drop_mod_ids: Array[String] = []
+		for row: Dictionary in merged_drop_rows:
+			merged_drop_mod_ids.append(String(row.get("mod_id", "")))
+		_expect(
+			not merged_drop_mod_ids.has(
+				"mod_l1_mod_v2_deep_bad_gear"
+			),
+			"isolated package drop rows should not remain merged"
+		)
+		if merged_drop_rows.size() == 7:
+			_expect(
+				merged_drop_mod_ids[5]
+				== "mod_l1_mod_v2_alpha_test_gear"
+				and merged_drop_mod_ids[6]
+				== "mod_l1_mod_v2_zeta_test_gear",
+				"valid package drop rows should keep package order"
+			)
 		var deep_bad_status_found: bool = false
 		for status: Dictionary in global_mod_loader.call("package_statuses") as Array[Dictionary]:
 			if String(status.get("id", "")) != "l1_mod_v2_deep_bad":
@@ -328,6 +366,11 @@ func _write_deep_invalid_package() -> void:
 			},
 			{
 				"type": "csv_append",
+				"target": "gear_mod_drop_tables.csv",
+				"path": "data/drops.csv",
+			},
+			{
+				"type": "csv_append",
 				"target": "strings.csv",
 				"path": "data/strings.csv",
 			},
@@ -357,6 +400,11 @@ func _write_deep_invalid_package() -> void:
 				},
 			],
 		}, "\t")
+	)
+	_write_text(
+		root.path_join("data/drops.csv"),
+		"source_enemy_id,mod_id,drop_chance,min_enemy_level,max_enemy_level\n"
+		+ "enemy_chaser,%s,0.2,1,999\n" % gear_mod_id
 	)
 	_write_text(
 		root.path_join("data/strings.csv"),

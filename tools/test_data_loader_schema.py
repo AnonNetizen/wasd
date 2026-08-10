@@ -1500,11 +1500,77 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
+            "gear mod drop mod reference must exist",
+            _mutate_csv(
+                "client/data/gear_mod_drop_tables.csv",
+                _set_gear_mod_drop_mod("gear_mod_missing"),
+            ),
+            [
+                "client/data/gear_mod_drop_tables.csv:line 2.mod_id",
+                "gear mod is not defined in gear_mods.json: gear_mod_missing",
+            ],
+        ),
+        (
+            "gear mod drop table must not be empty",
+            _mutate_csv(
+                "client/data/gear_mod_drop_tables.csv",
+                _clear_gear_mod_drop_rows,
+            ),
+            [
+                "client/data/gear_mod_drop_tables.csv:rows",
+                "must contain at least one gear mod drop row",
+            ],
+        ),
+        (
             "gear mod drop chance must be a ratio",
             _mutate_csv("client/data/gear_mod_drop_tables.csv", _set_gear_mod_drop_chance("1.5")),
             [
                 "client/data/gear_mod_drop_tables.csv:line 2.drop_chance",
                 "must be <= 1.0",
+            ],
+        ),
+        (
+            "gear mod drop minimum level must be positive",
+            _mutate_csv(
+                "client/data/gear_mod_drop_tables.csv",
+                _set_gear_mod_drop_min_level("0"),
+            ),
+            [
+                "client/data/gear_mod_drop_tables.csv:line 2.min_enemy_level",
+                "must be >= 1",
+            ],
+        ),
+        (
+            "gear mod drop minimum level must be an integer",
+            _mutate_csv(
+                "client/data/gear_mod_drop_tables.csv",
+                _set_gear_mod_drop_min_level("not_an_int"),
+            ),
+            [
+                "client/data/gear_mod_drop_tables.csv:line 2.min_enemy_level",
+                "must be int",
+            ],
+        ),
+        (
+            "gear mod drop maximum level must cover minimum",
+            _mutate_csv(
+                "client/data/gear_mod_drop_tables.csv",
+                _set_gear_mod_drop_levels("5", "4"),
+            ),
+            [
+                "client/data/gear_mod_drop_tables.csv:line 2.max_enemy_level",
+                "must be >= min_enemy_level",
+            ],
+        ),
+        (
+            "gear mod drop rows must be unique",
+            _mutate_csv(
+                "client/data/gear_mod_drop_tables.csv",
+                _duplicate_first_gear_mod_drop_row,
+            ),
+            [
+                "client/data/gear_mod_drop_tables.csv:line 7",
+                "duplicate drop row enemy_chaser/gear_mod_weapon_damage_test/1-999",
             ],
         ),
         (
@@ -3344,11 +3410,41 @@ def _set_gear_mod_drop_enemy(value: str) -> CsvMutator:
     return mutate
 
 
+def _set_gear_mod_drop_mod(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["mod_id"] = value
+
+    return mutate
+
+
+def _clear_gear_mod_drop_rows(rows: list[dict[str, str]]) -> None:
+    rows.clear()
+
+
 def _set_gear_mod_drop_chance(value: str) -> CsvMutator:
     def mutate(rows: list[dict[str, str]]) -> None:
         rows[0]["drop_chance"] = value
 
     return mutate
+
+
+def _set_gear_mod_drop_min_level(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["min_enemy_level"] = value
+
+    return mutate
+
+
+def _set_gear_mod_drop_levels(minimum: str, maximum: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["min_enemy_level"] = minimum
+        rows[0]["max_enemy_level"] = maximum
+
+    return mutate
+
+
+def _duplicate_first_gear_mod_drop_row(rows: list[dict[str, str]]) -> None:
+    rows.append(dict(rows[0]))
 
 
 def _add_gear_mod_legacy_overflow_gold(payload: dict[str, Any]) -> None:

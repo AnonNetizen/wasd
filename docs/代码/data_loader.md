@@ -8,6 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 将已加载、已合并且完成坏包隔离的数据交给纯 `DataReferenceIndexBuilder` 构建跨文件校验索引；读取顺序、Mod 边界和 schema 错误仍由 `DataLoader` 持有。
+- 将包内与最终合并的 Gear Mod 掉落行交给纯 `GearModDropTableValidator` 校验；`DataLoader` 继续持有读取、错误输出、坏包禁用 / 重读和 schema 计数。
 - 将合并后的技能、Gear Mod 与掉落表交给纯 `DataFingerprintBuilder` 归一化；`DataLoader` 只负责数据源与 Mod 环境，Replay 继续负责最终 SHA-256。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
 - 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json` v3、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json` v6、`gear_mod_drop_tables.csv`、`content_unlock_rules.json`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
@@ -29,8 +30,10 @@
 |------|------|
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
 | `client/scripts/data/data_reference_index_builder.gd` | 从调用方已加载的 JSON / CSV 值构建 18 类跨文件引用索引；纯、静态、无状态，不读取文件 / Mod、不输出错误、不缓存或排序 |
+| `client/scripts/data/gear_mod_drop_table_validator.gd` | 纯、静态的包内 / 合并掉落行校验；只接收现成 rows / ID 索引与错误 sink，不读文件 / Mod、不持有 Node / cache、不排序 |
 | `client/scripts/data/data_fingerprint_builder.gd` | 纯、类型化的玩法指纹 payload 归一化；不读取文件、不访问 autoload、不改变数组顺序 |
 | `client/tests/unit/test_data_reference_index_builder.gd` | 锁定引用索引的坏 root / 类型、真实 loader String 产物、strict JSON 对 `StringName` / 数字 ID 的拒绝、空 ID、插入顺序、重复折叠、别名隔离、机关半径与嵌套波次行为 |
+| `client/tests/unit/test_gear_mod_drop_table_validator.gd` | 锁定掉落表边界、空表、多错误顺序、未知引用、等级范围 / 重复、包输入形状、旧静默诊断与跨调用无状态 |
 | `client/scripts/autoload/mod_loader.gd` | 本地 mod manifest 扫描与数据 patch 合并入口 |
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
 | `client/data/player.json` | schema v4 玩家统一身体半径、基础属性、防御、冲刺与掉落规则 |
@@ -73,6 +76,7 @@
 | 配置读取 | 调用方按需读 JSON / CSV，并叠加已启用本地 mod patch | `load_json()`、`load_csv()` |
 | schema 校验 | 启动 smoke 或工具调用正式数据校验；运行时会校验合并后的数据 | `validate_project_data()`、`schema_counts()` |
 | 引用索引 | 每个 schema 校验后按原读取顺序重新取得当前合并值，再交给纯 builder 建索引；Gear Mod 必须在坏玩法包隔离后重新读取 | `DataReferenceIndexBuilder.collect_*()` |
+| Gear Mod 掉落 | 敌人索引建好后先校验每包 rows 并隔离坏包，再重读合并 Gear Mod / 世界事件 / 掉落 CSV；合并 rows 数量仍由 DataLoader 记录，错误仍经 `_schema_fail()` 输出 | `GearModDropTableValidator.validate_package_rows()`、`validate_merged_rows()` |
 | 指纹构建 | `DataLoader` 先应用官方数据与有效 Mod patch，再把结果交给 builder 排除展示字段、归一化标量并深拷贝嵌套玩法字段 | `gear_mod_gameplay_fingerprint_payload()`、`effect_gameplay_fingerprint_payload()` |
 | 契约查询 | 调用方查询白名单；允许的 mod 动态扩展 id 会并入返回值 | `contract_values()`、`has_contract_value()` |
 | 重新加载 | 覆盖 `_contracts` 并通知订阅方 | `data_reloaded` |
@@ -105,6 +109,15 @@
 | CSV | `collect_enemy_ids()`、`collect_hazard_ids()` | 消费 `load_csv()` 的 String ID 并过滤空值；机关半径按旧规则从 String 转 int、至少为 1，重复 ID 最后写入值生效但不重排 |
 | 波次 | `collect_spawn_wave_ids_by_mode()` | 消费 `load_csv()` 的 String mode / wave ID 并过滤空值，保持 mode 与各 mode 内 wave 的首次插入顺序，返回独立嵌套 Dictionary |
 
+### 内部纯 Gear Mod 掉落校验 API
+
+`GearModDropTableValidator` 的 `report_failure` 只接收 `(field_path, expected)`；正式接线由 `DataLoader` 补上 `GEAR_MOD_DROP_TABLES_PATH` 并转发到 `_schema_fail()`。Validator 不访问 autoload、文件、`user://`、cache 或排序。
+
+| 静态入口 | 输入 | 保留的兼容语义 |
+|----------|------|----------------|
+| `validate_package_rows()` | 包 payload 的 `drop_rows`、包 id、正式敌人索引、当前包 Mod 索引、错误 sink | 空 Array 合法；非 Array / 非 Dictionary、未知敌人 / 当前包 Mod、等级倒置继续只判包无效而不新增诊断；exact keys 与 CSV 数值 / 整数仍按旧 field / expected 顺序报告；包内重复行不在此阶段拒绝 |
+| `validate_merged_rows()` | 已隔离坏包后重新读取的 `Array[Dictionary]`、最终敌人 / Mod 索引、错误 sink | 空表失败；每行按敌人→Mod→概率→最小等级→最大等级→范围→重复继续收集错误；等级解析或下限失败时跳过范围 / 重复；非空未知 id 仍参与 `source:mod:min:max` 重复检测 |
+
 ## Signal / Event
 
 | 名称 | 参数 | 触发时机 |
@@ -128,7 +141,7 @@
   - `enemy_rewards.json`：schema v1，只允许 `base_coefficient`、`time_growth_per_tier`、`random_multiplier_min`、`random_multiplier_max`；基础系数与随机上下界必须为有限正数，阶段增长必须为有限非负数，且随机下界不得高于上界。
   - `difficulty_profiles.json`：schema v2，每个 profile 必填唯一 `id`、已本地化 `name_key`、有限正数 `difficulty_coefficient`、威胁曲线和九段阶段名。标准 profile 当前系数为 `1.0`；旧 schema v1、缺字段或多余字段均拒绝。
   - `gear_mods.json`：schema v6；根级 7×7 board / 13 格掩码、拾取配置、有序奖励池、`reward_pool_contributions[]` 和可组合 `components[]`。`modifier` 必须声明 hero / weapon slot，且所有 stat 通过槽位支持矩阵；`program` 使用通用 trigger / condition / action 契约；`board_rule` 当前只允许 `occupy_only`。每个 `component_id` 在 Mod 内唯一。
-  - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
+  - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于隔离后重读的 `gear_mods.json`，概率必须是 `0.0..1.0`，等级必须为至少 1 的整数且最大等级不低于最小等级，最终 `source/mod/level range` 必须唯一。官方 / 最终合并表不可为空；单个本地包可以不贡献掉落行。
   - `gear_mods.json` schema v6：校验宽高 / 中心 / 精确掩码、非法坐标、组件字段、slot-stat 兼容、程序结构 / 原语 / 参数、公共池、奖励池贡献、图鉴和默认解锁；明确拒绝 v5 `kind` / `map_behavior` / `grid_behavior` 以及等级 / 溢出字段。玩法指纹纳入 board、组件程序、奖励池 / 贡献、拾取、掉落与本地玩法环境，排除展示字段。
   - `content_unlock_rules.json`：schema v1；规则 id 唯一且为 snake_case，mode 只能来自生成的 `all/any` 契约，条件只能使用登记的五类 counter。定向计数器必须携带合法 `subject_id`，聚合计数器禁止携带；锁定内容必须引用有效规则，默认开放内容不得引用规则，规则不得闲置，禁止以锁定内容作为条件对象。`skills.json.default_unlocked=false` 在本阶段非法。
   - 初始可玩性：至少两个默认开放英雄；每个正式敌池至少有一个 0 秒默认开放敌人；每个正式 Gear Mod 奖励池至少有一个默认开放成员。所有相关池过滤发生在运行时 RNG 消费前。
@@ -151,7 +164,7 @@
 ## 依赖
 
 - 上游依赖：Godot `FileAccess`、`JSON`、生成契约文件、`ModLoader`。
-- 内部纯依赖：`DataReferenceIndexBuilder` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]`，不得反向读取 `DataLoader`、`ModLoader`、文件系统或 `user://`。
+- 内部纯依赖：`DataReferenceIndexBuilder`、`GearModDropTableValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback，不得反向读取 `DataLoader`、`ModLoader`、文件系统或 `user://`。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -162,6 +175,7 @@
 - 热重载可复用 `data_reloaded` 信号扩展。
 - 本地 mod 只能通过 `ModLoader` manifest v2 给 Gear Mod 定义、奖励池贡献、掉落和 locale 做声明式 append；不得让业务系统绕过 `DataLoader` 直接读取 `user://mods`。
 - 新跨文件引用索引应在 `DataReferenceIndexBuilder` 新增纯静态入口，由 `DataLoader` 在原校验 / 读取时序中显式传入合并后的数据；不得让 builder 自行读文件、扫描 Mod、缓存或排序。
+- 新 Gear Mod 掉落字段或规则应在 `GearModDropTableValidator` 的包内与合并入口分别落地，并由 `DataLoader` 保持“先隔离、再重读、再计数 / 校验”；不得在 validator 中读文件、禁用包或缓存合并 rows。
 - 新增玩法指纹字段时在 `DataFingerprintBuilder` 明确加入归一化规则；不得直接哈希整份展示数据，也不得在 builder 内自行重新加载文件或扫描 Mod。
 
 ## 常见改动入口
@@ -175,6 +189,7 @@
 | 改敌人 AI profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改敌人金币 / 难度 profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`enemy_rewards.json`、`enemies.csv`、`difficulty_profiles.json` | `client/data/README.md`、`docs/代码/enemy_reward_resolver.md`、Difficulty / Runtime / Save 文档 | contracts + `validate_data` + schema test + L1/runtime/save/replay |
 | 改内容解锁 schema / 可选字段 | `data_loader.gd`、`validate_data.py`、schema tests、三类内容数据与 `content_unlock_rules.json` | 数据手册、词表、ContentUnlockSystem / Runtime / Save / Replay 文档 | contracts + data/schema + content-progression/codex/runtime/save/replay |
+| 改 Gear Mod 掉落校验 / 坏包隔离接线 | `gear_mod_drop_table_validator.gd`、`data_loader.gd`、schema tests、`mod_loader_v2_smoke.gd` | 本文档、必要时数据手册 / ModLoader 文档 | 目标 GUT + `validate_data` + schema test + `mod-loader-smoke` + headless boot |
 | 改地图 layout schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改模块世界 / 模板 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/module_world_manager.md`、F13 工作包 | `sync_contracts --check` + `validate_data` + schema test + `module-world-smoke` + `save-smoke` |
 | 改战区导演 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/warzone_director.md`、F10 工作包 | `validate_data` + schema test + `runtime-smoke` + `f9-demo-smoke` |
@@ -189,6 +204,7 @@
 | `contract_values()` 返回空 | contract id 是否存在于 `_contracts.json` 的 `contracts` |
 | CSV 行字段错位 | 表头数量与数据列数量是否一致 |
 | `data_schema_ok=false` | headless boot 日志前后的 `[DataLoader]` fail-fast 错误 |
+| 坏 Mod 的掉落行仍在最终合并表 | 确认 `validate_project_data()` 没有在包隔离前缓存 rows，且隔离后重读了 Gear Mod ids 与 `gear_mod_drop_tables.csv`；`schema_counts().gear_mod_drop_rows` 应只计最终合并行 |
 | 导出版打开后像空场景 / 空界面 | 用 console 导出版检查 `data_schema_ok` 与 CSV 计数；若 `enemies`、`hazards`、`spawn_waves` 等为 0，确认 `client/data/*.csv.import` 是 `importer="keep"`，且 `export_presets.cfg` 的 `include_filter` 包含 `*.csv` |
 | mod 内容没进数据 | `DataLoader.mod_diagnostics()` 与 `[ModLoader]` warning；确认 manifest `target` / `path` / `array_key` |
 
@@ -199,6 +215,7 @@
 - 改契约 / 数据时跑 `tools/sync_contracts.py --check` 与 `tools/validate_data.py`。
 - F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
 - 引用索引 builder 或 `validate_project_data()` 的索引接线变更需跑目标 GUT unit，覆盖坏 root / 类型、真实 loader String 输入、strict JSON 对非 String ID 的拒绝、各类空 ID、source order、重复折叠、输出无别名、机关 clamp / last-write 和波次嵌套结构；再跑 DataLoader schema 与 headless boot 确认读取、坏 Mod 隔离和 fail-fast 顺序不变。
+- Gear Mod 掉落 validator 或接线变更需跑目标 GUT unit，覆盖数值边界、空合并表、多错误顺序、未知 id、等级解析 / 下限 / 倒置、重复 key、包 root / row 形状、exact-key 顺序、旧静默诊断、包内重复合法和跨调用无状态；再跑 Python schema 负例与 `mod-loader-smoke`，确认坏包的合法掉落行会随包隔离、最终 count / 有效包顺序不变。
 - 指纹 builder 或两条公开 payload API 变更需跑 `l1-smoke` 的固定归一化样例与公开转发等价断言，并跑 `replay-smoke` / checked-in golden 确认当前数据指纹不变；仅当玩法数据有意改变时才更新 fingerprint 基线。
 - 内容解锁 schema 变更还必须覆盖默认开放、缺规则 / 闲置规则、非法 subject、锁定条件对象、技能锁定、初始英雄 / 敌池 / Mod 池枯竭，并跑 `content-progression-smoke`。
 

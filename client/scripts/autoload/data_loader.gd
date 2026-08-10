@@ -37,6 +37,9 @@ const CONTENT_UNLOCK_PROGRESS_COUNTERS := preload(
 const DATA_REFERENCE_INDEX_BUILDER := preload(
 	"res://scripts/data/data_reference_index_builder.gd"
 )
+const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
+	"res://scripts/data/gear_mod_drop_table_validator.gd"
+)
 const DATA_FINGERPRINT_BUILDER := preload(
 	"res://scripts/data/data_fingerprint_builder.gd"
 )
@@ -3504,60 +3507,13 @@ func _isolate_invalid_mod_gameplay_packages(
 					):
 						package_is_valid = false
 					seen_contribution_mod_ids[contribution_mod_id] = true
-		var raw_drop_rows: Variant = payload.get("drop_rows", [])
-		if not raw_drop_rows is Array:
-			package_is_valid = false
-			raw_drop_rows = []
-		for row_index: int in range((raw_drop_rows as Array).size()):
-			var raw_row: Variant = (raw_drop_rows as Array)[row_index]
-			if not raw_row is Dictionary:
-				package_is_valid = false
-				continue
-			var row: Dictionary = raw_row as Dictionary
-			var row_field: String = "%s.drop_rows[%d]" % [package_id, row_index]
-			package_is_valid = _validate_exact_dictionary_keys(
-				GEAR_MOD_DROP_TABLES_PATH,
-				row_field,
-				row,
-				[
-					"source_enemy_id",
-					"mod_id",
-					"drop_chance",
-					"min_enemy_level",
-					"max_enemy_level",
-				]
-			) and package_is_valid
-			if not enemy_ids.has(String(row.get("source_enemy_id", ""))):
-				package_is_valid = false
-			if not package_mod_ids.has(String(row.get("mod_id", ""))):
-				package_is_valid = false
-			package_is_valid = _require_csv_number(
-				GEAR_MOD_DROP_TABLES_PATH,
-				"%s.drop_rows[%d].drop_chance" % [package_id, row_index],
-				row.get("drop_chance"),
-				0.0,
-				1.0
-			) and package_is_valid
-			var min_level: Variant = _parse_int(row.get("min_enemy_level"))
-			var max_level: Variant = _parse_int(row.get("max_enemy_level"))
-			package_is_valid = _require_csv_int(
-				GEAR_MOD_DROP_TABLES_PATH,
-				"%s.min_enemy_level" % row_field,
-				row.get("min_enemy_level"),
-				1
-			) and package_is_valid
-			package_is_valid = _require_csv_int(
-				GEAR_MOD_DROP_TABLES_PATH,
-				"%s.max_enemy_level" % row_field,
-				row.get("max_enemy_level"),
-				1
-			) and package_is_valid
-			if (
-				min_level != null
-				and max_level != null
-				and int(max_level) < int(min_level)
-			):
-				package_is_valid = false
+		package_is_valid = GEAR_MOD_DROP_TABLE_VALIDATOR.validate_package_rows(
+			payload.get("drop_rows", []),
+			package_id,
+			enemy_ids,
+			package_mod_ids,
+			Callable(self, "_report_gear_mod_drop_table_failure")
+		) and package_is_valid
 		if not package_is_valid:
 			disabled_any = bool(loader.call(
 				"disable_package",
@@ -4116,40 +4072,20 @@ func _validate_gear_mod_reward_pool_contributions(
 
 func _validate_gear_mod_drop_tables_csv(enemy_ids: Dictionary, gear_mod_ids: Dictionary) -> bool:
 	var rows: Array[Dictionary] = load_csv(GEAR_MOD_DROP_TABLES_PATH)
-	var is_valid: bool = true
-	if rows.is_empty():
-		is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "rows", "non-empty CSV") and is_valid
-	var seen: Dictionary = {}
 	_last_schema_counts["gear_mod_drop_rows"] = rows.size()
-	for index: int in range(rows.size()):
-		var row: Dictionary = rows[index]
-		var field: String = "line %d" % (index + 2)
-		var source_enemy_id: String = String(row.get("source_enemy_id", ""))
-		if source_enemy_id.is_empty():
-			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.source_enemy_id" % field, "non-empty string") and is_valid
-		elif not enemy_ids.has(source_enemy_id):
-			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.source_enemy_id" % field, "enemy defined in enemies.csv") and is_valid
-		var mod_id: String = String(row.get("mod_id", ""))
-		if mod_id.is_empty():
-			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.mod_id" % field, "non-empty string") and is_valid
-		elif not gear_mod_ids.has(mod_id):
-			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.mod_id" % field, "gear mod defined in gear_mods.json") and is_valid
-		is_valid = _require_csv_number(GEAR_MOD_DROP_TABLES_PATH, "%s.drop_chance" % field, row.get("drop_chance"), 0.0, 1.0) and is_valid
-		var min_level_ok: bool = _require_csv_int(GEAR_MOD_DROP_TABLES_PATH, "%s.min_enemy_level" % field, row.get("min_enemy_level"), 1)
-		var max_level_ok: bool = _require_csv_int(GEAR_MOD_DROP_TABLES_PATH, "%s.max_enemy_level" % field, row.get("max_enemy_level"), 1)
-		is_valid = min_level_ok and is_valid
-		is_valid = max_level_ok and is_valid
-		if min_level_ok and max_level_ok:
-			var min_level: int = int(String(row.get("min_enemy_level", "0")))
-			var max_level: int = int(String(row.get("max_enemy_level", "0")))
-			if max_level < min_level:
-				is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.max_enemy_level" % field, "int >= min_enemy_level") and is_valid
-			if not source_enemy_id.is_empty() and not mod_id.is_empty():
-				var key: String = "%s:%s:%d:%d" % [source_enemy_id, mod_id, min_level, max_level]
-				if seen.has(key):
-					is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, field, "unique source/mod/level range") and is_valid
-				seen[key] = true
-	return is_valid
+	return GEAR_MOD_DROP_TABLE_VALIDATOR.validate_merged_rows(
+		rows,
+		enemy_ids,
+		gear_mod_ids,
+		Callable(self, "_report_gear_mod_drop_table_failure")
+	)
+
+
+func _report_gear_mod_drop_table_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(GEAR_MOD_DROP_TABLES_PATH, field_path, expected)
 
 
 func _status_params_has_damage_tick(status_params: Dictionary) -> bool:
