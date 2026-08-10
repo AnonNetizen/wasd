@@ -25,7 +25,6 @@ ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
 ENEMY_AI_PROFILES_JSON = ROOT / "client" / "data" / "enemy_ai_profiles.json"
 HAZARDS_CSV = ROOT / "client" / "data" / "hazards.csv"
 SPAWN_WAVES_CSV = ROOT / "client" / "data" / "spawn_waves.csv"
-RELICS_JSON = ROOT / "client" / "data" / "relics.json"
 ACTIVE_ITEMS_JSON = ROOT / "client" / "data" / "active_items.json"
 CONSUMABLES_JSON = ROOT / "client" / "data" / "consumables.json"
 SKILLS_JSON = ROOT / "client" / "data" / "skills.json"
@@ -145,8 +144,6 @@ def main() -> int:
     _validate_gear_mod_drop_tables(ctx, enemy_ids, gear_mod_ids)
     _validate_hazards_csv(ctx)
     hazard_ids = _collect_hazard_ids(ctx)
-    _validate_relics(ctx)
-    relic_ids = _collect_relic_ids(ctx)
     _validate_active_items(ctx)
     active_item_ids = _collect_active_item_ids(ctx)
     _validate_consumables(ctx)
@@ -160,7 +157,7 @@ def main() -> int:
     _validate_level_progression(ctx)
     _validate_reward_choice_pools(ctx)
     difficulty_profile_ids = _validate_difficulty_profiles(ctx)
-    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids)
+    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids)
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
@@ -671,7 +668,6 @@ def _validate_presentation_profile_references(
         (SKILLS_JSON, "skills"),
     )
     optional_json = (
-        (RELICS_JSON, "relics"),
         (ACTIVE_ITEMS_JSON, "active_items"),
         (CONSUMABLES_JSON, "consumables"),
     )
@@ -1265,6 +1261,20 @@ def _validate_exact_object_keys(
         ctx.error(path, f"{field}.{key}", "is not allowed")
 
 
+def _validate_required_optional_object_keys(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: dict[str, Any],
+    required: set[str],
+    optional: set[str],
+) -> None:
+    for key in sorted(required.difference(data)):
+        ctx.error(path, f"{field}.{key}", "is required")
+    for key in sorted(set(data).difference(required | optional)):
+        ctx.error(path, f"{field}.{key}", "is not allowed")
+
+
 def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]) -> None:
     path = ENEMIES_CSV
     if not path.exists():
@@ -1479,40 +1489,6 @@ def _validate_spawn_waves_csv(ctx: ValidationContext, enemy_ids: set[str], hazar
             ctx.error(path, "rows", "must contain at least one spawn wave")
 
 
-def _validate_relics(ctx: ValidationContext) -> None:
-    path = RELICS_JSON
-    data = _load_json(path, ctx)
-    if not isinstance(data, dict):
-        return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-    relics = _require_list(ctx, path, "relics", data.get("relics"))
-    if not relics:
-        ctx.error(path, "relics", "must be a non-empty array")
-    seen: set[str] = set()
-    for index, relic in enumerate(relics):
-        field = f"relics[{index}]"
-        if not isinstance(relic, dict):
-            ctx.error(path, field, "must be an object")
-            continue
-        relic_id = _require_non_empty_string(ctx, path, f"{field}.id", relic.get("id"))
-        if relic_id:
-            if relic_id in seen:
-                ctx.error(path, f"{field}.id", f"duplicate relic id {relic_id}")
-            seen.add(relic_id)
-        _require_locale_key(ctx, path, f"{field}.name_key", relic.get("name_key"))
-        _require_locale_key(ctx, path, f"{field}.desc_key", relic.get("desc_key"))
-        _require_bool(ctx, path, f"{field}.default_unlocked", relic.get("default_unlocked"))
-        tags = _validate_registered_string_list(ctx, path, f"{field}.tags", relic.get("tags"), "content_tags", allow_empty=False)
-        if "tag_relic" not in tags:
-            ctx.error(path, f"{field}.tags", "must include tag_relic")
-        modifiers = _require_list(ctx, path, f"{field}.modifiers", relic.get("modifiers"))
-        behaviors = _require_list(ctx, path, f"{field}.behaviors", relic.get("behaviors"))
-        _validate_modifiers(ctx, path, f"{field}.modifiers", modifiers, require_value_per_level=False)
-        _validate_behaviors(ctx, path, f"{field}.behaviors", behaviors)
-        if not modifiers and not behaviors:
-            ctx.error(path, field, "must contain at least one modifier or behavior")
-
-
 def _validate_active_items(ctx: ValidationContext) -> None:
     path = ACTIVE_ITEMS_JSON
     data = _load_json(path, ctx)
@@ -1576,9 +1552,9 @@ def _validate_skills(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
-    if schema_version != 2:
-        ctx.error(path, "schema_version", "must equal 2")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3)
+    if schema_version != 3:
+        ctx.error(path, "schema_version", "must equal 3")
     skills = _require_list(ctx, path, "skills", data.get("skills"))
     if not skills:
         ctx.error(path, "skills", "must be a non-empty array")
@@ -1625,7 +1601,13 @@ def _validate_skills(ctx: ValidationContext) -> None:
         _validate_skill_costs(ctx, path, f"{field}.costs", skill.get("costs"))
         _validate_skill_targeting(ctx, path, f"{field}.targeting", skill.get("targeting"))
         _validate_skill_scaling(ctx, path, f"{field}.scaling", skill.get("scaling"))
-        _validate_skill_effects(ctx, path, f"{field}.effects", skill.get("effects"))
+        _validate_effect_programs(
+            ctx,
+            path,
+            f"{field}.programs",
+            skill.get("programs"),
+            skill_activation_only=True,
+        )
 
 
 def _skill_description_tokens(skill: dict[str, Any]) -> set[str]:
@@ -1638,28 +1620,34 @@ def _skill_description_tokens(skill: dict[str, Any]) -> set[str]:
             resource_id = cost.get("resource")
             if isinstance(resource_id, str) and resource_id:
                 tokens.add(f"{{cost_{resource_id}}}")
-    effects = skill.get("effects")
-    if not isinstance(effects, list):
+    programs = skill.get("programs")
+    if not isinstance(programs, list):
         return tokens
-    for effect_index, effect in enumerate(effects, start=1):
-        if not isinstance(effect, dict):
+    for program_index, program in enumerate(programs, start=1):
+        if not isinstance(program, dict):
             continue
-        params = effect.get("params")
-        if not isinstance(params, dict):
+        actions = program.get("actions")
+        if not isinstance(actions, list):
             continue
-        effect_prefix = f"effect_{effect_index}"
-        tokens.update(_numeric_description_tokens(effect_prefix, params))
-        modifiers = params.get("modifiers")
-        if not isinstance(modifiers, list):
-            continue
-        for modifier_index, modifier in enumerate(modifiers, start=1):
-            if isinstance(modifier, dict):
-                tokens.update(
-                    _numeric_description_tokens(
-                        f"{effect_prefix}_modifier_{modifier_index}",
-                        modifier,
+        for action_index, action in enumerate(actions, start=1):
+            if not isinstance(action, dict):
+                continue
+            params = action.get("params")
+            if not isinstance(params, dict):
+                continue
+            action_prefix = f"program_{program_index}_action_{action_index}"
+            tokens.update(_numeric_description_tokens(action_prefix, params))
+            modifiers = params.get("modifiers")
+            if not isinstance(modifiers, list):
+                continue
+            for modifier_index, modifier in enumerate(modifiers, start=1):
+                if isinstance(modifier, dict):
+                    tokens.update(
+                        _numeric_description_tokens(
+                            f"{action_prefix}_modifier_{modifier_index}",
+                            modifier,
+                        )
                     )
-                )
     return tokens
 
 
@@ -1759,67 +1747,357 @@ def _validate_skill_scaling(ctx: ValidationContext, path: Path, field: str, data
         ctx.error(path, f"{field}.cost_stat", "is required and must equal ability_efficiency")
 
 
-def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
-    effects = _require_list(ctx, path, field, data)
-    if not effects:
+def _validate_effect_programs(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+    *,
+    skill_activation_only: bool = False,
+) -> None:
+    programs = _require_list(ctx, path, field, data)
+    if not programs:
         ctx.error(path, field, "must be a non-empty array")
-    for index, effect in enumerate(effects):
-        item_field = f"{field}[{index}]"
-        if not isinstance(effect, dict):
-            ctx.error(path, item_field, "must be an object")
+    seen_program_ids: set[str] = set()
+    for index, program in enumerate(programs):
+        program_field = f"{field}[{index}]"
+        if not isinstance(program, dict):
+            ctx.error(path, program_field, "must be an object")
             continue
-        effect_id = _require_registered(ctx, path, f"{item_field}.effect", effect.get("effect"), "skill_effects")
-        params = effect.get("params")
-        if not isinstance(params, dict):
-            ctx.error(path, f"{item_field}.params", "must be an object")
-            continue
-        if effect_id == "skill_effect_damage":
-            _require_number(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=0, exclusive_minimum=True)
-            if "damage_type" in params:
-                ctx.error(path, f"{item_field}.params.damage_type", "was removed; use element_id")
+        _validate_required_optional_object_keys(
+            ctx,
+            path,
+            program_field,
+            program,
+            {
+                "program_id",
+                "trigger",
+                "conditions",
+                "actions",
+                "proc_chance",
+                "internal_cooldown",
+            },
+            {"interval_seconds", "reset_on_condition_fail"},
+        )
+        program_id = _require_non_empty_string(
+            ctx, path, f"{program_field}.program_id", program.get("program_id")
+        )
+        if program_id:
+            if not LOCALE_KEY_RE.fullmatch(program_id):
+                ctx.error(path, f"{program_field}.program_id", "must be snake_case")
+            elif program_id in seen_program_ids:
+                ctx.error(path, f"{program_field}.program_id", "must be unique within source")
+            seen_program_ids.add(program_id)
+        trigger_id = _require_registered(
+            ctx,
+            path,
+            f"{program_field}.trigger",
+            program.get("trigger"),
+            "effect_triggers",
+        )
+        if skill_activation_only and trigger_id != "skill_activated":
+            ctx.error(path, f"{program_field}.trigger", "must equal skill_activated")
+        _require_number(
+            ctx,
+            path,
+            f"{program_field}.proc_chance",
+            program.get("proc_chance"),
+            minimum=0,
+            maximum=1,
+        )
+        _require_number(
+            ctx,
+            path,
+            f"{program_field}.internal_cooldown",
+            program.get("internal_cooldown"),
+            minimum=0,
+        )
+        if trigger_id == "interval":
+            _require_number(
+                ctx,
+                path,
+                f"{program_field}.interval_seconds",
+                program.get("interval_seconds"),
+                minimum=0,
+                exclusive_minimum=True,
+            )
+        elif "interval_seconds" in program:
+            ctx.error(
+                path,
+                f"{program_field}.interval_seconds",
+                "is only valid for interval trigger",
+            )
+        if "reset_on_condition_fail" in program:
+            _require_bool(
+                ctx,
+                path,
+                f"{program_field}.reset_on_condition_fail",
+                program.get("reset_on_condition_fail"),
+            )
+        conditions = _require_list(
+            ctx, path, f"{program_field}.conditions", program.get("conditions")
+        )
+        for condition_index, condition in enumerate(conditions):
+            condition_field = f"{program_field}.conditions[{condition_index}]"
+            if not isinstance(condition, dict):
+                ctx.error(path, condition_field, "must be an object")
+                continue
+            _validate_exact_object_keys(
+                ctx,
+                path,
+                condition_field,
+                condition,
+                {"condition", "params"},
+            )
+            condition_id = _require_registered(
+                ctx,
+                path,
+                f"{condition_field}.condition",
+                condition.get("condition"),
+                "effect_conditions",
+            )
+            params = condition.get("params")
+            if not isinstance(params, dict):
+                ctx.error(path, f"{condition_field}.params", "must be an object")
+                continue
+            params_field = f"{condition_field}.params"
+            if condition_id == "team":
+                _validate_exact_object_keys(
+                    ctx, path, params_field, params, {"field", "value"}
+                )
+                if params.get("field") not in {"source_team", "target_team"}:
+                    ctx.error(path, f"{params_field}.field", "must be source_team or target_team")
+                _require_non_empty_string(ctx, path, f"{params_field}.value", params.get("value"))
+            elif condition_id == "element":
+                _validate_exact_object_keys(ctx, path, params_field, params, {"value"})
+                _require_registered(ctx, path, f"{params_field}.value", params.get("value"), "elements")
+            elif condition_id == "damage_flag":
+                _validate_exact_object_keys(
+                    ctx, path, params_field, params, {"value", "present"}
+                )
+                _require_non_empty_string(ctx, path, f"{params_field}.value", params.get("value"))
+                _require_bool(ctx, path, f"{params_field}.present", params.get("present"))
+            elif condition_id == "actor_tag":
+                _validate_exact_object_keys(
+                    ctx, path, params_field, params, {"actor", "value", "present"}
+                )
+                if params.get("actor") not in {"source", "target"}:
+                    ctx.error(path, f"{params_field}.actor", "must be source or target")
+                _require_registered(ctx, path, f"{params_field}.value", params.get("value"), "ability_tags")
+                _require_bool(ctx, path, f"{params_field}.present", params.get("present"))
+            elif condition_id == "health_ratio":
+                _validate_exact_object_keys(
+                    ctx, path, params_field, params, {"actor", "comparison", "value"}
+                )
+                if params.get("actor") not in {"source", "target"}:
+                    ctx.error(path, f"{params_field}.actor", "must be source or target")
+                if params.get("comparison") not in {"lte", "gte"}:
+                    ctx.error(path, f"{params_field}.comparison", "must be lte or gte")
+                _require_number(ctx, path, f"{params_field}.value", params.get("value"), minimum=0, maximum=1)
+            elif condition_id == "board_cell_relation":
+                _validate_exact_object_keys(ctx, path, params_field, params, {"value"})
+                if params.get("value") not in {"same", "different"}:
+                    ctx.error(path, f"{params_field}.value", "must be same or different")
+            elif condition_id == "module_relation":
+                _validate_exact_object_keys(ctx, path, params_field, params, {"value"})
+                if params.get("value") not in {"source_is_current", "source_is_not_current"}:
+                    ctx.error(
+                        path,
+                        f"{params_field}.value",
+                        "must be source_is_current or source_is_not_current",
+                    )
+        actions = _require_list(
+            ctx, path, f"{program_field}.actions", program.get("actions")
+        )
+        if not actions:
+            ctx.error(path, f"{program_field}.actions", "must be a non-empty array")
+        for action_index, action in enumerate(actions):
+            item_field = f"{program_field}.actions[{action_index}]"
+            if not isinstance(action, dict):
+                ctx.error(path, item_field, "must be an object")
+                continue
+            _validate_exact_object_keys(
+                ctx,
+                path,
+                item_field,
+                action,
+                {"action", "params"},
+            )
+            action_id = _require_registered(
+                ctx,
+                path,
+                f"{item_field}.action",
+                action.get("action"),
+                "effect_actions",
+            )
+            params = action.get("params")
+            if not isinstance(params, dict):
+                ctx.error(path, f"{item_field}.params", "must be an object")
+                continue
+            _validate_effect_action_params(ctx, path, item_field, action_id, params)
+
+
+def _validate_effect_action_params(
+    ctx: ValidationContext,
+    path: Path,
+    item_field: str,
+    action_id: str,
+    params: dict[str, Any],
+) -> None:
+    if action_id == "damage":
+        _validate_exact_object_keys(ctx, path, f"{item_field}.params", params, {"amount", "element_id"})
+        _require_number(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=0, exclusive_minimum=True)
+        _require_registered(ctx, path, f"{item_field}.params.element_id", params.get("element_id"), "elements")
+    if action_id == "apply_status":
+        _validate_required_optional_object_keys(
+            ctx,
+            path,
+            f"{item_field}.params",
+            params,
+            {"status", "duration", "stack_rule", "granted_ability_tags"},
+            {
+                "magnitude",
+                "magnitude_cap",
+                "modifiers",
+                "element_id",
+                "tick_interval",
+                "max_stacks",
+                "incoming_damage_per_stack",
+                "incoming_damage_source_team",
+            },
+        )
+        _require_registered(ctx, path, f"{item_field}.params.status", params.get("status"), "status_effects")
+        _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
+        _require_registered(ctx, path, f"{item_field}.params.stack_rule", params.get("stack_rule"), "status_stack_rules")
+        _validate_registered_string_list(ctx, path, f"{item_field}.params.granted_ability_tags", params.get("granted_ability_tags", []), "ability_tags", allow_empty=True)
+        if "modifiers" in params:
+            _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+        if "element_id" in params:
             _require_registered(ctx, path, f"{item_field}.params.element_id", params.get("element_id"), "elements")
-        if effect_id == "skill_effect_apply_status":
-            _require_registered(ctx, path, f"{item_field}.params.status", params.get("status"), "status_effects")
-            _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
-            _require_registered(ctx, path, f"{item_field}.params.stack_rule", params.get("stack_rule"), "status_stack_rules")
-            _validate_registered_string_list(ctx, path, f"{item_field}.params.granted_ability_tags", params.get("granted_ability_tags"), "ability_tags", allow_empty=True)
-            if "magnitude" in params:
-                _require_number(ctx, path, f"{item_field}.params.magnitude", params.get("magnitude"))
-            if "magnitude_cap" in params:
-                _require_number(ctx, path, f"{item_field}.params.magnitude_cap", params.get("magnitude_cap"), minimum=0)
-            if "max_stacks" in params:
-                _require_int(ctx, path, f"{item_field}.params.max_stacks", params.get("max_stacks"), minimum=1)
-            if "tick_interval" in params:
-                _require_number(ctx, path, f"{item_field}.params.tick_interval", params.get("tick_interval"), minimum=0)
-            if "damage_type" in params:
-                ctx.error(path, f"{item_field}.params.damage_type", "was removed; use element_id")
-            if "element_id" in params:
-                _require_registered(ctx, path, f"{item_field}.params.element_id", params.get("element_id"), "elements")
-            elif _status_params_has_damage_tick(params):
-                ctx.error(path, f"{item_field}.params.element_id", "is required when magnitude and tick_interval are positive")
-            if "modifiers" in params:
-                _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
-                for modifier_index, modifier in enumerate(params.get("modifiers", [])):
-                    if isinstance(modifier, dict) and "scale_mode" in modifier and modifier.get("scale_mode") != "inverse_from_magnitude":
-                        ctx.error(path, f"{item_field}.params.modifiers[{modifier_index}].scale_mode", "must equal inverse_from_magnitude when present")
-            if "incoming_damage_per_stack" in params:
-                _require_number(ctx, path, f"{item_field}.params.incoming_damage_per_stack", params.get("incoming_damage_per_stack"), minimum=0)
-            if "incoming_damage_source_team" in params:
-                _require_non_empty_string(ctx, path, f"{item_field}.params.incoming_damage_source_team", params.get("incoming_damage_source_team"))
-        if effect_id == "skill_effect_weapon_modifiers":
-            _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
-            _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
-        if effect_id == "skill_effect_deploy_barrier":
-            _require_registered(ctx, path, f"{item_field}.params.pool_id", params.get("pool_id"), "pool_ids")
-            _require_number(ctx, path, f"{item_field}.params.radius", params.get("radius"), minimum=0, exclusive_minimum=True)
-            _require_number(ctx, path, f"{item_field}.params.hp", params.get("hp"), minimum=0, exclusive_minimum=True)
-            _require_int(ctx, path, f"{item_field}.params.max_active", params.get("max_active"), minimum=1)
-            if params.get("recast_policy") != "replace":
-                ctx.error(path, f"{item_field}.params.recast_policy", "must equal replace")
-        if effect_id == "skill_effect_actor_modifiers":
-            _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
-            _require_registered(ctx, path, f"{item_field}.params.stack_rule", params.get("stack_rule"), "status_stack_rules")
-            _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+    if action_id == "temporary_modifier":
+        _validate_required_optional_object_keys(
+            ctx,
+            path,
+            f"{item_field}.params",
+            params,
+            {"slot", "duration", "modifiers"},
+            {"stack_rule"},
+        )
+        if params.get("slot") not in {"actor", "weapon", "both"}:
+            ctx.error(path, f"{item_field}.params.slot", "must be actor, weapon, or both")
+        _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
+        _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+    if action_id in {"heal", "grant_shield", "grant_overshield"}:
+        _validate_exact_object_keys(ctx, path, f"{item_field}.params", params, {"amount"})
+        _require_number(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=0, exclusive_minimum=True)
+    if action_id == "grant_gold":
+        _validate_exact_object_keys(
+            ctx, path, f"{item_field}.params", params, {"amount", "reason_id"}
+        )
+        _require_int(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=1)
+        _require_registered(
+            ctx,
+            path,
+            f"{item_field}.params.reason_id",
+            params.get("reason_id"),
+            "gold_transaction_reasons",
+        )
+    if action_id == "spawn_projectile":
+        projectile_required = {
+            "pool_id",
+            "amount",
+            "element_id",
+            "speed",
+            "range",
+            "hit_radius",
+            "lifetime",
+            "count",
+            "spread_degrees",
+            "pierce_count",
+            "wall_pierce",
+            "damage_target_groups",
+        }
+        _validate_required_optional_object_keys(
+            ctx,
+            path,
+            f"{item_field}.params",
+            params,
+            projectile_required,
+            {"direction"},
+        )
+        pool_id = _require_registered(
+            ctx, path, f"{item_field}.params.pool_id", params.get("pool_id"), "pool_ids"
+        )
+        if pool_id and pool_id != "bullet_basic":
+            ctx.error(path, f"{item_field}.params.pool_id", "must equal bullet_basic")
+        for number_field in ("amount", "speed", "range", "hit_radius", "lifetime"):
+            _require_number(
+                ctx,
+                path,
+                f"{item_field}.params.{number_field}",
+                params.get(number_field),
+                minimum=0,
+                exclusive_minimum=True,
+            )
+        _require_number(
+            ctx,
+            path,
+            f"{item_field}.params.spread_degrees",
+            params.get("spread_degrees"),
+            minimum=0,
+            maximum=360,
+        )
+        _require_int(ctx, path, f"{item_field}.params.count", params.get("count"), minimum=1, maximum=64)
+        _require_int(ctx, path, f"{item_field}.params.pierce_count", params.get("pierce_count"), minimum=0)
+        _require_bool(ctx, path, f"{item_field}.params.wall_pierce", params.get("wall_pierce"))
+        _require_registered(ctx, path, f"{item_field}.params.element_id", params.get("element_id"), "elements")
+        _validate_registered_string_list(
+            ctx,
+            path,
+            f"{item_field}.params.damage_target_groups",
+            params.get("damage_target_groups"),
+            "damage_target_groups",
+            allow_empty=False,
+        )
+        if "direction" in params:
+            direction = params.get("direction")
+            if not isinstance(direction, dict) or set(direction) != {"x", "y"}:
+                ctx.error(path, f"{item_field}.params.direction", "must define exactly x and y")
+            else:
+                _require_number(ctx, path, f"{item_field}.params.direction.x", direction.get("x"))
+                _require_number(ctx, path, f"{item_field}.params.direction.y", direction.get("y"))
+    if action_id == "spawn_enemy":
+        _validate_exact_object_keys(
+            ctx,
+            path,
+            f"{item_field}.params",
+            params,
+            {"normal_rewards", "current_layer_only"},
+        )
+        for bool_field in ("normal_rewards", "current_layer_only"):
+            value = _require_bool(
+                ctx, path, f"{item_field}.params.{bool_field}", params.get(bool_field)
+            )
+            if value is False:
+                ctx.error(path, f"{item_field}.params.{bool_field}", "must be true")
+    if action_id == "spawn_barrier":
+        _validate_exact_object_keys(
+            ctx,
+            path,
+            f"{item_field}.params",
+            params,
+            {"pool_id", "radius", "hp", "max_active", "recast_policy"},
+        )
+        pool_id = _require_registered(
+            ctx, path, f"{item_field}.params.pool_id", params.get("pool_id"), "pool_ids"
+        )
+        if pool_id and pool_id != "projectile_barrier":
+            ctx.error(path, f"{item_field}.params.pool_id", "must equal projectile_barrier")
+        _require_number(ctx, path, f"{item_field}.params.radius", params.get("radius"), minimum=0, exclusive_minimum=True)
+        _require_number(ctx, path, f"{item_field}.params.hp", params.get("hp"), minimum=0, exclusive_minimum=True)
+        _require_int(ctx, path, f"{item_field}.params.max_active", params.get("max_active"), minimum=1)
+        if params.get("recast_policy") != "replace":
+            ctx.error(path, f"{item_field}.params.recast_policy", "must equal replace")
 
 
 def _validate_gear_mods(ctx: ValidationContext) -> None:
@@ -1832,9 +2110,16 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         path,
         "root",
         data,
-        {"schema_version", "board", "pickup", "reward_pools", "mods"},
+        {
+            "schema_version",
+            "board",
+            "pickup",
+            "reward_pools",
+            "reward_pool_contributions",
+            "mods",
+        },
     )
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 5)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 6)
     _validate_gear_mod_board(ctx, path, data.get("board"))
     pickup = data.get("pickup")
     if not isinstance(pickup, dict):
@@ -1893,38 +2178,24 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         if not isinstance(mod, dict):
             ctx.error(path, field, "must be an object")
             continue
-        common_required_mod_keys = {
+        required_mod_keys = {
             "id",
             "name_key",
             "desc_key",
-            "kind",
             "rarity",
+            "components",
         }
         optional_mod_keys = {
             "default_unlocked",
-            "unlock_rule_id",
             "codex_icon_path",
         }
-        kind = _require_registered(
-            ctx,
-            path,
-            f"{field}.kind",
-            mod.get("kind"),
-            "gear_mod_kinds",
-        )
-        kind_required_keys: set[str] = set()
-        if kind == "effect":
-            kind_required_keys = {"slot", "modifiers"}
-        elif kind == "map":
-            kind_required_keys = {"map_behavior"}
-        elif kind == "grid":
-            kind_required_keys = {"grid_behavior"}
-        _validate_exact_object_keys(
+        _validate_required_optional_object_keys(
             ctx,
             path,
             field,
             mod,
-            common_required_mod_keys | optional_mod_keys.intersection(mod) | kind_required_keys,
+            required_mod_keys,
+            optional_mod_keys,
         )
         mod_id = _require_registered(ctx, path, f"{field}.id", mod.get("id"), "gear_mod_ids")
         if mod_id:
@@ -1934,12 +2205,18 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
         _require_locale_key(ctx, path, f"{field}.name_key", mod.get("name_key"))
         _require_locale_key(ctx, path, f"{field}.desc_key", mod.get("desc_key"))
         if "default_unlocked" in mod:
-            _require_bool(
+            default_unlocked = _require_bool(
                 ctx,
                 path,
                 f"{field}.default_unlocked",
                 mod.get("default_unlocked"),
             )
+            if default_unlocked is False:
+                ctx.error(
+                    path,
+                    f"{field}.default_unlocked",
+                    "must remain true; Gear Mods install unlocked",
+                )
         if "codex_icon_path" in mod:
             _validate_codex_icon_path(
                 ctx,
@@ -1948,28 +2225,179 @@ def _validate_gear_mods(ctx: ValidationContext) -> None:
                 mod.get("codex_icon_path"),
             )
         _require_registered(ctx, path, f"{field}.rarity", mod.get("rarity"), "gear_mod_rarities")
-        if kind == "effect":
-            _require_registered(ctx, path, f"{field}.slot", mod.get("slot"), "gear_mod_slots")
-            _validate_gear_mod_modifiers(
+        _validate_gear_mod_components(
+            ctx,
+            path,
+            f"{field}.components",
+            mod.get("components"),
+        )
+    contributions = _require_list(
+        ctx,
+        path,
+        "reward_pool_contributions",
+        data.get("reward_pool_contributions"),
+    )
+    for index, contribution in enumerate(contributions):
+        field = f"reward_pool_contributions[{index}]"
+        if not isinstance(contribution, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        _validate_exact_object_keys(
+            ctx, path, field, contribution, {"pool_id", "mod_ids"}
+        )
+        pool_id = _require_non_empty_string(
+            ctx, path, f"{field}.pool_id", contribution.get("pool_id")
+        )
+        if pool_id and pool_id not in seen_pool_ids:
+            ctx.error(path, f"{field}.pool_id", "must reference an existing reward pool")
+        contribution_mod_ids = _require_list(
+            ctx, path, f"{field}.mod_ids", contribution.get("mod_ids")
+        )
+        if not contribution_mod_ids:
+            ctx.error(path, f"{field}.mod_ids", "must be a non-empty array")
+        for mod_index, mod_id in enumerate(contribution_mod_ids):
+            if not isinstance(mod_id, str) or mod_id not in seen:
+                ctx.error(
+                    path,
+                    f"{field}.mod_ids[{mod_index}]",
+                    "must reference a Gear Mod defined in merged mods",
+                )
+
+
+def _validate_gear_mod_components(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+) -> None:
+    components = _require_list(ctx, path, field, data)
+    if not components:
+        ctx.error(path, field, "must be a non-empty array")
+    seen_component_ids: set[str] = set()
+    hero_stats = {
+        "max_hp",
+        "max_shield",
+        "max_energy",
+        "health_regen",
+        "move_speed",
+        "ability_strength",
+        "ability_range",
+        "ability_efficiency",
+        "ability_duration",
+        "player_separation_radius",
+        "pickup_range",
+        "luck",
+        "armor",
+    }
+    weapon_stats = {
+        "damage",
+        "fire_rate",
+        "bullet_speed",
+        "bullet_range",
+        "bullet_count",
+        "pierce_count",
+        "wall_pierce",
+        "recoil",
+        "spread_angle_max",
+        "crit_chance",
+        "crit_mult",
+    }
+    for index, component in enumerate(components):
+        component_field = f"{field}[{index}]"
+        if not isinstance(component, dict):
+            ctx.error(path, component_field, "must be an object")
+            continue
+        component_id = _require_non_empty_string(
+            ctx,
+            path,
+            f"{component_field}.component_id",
+            component.get("component_id"),
+        )
+        if component_id:
+            if not LOCALE_KEY_RE.fullmatch(component_id):
+                ctx.error(path, f"{component_field}.component_id", "must be snake_case")
+            elif component_id in seen_component_ids:
+                ctx.error(path, f"{component_field}.component_id", "must be unique within Gear Mod")
+            seen_component_ids.add(component_id)
+        component_type = _require_registered(
+            ctx,
+            path,
+            f"{component_field}.type",
+            component.get("type"),
+            "gear_mod_component_types",
+        )
+        if component_type == "modifier":
+            _validate_exact_object_keys(
                 ctx,
                 path,
-                f"{field}.modifiers",
-                mod.get("modifiers"),
+                component_field,
+                component,
+                {"component_id", "type", "slot", "modifiers"},
             )
-        elif kind == "map":
-            _validate_gear_mod_map_behavior(
+            slot = _require_registered(
                 ctx,
                 path,
-                f"{field}.map_behavior",
-                mod.get("map_behavior"),
+                f"{component_field}.slot",
+                component.get("slot"),
+                "gear_mod_slots",
             )
-        elif kind == "grid":
-            _validate_gear_mod_grid_behavior(
+            modifiers = _require_list(
                 ctx,
                 path,
-                f"{field}.grid_behavior",
-                mod.get("grid_behavior"),
+                f"{component_field}.modifiers",
+                component.get("modifiers"),
             )
+            if not modifiers:
+                ctx.error(path, f"{component_field}.modifiers", "must be a non-empty array")
+            _validate_modifiers(
+                ctx,
+                path,
+                f"{component_field}.modifiers",
+                modifiers,
+                require_value_per_level=False,
+            )
+            supported_stats = hero_stats if slot == "hero" else weapon_stats
+            for modifier_index, modifier in enumerate(modifiers):
+                if not isinstance(modifier, dict):
+                    continue
+                stat = modifier.get("stat")
+                if isinstance(stat, str) and stat not in supported_stats:
+                    ctx.error(
+                        path,
+                        f"{component_field}.modifiers[{modifier_index}].stat",
+                        f"is not supported by {slot} slot",
+                    )
+        elif component_type == "program":
+            _validate_exact_object_keys(
+                ctx,
+                path,
+                component_field,
+                component,
+                {"component_id", "type", "program"},
+            )
+            _validate_effect_programs(
+                ctx,
+                path,
+                f"{component_field}.program",
+                [component.get("program")],
+            )
+        elif component_type == "board_rule":
+            _validate_exact_object_keys(
+                ctx,
+                path,
+                component_field,
+                component,
+                {"component_id", "type", "rule_id"},
+            )
+            rule_id = _require_registered(
+                ctx,
+                path,
+                f"{component_field}.rule_id",
+                component.get("rule_id"),
+                "gear_mod_board_rules",
+            )
+            if rule_id and rule_id != "occupy_only":
+                ctx.error(path, f"{component_field}.rule_id", "must equal occupy_only")
 
 
 def _validate_gear_mod_board(
@@ -2927,7 +3355,6 @@ def _validate_game_modes(
     weapon_ids: set[str],
     enemy_ids: set[str],
     hazard_ids: set[str],
-    relic_ids: set[str],
     active_item_ids: set[str],
     consumable_ids: set[str],
     skill_ids: set[str],
@@ -2973,7 +3400,7 @@ def _validate_game_modes(
             )
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), character_ids, weapon_ids, enemy_ids, hazard_ids, active_item_ids, consumable_ids, skill_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -3375,7 +3802,6 @@ def _validate_mode_resource_pools(
     weapon_ids: set[str],
     enemy_ids: set[str],
     hazard_ids: set[str],
-    relic_ids: set[str],
     active_item_ids: set[str],
     consumable_ids: set[str],
     skill_ids: set[str],
@@ -3384,6 +3810,18 @@ def _validate_mode_resource_pools(
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
+    supported_pool_ids = {
+        "characters",
+        "weapons",
+        "enemies",
+        "hazards",
+        "active_items",
+        "skills",
+        "consumables",
+    }
+    for pool_id in data:
+        if pool_id not in supported_pool_ids and pool_id != "growth_pools":
+            ctx.error(path, f"{field}.{pool_id}", "must be a supported resource pool")
     if "characters" in data:
         _validate_weighted_character_entries(ctx, path, f"{field}.characters", data.get("characters"), character_ids)
     if "weapons" in data:
@@ -3392,8 +3830,6 @@ def _validate_mode_resource_pools(
         _validate_weighted_enemy_entries(ctx, path, f"{field}.enemies", data.get("enemies"), enemy_ids)
     if "hazards" in data:
         _validate_weighted_hazard_entries(ctx, path, f"{field}.hazards", data.get("hazards"), hazard_ids)
-    if "relics" in data:
-        _validate_weighted_relic_entries(ctx, path, f"{field}.relics", data.get("relics"), relic_ids)
     if "active_items" in data:
         _validate_weighted_active_item_entries(ctx, path, f"{field}.active_items", data.get("active_items"), active_item_ids)
     if "skills" in data:
@@ -3402,7 +3838,7 @@ def _validate_mode_resource_pools(
         _validate_weighted_consumable_entries(ctx, path, f"{field}.consumables", data.get("consumables"), consumable_ids)
     if "growth_pools" in data:
         ctx.error(path, f"{field}.growth_pools", "was removed in schema_version 3")
-    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "skills" not in data and "consumables" not in data:
+    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "active_items" not in data and "skills" not in data and "consumables" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -3463,21 +3899,6 @@ def _validate_weighted_hazard_entries(ctx: ValidationContext, path: Path, field:
         hazard_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
         if hazard_id and hazard_id not in hazard_ids:
             ctx.error(path, f"{item_field}.id", f"hazard is not defined in hazards.csv: {hazard_id}")
-        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
-
-
-def _validate_weighted_relic_entries(ctx: ValidationContext, path: Path, field: str, data: Any, relic_ids: set[str]) -> None:
-    entries = _require_list(ctx, path, field, data)
-    if not entries:
-        ctx.error(path, field, "must be a non-empty array")
-    for index, entry in enumerate(entries):
-        item_field = f"{field}[{index}]"
-        if not isinstance(entry, dict):
-            ctx.error(path, item_field, "must be an object")
-            continue
-        relic_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
-        if relic_id and relic_id not in relic_ids:
-            ctx.error(path, f"{item_field}.id", f"relic is not defined in relics.json: {relic_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -3690,16 +4111,6 @@ def _collect_hazard_ids(ctx: ValidationContext) -> dict[str, int]:
                     radius_tiles = 1
                 ids[hazard_id] = radius_tiles
     return ids
-
-
-def _collect_relic_ids(ctx: ValidationContext) -> set[str]:
-    data = _load_json(RELICS_JSON, ctx)
-    if not isinstance(data, dict):
-        return set()
-    relics = data.get("relics")
-    if not isinstance(relics, list):
-        return set()
-    return {item.get("id") for item in relics if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _collect_active_item_ids(ctx: ValidationContext) -> set[str]:

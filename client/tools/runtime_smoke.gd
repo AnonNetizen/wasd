@@ -103,8 +103,8 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 18,
-		"new runs should use Run schema v18"
+		int(initial_run_snapshot.get("schema_version", 0)) == 19,
+		"new runs should use Run schema v19"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -560,6 +560,7 @@ func _run() -> void:
 	smoke_player_damage_source.queue_free()
 	if game_over_panel != null:
 		await _expect_game_over_buttons(game_over_panel)
+	await _expect_preserved_incompatible_run_notice()
 	await _expect_bad_run_notice()
 
 	_finish()
@@ -5126,6 +5127,11 @@ func _write_text(path: String, content: String) -> void:
 	file.flush()
 
 
+func _read_text(path: String) -> String:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	return file.get_as_text() if file != null else ""
+
+
 func _run_save_path() -> String:
 	return SaveManager.save_root().path_join(SaveManager.DEFAULT_SLOT).path_join("%s.save" % SAVE_KINDS.RUN)
 
@@ -5290,6 +5296,20 @@ func _expect_bad_run_notice() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	_expect(SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, {"smoke": "bad_run"}), "smoke should create a run save before corruption")
 	_write_text(_run_save_path(), "{bad_run")
+	var damaged_status: Dictionary = SaveManager.save_status(
+		SaveManager.DEFAULT_SLOT,
+		SAVE_KINDS.RUN
+	)
+	_expect(
+		bool(damaged_status.get("exists", false))
+		and not bool(damaged_status.get("compatible", true))
+		and not bool(damaged_status.get("preserved_incompatible", true)),
+		"ordinary corrupted Run should remain actionable rather than preserved-incompatible"
+	)
+	_expect(
+		SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN),
+		"ordinary corrupted Run should keep Continue available until explicit load isolates it"
+	)
 
 	var formal_boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
 	_expect(formal_boot != null, "FormalClientBoot should exist before bad-run notice smoke")
@@ -5319,6 +5339,73 @@ func _expect_bad_run_notice() -> void:
 			_expect(refreshed_continue_button != null and not refreshed_continue_button.visible, "continue should hide after bad run save is reset")
 			return
 	_expect(false, "bad run save should show a title notice after failed continue")
+
+
+func _expect_preserved_incompatible_run_notice() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	_expect(
+		SaveManager.save(
+			SaveManager.DEFAULT_SLOT,
+			SAVE_KINDS.RUN,
+			{"smoke": "preserved_v18"}
+		),
+		"smoke should create a Run before rewriting it as v18"
+	)
+	var envelope: Dictionary = SaveManager.load_envelope(
+		SaveManager.DEFAULT_SLOT,
+		SAVE_KINDS.RUN
+	)
+	var payload: Dictionary = (
+		envelope.get("payload", {}) as Dictionary
+	).duplicate(true)
+	payload["schema_version"] = 18
+	envelope["version"] = 18
+	envelope["game_version"] = "v1.17"
+	envelope["payload"] = payload
+	envelope["data_hash"] = SaveManager.call("_payload_hash", payload)
+	var source_text: String = JSON.stringify(envelope, "\t")
+	_write_text(_run_save_path(), source_text)
+
+	var preserved_status: Dictionary = SaveManager.save_status(
+		SaveManager.DEFAULT_SLOT,
+		SAVE_KINDS.RUN
+	)
+	_expect(
+		bool(preserved_status.get("exists", false))
+		and not bool(preserved_status.get("compatible", true))
+		and bool(preserved_status.get("preserved_incompatible", false)),
+		"Run v18 should expose preserved-incompatible status at the title boundary"
+	)
+	_expect(
+		not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN),
+		"Run v18 should not be advertised as continuable"
+	)
+
+	var formal_boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
+	_expect(formal_boot != null, "FormalClientBoot should exist before preserved Run notice smoke")
+	if formal_boot == null:
+		return
+	formal_boot.call_deferred("_show_title_menu")
+	await get_tree().process_frame
+	await _wait_for_title_menu()
+	var title_menu: Node = _find_node_by_name(get_tree().root, "TitleMenu")
+	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
+	var notice_label: Label = _find_node_by_name(title_menu, "RunSaveNoticeLabel") as Label
+	_expect(
+		continue_button != null and not continue_button.visible,
+		"preserved-incompatible Run should hide Continue"
+	)
+	_expect(
+		notice_label != null
+		and notice_label.visible
+		and String(notice_label.text) == tr("ui_run_save_environment_incompatible"),
+		"preserved-incompatible Run should show the localized environment/version notice"
+	)
+	_expect(
+		_read_text(_run_save_path()) == source_text,
+		"title inspection should not rewrite or isolate a preserved-incompatible Run"
+	)
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 
 
 func _wait_for_playing_run_loop() -> Node:

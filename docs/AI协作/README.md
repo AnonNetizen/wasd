@@ -23,7 +23,7 @@ docs/AI协作/
 ├── 文档维护指南.md       # 长期文档修改的联动规则
 ├── 文档健康检查.md       # docs 知识库健康检查命令与失败解释
 ├── 任务模板/             # 高频任务的标准 prompt + 文件操作清单
-│   ├── 加遗物.md
+│   ├── 加GearMod.md
 │   ├── 加敌人.md
 │   ├── 加效果原语.md
 │   ├── 加设置项.md
@@ -80,7 +80,7 @@ tools/
 
 .codebuddy/commands/      # 项目级 slash commands（codebuddy 平台）
 ├── sync-contracts.md     # /sync-contracts
-├── new-relic.md          # /new-relic <概念>
+├── new-gear-mod.md       # /new-gear-mod <概念>
 ├── run-replay-regression.md
 ├── health-check.md
 └── update-memory.md
@@ -107,7 +107,7 @@ Windows / PowerShell 环境的命令稳定执行入口是当前平台编码规�
 AI agent 接到任务时优先按以下顺序：
 
 1. **先完成快速开工**：读 `快速开工.md`、`current_state.json`、当前平台规则入口和 `AI导航.md` 相关段落。
-2. **是不是有专属 slash command**？是 → 直接用（如 `/new-relic`）。
+2. **是不是有专属 slash command**？是 → 直接用（如 `/new-gear-mod`）。
 3. **是不是该转给 subagent**？项目默认授权支持 subagent 的平台主动调度复杂、专业或可并行任务；只读小任务或直接实现更高效时不必拆分；平台不支持或外层工具策略限制时，把对应 `.md` 当 prompt 模板读。数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
 4. **是不是正式项目阶段任务**？优先读 `工作包/`；当前 F13 默认地图与 AI 编辑期 JSON 模块流程用 `工作包/F13-ModularGridWorld.md`，`F13-HandcraftedRooms.md` 只作 superseded 历史；F12 开放战区是非默认回归路径。其余 F11–F3 仍按对应阶段工作包路由。
 5. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。

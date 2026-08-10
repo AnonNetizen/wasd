@@ -1,7 +1,7 @@
 # InputService 模块
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 权威范围：项目输入门面、规范 action 与归一化 intent、GUIDE context 生命周期、非暂停 UI gameplay capture、重绑定持久化、设备提示、Godot UI 兼容桥及 Replay v8 输入接管。插件内部架构见 [`guide.md`](guide.md)，action / binding id 白名单见 [`../词表与契约.md`](../词表与契约.md) §7，架构决策见 [`../决策记录.md`](../决策记录.md) ADR #151 / #152 / #161 / #186 / #188 / #189 / #193 / #194。
+> 权威范围：项目输入门面、规范 action 与归一化 intent、GUIDE context 生命周期、非暂停 UI gameplay capture、重绑定持久化、设备提示、Godot UI 兼容桥及 Replay v9 输入接管。插件内部架构见 [`guide.md`](guide.md)，action / binding id 白名单见 [`../词表与契约.md`](../词表与契约.md) §7，架构决策见 [`../决策记录.md`](../决策记录.md) ADR #151 / #152 / #161 / #186 / #188 / #189 / #193 / #194 / #196。
 
 ## 1. 一句话职责
 
@@ -71,7 +71,7 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 | `resolve_pending_remap(replace_conflicts) -> bool` | 冲突弹窗选择替换或取消 |
 | `reset_bindings_to_defaults() -> bool` | 清空 remapping config、恢复发布默认并原子保存 |
 | `set_playback_active(enabled)` / `playback_active()` | 开关 Replay 输入覆盖；切换时清空残留值 |
-| `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v8 注入 bool / Vector2 intent；仅 playback 模式接受 |
+| `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v9 注入 bool / Vector2 intent；仅 playback 模式接受 |
 | `begin_non_pausing_ui_capture(owner) -> bool` | 以弱引用 owner 开始非暂停 UI 捕获；可嵌套不同 owner，首个 owner 进入时把轮询 intent 归零；持续开火记录 release，技能 / 冲刺 / 交互 / 暂停等 one-shot 不合成边沿 |
 | `end_non_pausing_ui_capture(owner) -> bool` | 移除 owner；最后一个 owner 离开时按真实物理状态恢复移动 / 瞄准 / 持续开火；仍按住的 one-shot 不合成第二次 press，必须先释放再重新按下 |
 | `non_pausing_ui_capture_active() -> bool` | 查询 Gear Mod 查看 / 放置等非暂停 UI 是否正在完整屏蔽角色 intent |
@@ -149,9 +149,9 @@ binding id 是设置 UI 的绑定槽，不等于 action。完整白名单在词�
 
 热插拔 / 断开时清理手柄残留状态并切换到仍有效设备提示。新增 prompt 展示时先复用 `prompt_text()` / `prompt_richtext_async()`，不要在 UI 中维护独立的“按键名映射表”。
 
-## 9. Replay v8 边界
+## 9. Replay v9 边界
 
-Replay v8 记录最终 intent；四技能、冲刺和组合选择都纳入录制，已删除的 `reload` 不再是合法输入语义：
+Replay v9 记录最终 intent；四技能、冲刺和组合选择都纳入录制，已删除的 `reload` 不再是合法输入语义：
 
 ```json
 {
@@ -164,7 +164,7 @@ Replay v8 记录最终 intent；四技能、冲刺和组合选择都纳入录制
 }
 ```
 
-布尔 action 使用 `value_type: "bool"` 与布尔 `value`。播放时 `Replay` 先启用 playback，再调用 `inject_playback_value()`；此时本地 GUIDE 采样不污染业务值。Replay v8 只接受当前规范 action，并同时恢复冻结内容池、忽略本机 Meta；`gear_mod_placement` 是独立语义决策，不伪装成物理鼠标轨迹。ADR #194 后旧 Replay v7 明确拒绝，不做迁移。详见 [`replay.md`](replay.md)。
+布尔 action 使用 `value_type: "bool"` 与布尔 `value`。播放时 `Replay` 先启用 playback，再调用 `inject_playback_value()`；此时本地 GUIDE 采样不污染业务值。Replay v9 只接受当前规范 action，并同时恢复冻结内容池、精确 mod environment、忽略本机 Meta；`gear_mod_placement` 是独立语义决策，不伪装成物理鼠标轨迹。旧 Replay v8 保持源文件但明确拒绝，不做迁移。详见 [`replay.md`](replay.md)。
 
 ## 10. 修改入口与禁止事项
 
@@ -172,7 +172,7 @@ Replay v8 记录最终 intent；四技能、冲刺和组合选择都纳入录制
 |------|----------|
 | 新增业务 action | 词表 §7 → 契约同步 → GUIDE action / context 资源 → InputService → 测试与文档 |
 | 改默认键位 / 摇杆 | `client/resources/input/contexts/*.tres` 与 binding spec；同步设置文案 / smoke |
-| 改玩家移动 / 瞄准 / 技能 / 冲刺语义 | InputService + Player / SkillSystem 适配层 + Replay v8；不要改 GUIDE 设备底层 |
+| 改玩家移动 / 瞄准 / 技能 / 冲刺语义 | InputService + Player / SkillSystem 适配层 + Replay v9；不要改 GUIDE 设备底层 |
 | 改重绑定规则 | InputService remap API、binding schema 与设置页；同步 `settings.md` |
 | 改 prompt | InputService formatter 门面；插件 formatter 内部变化再读 `guide.md` |
 | 升级 GUIDE | 先按 `client/addons/README.md` 人工比较发布包并重放本地补丁 |

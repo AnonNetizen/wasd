@@ -10,12 +10,15 @@ const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placemen
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
-const GEAR_MOD_GRID_BEHAVIORS := preload(
-	"res://scripts/contracts/gear_mod_grid_behaviors.gd"
+const EFFECT_ACTIONS := preload("res://scripts/contracts/effect_actions.gd")
+const EFFECT_CONDITIONS := preload("res://scripts/contracts/effect_conditions.gd")
+const EFFECT_TRIGGERS := preload("res://scripts/contracts/effect_triggers.gd")
+const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const GEAR_MOD_BOARD_RULES := preload(
+	"res://scripts/contracts/gear_mod_board_rules.gd"
 )
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
-const GEAR_MOD_MAP_BEHAVIORS := preload(
-	"res://scripts/contracts/gear_mod_map_behaviors.gd"
+const GEAR_MOD_COMPONENT_TYPES := preload(
+	"res://scripts/contracts/gear_mod_component_types.gd"
 )
 const WORLD_EVENT_IDS := preload("res://scripts/contracts/world_event_ids.gd")
 const WORLD_EVENT_KINDS := preload("res://scripts/contracts/world_event_kinds.gd")
@@ -46,7 +49,6 @@ const ENEMIES_PATH: String = "res://data/enemies.csv"
 const ENEMY_AI_PROFILES_PATH: String = "res://data/enemy_ai_profiles.json"
 const HAZARDS_PATH: String = "res://data/hazards.csv"
 const SPAWN_WAVES_PATH: String = "res://data/spawn_waves.csv"
-const RELICS_PATH: String = "res://data/relics.json"
 const ACTIVE_ITEMS_PATH: String = "res://data/active_items.json"
 const CONSUMABLES_PATH: String = "res://data/consumables.json"
 const SKILLS_PATH: String = "res://data/skills.json"
@@ -104,9 +106,25 @@ const POSITIVE_STATS: Array[String] = [
 const RATIO_STATS: Array[String] = ["crit_chance", "lifesteal_ratio"]
 const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "recoil", "spread_angle_max", "crit_chance", "crit_mult"]
 const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "recoil", "spread_angle_max"]
+const HERO_GEAR_STATS: Array[String] = [
+	"max_hp",
+	"max_shield",
+	"max_energy",
+	"health_regen",
+	"move_speed",
+	"ability_strength",
+	"ability_range",
+	"ability_efficiency",
+	"ability_duration",
+	"player_separation_radius",
+	"pickup_range",
+	"luck",
+	"armor",
+]
 
 var _contracts: Dictionary = {}
 var _last_schema_counts: Dictionary = {}
+var _suppress_schema_errors: bool = false
 
 
 func _ready() -> void:
@@ -205,6 +223,8 @@ func validate_project_data() -> bool:
 	is_valid = _validate_enemy_rewards_json() and is_valid
 	is_valid = _validate_enemies_csv(locale_keys, enemy_ai_profile_ids) and is_valid
 	var enemy_ids: Dictionary = _collect_enemy_ids()
+	_isolate_invalid_mod_gameplay_packages(locale_keys, enemy_ids)
+	_last_schema_counts["mods"] = _mod_count()
 	is_valid = _validate_gear_mods_json(locale_keys) and is_valid
 	var gear_mod_ids: Dictionary = _collect_gear_mod_ids()
 	is_valid = _validate_world_events_json(locale_keys, gear_mod_ids) and is_valid
@@ -212,8 +232,6 @@ func validate_project_data() -> bool:
 	is_valid = _validate_gear_mod_drop_tables_csv(enemy_ids, gear_mod_ids) and is_valid
 	is_valid = _validate_hazards_csv(locale_keys) and is_valid
 	var hazard_ids: Dictionary = _collect_hazard_ids()
-	is_valid = _validate_relics_json(locale_keys) and is_valid
-	var relic_ids: Dictionary = _collect_relic_ids()
 	is_valid = _validate_active_items_json(locale_keys) and is_valid
 	var active_item_ids: Dictionary = _collect_active_item_ids()
 	is_valid = _validate_consumables_json(locale_keys) and is_valid
@@ -234,7 +252,7 @@ func validate_project_data() -> bool:
 	is_valid = _validate_reward_choice_pools(locale_keys) and is_valid
 	is_valid = _validate_difficulty_profiles(locale_keys) and is_valid
 	var difficulty_profile_ids: Dictionary = _collect_difficulty_profile_ids()
-	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids) and is_valid
+	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids) and is_valid
 	is_valid = _validate_content_unlock_data(
 		character_ids,
 		gear_mod_ids,
@@ -334,55 +352,26 @@ func gear_mod_gameplay_fingerprint_payload() -> Dictionary:
 			if not raw_mod is Dictionary:
 				continue
 			var mod: Dictionary = raw_mod as Dictionary
-			var normalized_modifiers: Array[Dictionary] = []
-			var raw_modifiers: Variant = mod.get("modifiers", [])
-			if raw_modifiers is Array:
-				for raw_modifier: Variant in raw_modifiers as Array:
-					if not raw_modifier is Dictionary:
-						continue
-					var modifier: Dictionary = raw_modifier as Dictionary
-					normalized_modifiers.append({
-						"stat": String(modifier.get("stat", "")),
-						"type": String(modifier.get("type", "")),
-						"value": float(modifier.get("value", 0.0)),
-					})
-			var normalized_mod: Dictionary = {
+			normalized_mods.append({
 				"id": String(mod.get("id", "")),
-				"kind": String(mod.get("kind", "")),
 				"default_unlocked": bool(mod.get("default_unlocked", true)),
-				"unlock_rule_id": String(mod.get("unlock_rule_id", "")),
-			}
-			var kind: String = String(mod.get("kind", ""))
-			if kind == GEAR_MOD_KINDS.EFFECT:
-				normalized_mod["slot"] = String(mod.get("slot", ""))
-				normalized_mod["modifiers"] = normalized_modifiers
-			elif kind == GEAR_MOD_KINDS.MAP:
-				var raw_map_behavior: Variant = mod.get("map_behavior", {})
-				if raw_map_behavior is Dictionary:
-					var map_behavior: Dictionary = raw_map_behavior as Dictionary
-					normalized_mod["map_behavior"] = {
-						"id": String(map_behavior.get("id", "")),
-						"interval_seconds": float(
-							map_behavior.get("interval_seconds", 0.0)
-						),
-						"reset_on_module_exit": bool(
-							map_behavior.get("reset_on_module_exit", false)
-						),
-						"current_layer_only": bool(
-							map_behavior.get("current_layer_only", false)
-						),
-						"normal_rewards": bool(
-							map_behavior.get("normal_rewards", false)
-						),
-					}
-			elif kind == GEAR_MOD_KINDS.GRID:
-				var raw_grid_behavior: Variant = mod.get("grid_behavior", {})
-				if raw_grid_behavior is Dictionary:
-					var grid_behavior: Dictionary = raw_grid_behavior as Dictionary
-					normalized_mod["grid_behavior"] = {
-						"id": String(grid_behavior.get("id", "")),
-					}
-			normalized_mods.append(normalized_mod)
+				"rarity": String(mod.get("rarity", "")),
+				"components": (mod.get("components", []) as Array).duplicate(true),
+			})
+
+	var normalized_contributions: Array[Dictionary] = []
+	var raw_contributions: Variant = data.get("reward_pool_contributions", [])
+	if raw_contributions is Array:
+		for raw_contribution: Variant in raw_contributions as Array:
+			if not raw_contribution is Dictionary:
+				continue
+			var contribution: Dictionary = raw_contribution as Dictionary
+			normalized_contributions.append({
+				"pool_id": String(contribution.get("pool_id", "")),
+				"mod_ids": (
+					(contribution.get("mod_ids", []) as Array).duplicate()
+				),
+			})
 
 	var normalized_drop_rows: Array[Dictionary] = []
 	for row: Dictionary in load_csv(GEAR_MOD_DROP_TABLES_PATH):
@@ -399,8 +388,17 @@ func gear_mod_gameplay_fingerprint_payload() -> Dictionary:
 		"board": normalized_board,
 		"pickup": normalized_pickup,
 		"reward_pools": normalized_reward_pools,
+		"reward_pool_contributions": normalized_contributions,
 		"mods": normalized_mods,
 		"drop_rows": normalized_drop_rows,
+	}
+
+
+func effect_gameplay_fingerprint_payload() -> Dictionary:
+	var skills: Variant = load_json(SKILLS_PATH)
+	return {
+		"skills": skills.duplicate(true) if skills is Dictionary else {},
+		"gear_mods": gear_mod_gameplay_fingerprint_payload(),
 	}
 
 
@@ -1234,7 +1232,6 @@ func _validate_presentation_profile_references(
 		true
 	) and is_valid
 	for request: Dictionary in [
-		{"path": RELICS_PATH, "root": "relics"},
 		{"path": ACTIVE_ITEMS_PATH, "root": "active_items"},
 		{"path": CONSUMABLES_PATH, "root": "consumables"},
 	]:
@@ -2504,48 +2501,6 @@ func _validate_spawn_waves_csv(enemy_ids: Dictionary, hazard_ids: Dictionary, ga
 	return is_valid
 
 
-func _validate_relics_json(locale_keys: Dictionary) -> bool:
-	var data: Variant = load_json(RELICS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(RELICS_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(RELICS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var relics: Array = _require_array(RELICS_PATH, "relics", payload.get("relics"))
-	if relics.is_empty():
-		is_valid = _schema_fail(RELICS_PATH, "relics", "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	_last_schema_counts["relics"] = relics.size()
-	for index: int in range(relics.size()):
-		var field: String = "relics[%d]" % index
-		var relic: Variant = relics[index]
-		if not relic is Dictionary:
-			is_valid = _schema_fail(RELICS_PATH, field, "Dictionary") and is_valid
-			continue
-		var relic_dict: Dictionary = relic as Dictionary
-		is_valid = _require_non_empty_string(RELICS_PATH, "%s.id" % field, relic_dict.get("id")) and is_valid
-		var relic_id: String = String(relic_dict.get("id", ""))
-		if not relic_id.is_empty():
-			if seen.has(relic_id):
-				is_valid = _schema_fail(RELICS_PATH, "%s.id" % field, "unique relic id") and is_valid
-			seen[relic_id] = true
-		is_valid = _require_locale_key(RELICS_PATH, "%s.name_key" % field, relic_dict.get("name_key"), locale_keys) and is_valid
-		is_valid = _require_locale_key(RELICS_PATH, "%s.desc_key" % field, relic_dict.get("desc_key"), locale_keys) and is_valid
-		is_valid = _require_bool(RELICS_PATH, "%s.default_unlocked" % field, relic_dict.get("default_unlocked")) and is_valid
-		var tags: Array = _require_array(RELICS_PATH, "%s.tags" % field, relic_dict.get("tags"))
-		is_valid = _validate_registered_string_array(RELICS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
-		if not tags.has("tag_relic"):
-			is_valid = _schema_fail(RELICS_PATH, "%s.tags" % field, "tag_relic") and is_valid
-		var modifiers: Array = _require_array(RELICS_PATH, "%s.modifiers" % field, relic_dict.get("modifiers"))
-		var behaviors: Array = _require_array(RELICS_PATH, "%s.behaviors" % field, relic_dict.get("behaviors"))
-		is_valid = _validate_modifiers(RELICS_PATH, "%s.modifiers" % field, modifiers, false) and is_valid
-		is_valid = _validate_behaviors(RELICS_PATH, "%s.behaviors" % field, behaviors) and is_valid
-		if modifiers.is_empty() and behaviors.is_empty():
-			is_valid = _schema_fail(RELICS_PATH, field, "at least one modifier or behavior") and is_valid
-	return is_valid
-
-
 func _validate_active_items_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(ACTIVE_ITEMS_PATH)
 	if not data is Dictionary:
@@ -2632,7 +2587,7 @@ func _validate_skills_json(locale_keys: Dictionary) -> bool:
 		SKILLS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		2
+		3
 	) and is_valid
 	var skills: Array = _require_array(SKILLS_PATH, "skills", payload.get("skills"))
 	if skills.is_empty():
@@ -2680,7 +2635,12 @@ func _validate_skills_json(locale_keys: Dictionary) -> bool:
 			"%s.scaling" % field,
 			skill_dict.get("scaling")
 		) and is_valid
-		is_valid = _validate_skill_effects("%s.effects" % field, skill_dict.get("effects")) and is_valid
+		is_valid = _validate_effect_programs(
+			SKILLS_PATH,
+			"%s.programs" % field,
+			skill_dict.get("programs"),
+			true
+		) and is_valid
 	return is_valid
 
 
@@ -2750,108 +2710,862 @@ func _validate_skill_scaling(field: String, data: Variant) -> bool:
 	return is_valid
 
 
-func _validate_skill_effects(field: String, data: Variant) -> bool:
-	var effects: Array = _require_array(SKILLS_PATH, field, data)
+func _validate_effect_programs(
+	resource_path: String,
+	field: String,
+	data: Variant,
+	skill_activation_only: bool = false
+) -> bool:
+	var programs: Array = _require_array(resource_path, field, data)
 	var is_valid: bool = true
-	if effects.is_empty():
-		is_valid = _schema_fail(SKILLS_PATH, field, "non-empty Array") and is_valid
-	for index: int in range(effects.size()):
-		var effect_field: String = "%s[%d]" % [field, index]
-		var effect: Variant = effects[index]
-		if not effect is Dictionary:
-			is_valid = _schema_fail(SKILLS_PATH, effect_field, "Dictionary") and is_valid
+	if programs.is_empty():
+		is_valid = _schema_fail(
+			resource_path,
+			field,
+			"non-empty Array"
+		) and is_valid
+	var seen_program_ids: Dictionary = {}
+	for index: int in range(programs.size()):
+		var program_field: String = "%s[%d]" % [field, index]
+		var raw_program: Variant = programs[index]
+		if not raw_program is Dictionary:
+			is_valid = _schema_fail(
+				resource_path,
+				program_field,
+				"Dictionary"
+			) and is_valid
 			continue
-		var effect_dict: Dictionary = effect as Dictionary
-		var effect_id: String = _require_registered(SKILLS_PATH, "%s.effect" % effect_field, effect_dict.get("effect"), "skill_effects")
-		var params: Variant = effect_dict.get("params")
-		if not params is Dictionary:
-			is_valid = _schema_fail(SKILLS_PATH, "%s.params" % effect_field, "Dictionary") and is_valid
-			continue
-		if effect_id == "skill_effect_damage":
-			var params_dict: Dictionary = params as Dictionary
-			is_valid = _require_number(SKILLS_PATH, "%s.params.amount" % effect_field, params_dict.get("amount"), 0.0, null, true) and is_valid
-			is_valid = _require_registered(SKILLS_PATH, "%s.params.element_id" % effect_field, params_dict.get("element_id"), "elements") != "" and is_valid
-		if effect_id == "skill_effect_apply_status":
-			var status_params: Dictionary = params as Dictionary
-			is_valid = _require_registered(SKILLS_PATH, "%s.params.status" % effect_field, status_params.get("status"), "status_effects") != "" and is_valid
-			is_valid = _require_number(SKILLS_PATH, "%s.params.duration" % effect_field, status_params.get("duration"), 0.0, null, true) and is_valid
-			is_valid = _require_registered(SKILLS_PATH, "%s.params.stack_rule" % effect_field, status_params.get("stack_rule"), "status_stack_rules") != "" and is_valid
-			is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.params.granted_ability_tags" % effect_field, status_params.get("granted_ability_tags"), "ability_tags", true) and is_valid
-			if status_params.has("magnitude"):
-				is_valid = _require_number(SKILLS_PATH, "%s.params.magnitude" % effect_field, status_params.get("magnitude")) and is_valid
-			if status_params.has("tick_interval"):
-				is_valid = _require_number(SKILLS_PATH, "%s.params.tick_interval" % effect_field, status_params.get("tick_interval"), 0.0) and is_valid
-			if status_params.has("magnitude_cap"):
-				is_valid = _require_number(SKILLS_PATH, "%s.params.magnitude_cap" % effect_field, status_params.get("magnitude_cap"), 0.0) and is_valid
-			if status_params.has("max_stacks"):
-				is_valid = _require_int(SKILLS_PATH, "%s.params.max_stacks" % effect_field, status_params.get("max_stacks"), 1) and is_valid
-			if status_params.has("modifiers"):
-				is_valid = _validate_modifiers(
-					SKILLS_PATH,
-					"%s.params.modifiers" % effect_field,
-					status_params.get("modifiers"),
-					false
-				) and is_valid
-			if status_params.has("element_id"):
-				is_valid = _require_registered(SKILLS_PATH, "%s.params.element_id" % effect_field, status_params.get("element_id"), "elements") != "" and is_valid
-			elif _status_params_has_damage_tick(status_params):
-				is_valid = _schema_fail(SKILLS_PATH, "%s.params.element_id" % effect_field, "registered element_id when magnitude and tick_interval are positive") and is_valid
-		if effect_id == "skill_effect_weapon_modifiers":
-			var modifier_params: Dictionary = params as Dictionary
-			is_valid = _require_number(SKILLS_PATH, "%s.params.duration" % effect_field, modifier_params.get("duration"), 0.0, null, true) and is_valid
-			is_valid = _validate_modifiers(SKILLS_PATH, "%s.params.modifiers" % effect_field, modifier_params.get("modifiers"), false) and is_valid
-		if effect_id == "skill_effect_actor_modifiers":
-			var actor_modifier_params: Dictionary = params as Dictionary
+		var program: Dictionary = raw_program as Dictionary
+		is_valid = _validate_dictionary_keys(
+			resource_path,
+			program_field,
+			program,
+			[
+				"program_id",
+				"trigger",
+				"conditions",
+				"actions",
+				"proc_chance",
+				"internal_cooldown",
+			],
+			["interval_seconds", "reset_on_condition_fail"]
+		) and is_valid
+		if program.has("reset_on_condition_fail"):
+			is_valid = _require_bool(
+				resource_path,
+				"%s.reset_on_condition_fail" % program_field,
+				program.get("reset_on_condition_fail")
+			) and is_valid
+		var program_id: String = String(program.get("program_id", ""))
+		if not _is_snake_case_identifier(program_id):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.program_id" % program_field,
+				"snake_case identifier"
+			) and is_valid
+		elif seen_program_ids.has(program_id):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.program_id" % program_field,
+				"unique within source"
+			) and is_valid
+		else:
+			seen_program_ids[program_id] = true
+		var trigger_id: String = _require_registered(
+			resource_path,
+			"%s.trigger" % program_field,
+			program.get("trigger"),
+			"effect_triggers"
+		)
+		is_valid = not trigger_id.is_empty() and is_valid
+		if skill_activation_only and trigger_id != EFFECT_TRIGGERS.SKILL_ACTIVATED:
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.trigger" % program_field,
+				"skill_activated"
+			) and is_valid
+		is_valid = _require_number(
+			resource_path,
+			"%s.proc_chance" % program_field,
+			program.get("proc_chance"),
+			0.0,
+			1.0
+		) and is_valid
+		is_valid = _require_number(
+			resource_path,
+			"%s.internal_cooldown" % program_field,
+			program.get("internal_cooldown"),
+			0.0
+		) and is_valid
+		if trigger_id == EFFECT_TRIGGERS.INTERVAL:
 			is_valid = _require_number(
-				SKILLS_PATH,
-				"%s.params.duration" % effect_field,
-				actor_modifier_params.get("duration"),
+				resource_path,
+				"%s.interval_seconds" % program_field,
+				program.get("interval_seconds"),
 				0.0,
 				null,
 				true
 			) and is_valid
+		elif program.has("interval_seconds"):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.interval_seconds" % program_field,
+				"only valid for interval trigger"
+			) and is_valid
+		is_valid = _validate_effect_conditions(
+			resource_path,
+			"%s.conditions" % program_field,
+			program.get("conditions")
+		) and is_valid
+		is_valid = _validate_effect_actions(
+			resource_path,
+			"%s.actions" % program_field,
+			program.get("actions")
+		) and is_valid
+	return is_valid
+
+
+func _validate_effect_conditions(
+	resource_path: String,
+	field: String,
+	data: Variant
+) -> bool:
+	var conditions: Array = _require_array(resource_path, field, data)
+	var is_valid: bool = true
+	for index: int in range(conditions.size()):
+		var condition_field: String = "%s[%d]" % [field, index]
+		var raw_condition: Variant = conditions[index]
+		if not raw_condition is Dictionary:
+			is_valid = _schema_fail(
+				resource_path,
+				condition_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var condition: Dictionary = raw_condition as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			resource_path,
+			condition_field,
+			condition,
+			["condition", "params"]
+		) and is_valid
+		var condition_id: String = _require_registered(
+			resource_path,
+			"%s.condition" % condition_field,
+			condition.get("condition"),
+			"effect_conditions"
+		)
+		is_valid = not condition_id.is_empty() and is_valid
+		var params_raw: Variant = condition.get("params")
+		if not params_raw is Dictionary:
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params" % condition_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var params: Dictionary = params_raw as Dictionary
+		if condition_id == EFFECT_CONDITIONS.TEAM:
+			is_valid = _validate_exact_dictionary_keys(
+				resource_path,
+				"%s.params" % condition_field,
+				params,
+				["field", "value"]
+			) and is_valid
+			if String(params.get("field", "")) not in ["source_team", "target_team"]:
+				is_valid = _schema_fail(
+					resource_path,
+					"%s.params.field" % condition_field,
+					"source_team or target_team"
+				) and is_valid
+			is_valid = _require_non_empty_string(
+				resource_path,
+				"%s.params.value" % condition_field,
+				params.get("value")
+			) and is_valid
+		elif condition_id == EFFECT_CONDITIONS.ELEMENT:
+			is_valid = _validate_exact_dictionary_keys(
+				resource_path,
+				"%s.params" % condition_field,
+				params,
+				["value"]
+			) and is_valid
 			is_valid = _require_registered(
-				SKILLS_PATH,
-				"%s.params.stack_rule" % effect_field,
-				actor_modifier_params.get("stack_rule"),
-				"status_stack_rules"
+				resource_path,
+				"%s.params.value" % condition_field,
+				params.get("value"),
+				"elements"
 			) != "" and is_valid
+		elif condition_id == EFFECT_CONDITIONS.DAMAGE_FLAG:
+			is_valid = _validate_exact_dictionary_keys(
+				resource_path,
+				"%s.params" % condition_field,
+				params,
+				["value", "present"]
+			) and is_valid
+			is_valid = _require_non_empty_string(
+				resource_path,
+				"%s.params.value" % condition_field,
+				params.get("value")
+			) and is_valid
+			is_valid = _require_bool(
+				resource_path,
+				"%s.params.present" % condition_field,
+				params.get("present")
+			) and is_valid
+		elif condition_id == EFFECT_CONDITIONS.ACTOR_TAG:
+			is_valid = _validate_exact_dictionary_keys(
+				resource_path,
+				"%s.params" % condition_field,
+				params,
+				["actor", "value", "present"]
+			) and is_valid
+			if String(params.get("actor", "")) not in ["source", "target"]:
+				is_valid = _schema_fail(
+					resource_path,
+					"%s.params.actor" % condition_field,
+					"source or target"
+				) and is_valid
+			is_valid = _require_registered(
+				resource_path,
+				"%s.params.value" % condition_field,
+				params.get("value"),
+				"ability_tags"
+			) != "" and is_valid
+			is_valid = _require_bool(
+				resource_path,
+				"%s.params.present" % condition_field,
+				params.get("present")
+			) and is_valid
+		elif condition_id == EFFECT_CONDITIONS.HEALTH_RATIO:
+			is_valid = _validate_exact_dictionary_keys(
+				resource_path,
+				"%s.params" % condition_field,
+				params,
+				["actor", "comparison", "value"]
+			) and is_valid
+			if String(params.get("actor", "")) not in ["source", "target"]:
+				is_valid = _schema_fail(
+					resource_path,
+					"%s.params.actor" % condition_field,
+					"source or target"
+				) and is_valid
+			if String(params.get("comparison", "")) not in ["lte", "gte"]:
+				is_valid = _schema_fail(
+					resource_path,
+					"%s.params.comparison" % condition_field,
+					"lte or gte"
+				) and is_valid
+			is_valid = _require_number(
+				resource_path,
+				"%s.params.value" % condition_field,
+				params.get("value"),
+				0.0,
+				1.0
+			) and is_valid
+		elif condition_id == EFFECT_CONDITIONS.BOARD_CELL_RELATION:
+			is_valid = _validate_effect_relation_params(
+				resource_path,
+				condition_field,
+				params,
+				["same", "different"]
+			) and is_valid
+		elif condition_id == EFFECT_CONDITIONS.MODULE_RELATION:
+			is_valid = _validate_effect_relation_params(
+				resource_path,
+				condition_field,
+				params,
+				["source_is_current", "source_is_not_current"]
+			) and is_valid
+	return is_valid
+
+
+func _validate_effect_relation_params(
+	resource_path: String,
+	condition_field: String,
+	params: Dictionary,
+	allowed_values: Array[String]
+) -> bool:
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		resource_path,
+		"%s.params" % condition_field,
+		params,
+		["value"]
+	)
+	if String(params.get("value", "")) not in allowed_values:
+		is_valid = _schema_fail(
+			resource_path,
+			"%s.params.value" % condition_field,
+			"one of %s" % ", ".join(allowed_values)
+		) and is_valid
+	return is_valid
+
+
+func _validate_effect_actions(
+	resource_path: String,
+	field: String,
+	data: Variant
+) -> bool:
+	var actions: Array = _require_array(resource_path, field, data)
+	var is_valid: bool = true
+	if actions.is_empty():
+		is_valid = _schema_fail(
+			resource_path,
+			field,
+			"non-empty Array"
+		) and is_valid
+	for index: int in range(actions.size()):
+		var action_field: String = "%s[%d]" % [field, index]
+		var raw_action: Variant = actions[index]
+		if not raw_action is Dictionary:
+			is_valid = _schema_fail(
+				resource_path,
+				action_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var action: Dictionary = raw_action as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			resource_path,
+			action_field,
+			action,
+			["action", "params"]
+		) and is_valid
+		var action_id: String = _require_registered(
+			resource_path,
+			"%s.action" % action_field,
+			action.get("action"),
+			"effect_actions"
+		)
+		is_valid = not action_id.is_empty() and is_valid
+		var params_raw: Variant = action.get("params")
+		if not params_raw is Dictionary:
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params" % action_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		is_valid = _validate_effect_action_params(
+			resource_path,
+			action_field,
+			action_id,
+			params_raw as Dictionary
+		) and is_valid
+	return is_valid
+
+
+func _validate_effect_action_params(
+	resource_path: String,
+	action_field: String,
+	action_id: String,
+	params: Dictionary
+) -> bool:
+	var is_valid: bool = true
+	if action_id == EFFECT_ACTIONS.DAMAGE:
+		is_valid = _validate_exact_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			["amount", "element_id"]
+		) and is_valid
+		is_valid = _require_number(
+			resource_path,
+			"%s.params.amount" % action_field,
+			params.get("amount"),
+			0.0,
+			null,
+			true
+		) and is_valid
+		is_valid = _require_registered(
+			resource_path,
+			"%s.params.element_id" % action_field,
+			params.get("element_id"),
+			"elements"
+		) != "" and is_valid
+	elif action_id == EFFECT_ACTIONS.APPLY_STATUS:
+		is_valid = _validate_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			["status", "duration", "stack_rule", "granted_ability_tags"],
+			[
+				"magnitude",
+				"magnitude_cap",
+				"modifiers",
+				"element_id",
+				"tick_interval",
+				"max_stacks",
+				"incoming_damage_per_stack",
+				"incoming_damage_source_team",
+			]
+		) and is_valid
+		is_valid = _require_registered(
+			resource_path,
+			"%s.params.status" % action_field,
+			params.get("status"),
+			"status_effects"
+		) != "" and is_valid
+		is_valid = _require_number(
+			resource_path,
+			"%s.params.duration" % action_field,
+			params.get("duration"),
+			0.0,
+			null,
+			true
+		) and is_valid
+		is_valid = _require_registered(
+			resource_path,
+			"%s.params.stack_rule" % action_field,
+			params.get("stack_rule"),
+			"status_stack_rules"
+		) != "" and is_valid
+		is_valid = _validate_registered_string_array(
+			resource_path,
+			"%s.params.granted_ability_tags" % action_field,
+			params.get("granted_ability_tags", []),
+			"ability_tags",
+			true
+		) and is_valid
+		if params.has("modifiers"):
 			is_valid = _validate_modifiers(
-				SKILLS_PATH,
-				"%s.params.modifiers" % effect_field,
-				actor_modifier_params.get("modifiers"),
+				resource_path,
+				"%s.params.modifiers" % action_field,
+				params.get("modifiers"),
 				false
 			) and is_valid
-		if effect_id == "skill_effect_deploy_barrier":
-			var barrier_params: Dictionary = params as Dictionary
+		if params.has("element_id"):
 			is_valid = _require_registered(
-				SKILLS_PATH,
-				"%s.params.pool_id" % effect_field,
-				barrier_params.get("pool_id"),
-				"pool_ids"
+				resource_path,
+				"%s.params.element_id" % action_field,
+				params.get("element_id"),
+				"elements"
 			) != "" and is_valid
-			for number_field: String in ["radius", "hp"]:
-				is_valid = _require_number(
-					SKILLS_PATH,
-					"%s.params.%s" % [effect_field, number_field],
-					barrier_params.get(number_field),
-					0.0,
-					null,
-					true
-				) and is_valid
-			is_valid = _require_int(
-				SKILLS_PATH,
-				"%s.params.max_active" % effect_field,
-				barrier_params.get("max_active"),
-				1
+	elif action_id == EFFECT_ACTIONS.TEMPORARY_MODIFIER:
+		is_valid = _validate_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			["slot", "duration", "modifiers"],
+			["stack_rule"]
+		) and is_valid
+		var slot: String = String(params.get("slot", ""))
+		if slot not in ["actor", "weapon", "both"]:
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params.slot" % action_field,
+				"actor, weapon, or both"
 			) and is_valid
-			if String(barrier_params.get("recast_policy", "")) != "replace":
+		is_valid = _require_number(
+			resource_path,
+			"%s.params.duration" % action_field,
+			params.get("duration"),
+			0.0,
+			null,
+			true
+		) and is_valid
+		is_valid = _validate_modifiers(
+			resource_path,
+			"%s.params.modifiers" % action_field,
+			params.get("modifiers"),
+			false
+		) and is_valid
+	elif action_id in [
+		EFFECT_ACTIONS.HEAL,
+		EFFECT_ACTIONS.GRANT_SHIELD,
+		EFFECT_ACTIONS.GRANT_OVERSHIELD,
+	]:
+		is_valid = _validate_exact_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			["amount"]
+		) and is_valid
+		is_valid = _require_number(
+			resource_path,
+			"%s.params.amount" % action_field,
+			params.get("amount"),
+			0.0,
+			null,
+			true
+		) and is_valid
+	elif action_id == EFFECT_ACTIONS.GRANT_GOLD:
+		is_valid = _validate_exact_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			["amount", "reason_id"]
+		) and is_valid
+		is_valid = _require_int(
+			resource_path,
+			"%s.params.amount" % action_field,
+			params.get("amount"),
+			1
+		) and is_valid
+		is_valid = _require_registered(
+			resource_path,
+			"%s.params.reason_id" % action_field,
+			params.get("reason_id"),
+			"gold_transaction_reasons"
+		) != "" and is_valid
+	elif action_id == EFFECT_ACTIONS.SPAWN_PROJECTILE:
+		is_valid = _validate_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			[
+				"pool_id",
+				"amount",
+				"element_id",
+				"speed",
+				"range",
+				"hit_radius",
+				"lifetime",
+				"count",
+				"spread_degrees",
+				"pierce_count",
+				"wall_pierce",
+				"damage_target_groups",
+			],
+			["direction"]
+		) and is_valid
+		var projectile_pool_id: String = _require_registered(
+			resource_path,
+			"%s.params.pool_id" % action_field,
+			params.get("pool_id"),
+			"pool_ids"
+		)
+		is_valid = not projectile_pool_id.is_empty() and is_valid
+		if (
+			not projectile_pool_id.is_empty()
+			and projectile_pool_id != POOL_IDS.BULLET_BASIC
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params.pool_id" % action_field,
+				POOL_IDS.BULLET_BASIC
+			) and is_valid
+		for number_field: String in [
+			"amount",
+			"speed",
+			"range",
+			"hit_radius",
+			"lifetime",
+		]:
+			is_valid = _require_number(
+				resource_path,
+				"%s.params.%s" % [action_field, number_field],
+				params.get(number_field),
+				0.0,
+				null,
+				true
+			) and is_valid
+		is_valid = _require_number(
+			resource_path,
+			"%s.params.spread_degrees" % action_field,
+			params.get("spread_degrees"),
+			0.0,
+			360.0
+		) and is_valid
+		is_valid = _require_int(
+			resource_path,
+			"%s.params.count" % action_field,
+			params.get("count"),
+			1,
+			64
+		) and is_valid
+		is_valid = _require_int(
+			resource_path,
+			"%s.params.pierce_count" % action_field,
+			params.get("pierce_count"),
+			0
+		) and is_valid
+		is_valid = _require_bool(
+			resource_path,
+			"%s.params.wall_pierce" % action_field,
+			params.get("wall_pierce")
+		) and is_valid
+		is_valid = _require_registered(
+			resource_path,
+			"%s.params.element_id" % action_field,
+			params.get("element_id"),
+			"elements"
+		) != "" and is_valid
+		is_valid = _validate_registered_string_array(
+			resource_path,
+			"%s.params.damage_target_groups" % action_field,
+			params.get("damage_target_groups"),
+			"damage_target_groups",
+			false
+		) and is_valid
+		if params.has("direction"):
+			var raw_direction: Variant = params.get("direction")
+			if not raw_direction is Dictionary:
 				is_valid = _schema_fail(
-					SKILLS_PATH,
-					"%s.params.recast_policy" % effect_field,
-					"replace"
+					resource_path,
+					"%s.params.direction" % action_field,
+					"Dictionary"
 				) and is_valid
+			else:
+				is_valid = _validate_exact_dictionary_keys(
+					resource_path,
+					"%s.params.direction" % action_field,
+					raw_direction as Dictionary,
+					["x", "y"]
+				) and is_valid
+				for axis: String in ["x", "y"]:
+					is_valid = _require_number(
+						resource_path,
+						"%s.params.direction.%s" % [action_field, axis],
+						(raw_direction as Dictionary).get(axis)
+					) and is_valid
+	elif action_id == EFFECT_ACTIONS.SPAWN_ENEMY:
+		is_valid = _validate_exact_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			["normal_rewards", "current_layer_only"]
+		) and is_valid
+		for bool_field: String in ["normal_rewards", "current_layer_only"]:
+			is_valid = _require_bool(
+				resource_path,
+				"%s.params.%s" % [action_field, bool_field],
+				params.get(bool_field)
+			) and is_valid
+			if params.get(bool_field) is bool and not bool(params.get(bool_field)):
+				is_valid = _schema_fail(
+					resource_path,
+					"%s.params.%s" % [action_field, bool_field],
+					"true"
+				) and is_valid
+	elif action_id == EFFECT_ACTIONS.SPAWN_BARRIER:
+		is_valid = _validate_exact_dictionary_keys(
+			resource_path,
+			"%s.params" % action_field,
+			params,
+			["pool_id", "radius", "hp", "max_active", "recast_policy"]
+		) and is_valid
+		var barrier_pool_id: String = _require_registered(
+			resource_path,
+			"%s.params.pool_id" % action_field,
+			params.get("pool_id"),
+			"pool_ids"
+		)
+		is_valid = not barrier_pool_id.is_empty() and is_valid
+		if (
+			not barrier_pool_id.is_empty()
+			and barrier_pool_id != POOL_IDS.PROJECTILE_BARRIER
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params.pool_id" % action_field,
+				POOL_IDS.PROJECTILE_BARRIER
+			) and is_valid
+		for number_field: String in ["radius", "hp"]:
+			is_valid = _require_number(
+				resource_path,
+				"%s.params.%s" % [action_field, number_field],
+				params.get(number_field),
+				0.0,
+				null,
+				true
+			) and is_valid
+		is_valid = _require_int(
+			resource_path,
+			"%s.params.max_active" % action_field,
+			params.get("max_active"),
+			1
+		) and is_valid
+		if String(params.get("recast_policy", "")) != "replace":
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.params.recast_policy" % action_field,
+				"replace"
+			) and is_valid
 	return is_valid
+
+
+func _isolate_invalid_mod_gameplay_packages(
+	locale_keys: Dictionary,
+	enemy_ids: Dictionary
+) -> void:
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if (
+		loader == null
+		or not loader.has_method("package_gameplay_payloads")
+		or not loader.has_method("disable_package")
+	):
+		return
+	var raw_payloads: Variant = loader.call("package_gameplay_payloads")
+	if not raw_payloads is Array:
+		return
+	var disabled_any: bool = false
+	_suppress_schema_errors = true
+	for raw_payload: Variant in raw_payloads as Array:
+		if not raw_payload is Dictionary:
+			continue
+		var payload: Dictionary = raw_payload as Dictionary
+		var package_id: String = String(payload.get("id", ""))
+		var package_is_valid: bool = not package_id.is_empty()
+		var package_mod_ids: Dictionary = {}
+		var mods: Array = payload.get("mods", []) as Array
+		for index: int in range(mods.size()):
+			var raw_mod: Variant = mods[index]
+			if not raw_mod is Dictionary:
+				package_is_valid = false
+				continue
+			var mod: Dictionary = raw_mod as Dictionary
+			var field: String = "%s.mods[%d]" % [package_id, index]
+			var mod_id: String = String(mod.get("id", ""))
+			if mod_id.is_empty() or package_mod_ids.has(mod_id):
+				package_is_valid = false
+			else:
+				package_mod_ids[mod_id] = true
+			package_is_valid = _require_locale_key(
+				GEAR_MODS_PATH,
+				"%s.name_key" % field,
+				mod.get("name_key"),
+				locale_keys
+			) and package_is_valid
+			package_is_valid = _require_locale_key(
+				GEAR_MODS_PATH,
+				"%s.desc_key" % field,
+				mod.get("desc_key"),
+				locale_keys
+			) and package_is_valid
+			package_is_valid = _require_registered(
+				GEAR_MODS_PATH,
+				"%s.rarity" % field,
+				mod.get("rarity"),
+				"gear_mod_rarities"
+			) != "" and package_is_valid
+			package_is_valid = _validate_gear_mod_components(
+				"%s.components" % field,
+				mod.get("components")
+			) and package_is_valid
+		var raw_contributions: Variant = payload.get(
+			"reward_pool_contributions",
+			[]
+		)
+		if not raw_contributions is Array:
+			package_is_valid = false
+		else:
+			var seen_contribution_pools: Dictionary = {}
+			for contribution_index: int in range(
+				(raw_contributions as Array).size()
+			):
+				var raw_contribution: Variant = (
+					(raw_contributions as Array)[contribution_index]
+				)
+				if not raw_contribution is Dictionary:
+					package_is_valid = false
+					continue
+				var contribution: Dictionary = raw_contribution as Dictionary
+				var contribution_field: String = (
+					"%s.reward_pool_contributions[%d]"
+					% [package_id, contribution_index]
+				)
+				package_is_valid = _validate_exact_dictionary_keys(
+					GEAR_MODS_PATH,
+					contribution_field,
+					contribution,
+					["pool_id", "mod_ids"]
+				) and package_is_valid
+				var contribution_pool_id: String = _require_registered(
+					GEAR_MODS_PATH,
+					"%s.pool_id" % contribution_field,
+					contribution.get("pool_id"),
+					"world_event_mod_pool_ids"
+				)
+				if (
+					contribution_pool_id.is_empty()
+					or seen_contribution_pools.has(contribution_pool_id)
+				):
+					package_is_valid = false
+				seen_contribution_pools[contribution_pool_id] = true
+				var raw_contribution_mod_ids: Variant = contribution.get("mod_ids")
+				if (
+					not raw_contribution_mod_ids is Array
+					or (raw_contribution_mod_ids as Array).is_empty()
+				):
+					package_is_valid = false
+					continue
+				var seen_contribution_mod_ids: Dictionary = {}
+				for raw_contribution_mod_id: Variant in (
+					raw_contribution_mod_ids as Array
+				):
+					var contribution_mod_id: String = String(
+						raw_contribution_mod_id
+					)
+					if (
+						not package_mod_ids.has(contribution_mod_id)
+						or seen_contribution_mod_ids.has(contribution_mod_id)
+					):
+						package_is_valid = false
+					seen_contribution_mod_ids[contribution_mod_id] = true
+		var raw_drop_rows: Variant = payload.get("drop_rows", [])
+		if not raw_drop_rows is Array:
+			package_is_valid = false
+			raw_drop_rows = []
+		for row_index: int in range((raw_drop_rows as Array).size()):
+			var raw_row: Variant = (raw_drop_rows as Array)[row_index]
+			if not raw_row is Dictionary:
+				package_is_valid = false
+				continue
+			var row: Dictionary = raw_row as Dictionary
+			var row_field: String = "%s.drop_rows[%d]" % [package_id, row_index]
+			package_is_valid = _validate_exact_dictionary_keys(
+				GEAR_MOD_DROP_TABLES_PATH,
+				row_field,
+				row,
+				[
+					"source_enemy_id",
+					"mod_id",
+					"drop_chance",
+					"min_enemy_level",
+					"max_enemy_level",
+				]
+			) and package_is_valid
+			if not enemy_ids.has(String(row.get("source_enemy_id", ""))):
+				package_is_valid = false
+			if not package_mod_ids.has(String(row.get("mod_id", ""))):
+				package_is_valid = false
+			package_is_valid = _require_csv_number(
+				GEAR_MOD_DROP_TABLES_PATH,
+				"%s.drop_rows[%d].drop_chance" % [package_id, row_index],
+				row.get("drop_chance"),
+				0.0,
+				1.0
+			) and package_is_valid
+			var min_level: Variant = _parse_int(row.get("min_enemy_level"))
+			var max_level: Variant = _parse_int(row.get("max_enemy_level"))
+			package_is_valid = _require_csv_int(
+				GEAR_MOD_DROP_TABLES_PATH,
+				"%s.min_enemy_level" % row_field,
+				row.get("min_enemy_level"),
+				1
+			) and package_is_valid
+			package_is_valid = _require_csv_int(
+				GEAR_MOD_DROP_TABLES_PATH,
+				"%s.max_enemy_level" % row_field,
+				row.get("max_enemy_level"),
+				1
+			) and package_is_valid
+			if (
+				min_level != null
+				and max_level != null
+				and int(max_level) < int(min_level)
+			):
+				package_is_valid = false
+		if not package_is_valid:
+			disabled_any = bool(loader.call(
+				"disable_package",
+				package_id,
+				"DataLoader gameplay parameter or cross-reference validation failed"
+			)) or disabled_any
+	_suppress_schema_errors = false
+	if disabled_any:
+		data_reloaded.emit()
 
 
 func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
@@ -2864,13 +3578,20 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		GEAR_MODS_PATH,
 		"root",
 		payload,
-		["schema_version", "board", "pickup", "reward_pools", "mods"]
+		[
+			"schema_version",
+			"board",
+			"pickup",
+			"reward_pools",
+			"reward_pool_contributions",
+			"mods",
+		]
 	)
 	is_valid = _require_exact_int(
 		GEAR_MODS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		5
+		6
 	) and is_valid
 	is_valid = _validate_gear_mod_board(payload.get("board")) and is_valid
 	var pickup: Variant = payload.get("pickup")
@@ -2996,32 +3717,23 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 			is_valid = _schema_fail(GEAR_MODS_PATH, field, "Dictionary") and is_valid
 			continue
 		var mod_dict: Dictionary = mod as Dictionary
-		var mod_kind: String = _require_registered(
-			GEAR_MODS_PATH,
-			"%s.kind" % field,
-			mod_dict.get("kind"),
-			"gear_mod_kinds"
-		)
-		is_valid = not mod_kind.is_empty() and is_valid
 		var required_mod_keys: Array[String] = [
 			"id",
 			"name_key",
 			"desc_key",
-			"kind",
 			"rarity",
+			"components",
 		]
-		if mod_kind == GEAR_MOD_KINDS.EFFECT:
-			required_mod_keys.append_array(["slot", "modifiers"])
-		elif mod_kind == GEAR_MOD_KINDS.MAP:
-			required_mod_keys.append("map_behavior")
-		elif mod_kind == GEAR_MOD_KINDS.GRID:
-			required_mod_keys.append("grid_behavior")
 		is_valid = _validate_dictionary_keys(
 			GEAR_MODS_PATH,
 			field,
 			mod_dict,
 			required_mod_keys,
-			["default_unlocked", "unlock_rule_id", "codex_icon_path"]
+			[
+				"default_unlocked",
+				"codex_icon_path",
+				"placement_sfx_id",
+			]
 		) and is_valid
 		var mod_id: String = _require_registered(GEAR_MODS_PATH, "%s.id" % field, mod_dict.get("id"), "gear_mod_ids")
 		if not mod_id.is_empty():
@@ -3031,27 +3743,39 @@ func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
 		is_valid = _require_locale_key(GEAR_MODS_PATH, "%s.name_key" % field, mod_dict.get("name_key"), locale_keys) and is_valid
 		is_valid = _require_locale_key(GEAR_MODS_PATH, "%s.desc_key" % field, mod_dict.get("desc_key"), locale_keys) and is_valid
 		is_valid = _require_registered(GEAR_MODS_PATH, "%s.rarity" % field, mod_dict.get("rarity"), "gear_mod_rarities") != "" and is_valid
-		if mod_kind == GEAR_MOD_KINDS.EFFECT:
-			is_valid = _require_registered(
+		if mod_dict.has("default_unlocked"):
+			var default_unlocked_ok: bool = _require_bool(
 				GEAR_MODS_PATH,
-				"%s.slot" % field,
-				mod_dict.get("slot"),
-				"gear_mod_slots"
-			) != "" and is_valid
-			is_valid = _validate_gear_mod_modifiers(
-				"%s.modifiers" % field,
-				mod_dict.get("modifiers")
+				"%s.default_unlocked" % field,
+				mod_dict.get("default_unlocked")
+			)
+			is_valid = default_unlocked_ok and is_valid
+			if default_unlocked_ok and not bool(mod_dict.get("default_unlocked")):
+				is_valid = _schema_fail(
+					GEAR_MODS_PATH,
+					"%s.default_unlocked" % field,
+					"true; Gear Mods install unlocked"
+				) and is_valid
+		if mod_dict.has("placement_sfx_id"):
+			is_valid = _require_non_empty_string(
+				GEAR_MODS_PATH,
+				"%s.placement_sfx_id" % field,
+				mod_dict.get("placement_sfx_id")
 			) and is_valid
-		elif mod_kind == GEAR_MOD_KINDS.MAP:
-			is_valid = _validate_gear_mod_map_behavior(
-				"%s.map_behavior" % field,
-				mod_dict.get("map_behavior")
-			) and is_valid
-		elif mod_kind == GEAR_MOD_KINDS.GRID:
-			is_valid = _validate_gear_mod_grid_behavior(
-				"%s.grid_behavior" % field,
-				mod_dict.get("grid_behavior")
-			) and is_valid
+		is_valid = _validate_gear_mod_components(
+			"%s.components" % field,
+			mod_dict.get("components")
+		) and is_valid
+	var contributions: Array = _require_array(
+		GEAR_MODS_PATH,
+		"reward_pool_contributions",
+		payload.get("reward_pool_contributions")
+	)
+	is_valid = _validate_gear_mod_reward_pool_contributions(
+		contributions,
+		seen_pool_ids,
+		seen
+	) and is_valid
 	_last_schema_counts["gear_mod_reward_pools"] = reward_pools.size()
 	return is_valid
 
@@ -3181,125 +3905,211 @@ func _validate_gear_mod_board(data: Variant) -> bool:
 	return is_valid
 
 
-func _validate_gear_mod_map_behavior(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(GEAR_MODS_PATH, field, "Dictionary")
-	var behavior: Dictionary = data as Dictionary
-	var is_valid: bool = _validate_exact_dictionary_keys(
-		GEAR_MODS_PATH,
-		field,
-		behavior,
-		[
-			"id",
-			"interval_seconds",
-			"reset_on_module_exit",
-			"current_layer_only",
-			"normal_rewards",
-		]
-	)
-	var behavior_id: String = _require_registered(
-		GEAR_MODS_PATH,
-		"%s.id" % field,
-		behavior.get("id"),
-		"gear_mod_map_behaviors"
-	)
-	is_valid = not behavior_id.is_empty() and is_valid
-	if (
-		not behavior_id.is_empty()
-		and behavior_id != GEAR_MOD_MAP_BEHAVIORS.PERIODIC_ENEMY_SPAWN
-	):
-		is_valid = _schema_fail(
-			GEAR_MODS_PATH,
-			"%s.id" % field,
-			"periodic_enemy_spawn"
-		) and is_valid
-	var interval_is_valid: bool = _require_number(
-		GEAR_MODS_PATH,
-		"%s.interval_seconds" % field,
-		behavior.get("interval_seconds"),
-		0.0,
-		null,
-		true
-	)
-	is_valid = interval_is_valid and is_valid
-	if interval_is_valid and float(behavior.get("interval_seconds")) != 10.0:
-		is_valid = _schema_fail(
-			GEAR_MODS_PATH,
-			"%s.interval_seconds" % field,
-			"number equal to 10.0"
-		) and is_valid
-	for key: String in [
-		"reset_on_module_exit",
-		"current_layer_only",
-		"normal_rewards",
-	]:
-		var bool_is_valid: bool = _require_bool(
-			GEAR_MODS_PATH,
-			"%s.%s" % [field, key],
-			behavior.get(key)
-		)
-		is_valid = bool_is_valid and is_valid
-		if bool_is_valid and not bool(behavior.get(key)):
+func _validate_gear_mod_components(field: String, data: Variant) -> bool:
+	var components: Array = _require_array(GEAR_MODS_PATH, field, data)
+	var is_valid: bool = true
+	if components.is_empty():
+		is_valid = _schema_fail(GEAR_MODS_PATH, field, "non-empty Array") and is_valid
+	var seen_component_ids: Dictionary = {}
+	for index: int in range(components.size()):
+		var component_field: String = "%s[%d]" % [field, index]
+		var raw_component: Variant = components[index]
+		if not raw_component is Dictionary:
 			is_valid = _schema_fail(
 				GEAR_MODS_PATH,
-				"%s.%s" % [field, key],
-				"true"
+				component_field,
+				"Dictionary"
 			) and is_valid
-	return is_valid
-
-
-func _validate_gear_mod_grid_behavior(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(GEAR_MODS_PATH, field, "Dictionary")
-	var behavior: Dictionary = data as Dictionary
-	var is_valid: bool = _validate_exact_dictionary_keys(
-		GEAR_MODS_PATH,
-		field,
-		behavior,
-		["id"]
-	)
-	var behavior_id: String = _require_registered(
-		GEAR_MODS_PATH,
-		"%s.id" % field,
-		behavior.get("id"),
-		"gear_mod_grid_behaviors"
-	)
-	is_valid = not behavior_id.is_empty() and is_valid
-	if (
-		not behavior_id.is_empty()
-		and behavior_id != GEAR_MOD_GRID_BEHAVIORS.OCCUPY_ONLY
-	):
-		is_valid = _schema_fail(
+			continue
+		var component: Dictionary = raw_component as Dictionary
+		var component_id: String = String(component.get("component_id", ""))
+		if not _is_snake_case_identifier(component_id):
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"%s.component_id" % component_field,
+				"snake_case identifier"
+			) and is_valid
+		elif seen_component_ids.has(component_id):
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"%s.component_id" % component_field,
+				"unique within Gear Mod"
+			) and is_valid
+		else:
+			seen_component_ids[component_id] = true
+		var component_type: String = _require_registered(
 			GEAR_MODS_PATH,
-			"%s.id" % field,
-			"occupy_only"
-		) and is_valid
+			"%s.type" % component_field,
+			component.get("type"),
+			"gear_mod_component_types"
+		)
+		is_valid = not component_type.is_empty() and is_valid
+		if component_type == GEAR_MOD_COMPONENT_TYPES.MODIFIER:
+			is_valid = _validate_exact_dictionary_keys(
+				GEAR_MODS_PATH,
+				component_field,
+				component,
+				["component_id", "type", "slot", "modifiers"]
+			) and is_valid
+			var slot: String = _require_registered(
+				GEAR_MODS_PATH,
+				"%s.slot" % component_field,
+				component.get("slot"),
+				"gear_mod_slots"
+			)
+			is_valid = not slot.is_empty() and is_valid
+			is_valid = _validate_gear_mod_modifiers_for_slot(
+				"%s.modifiers" % component_field,
+				component.get("modifiers"),
+				slot
+			) and is_valid
+		elif component_type == GEAR_MOD_COMPONENT_TYPES.PROGRAM:
+			is_valid = _validate_exact_dictionary_keys(
+				GEAR_MODS_PATH,
+				component_field,
+				component,
+				["component_id", "type", "program"]
+			) and is_valid
+			is_valid = _validate_effect_programs(
+				GEAR_MODS_PATH,
+				"%s.program" % component_field,
+				[component.get("program")]
+			) and is_valid
+		elif component_type == GEAR_MOD_COMPONENT_TYPES.BOARD_RULE:
+			is_valid = _validate_exact_dictionary_keys(
+				GEAR_MODS_PATH,
+				component_field,
+				component,
+				["component_id", "type", "rule_id"]
+			) and is_valid
+			is_valid = _require_registered(
+				GEAR_MODS_PATH,
+				"%s.rule_id" % component_field,
+				component.get("rule_id"),
+				"gear_mod_board_rules"
+			) == GEAR_MOD_BOARD_RULES.OCCUPY_ONLY and is_valid
 	return is_valid
 
 
-func _validate_gear_mod_modifiers(field: String, data: Variant) -> bool:
+func _validate_gear_mod_modifiers_for_slot(
+	field: String,
+	data: Variant,
+	slot: String
+) -> bool:
 	var modifiers: Array = _require_array(GEAR_MODS_PATH, field, data)
 	var is_valid: bool = true
 	if modifiers.is_empty():
-		is_valid = _schema_fail(GEAR_MODS_PATH, field, "non-empty Array") and is_valid
+		is_valid = _schema_fail(
+			GEAR_MODS_PATH,
+			field,
+			"non-empty Array"
+		) and is_valid
+	var supported_stats: Array[String] = (
+		HERO_GEAR_STATS if slot == "hero" else WEAPON_STATS
+	)
 	for index: int in range(modifiers.size()):
 		var item_field: String = "%s[%d]" % [field, index]
-		var modifier: Variant = modifiers[index]
-		if not modifier is Dictionary:
-			is_valid = _schema_fail(GEAR_MODS_PATH, item_field, "Dictionary") and is_valid
+		var raw_modifier: Variant = modifiers[index]
+		if not raw_modifier is Dictionary:
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				item_field,
+				"Dictionary"
+			) and is_valid
 			continue
-		var modifier_dict: Dictionary = modifier as Dictionary
+		var modifier: Dictionary = raw_modifier as Dictionary
 		is_valid = _validate_exact_dictionary_keys(
 			GEAR_MODS_PATH,
 			item_field,
-			modifier_dict,
+			modifier,
 			["stat", "type", "value"]
 		) and is_valid
-		is_valid = _require_registered(GEAR_MODS_PATH, "%s.stat" % item_field, modifier_dict.get("stat"), "stats") != "" and is_valid
-		var modifier_type: String = String(modifier_dict.get("type", ""))
-		if modifier_type != "add" and modifier_type != "mult":
-			is_valid = _schema_fail(GEAR_MODS_PATH, "%s.type" % item_field, "add or mult") and is_valid
-		is_valid = _require_number(GEAR_MODS_PATH, "%s.value" % item_field, modifier_dict.get("value")) and is_valid
+		var stat: String = _require_registered(
+			GEAR_MODS_PATH,
+			"%s.stat" % item_field,
+			modifier.get("stat"),
+			"stats"
+		)
+		is_valid = not stat.is_empty() and is_valid
+		if not stat.is_empty() and not supported_stats.has(stat):
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"%s.stat" % item_field,
+				"stat supported by %s slot" % slot
+			) and is_valid
+		var modifier_type: String = String(modifier.get("type", ""))
+		if modifier_type not in ["add", "mult"]:
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"%s.type" % item_field,
+				"add or mult"
+			) and is_valid
+		is_valid = _require_number(
+			GEAR_MODS_PATH,
+			"%s.value" % item_field,
+			modifier.get("value")
+		) and is_valid
+	return is_valid
+
+
+func _validate_gear_mod_reward_pool_contributions(
+	contributions: Array,
+	pool_ids: Dictionary,
+	gear_mod_ids: Dictionary
+) -> bool:
+	var is_valid: bool = true
+	for index: int in range(contributions.size()):
+		var field: String = "reward_pool_contributions[%d]" % index
+		var raw_contribution: Variant = contributions[index]
+		if not raw_contribution is Dictionary:
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var contribution: Dictionary = raw_contribution as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			GEAR_MODS_PATH,
+			field,
+			contribution,
+			["pool_id", "mod_ids"]
+		) and is_valid
+		var pool_id: String = String(contribution.get("pool_id", ""))
+		if not pool_ids.has(pool_id):
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"%s.pool_id" % field,
+				"existing reward pool id"
+			) and is_valid
+		var mod_ids: Array = _require_array(
+			GEAR_MODS_PATH,
+			"%s.mod_ids" % field,
+			contribution.get("mod_ids")
+		)
+		if mod_ids.is_empty():
+			is_valid = _schema_fail(
+				GEAR_MODS_PATH,
+				"%s.mod_ids" % field,
+				"non-empty Array"
+			) and is_valid
+		var seen_ids: Dictionary = {}
+		for mod_index: int in range(mod_ids.size()):
+			var mod_id: String = String(mod_ids[mod_index])
+			if not gear_mod_ids.has(mod_id):
+				is_valid = _schema_fail(
+					GEAR_MODS_PATH,
+					"%s.mod_ids[%d]" % [field, mod_index],
+					"Gear Mod defined in merged mods"
+				) and is_valid
+			elif seen_ids.has(mod_id):
+				is_valid = _schema_fail(
+					GEAR_MODS_PATH,
+					"%s.mod_ids[%d]" % [field, mod_index],
+					"unique Gear Mod id"
+				) and is_valid
+			else:
+				seen_ids[mod_id] = true
 	return is_valid
 
 
@@ -4319,7 +5129,7 @@ func _is_snake_case_identifier(value: String) -> bool:
 	return pattern.search(value) != null
 
 
-func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary, difficulty_profile_ids: Dictionary) -> bool:
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary, difficulty_profile_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
@@ -4365,7 +5175,7 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), character_ids, weapon_ids, enemy_ids, hazard_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -4799,11 +5609,27 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
+	var supported_pool_ids: Array[String] = [
+		"characters",
+		"weapons",
+		"enemies",
+		"hazards",
+		"active_items",
+		"skills",
+		"consumables",
+	]
+	for pool_id: String in payload.keys():
+		if pool_id not in supported_pool_ids and pool_id != "growth_pools":
+			is_valid = _schema_fail(
+				GAME_MODES_PATH,
+				"%s.resource_pools.%s" % [mode_field, pool_id],
+				"supported resource pool"
+			) and is_valid
 	if payload.has("characters"):
 		is_valid = _validate_weighted_character_entries("%s.resource_pools.characters" % mode_field, payload.get("characters"), character_ids) and is_valid
 	if payload.has("weapons"):
@@ -4812,8 +5638,6 @@ func _validate_mode_resource_pools(mode_field: String, data: Variant, character_
 		is_valid = _validate_weighted_enemy_entries("%s.resource_pools.enemies" % mode_field, payload.get("enemies"), enemy_ids) and is_valid
 	if payload.has("hazards"):
 		is_valid = _validate_weighted_hazard_entries("%s.resource_pools.hazards" % mode_field, payload.get("hazards"), hazard_ids) and is_valid
-	if payload.has("relics"):
-		is_valid = _validate_weighted_relic_entries("%s.resource_pools.relics" % mode_field, payload.get("relics"), relic_ids) and is_valid
 	if payload.has("active_items"):
 		is_valid = _validate_weighted_active_item_entries("%s.resource_pools.active_items" % mode_field, payload.get("active_items"), active_item_ids) and is_valid
 	if payload.has("skills"):
@@ -4826,7 +5650,7 @@ func _validate_mode_resource_pools(mode_field: String, data: Variant, character_
 			"%s.resource_pools.growth_pools" % mode_field,
 			"removed in schema_version 3"
 		) and is_valid
-	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("relics") and not payload.has("active_items") and not payload.has("skills") and not payload.has("consumables"):
+	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("active_items") and not payload.has("skills") and not payload.has("consumables"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
 	return is_valid
 
@@ -4906,26 +5730,6 @@ func _validate_weighted_hazard_entries(field: String, data: Variant, hazard_ids:
 		var hazard_id: String = String(entry_dict.get("id", ""))
 		if not hazard_id.is_empty() and not hazard_ids.has(hazard_id):
 			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "hazard defined in hazards.csv") and is_valid
-		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
-	return is_valid
-
-
-func _validate_weighted_relic_entries(field: String, data: Variant, relic_ids: Dictionary) -> bool:
-	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
-	var is_valid: bool = true
-	if entries.is_empty():
-		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
-	for index: int in range(entries.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var entry: Variant = entries[index]
-		if not entry is Dictionary:
-			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var entry_dict: Dictionary = entry as Dictionary
-		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id")) and is_valid
-		var relic_id: String = String(entry_dict.get("id", ""))
-		if not relic_id.is_empty() and not relic_ids.has(relic_id):
-			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "relic defined in relics.json") and is_valid
 		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
@@ -5124,8 +5928,19 @@ func _validate_optional_resource_path(
 	var path: String = String(value).strip_edges()
 	if path.is_empty():
 		return true
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if (
+		loader != null
+		and loader.has_method("has_image_asset")
+		and bool(loader.call("has_image_asset", path))
+	):
+		return true
 	if not path.begins_with("res://") or not ResourceLoader.exists(path):
-		return _schema_fail(resource_path, field, "empty or existing res:// resource")
+		return _schema_fail(
+			resource_path,
+			field,
+			"empty, existing res:// resource, or registered Mod image id"
+		)
 	return true
 
 
@@ -5216,20 +6031,6 @@ func _collect_hazard_ids() -> Dictionary:
 		var hazard_id: String = String(row.get("id", ""))
 		if not hazard_id.is_empty():
 			ids[hazard_id] = maxi(String(row.get("radius_tiles", "1")).to_int(), 1)
-	return ids
-
-
-func _collect_relic_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(RELICS_PATH)
-	if not data is Dictionary:
-		return ids
-	var relics: Variant = (data as Dictionary).get("relics")
-	if not relics is Array:
-		return ids
-	for relic: Variant in relics:
-		if relic is Dictionary and (relic as Dictionary).get("id") is String:
-			ids[String((relic as Dictionary).get("id"))] = true
 	return ids
 
 
@@ -7631,7 +8432,8 @@ func _is_empty_csv_row(values: PackedStringArray) -> bool:
 
 
 func _schema_fail(resource_path: String, field_path: String, expected: String) -> bool:
-	_fail(resource_path, field_path, expected)
+	if not _suppress_schema_errors:
+		_fail(resource_path, field_path, expected)
 	return false
 
 

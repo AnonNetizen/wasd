@@ -9,7 +9,9 @@ signal placement_cancelled(instance_id: int, mod_id: String)
 signal inspect_closed()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
+const GEAR_MOD_COMPONENT_TYPES := preload(
+	"res://scripts/contracts/gear_mod_component_types.gd"
+)
 const MODE_INSPECT: StringName = &"inspect"
 const MODE_PLACEMENT: StringName = &"placement"
 const BOARD_SIZE: int = 7
@@ -284,10 +286,12 @@ func _refresh_detail() -> void:
 			return
 	var name_key: String = String(definition.get("name_key", ""))
 	var desc_key: String = String(definition.get("desc_key", ""))
-	var kind: String = String(definition.get("kind", ""))
+	var type_names: PackedStringArray = []
+	for component_type: String in _component_types(definition):
+		type_names.append(tr("ui_gear_mod_component_%s" % component_type))
 	_detail_name_label.text = tr(name_key) if not name_key.is_empty() else String(definition.get("id", ""))
 	_detail_type_label.text = "%s · %s" % [
-		tr("ui_gear_mod_kind_%s" % kind),
+		" + ".join(type_names),
 		tr("ui_gear_mod_board_coord").format({"x": _selected.x, "y": _selected.y}),
 	]
 	_detail_desc_label.text = tr(desc_key) if not desc_key.is_empty() else ""
@@ -337,28 +341,49 @@ func _definition_at_selected_coord() -> Dictionary:
 
 
 func _definition_effect_text(definition: Dictionary) -> String:
-	var kind: String = String(definition.get("kind", ""))
-	if kind == GEAR_MOD_KINDS.EFFECT:
-		var lines: PackedStringArray = []
-		for raw_modifier: Variant in definition.get("modifiers", []):
-			if raw_modifier is not Dictionary:
-				continue
-			var modifier: Dictionary = raw_modifier as Dictionary
-			var stat: String = String(modifier.get("stat", ""))
-			var modifier_type: String = String(modifier.get("type", ""))
-			var value: float = float(modifier.get("value", 0.0))
-			var value_text: String = (
-				"×%.2f" % value
-				if modifier_type == "mult"
-				else "%+.2f" % value
-			)
-			lines.append("%s  %s" % [tr("ui_stats_%s" % stat), value_text])
-		return "\n".join(lines)
-	return (
-		tr("ui_gear_mod_board_behavior_active")
-		if kind == GEAR_MOD_KINDS.MAP
-		else tr("ui_gear_mod_board_occupy_only")
-	)
+	var lines: PackedStringArray = []
+	for raw_component: Variant in definition.get("components", []):
+		if raw_component is not Dictionary:
+			continue
+		var component: Dictionary = raw_component as Dictionary
+		var component_type: String = String(component.get("type", ""))
+		if component_type == GEAR_MOD_COMPONENT_TYPES.MODIFIER:
+			for raw_modifier: Variant in component.get("modifiers", []):
+				if raw_modifier is not Dictionary:
+					continue
+				var modifier: Dictionary = raw_modifier as Dictionary
+				var stat: String = String(modifier.get("stat", ""))
+				var modifier_type: String = String(modifier.get("type", ""))
+				var value: float = float(modifier.get("value", 0.0))
+				var value_text: String = (
+					"×%.2f" % value
+					if modifier_type == "mult"
+					else "%+.2f" % value
+				)
+				lines.append(
+					"%s  %s" % [tr("ui_stats_%s" % stat), value_text]
+				)
+		elif component_type == GEAR_MOD_COMPONENT_TYPES.PROGRAM:
+			lines.append(tr("ui_gear_mod_board_behavior_active"))
+		elif component_type == GEAR_MOD_COMPONENT_TYPES.BOARD_RULE:
+			lines.append(tr("ui_gear_mod_board_occupy_only"))
+	return "\n".join(lines)
+
+
+func _component_types(definition: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for raw_component: Variant in definition.get("components", []):
+		if raw_component is not Dictionary:
+			continue
+		var component_type: String = String(
+			(raw_component as Dictionary).get("type", "")
+		)
+		if (
+			GEAR_MOD_COMPONENT_TYPES.VALUES.has(component_type)
+			and not result.has(component_type)
+		):
+			result.append(component_type)
+	return result
 
 
 func _nearest_legal_coord(origin: Vector2i) -> Vector2i:

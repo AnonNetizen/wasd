@@ -91,7 +91,7 @@ AI 面向用户的回复、计划、总结、提问与变更说明默认使用�
 
 | 任务 | 模板 |
 |------|------|
-| 加遗物 / 道具 | `docs/AI协作/任务模板/加遗物.md`（或用 `/new-relic` 命令） |
+| 加 Gear Mod | `docs/AI协作/任务模板/加GearMod.md`（或用 `/new-gear-mod` 命令） |
 | 加敌人 | `docs/AI协作/任务模板/加敌人.md` |
 | 加效果原语 | `docs/AI协作/任务模板/加效果原语.md` |
 | 加设置项 | `docs/AI协作/任务模板/加设置项.md` |
@@ -109,13 +109,13 @@ AI 面向用户的回复、计划、总结、提问与变更说明默认使用�
 
 | Subagent | 何时调用 | 定义位置 |
 |----------|---------|---------|
-| `data-author` | 加 / 改数据条目（遗物 / 敌人 / locale / 设置 / 埋点） | `.codebuddy/agents/data-author.md` / `.codex/agents/data-author.md` / `.opencode/agents/data-author.md` |
+| `data-author` | 加 / 改数据条目（Gear Mod / 敌人 / locale / 设置 / 埋点） | `.codebuddy/agents/data-author.md` / `.codex/agents/data-author.md` / `.opencode/agents/data-author.md` |
 | `contract-validator` | 改了词表、想检查代码常量 / 裸字符串 / id 同步 | `.codebuddy/agents/contract-validator.md` / `.codex/agents/contract-validator.md` / `.opencode/agents/contract-validator.md` |
 | `balancer` | 跑回放回归 / sim / 数值平衡建议 | `.codebuddy/agents/balancer.md` / `.codex/agents/balancer.md` / `.opencode/agents/balancer.md` |
 | `game-designer` | 评估玩法 / 系统 / 机制设计的优缺点、参考对象、风险和落地路径 | `.codebuddy/agents/game-designer.md` / `.codex/agents/game-designer.md` / `.opencode/agents/game-designer.md` |
 | `numeric-designer` | 设计生命、伤害、成长曲线、掉落、局外成长成本、难度波次等数值模型 | `.codebuddy/agents/numeric-designer.md` / `.codex/agents/numeric-designer.md` / `.opencode/agents/numeric-designer.md` |
 | `ip-designer` | 设计世界观、主题、角色、阵营、怪物生态和长期 IP 内容框架 | `.codebuddy/agents/ip-designer.md` / `.codex/agents/ip-designer.md` / `.opencode/agents/ip-designer.md` |
-| `copywriter-packager` | 包装 UI / 遗物 / 道具 / 商店页 / 宣传语文案，输出中英文草案与 locale 建议 | `.codebuddy/agents/copywriter-packager.md` / `.codex/agents/copywriter-packager.md` / `.opencode/agents/copywriter-packager.md` |
+| `copywriter-packager` | 包装 UI / Gear Mod / 道具 / 商店页 / 宣传语文案，输出中英文草案与 locale 建议 | `.codebuddy/agents/copywriter-packager.md` / `.codex/agents/copywriter-packager.md` / `.opencode/agents/copywriter-packager.md` |
 | `ui-art-designer` | 设计 HUD、菜单、升级选择、局外成长界面、图标、信息层级和 UI 美术 brief | `.codebuddy/agents/ui-art-designer.md` / `.codex/agents/ui-art-designer.md` / `.opencode/agents/ui-art-designer.md` |
 | `game-art-designer` | 设计角色、敌人、场景、子弹、特效、图标、调色板和资产 brief | `.codebuddy/agents/game-art-designer.md` / `.codex/agents/game-art-designer.md` / `.opencode/agents/game-art-designer.md` |
 | `marketing-strategist` | 设计定位、卖点、Steam 页面、预告片、截图、Demo、节日投放和传播优势 | `.codebuddy/agents/marketing-strategist.md` / `.codex/agents/marketing-strategist.md` / `.opencode/agents/marketing-strategist.md` |
@@ -129,7 +129,7 @@ AI 面向用户的回复、计划、总结、提问与变更说明默认使用�
 | 命令 | 用途 | 定义位置 |
 |------|------|---------|
 | `/sync-contracts` | 跑词表→代码常量同步流水线 | `.codebuddy/commands/sync-contracts.md` / `.codex/commands/sync-contracts.md` / `.opencode/commands/sync-contracts.md` |
-| `/new-relic <概念>` | 交互式加遗物 | `.codebuddy/commands/new-relic.md` / `.codex/commands/new-relic.md` / `.opencode/commands/new-relic.md` |
+| `/new-gear-mod <概念>` | 交互式加官方或本地 Gear Mod | `.codebuddy/commands/new-gear-mod.md` / `.codex/commands/new-gear-mod.md` / `.opencode/commands/new-gear-mod.md` |
 | `/run-replay-regression` | 跑黄金回放回归 | `.codebuddy/commands/run-replay-regression.md` / `.codex/commands/run-replay-regression.md` / `.opencode/commands/run-replay-regression.md` |
 | `/health-check` | 项目健康度报告 | `.codebuddy/commands/health-check.md` / `.codex/commands/health-check.md` / `.opencode/commands/health-check.md` |
 | `/update-memory` | 显式兜底触发记忆更新 | `.codebuddy/commands/update-memory.md` / `.codex/commands/update-memory.md` / `.opencode/commands/update-memory.md` |

@@ -6,7 +6,9 @@ extends Control
 
 signal cell_selected(coord: Vector2i)
 
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
+const GEAR_MOD_COMPONENT_TYPES := preload(
+	"res://scripts/contracts/gear_mod_component_types.gd"
+)
 const BOARD_SIZE: int = 7
 const INVALID_COORD := Vector2i(-1, -1)
 const CELL_GAP: float = 6.0
@@ -160,15 +162,21 @@ func _draw_cell(coord: Vector2i) -> void:
 func _placement_label(placement: Dictionary) -> String:
 	var mod_id: String = String(placement.get("mod_id", ""))
 	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-	var kind: String = String(definition.get("kind", ""))
-	match kind:
-		GEAR_MOD_KINDS.EFFECT:
-			return "E"
-		GEAR_MOD_KINDS.MAP:
-			return "M"
-		GEAR_MOD_KINDS.GRID:
-			return "G"
-	return "?"
+	var labels: PackedStringArray = []
+	for raw_component: Variant in definition.get("components", []):
+		if raw_component is not Dictionary:
+			continue
+		match String((raw_component as Dictionary).get("type", "")):
+			GEAR_MOD_COMPONENT_TYPES.MODIFIER:
+				if not labels.has("M"):
+					labels.append("M")
+			GEAR_MOD_COMPONENT_TYPES.PROGRAM:
+				if not labels.has("P"):
+					labels.append("P")
+			GEAR_MOD_COMPONENT_TYPES.BOARD_RULE:
+				if not labels.has("B"):
+					labels.append("B")
+	return "".join(labels) if not labels.is_empty() else "?"
 
 
 func _cell_rect(coord: Vector2i) -> Rect2:

@@ -24,7 +24,7 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 - Inputs use InputMap actions, not physical key or joystick constants.
 - Randomness uses `RNG.<stream>` and gameplay time uses `GameClock` in the full project.
 - UI popups go through `UIManager`, high-frequency entities through `PoolManager`, damage through `Combat.apply_damage`, saves through `SaveManager`, audio through `AudioManager`.
-- Do not add one-off branches by `character_id`, `relic_id`, or similar IDs; use capability, tag, primitive, or strategy data.
+- Do not add one-off branches by `character_id`, Gear Mod ID, or similar IDs; use capability, tag, primitive, or strategy data.
 
 ## Integrated Godot Guidance
 

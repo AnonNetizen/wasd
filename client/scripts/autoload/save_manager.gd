@@ -16,12 +16,12 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.17"
+const GAME_VERSION: String = "v1.18"
 const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 4,
-	SAVE_KINDS.RUN: 18,
+	SAVE_KINDS.RUN: 19,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -84,6 +84,9 @@ func save(slot: String, kind: String, payload: Dictionary) -> bool:
 		_set_error("[SaveManager] save payload is not JSON-serializable")
 		return false
 	var payload_copy: Dictionary = normalized_payload as Dictionary
+	if kind == SAVE_KINDS.RUN:
+		payload_copy["schema_version"] = current_version(kind)
+		payload_copy["mod_environment"] = _current_mod_environment()
 	var envelope: Dictionary = {
 		"version": current_version(kind),
 		"kind": kind,
@@ -164,9 +167,9 @@ func load_envelope(slot: String, kind: String) -> Dictionary:
 		return backup_envelope.duplicate(true)
 
 	var error: String = String(primary_result.get("error", "save file not found"))
-	if FileAccess.file_exists(path):
+	if FileAccess.file_exists(path) and not bool(primary_result.get("preserve", false)):
 		_isolate_broken_file(path, slot, kind, error)
-	if FileAccess.file_exists(bak_path):
+	if FileAccess.file_exists(bak_path) and not bool(backup_result.get("preserve", false)):
 		_isolate_broken_file(bak_path, slot, kind, String(backup_result.get("error", "backup save is invalid")))
 	_set_error(error)
 	return {}
@@ -200,7 +203,31 @@ func delete(slot: String, kind: String) -> bool:
 func has_save(slot: String, kind: String) -> bool:
 	if not _is_valid_slot(slot) or not _is_registered_kind(kind):
 		return false
-	return FileAccess.file_exists(_save_path(slot, kind))
+	var path: String = _save_path(slot, kind)
+	if not FileAccess.file_exists(path):
+		return false
+	if kind != SAVE_KINDS.RUN:
+		return true
+	var result: Dictionary = _read_save_file(path, slot, kind)
+	return (
+		bool(result.get("ok", false))
+		or not bool(result.get("preserve", false))
+	)
+
+
+func save_status(slot: String, kind: String) -> Dictionary:
+	if not _is_valid_slot(slot) or not _is_registered_kind(kind):
+		return {"exists": false, "compatible": false, "error": _last_error}
+	var path: String = _save_path(slot, kind)
+	if not FileAccess.file_exists(path):
+		return {"exists": false, "compatible": false, "error": ""}
+	var result: Dictionary = _read_save_file(path, slot, kind)
+	return {
+		"exists": true,
+		"compatible": bool(result.get("ok", false)),
+		"preserved_incompatible": bool(result.get("preserve", false)),
+		"error": String(result.get("error", "")),
+	}
 
 
 func list_slots() -> Array[String]:
@@ -258,7 +285,15 @@ func _read_save_file(path: String, slot: String, kind: String) -> Dictionary:
 	var envelope: Dictionary = parsed as Dictionary
 	var validation_error: String = _validate_envelope(envelope, slot, kind)
 	if not validation_error.is_empty():
-		return {"ok": false, "error": validation_error}
+		return {
+			"ok": false,
+			"error": validation_error,
+			"preserve": _should_preserve_incompatible_save(
+				envelope,
+				kind,
+				validation_error
+			),
+		}
 
 	var migration_result: Dictionary = _migrate_envelope(envelope)
 	if not bool(migration_result.get("ok", false)):
@@ -286,6 +321,11 @@ func _validate_envelope(envelope: Dictionary, slot: String, kind: String) -> Str
 		return "[SaveManager] save payload must be a Dictionary"
 
 	var version: int = int(envelope["version"])
+	if kind == SAVE_KINDS.RUN and version != current_version(kind):
+		return (
+			"[SaveManager] unsupported run version: %d; expected %d"
+			% [version, current_version(kind)]
+		)
 	if version > current_version(kind):
 		return "[SaveManager] save version is newer than supported: %d > %d" % [version, current_version(kind)]
 
@@ -293,8 +333,72 @@ func _validate_envelope(envelope: Dictionary, slot: String, kind: String) -> Str
 	var expected_hash: String = _payload_hash(payload)
 	if String(envelope["data_hash"]) != expected_hash:
 		return "[SaveManager] save data_hash mismatch"
+	if kind == SAVE_KINDS.RUN:
+		var environment_error: String = _validate_mod_environment(
+			payload.get("mod_environment", null)
+		)
+		if not environment_error.is_empty():
+			return environment_error
 
 	return ""
+
+
+func _should_preserve_incompatible_save(
+	envelope: Dictionary,
+	kind: String,
+	validation_error: String
+) -> bool:
+	if kind != SAVE_KINDS.RUN:
+		return false
+	var raw_version: Variant = envelope.get("version", null)
+	if raw_version is int or raw_version is float:
+		if (
+			int(raw_version) != current_version(kind)
+			and validation_error.begins_with(
+				"[SaveManager] unsupported run version:"
+			)
+		):
+			return true
+	var payload_raw: Variant = envelope.get("payload", null)
+	if payload_raw is Dictionary:
+		var environment_error: String = _validate_mod_environment(
+			(payload_raw as Dictionary).get("mod_environment", null)
+		)
+		return (
+			not environment_error.is_empty()
+			and validation_error == environment_error
+		)
+	return false
+
+
+func _current_mod_environment() -> Array[Dictionary]:
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("mod_environment"):
+		return []
+	var raw_environment: Variant = loader.call("mod_environment")
+	if not raw_environment is Array:
+		return []
+	var environment: Array[Dictionary] = []
+	for raw_entry: Variant in raw_environment as Array:
+		if raw_entry is Dictionary:
+			environment.append((raw_entry as Dictionary).duplicate(true))
+	return environment
+
+
+func _validate_mod_environment(raw_environment: Variant) -> String:
+	if not raw_environment is Array:
+		return "[SaveManager] run mod_environment must be an Array"
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("validate_environment"):
+		return "" if (raw_environment as Array).is_empty() else "[SaveManager] ModLoader unavailable for saved mod environment"
+	var result: Variant = loader.call("validate_environment", raw_environment)
+	if not result is Dictionary:
+		return "[SaveManager] ModLoader returned an invalid environment validation result"
+	if bool((result as Dictionary).get("ok", false)):
+		return ""
+	return "[SaveManager] run mod environment mismatch: %s" % String(
+		(result as Dictionary).get("reason", "unknown mismatch")
+	)
 
 
 func _migrate_envelope(envelope: Dictionary) -> Dictionary:

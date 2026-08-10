@@ -7,7 +7,7 @@
 
 - `StatusEffect` 是运行时状态效果的轻量 `Resource`，承载状态 id、持续时间、剩余时间、叠加规则、来源、强度、DoT 伤害类型 / tick 计时和授予的 ability tags。
 - `StatusEffectComponent` 是挂在可受状态影响实体上的 `Node`，负责按 `GameClock` 推进剩余时间、按叠加规则合并状态、通过 `Combat.apply_damage()` 结算 DoT、过期清理和释放由状态授予的 ability tags。
-- 当前首片服务项目版轻量 GAS 与真实实体状态：`SkillSystem`、`Player` 和 `Enemy` 都可挂载 `StatusEffectComponent`，`skill_effect_apply_status` 可对真实敌人施加 `silence` 或 DoT 状态；`silence` 授予 `ability_tag_silenced`，DoT 状态用登记过的伤害类型按 tick 造成伤害。
+- 当前首片服务项目版轻量 GAS、`GameplayEffectRuntime` 与真实实体状态：`SkillSystem`、`Player` 和 `Enemy` 都可挂载 `StatusEffectComponent`，统一 `apply_status` action 可对真实目标施加 `silence` 或 DoT 状态；`silence` 授予 `ability_tag_silenced`，DoT 状态用登记过的元素按 tick 造成伤害。
 - 本模块暂不实现视觉表现、抗性、免疫、驱散或 `ModifierEngine` 属性修正；这些后续应复用同一个状态生命周期，不在各效果原语里各自实现。
 
 ## 阅读方式
@@ -16,7 +16,7 @@
 |------------|----------|
 | 加新状态 id | `docs/词表与契约.md` §9-A，再跑契约同步 |
 | 加新叠加规则 | `docs/词表与契约.md` §9-B、`status_effect_component.gd` 的 `_merge_effect()` |
-| 让技能施加状态 | `docs/代码/skill_system.md` 的 `skill_effect_apply_status` |
+| 让技能或 Gear Mod 施加状态 | `docs/代码/gameplay_effect_runtime.md` 的 `apply_status` action |
 | 让新实体受状态影响 | 对应实体脚本的 `apply_status_effect()` / owned tag API，参考 `player.gd` 与 `enemy.gd` |
 | 调查沉默没有移除 | `StatusEffectComponent._tick_effects()`、`_expire_effect()` 与 tag owner 的 `remove_owned_tag()` |
 | 调查 DoT 不掉血 | `StatusEffect.element_id` / `magnitude` / `tick_interval`、`StatusEffectComponent._tick_damage()` 与 `Combat.damage_applied` |
@@ -28,7 +28,8 @@
 |------|------|
 | `client/scripts/combat/status_effect.gd` | `StatusEffect` Resource，负责参数规范化、DoT 字段合法性、复制和快照 |
 | `client/scripts/combat/status_effect_component.gd` | 状态容器 Node，负责 apply、叠加、DoT tick、过期和 ability tag 生命周期 |
-| `client/scripts/gameplay/skill_system.gd` | 技能运行时状态宿主；自带一个 `StatusEffectComponent` 并可接受 `skill_effect_apply_status` |
+| `client/scripts/gameplay/skill_system.gd` | 技能运行时状态宿主；自带一个 `StatusEffectComponent`，效果执行经 `GameplayEffectRuntime` |
+| `client/scripts/gameplay/effects/effect_execution_gateway.gd` | `apply_status` action 的统一受控出口 |
 | `client/scripts/gameplay/player.gd` | 玩家实体状态宿主；保存 / 恢复状态效果与状态授予 tags，新开局 `configure()` 清空状态 |
 | `client/scripts/gameplay/enemy.gd` | 敌人实体状态宿主；保存 / 恢复状态效果与状态授予 tags，对象池复用时清空状态 |
 | `client/scripts/contracts/status_effects.gd` / `status_stack_rules.gd` / `ability_tags.gd` | 由词表生成的状态、叠加规则和 ability tag 常量 |
@@ -82,13 +83,13 @@
 - 叠加规则来自 §9-B：`REPLACE`、`REFRESH`、`ADD_DURATION`、`INDEPENDENT`、`MAX_MAGNITUDE`。
 - DoT 元素来自 §9 `element_id`，现有内容默认使用 `element_neutral`，并通过 `DamageInfo.flags=["is_dot"]` 标记持续伤害。
 - 状态授予的 ability tags 来自 §12-G；当前 `silence` 通过 `ability_tag_silenced` 阻断技能释放。
-- `skill_effect_apply_status` 的 `params` 至少包含 `status`、`duration`、`stack_rule`、`granted_ability_tags`；可选 `magnitude`、`tick_interval`、`element_id`、`modifiers` 与易伤来源参数。当 `magnitude` 与 `tick_interval` 都为正时，DataLoader 和 `tools/validate_data.py` 要求 `element_id` 已登记。
+- `apply_status` action 的 `params` 至少包含 `status`、`duration`、`stack_rule`、`granted_ability_tags`；可选 `magnitude`、`tick_interval`、`element_id`、`modifiers` 与易伤来源参数。当 `magnitude` 与 `tick_interval` 都为正时，DataLoader 和 `tools/validate_data.py` 要求 `element_id` 已登记。
 - 状态快照只保存 JSON 友好标量和数组，不保存源节点、目标节点、计时器对象或信号连接；DoT 会保存 `tick_remaining`、`source_team` 和 `target_team`，避免续局后 tick 节奏或击杀归因漂移。
 
 ## 依赖
 
 - 上游依赖：生成常量、`GameState`、`GameClock`、`Combat`、ability tag owner。
-- 当前下游调用方：`SkillSystem`、`Player`、`Enemy`；后续主动道具、遗物行为、机关和 `Combat` on-hit 注入都应复用该组件。
+- 当前下游调用方：`GameplayEffectRuntime` / `EffectExecutionGateway`、`SkillSystem`、`Player`、`Enemy`；后续主动道具、机关和 `Combat` on-hit 注入都应复用该组件。
 - 禁止依赖：不得用裸 `Time` 或自建 `Timer` 推进 gameplay 状态；不得绕过实体的 owned ability tag API 直接改 tag 字典；不得在单个 effect primitive 内私自实现一套 DoT / debuff 生命周期。
 
 ## 扩展点
@@ -138,6 +139,7 @@
 ## 相关文档
 
 - `docs/代码/skill_system.md`
+- `docs/代码/gameplay_effect_runtime.md`
 - `docs/代码/gameplay_runtime.md`
 - `docs/代码/combat.md`
 - `docs/代码/data_loader.md`

@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "skills": [
     {
       "id": "skill_deploy_projectile_barrier",
@@ -31,16 +31,25 @@
         "radius_stat": "ability_range",
         "strength_stat": "ability_strength"
       },
-      "effects": [
+      "programs": [
         {
-          "effect": "skill_effect_deploy_barrier",
-          "params": {
-            "pool_id": "projectile_barrier",
-            "radius": 160.0,
-            "hp": 360.0,
-            "max_active": 1,
-            "recast_policy": "replace"
-          }
+          "program_id": "deploy_barrier_on_activation",
+          "trigger": "skill_activated",
+          "conditions": [],
+          "actions": [
+            {
+              "action": "spawn_barrier",
+              "params": {
+                "pool_id": "projectile_barrier",
+                "radius": 160.0,
+                "hp": 360.0,
+                "max_active": 1,
+                "recast_policy": "replace"
+              }
+            }
+          ],
+          "proc_chance": 1.0,
+          "internal_cooldown": 0.0
         }
       ]
     },
@@ -75,25 +84,34 @@
         "duration_stat": "ability_duration",
         "strength_stat": "ability_strength"
       },
-      "effects": [
+      "programs": [
         {
-          "effect": "skill_effect_apply_status",
-          "params": {
-            "status": "slow",
-            "duration": 5.0,
-            "stack_rule": "MAX_MAGNITUDE",
-            "magnitude": 0.35,
-            "magnitude_cap": 0.7,
-            "modifiers": [
-              {
-                "stat": "move_speed",
-                "type": "mult",
-                "value": 0.65,
-                "scale_mode": "inverse_from_magnitude"
+          "program_id": "slow_on_activation",
+          "trigger": "skill_activated",
+          "conditions": [],
+          "actions": [
+            {
+              "action": "apply_status",
+              "params": {
+                "status": "slow",
+                "duration": 5.0,
+                "stack_rule": "MAX_MAGNITUDE",
+                "magnitude": 0.35,
+                "magnitude_cap": 0.7,
+                "modifiers": [
+                  {
+                    "stat": "move_speed",
+                    "type": "mult",
+                    "value": 0.65,
+                    "scale_mode": "inverse_from_magnitude"
+                  }
+                ],
+                "granted_ability_tags": []
               }
-            ],
-            "granted_ability_tags": []
-          }
+            }
+          ],
+          "proc_chance": 1.0,
+          "internal_cooldown": 0.0
         }
       ]
     },
@@ -127,25 +145,35 @@
         "duration_stat": "ability_duration",
         "strength_stat": "ability_strength"
       },
-      "effects": [
+      "programs": [
         {
-          "effect": "skill_effect_actor_modifiers",
-          "params": {
-            "duration": 5.0,
-            "stack_rule": "REFRESH",
-            "modifiers": [
-              {
-                "stat": "fire_rate",
-                "type": "mult",
-                "value": 1.35
-              },
-              {
-                "stat": "move_speed",
-                "type": "mult",
-                "value": 1.2
+          "program_id": "haste_on_activation",
+          "trigger": "skill_activated",
+          "conditions": [],
+          "actions": [
+            {
+              "action": "temporary_modifier",
+              "params": {
+                "slot": "both",
+                "duration": 5.0,
+                "stack_rule": "REFRESH",
+                "modifiers": [
+                  {
+                    "stat": "fire_rate",
+                    "type": "mult",
+                    "value": 1.35
+                  },
+                  {
+                    "stat": "move_speed",
+                    "type": "mult",
+                    "value": 1.2
+                  }
+                ]
               }
-            ]
-          }
+            }
+          ],
+          "proc_chance": 1.0,
+          "internal_cooldown": 0.0
         }
       ]
     },
@@ -179,36 +207,45 @@
         "radius_stat": "ability_range",
         "duration_stat": "ability_duration"
       },
-      "effects": [
+      "programs": [
         {
-          "effect": "skill_effect_apply_status",
-          "params": {
-            "status": "haste",
-            "duration": 8.0,
-            "stack_rule": "REFRESH",
-            "magnitude": 0.1,
-            "modifiers": [
-              {
-                "stat": "move_speed",
-                "type": "mult",
-                "value": 1.1
+          "program_id": "haste_vulnerability_on_activation",
+          "trigger": "skill_activated",
+          "conditions": [],
+          "actions": [
+            {
+              "action": "apply_status",
+              "params": {
+                "status": "haste",
+                "duration": 8.0,
+                "stack_rule": "REFRESH",
+                "magnitude": 0.1,
+                "modifiers": [
+                  {
+                    "stat": "move_speed",
+                    "type": "mult",
+                    "value": 1.1
+                  }
+                ],
+                "granted_ability_tags": []
               }
-            ],
-            "granted_ability_tags": []
-          }
-        },
-        {
-          "effect": "skill_effect_apply_status",
-          "params": {
-            "status": "vulnerable",
-            "duration": 8.0,
-            "stack_rule": "ADD_STACK_REFRESH",
-            "magnitude": 0.1,
-            "max_stacks": 5,
-            "incoming_damage_per_stack": 0.1,
-            "incoming_damage_source_team": "team_player",
-            "granted_ability_tags": []
-          }
+            },
+            {
+              "action": "apply_status",
+              "params": {
+                "status": "vulnerable",
+                "duration": 8.0,
+                "stack_rule": "ADD_STACK_REFRESH",
+                "magnitude": 0.1,
+                "max_stacks": 5,
+                "incoming_damage_per_stack": 0.1,
+                "incoming_damage_source_team": "team_player",
+                "granted_ability_tags": []
+              }
+            }
+          ],
+          "proc_chance": 1.0,
+          "internal_cooldown": 0.0
         }
       ]
     }

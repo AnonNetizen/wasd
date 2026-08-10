@@ -64,40 +64,53 @@ static func skill_values(
 					ability_stats
 				)
 			)
-	var raw_effects: Variant = skill.get("effects", [])
-	if raw_effects is Array:
-		for effect_index: int in range((raw_effects as Array).size()):
-			var raw_effect: Variant = (raw_effects as Array)[effect_index]
-			if not raw_effect is Dictionary:
+	var raw_programs: Variant = skill.get("programs", [])
+	if raw_programs is Array:
+		for program_index: int in range((raw_programs as Array).size()):
+			var raw_program: Variant = (raw_programs as Array)[program_index]
+			if not raw_program is Dictionary:
 				continue
-			var params: Dictionary = (
-				SKILL_VALUE_RESOLVER.scaled_effect_params(
-					skill,
-					raw_effect as Dictionary,
-					ability_stats
-				)
+			var raw_actions: Variant = (raw_program as Dictionary).get(
+				"actions",
+				[]
 			)
-			var effect_prefix: String = "effect_%d" % (effect_index + 1)
-			_add_numeric_dictionary_values(values, effect_prefix, params)
-			var raw_modifiers: Variant = params.get("modifiers", [])
-			if not raw_modifiers is Array:
+			if not raw_actions is Array:
 				continue
-			for modifier_index: int in range(
-				(raw_modifiers as Array).size()
-			):
-				var raw_modifier: Variant = (
-					(raw_modifiers as Array)[modifier_index]
-				)
-				if not raw_modifier is Dictionary:
+			for action_index: int in range((raw_actions as Array).size()):
+				var raw_action: Variant = (raw_actions as Array)[action_index]
+				if not raw_action is Dictionary:
 					continue
-				_add_numeric_dictionary_values(
-					values,
-					"%s_modifier_%d" % [
-						effect_prefix,
-						modifier_index + 1,
-					],
-					raw_modifier as Dictionary
+				var params: Dictionary = (
+					SKILL_VALUE_RESOLVER.scaled_action_params(
+						skill,
+						raw_action as Dictionary,
+						ability_stats
+					)
 				)
+				var action_prefix: String = "program_%d_action_%d" % [
+					program_index + 1,
+					action_index + 1,
+				]
+				_add_numeric_dictionary_values(values, action_prefix, params)
+				var raw_modifiers: Variant = params.get("modifiers", [])
+				if not raw_modifiers is Array:
+					continue
+				for modifier_index: int in range(
+					(raw_modifiers as Array).size()
+				):
+					var raw_modifier: Variant = (
+						(raw_modifiers as Array)[modifier_index]
+					)
+					if not raw_modifier is Dictionary:
+						continue
+					_add_numeric_dictionary_values(
+						values,
+						"%s_modifier_%d" % [
+							action_prefix,
+							modifier_index + 1,
+						],
+						raw_modifier as Dictionary
+					)
 	return values
 
 

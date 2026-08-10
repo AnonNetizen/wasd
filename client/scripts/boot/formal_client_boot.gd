@@ -17,6 +17,9 @@ const CONTENT_PROGRESSION_SMOKE_SCRIPT_PATH: String = (
 )
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
+const EFFECT_RUNTIME_SMOKE_SCRIPT_PATH: String = (
+	"res://tools/effect_runtime_smoke.gd"
+)
 const F9_DEMO_SMOKE_SCRIPT_PATH: String = "res://tools/f9_demo_smoke.gd"
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
 const GEAR_MOD_SMOKE_SCRIPT_PATH: String = "res://tools/gear_mod_smoke.gd"
@@ -30,6 +33,7 @@ const L1_SMOKE_SCRIPT_PATH: String = "res://tools/l1_smoke.gd"
 const LOADING_SCREEN_SCENE := preload("res://scenes/ui/loading_screen.tscn")
 const LOADING_SMOKE_SCRIPT_PATH: String = "res://tools/loading_smoke.gd"
 const MODULE_WORLD_SMOKE_SCRIPT_PATH: String = "res://tools/module_world_smoke.gd"
+const MOD_PANEL_SCENE := preload("res://scenes/ui/mod_panel.tscn")
 const RUNTIME_SMOKE_SCRIPT_PATH: String = "res://tools/runtime_smoke.gd"
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
 const UI_MANAGER_SMOKE_SCRIPT_PATH: String = "res://tools/ui_manager_smoke.gd"
@@ -62,6 +66,7 @@ var _last_sub_hero_id: String = ""
 var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
 var _loading_screen: CanvasLayer = null
+var _mod_panel: CanvasLayer = null
 var _player_load_in_progress: bool = false
 var _active_difficulty_profile_id: String = ""
 
@@ -81,7 +86,7 @@ func _ready() -> void:
 	var audio_prefix_count: int = AudioManager.registered_audio_prefixes().size()
 	var state_name: StringName = GameState.current()
 	_load_last_composition_from_meta()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d level_progression_profiles=%d reward_choice_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d module_worlds=%d module_templates=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d level_progression_profiles=%d reward_choice_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d module_worlds=%d module_templates=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
@@ -92,7 +97,6 @@ func _ready() -> void:
 		int(schema_counts.get("enemies", 0)),
 		int(schema_counts.get("hazards", 0)),
 		int(schema_counts.get("spawn_waves", 0)),
-		int(schema_counts.get("relics", 0)),
 		int(schema_counts.get("active_items", 0)),
 		int(schema_counts.get("consumables", 0)),
 		int(schema_counts.get("skills", 0)),
@@ -138,6 +142,11 @@ func _ready() -> void:
 		_install_dynamic_runner(
 			ACTOR_SCENE_SMOKE_SCRIPT_PATH,
 			"ActorSceneSmoke"
+		)
+	elif _is_effect_runtime_smoke_enabled():
+		_install_dynamic_runner(
+			EFFECT_RUNTIME_SMOKE_SCRIPT_PATH,
+			"EffectRuntimeSmoke"
 		)
 	elif _is_l1_smoke_enabled():
 		_install_dynamic_runner(L1_SMOKE_SCRIPT_PATH, "L1Smoke")
@@ -251,6 +260,10 @@ func debug_active_run_loop() -> Node:
 
 func _is_runtime_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
+
+
+func _is_effect_runtime_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--effect-runtime-smoke")
 
 
 func _is_content_progression_smoke_enabled() -> bool:
@@ -376,18 +389,46 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_loading_screen = null
 	_hero_composition_panel = null
 	_codex_panel = null
+	_mod_panel = null
 	_clear_gameplay_runtime()
+	ModLoader.set_runtime_activity(false, false)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
 	UIManager.clear(true)
 
 	_title_menu = UIManager.push(TITLE_MENU_SCENE, {"source": "formal_client_boot"}) as CanvasLayer
 	if _title_menu == null:
 		return
-	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), notice_key)
+	var run_status: Dictionary = SaveManager.save_status(
+		SaveManager.DEFAULT_SLOT,
+		SAVE_KINDS.RUN
+	)
+	var resolved_notice_key: String = notice_key
+	var preserved_incompatible: bool = bool(
+		run_status.get("preserved_incompatible", false)
+	)
+	if (
+		resolved_notice_key.is_empty()
+		and bool(run_status.get("exists", false))
+		and preserved_incompatible
+	):
+		resolved_notice_key = "ui_run_save_environment_incompatible"
+	var run_can_continue: bool = (
+		bool(run_status.get("compatible", false))
+		or (
+			bool(run_status.get("exists", false))
+			and not preserved_incompatible
+		)
+	)
+	_title_menu.call(
+		"configure",
+		run_can_continue,
+		resolved_notice_key
+	)
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"))
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
 	_title_menu.connect("codex_requested", Callable(self, "_on_title_codex_requested"))
+	_title_menu.connect("mods_requested", Callable(self, "_on_title_mods_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
@@ -416,6 +457,7 @@ func _mount_gameplay_run(
 	difficulty_profile_id: String = ""
 ) -> void:
 	_clear_gameplay_runtime()
+	ModLoader.set_runtime_activity(true, Replay.is_recording())
 
 	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
 	var selected_difficulty_profile_id: String = (
@@ -738,6 +780,7 @@ func _clear_gameplay_runtime() -> void:
 			parent.remove_child(_run_loop)
 		_run_loop.queue_free()
 	_run_loop = null
+	ModLoader.set_runtime_activity(false, false)
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	for enemy_row: Dictionary in DataLoader.load_csv(DataLoader.ENEMIES_PATH):
 		var pool_id: String = String(enemy_row.get("pool_id", ""))
@@ -843,6 +886,28 @@ func _on_codex_panel_closed() -> void:
 	_codex_panel = null
 
 
+func _on_title_mods_requested() -> void:
+	if _mod_panel != null and is_instance_valid(_mod_panel):
+		return
+	_mod_panel = UIManager.push(
+		MOD_PANEL_SCENE,
+		{"source": "title_menu"}
+	) as CanvasLayer
+	if _mod_panel == null:
+		return
+	_mod_panel.connect(
+		"closed_requested",
+		Callable(self, "_on_mod_panel_closed"),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _on_mod_panel_closed() -> void:
+	if UIManager.top() == _mod_panel:
+		UIManager.pop_expected(_mod_panel)
+	_mod_panel = null
+
+
 func _on_title_settings_requested() -> void:
 	if _settings_panel != null and is_instance_valid(_settings_panel):
 		return
@@ -889,6 +954,7 @@ func _install_dynamic_runner(
 			"[FormalClientBoot] missing runner script: %s"
 			% script_path
 		)
+		get_tree().quit(1)
 		return
 	var runner: Node = runner_script.new() as Node
 	if runner == null:
@@ -896,6 +962,7 @@ func _install_dynamic_runner(
 			"[FormalClientBoot] runner script is not a Node: %s"
 			% script_path
 		)
+		get_tree().quit(1)
 		return
 	runner.name = node_name
 	add_child(runner)

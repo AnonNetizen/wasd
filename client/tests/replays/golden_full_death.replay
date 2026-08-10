@@ -1,8 +1,9 @@
 {
 	"created_at": "golden:golden_full_death",
-	"data_fingerprint": "5fc30d06b63dd7213e8b8fb17eac1ccc30790350f2a2b297c408f1f19f6b2396",
-	"file_schema_version": 8,
-	"game_version": "v1.17",
+	"data_fingerprint": "ae289a23d12e2a6aae462df13a047830f6e4ef860ef77a9dd551ce198e8b72d5",
+	"file_schema_version": 9,
+	"game_version": "v1.18",
+	"mod_environment": [],
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -50,7 +51,6 @@
 					"enemy_damage_multiplier": 1.0,
 					"enemy_health_multiplier": 1.0,
 					"gear_mods": {
-						"map_behavior_states": [],
 						"next_instance_id": 1,
 						"placements": [],
 						"unlock_sources": [],
@@ -114,8 +114,8 @@
 					"run_time": 0.0,
 					"sub_hero_id": "character_primary_a"
 				},
-				"tick": 89,
-				"time": 1.49455888888888
+				"tick": 90,
+				"time": 1.51162377777778
 			}
 		],
 		"dropped_decision_events": 0,
@@ -358,11 +358,11 @@
 				"time": 1.25
 			}
 		],
-		"schema_version": 8,
+		"schema_version": 9,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "ae341aa1289d9ea72f8393ca35abf18167d5bf3416eb34a6430968e4d92ddbdc",
+	"recording_hash": "0ac1c9ea4672a548b8ee9c17d7a80c94c17953eea495d94ba3f1f1c65e0f1393",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -541,7 +541,7 @@
 			"state": "game_over",
 			"ui_stack": 1
 		},
-		"schema_version": 8,
+		"schema_version": 9,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

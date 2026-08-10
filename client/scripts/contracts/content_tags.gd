@@ -5,7 +5,6 @@ const VALUES: Array[String] = [
 	"tag_character",
 	"tag_enemy",
 	"tag_hazard",
-	"tag_relic",
 	"tag_active_item",
 	"tag_consumable",
 	"tag_skill",
@@ -15,7 +14,6 @@ const VALUES: Array[String] = [
 const TAG_CHARACTER: String = "tag_character"
 const TAG_ENEMY: String = "tag_enemy"
 const TAG_HAZARD: String = "tag_hazard"
-const TAG_RELIC: String = "tag_relic"
 const TAG_ACTIVE_ITEM: String = "tag_active_item"
 const TAG_CONSUMABLE: String = "tag_consumable"
 const TAG_SKILL: String = "tag_skill"

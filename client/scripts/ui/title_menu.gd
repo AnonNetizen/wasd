@@ -7,6 +7,7 @@ extends CanvasLayer
 signal quit_requested()
 signal continue_requested()
 signal codex_requested()
+signal mods_requested()
 signal settings_requested()
 signal start_requested()
 
@@ -14,6 +15,7 @@ var _codex_button: Button = null
 var _continue_button: Button = null
 var _notice_key: String = ""
 var _notice_label: Label = null
+var _mods_button: Button = null
 var _quit_button: Button = null
 var _settings_button: Button = null
 var _start_button: Button = null
@@ -29,6 +31,7 @@ func _ready() -> void:
 	_start_button = get_node_or_null("Root/Center/Panel/Margin/Layout/StartButton") as Button
 	_settings_button = get_node_or_null("Root/Center/Panel/Margin/Layout/SettingsButton") as Button
 	_codex_button = get_node_or_null("Root/Center/Panel/Margin/Layout/CodexButton") as Button
+	_mods_button = get_node_or_null("Root/Center/Panel/Margin/Layout/ModsButton") as Button
 	_quit_button = get_node_or_null("Root/Center/Panel/Margin/Layout/QuitButton") as Button
 	_notice_label = get_node_or_null("Root/Center/Panel/Margin/Layout/RunSaveNoticeLabel") as Label
 	_continue_button = get_node_or_null("Root/Center/Panel/Margin/Layout/ContinueRunButton") as Button
@@ -39,7 +42,7 @@ func _ready() -> void:
 	if _notice_label == null or _continue_button == null:
 		push_error("[TitleMenu] missing required scene nodes")
 		return
-	if _settings_button == null or _codex_button == null:
+	if _settings_button == null or _codex_button == null or _mods_button == null:
 		push_error("[TitleMenu] missing required scene nodes")
 		return
 
@@ -56,6 +59,8 @@ func _ready() -> void:
 
 	_codex_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_codex_button.pressed.connect(_on_codex_pressed)
+	_mods_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_mods_button.pressed.connect(_on_mods_pressed)
 
 	_quit_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_quit_button.pressed.connect(_on_quit_pressed)
@@ -103,6 +108,8 @@ func refresh_texts() -> void:
 		_settings_button.text = tr("ui_settings")
 	if _codex_button != null:
 		_codex_button.text = tr("ui_codex")
+	if _mods_button != null:
+		_mods_button.text = tr("ui_mod_panel_button")
 	if _quit_button != null:
 		_quit_button.text = tr("ui_quit")
 	if _notice_label != null and _notice_label.visible and not _notice_key.is_empty():
@@ -128,6 +135,10 @@ func _on_settings_pressed() -> void:
 
 func _on_codex_pressed() -> void:
 	codex_requested.emit()
+
+
+func _on_mods_pressed() -> void:
+	mods_requested.emit()
 
 
 func _on_quit_pressed() -> void:

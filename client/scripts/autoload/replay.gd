@@ -23,8 +23,8 @@ const GEAR_MOD_PLACEMENT_OUTCOMES := preload(
 	"res://scripts/contracts/gear_mod_placement_outcomes.gd"
 )
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 8
-const REPLAY_FILE_SCHEMA_VERSION: int = 8
+const REPLAY_SCHEMA_VERSION: int = 9
+const REPLAY_FILE_SCHEMA_VERSION: int = 9
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
@@ -454,6 +454,7 @@ func _build_file_envelope(recording: Dictionary) -> Dictionary:
 		"file_schema_version": REPLAY_FILE_SCHEMA_VERSION,
 		"created_at": Time.get_datetime_string_from_system(false, false),
 		"game_version": SaveManager.GAME_VERSION,
+		"mod_environment": _current_mod_environment(),
 		"data_fingerprint": _data_fingerprint(),
 		"recording_hash": _payload_hash(recording_payload),
 		"recording": recording_payload,
@@ -462,7 +463,7 @@ func _build_file_envelope(recording: Dictionary) -> Dictionary:
 
 
 func _validate_file_envelope(envelope: Dictionary) -> String:
-	for field_name: String in ["file_schema_version", "created_at", "game_version", "data_fingerprint", "recording_hash", "recording", "summary"]:
+	for field_name: String in ["file_schema_version", "created_at", "game_version", "mod_environment", "data_fingerprint", "recording_hash", "recording", "summary"]:
 		if not envelope.has(field_name):
 			return "[Replay] replay missing field: %s" % field_name
 	if not envelope["recording"] is Dictionary:
@@ -471,6 +472,15 @@ func _validate_file_envelope(envelope: Dictionary) -> String:
 	var file_schema_version: int = int(envelope.get("file_schema_version", 0))
 	if file_schema_version != REPLAY_FILE_SCHEMA_VERSION:
 		return "[Replay] unsupported replay file schema: %d; expected %d" % [file_schema_version, REPLAY_FILE_SCHEMA_VERSION]
+	var environment_error: String = _validate_mod_environment(
+		envelope.get("mod_environment", null)
+	)
+	if not environment_error.is_empty():
+		return environment_error
+	var stored_fingerprint: String = String(envelope.get("data_fingerprint", ""))
+	var current_fingerprint: String = _data_fingerprint()
+	if stored_fingerprint != current_fingerprint:
+		return "[Replay] data_fingerprint mismatch"
 
 	var recording: Dictionary = envelope["recording"] as Dictionary
 	var recording_schema_version: int = int(recording.get("schema_version", 0))
@@ -640,11 +650,47 @@ func _data_fingerprint() -> String:
 	var payload: Dictionary = {
 		"contracts": DataLoader.contracts(),
 		"schema_counts": DataLoader.schema_counts(),
+		"effect_gameplay": (
+			DataLoader.effect_gameplay_fingerprint_payload()
+			if DataLoader.has_method("effect_gameplay_fingerprint_payload")
+			else {}
+		),
 		"gear_mod_gameplay": (
 			DataLoader.gear_mod_gameplay_fingerprint_payload()
 		),
+		"mod_environment": _current_mod_environment(),
 	}
 	return _payload_hash(payload)
+
+
+func _current_mod_environment() -> Array[Dictionary]:
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("mod_environment"):
+		return []
+	var raw_environment: Variant = loader.call("mod_environment")
+	if not raw_environment is Array:
+		return []
+	var environment: Array[Dictionary] = []
+	for raw_entry: Variant in raw_environment as Array:
+		if raw_entry is Dictionary:
+			environment.append((raw_entry as Dictionary).duplicate(true))
+	return environment
+
+
+func _validate_mod_environment(raw_environment: Variant) -> String:
+	if not raw_environment is Array:
+		return "[Replay] mod_environment must be an Array"
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("validate_environment"):
+		return "" if (raw_environment as Array).is_empty() else "[Replay] ModLoader unavailable for recorded mod environment"
+	var result: Variant = loader.call("validate_environment", raw_environment)
+	if not result is Dictionary:
+		return "[Replay] ModLoader returned an invalid environment validation result"
+	if bool((result as Dictionary).get("ok", false)):
+		return ""
+	return "[Replay] mod environment mismatch: %s" % String(
+		(result as Dictionary).get("reason", "unknown mismatch")
+	)
 
 
 func _payload_hash(payload: Dictionary) -> String:

@@ -37,7 +37,7 @@ open-warzone 只作为保留的技术 / 回归载体，继续使用固定压力�
 
 - 死亡与完成都会删除当前 run，清空局内 Mod。
 - 结果页显示击杀、用时及最终 Gear Mod 构筑；同一 Mod ID 聚合数量，再以本地化名称显示，数量不代表等级；不显示带回 / 丢失清单。
-- Run v18 保存兴趣点、Gear Mod 棋盘 / 地图计划与带 ID 未拾取物；恢复不得重抽缓存 / 刷怪计划、重复发奖或破坏全局实例唯一。旧 Run v17 及更早版本只删除 Run。
+- Run v19 保存兴趣点、Gear Mod 棋盘、统一效果 runtime 状态与带 ID 未拾取物；恢复不得重抽缓存 / 刷怪计划、重复发奖或破坏全局实例唯一。旧 Run v18 保留原文件但拒绝继续。
 - Meta v4 不保存任何 Gear Mod 实例、dust 或战利品。
 
 ## 验证
@@ -45,7 +45,7 @@ open-warzone 只作为保留的技术 / 回归载体，继续使用固定压力�
 - 数据 / schema 同时拒绝旧跨局奖励与撤离字段。
 - `runtime-smoke` 覆盖四个兴趣点、即时金币、Mod 缓存两次抽取、意识核直接完成与结果页。
 - `gear-mod-smoke` 覆盖固定 damage ×1.20、recoil / spread ×0.80 和重复实例乘算；`gear-mod-pickup-smoke` 覆盖所有来源的手动拾取；`save-smoke` 覆盖恢复不重抽 / 不重复发奖。
-- `replay-smoke` 与四条 Replay v8 黄金回放覆盖 placement 决策、Gear Mod v5 玩法指纹和结束语义；Replay v7 明确拒绝。当前游戏版本为 v1.17。
+- `replay-smoke` 与四条 Replay v9 黄金回放覆盖 placement 决策、Gear Mod v6 / 统一效果玩法指纹、精确 `mod_environment` 和结束语义；Replay v8 保留原文件但明确拒绝播放。当前游戏版本为 v1.18。
 - 不运行性能 probe，不以局长作为门槛。
 
 待人工验收：局内掉落 / 重复实例反馈、最终构筑结果页、中英文布局，以及意识核立即通关的实际节奏。

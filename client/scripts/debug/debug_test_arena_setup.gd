@@ -22,7 +22,6 @@ var _content: Dictionary = {}
 var _feedback_label: Label = null
 var _gear_mod_rows: Array[DebugTestArenaModRow] = []
 var _mod_list: VBoxContainer = null
-var _relics_label: Label = null
 var _seed_spin: SpinBox = null
 var _skill_option: OptionButton = null
 var _start_button: Button = null
@@ -54,9 +53,6 @@ func _ready() -> void:
 	_mod_list = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/ModSection/ModScroll/ModList"
 	) as VBoxContainer
-	_relics_label = get_node_or_null(
-		"Root/Center/Panel/Margin/Layout/UnavailableSection/RelicsLabel"
-	) as Label
 	_active_items_label = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/UnavailableSection/ActiveItemsLabel"
 	) as Label
@@ -80,7 +76,6 @@ func _ready() -> void:
 		or _weapon_option == null
 		or _skill_option == null
 		or _mod_list == null
-		or _relics_label == null
 		or _active_items_label == null
 		or _consumables_label == null
 		or _feedback_label == null
@@ -230,7 +225,6 @@ func debug_summary() -> Dictionary:
 		"weapon_options": _weapon_option.item_count,
 		"skill_options": _skill_option.item_count,
 		"gear_mod_rows": _gear_mod_rows.size(),
-		"relics_disabled": not _relics_label.text.is_empty(),
 		"active_items_disabled": not _active_items_label.text.is_empty(),
 		"consumables_disabled": not _consumables_label.text.is_empty(),
 		"config": _build_config(),
@@ -301,10 +295,6 @@ func _rebuild_mod_rows(selected_mods: Array[Dictionary]) -> void:
 
 
 func _refresh_unavailable_content() -> void:
-	_relics_label.text = _unavailable_content_text(
-		"ui_debug_test_arena_relics",
-		_typed_dictionary_array(_content.get("relics", []))
-	)
 	_active_items_label.text = _unavailable_content_text(
 		"ui_debug_test_arena_active_items",
 		_typed_dictionary_array(_content.get("active_items", []))

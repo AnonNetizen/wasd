@@ -108,13 +108,13 @@
   schemas/
     player.schema.json
     enemies.schema.json
-    relics.schema.json
+    gear_mods.schema.json
     active_items.schema.json
     consumables.schema.json
     hazards.schema.json
     spawn_waves.schema.json
   ```
-- CI 用 `ajv-cli` 跑校验：字段缺失 / 类型错 / 取值越界 → 失败，输出精确路径（如 `relics.json[3].modifiers[0].stat`）
+- CI 用 `ajv-cli` 跑校验：字段缺失 / 类型错 / 取值越界 → 失败，输出精确路径（如 `gear_mods.json.mods[3].components[0].program.actions[0]`）
 - 与 1.B 的词表校验配合，形成「**结构对、id 也对**」双重保险
 
 ### 2.G Godot Headless 启动验证 ⭐⭐⭐
@@ -199,7 +199,7 @@
 **workflow（拟建）**：`.github/workflows/balance-sim.yml`（手动触发）
 
 - headless 跑 `tools/sim.gd --runs 1000`
-- 输出 build 强度 / 胜率分布 / 无人选择遗物清单
+- 输出 build 强度 / 胜率分布 / 无人选择 Gear Mod 清单
 - 与 GDD 9.10 配套；MVP 后再启用
 - F8 已保留 `python tools/godot_bridge.py --project client perf-probe`，可在用户明确要求性能测试时输出轻量 schema v2 JSON 指标（30 帧 warmup 后 180 帧帧时间分布、实体峰值、池峰值和预算状态）。该命令不进入默认 CI、pre-commit 或常规交付测试；未来若建立性能 workflow，只允许手动触发。
 

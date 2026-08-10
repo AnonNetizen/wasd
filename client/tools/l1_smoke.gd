@@ -30,7 +30,8 @@ const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const PROJECTILE_BARRIER_SCENE := preload("res://scenes/gameplay/projectile_barrier.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
-const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
+const EFFECT_ACTIONS := preload("res://scripts/contracts/effect_actions.gd")
+const EFFECT_TRIGGERS := preload("res://scripts/contracts/effect_triggers.gd")
 const SKILL_IDS := preload("res://scripts/contracts/skill_ids.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SLOTS := preload("res://scripts/contracts/skill_slots.gd")
@@ -848,11 +849,14 @@ func _expect_config_backed_skill_descriptions() -> void:
 	var barrier_cost: Dictionary = (
 		(barrier.get("costs", []) as Array)[0] as Dictionary
 	)
-	var barrier_effect: Dictionary = (
-		(barrier.get("effects", []) as Array)[0] as Dictionary
+	var barrier_program: Dictionary = (
+		(barrier.get("programs", []) as Array)[0] as Dictionary
+	)
+	var barrier_action: Dictionary = (
+		(barrier_program.get("actions", []) as Array)[0] as Dictionary
 	)
 	var barrier_params: Dictionary = (
-		barrier_effect.get("params", {}) as Dictionary
+		barrier_action.get("params", {}) as Dictionary
 	)
 	_expect(
 		is_equal_approx(
@@ -860,17 +864,20 @@ func _expect_config_backed_skill_descriptions() -> void:
 			float(barrier_cost.get("amount", 0.0)) * 0.5
 		)
 		and is_equal_approx(
-			float(barrier_values.get("effect_1_radius", 0.0)),
+			float(barrier_values.get("program_1_action_1_radius", 0.0)),
 			float(barrier_params.get("radius", 0.0)) * 1.5
 		)
 		and is_equal_approx(
-			float(barrier_values.get("effect_1_hp", 0.0)),
+			float(barrier_values.get("program_1_action_1_hp", 0.0)),
 			float(barrier_params.get("hp", 0.0)) * 2.0
 		),
 		"skill descriptions should resolve cost, range, and strength from config"
 	)
 	var barrier_text: String = SKILL_DESCRIPTION_FORMATTER.format_skill(
-		"{cost_energy}|{effect_1_radius}|{effect_1_hp}",
+		(
+			"{cost_energy}|{program_1_action_1_radius}|"
+			+ "{program_1_action_1_hp}"
+		),
 		barrier,
 		ability_stats
 	)
@@ -884,10 +891,13 @@ func _expect_config_backed_skill_descriptions() -> void:
 		ability_stats
 	)
 	var slow_targeting: Dictionary = slow.get("targeting", {}) as Dictionary
-	var slow_effect: Dictionary = (
-		(slow.get("effects", []) as Array)[0] as Dictionary
+	var slow_program: Dictionary = (
+		(slow.get("programs", []) as Array)[0] as Dictionary
 	)
-	var slow_params: Dictionary = slow_effect.get("params", {}) as Dictionary
+	var slow_action: Dictionary = (
+		(slow_program.get("actions", []) as Array)[0] as Dictionary
+	)
+	var slow_params: Dictionary = slow_action.get("params", {}) as Dictionary
 	var expected_slow_magnitude: float = minf(
 		float(slow_params.get("magnitude", 0.0)) * 2.0,
 		float(slow_params.get("magnitude_cap", 0.0))
@@ -900,14 +910,19 @@ func _expect_config_backed_skill_descriptions() -> void:
 		and is_equal_approx(
 			float(
 				slow_values.get(
-					"effect_1_magnitude_percent",
+					"program_1_action_1_magnitude_percent",
 					0.0
 				)
 			),
 			expected_slow_magnitude * 100.0
 		)
 		and is_equal_approx(
-			float(slow_values.get("effect_1_duration", 0.0)),
+			float(
+				slow_values.get(
+					"program_1_action_1_duration",
+					0.0
+				)
+			),
 			float(slow_params.get("duration", 0.0)) * 2.0
 		),
 		"skill descriptions should apply duration and capped strength scaling"
@@ -921,16 +936,22 @@ func _expect_config_backed_skill_descriptions() -> void:
 			ability_stats
 		)
 	)
-	var haste_effect: Dictionary = (
-		(haste.get("effects", []) as Array)[0] as Dictionary
+	var haste_program: Dictionary = (
+		(haste.get("programs", []) as Array)[0] as Dictionary
 	)
-	var haste_params: Dictionary = haste_effect.get("params", {}) as Dictionary
+	var haste_action: Dictionary = (
+		(haste_program.get("actions", []) as Array)[0] as Dictionary
+	)
+	var haste_params: Dictionary = haste_action.get("params", {}) as Dictionary
 	var haste_modifiers: Array = haste_params.get("modifiers", []) as Array
 	_expect(
 		is_equal_approx(
 			float(
 				haste_values.get(
-					"effect_1_modifier_1_value_bonus_percent",
+					(
+						"program_1_action_1_modifier_1_"
+						+ "value_bonus_percent"
+					),
 					0.0
 				)
 			),
@@ -947,7 +968,10 @@ func _expect_config_backed_skill_descriptions() -> void:
 		and is_equal_approx(
 			float(
 				haste_values.get(
-					"effect_1_modifier_2_value_bonus_percent",
+					(
+						"program_1_action_1_modifier_2_"
+						+ "value_bonus_percent"
+					),
 					0.0
 				)
 			),
@@ -966,9 +990,15 @@ func _expect_config_backed_skill_descriptions() -> void:
 	var haste_text: String = (
 		SKILL_DESCRIPTION_FORMATTER.format_skill(
 			(
-				"{effect_1_modifier_1_value_bonus_percent}|"
-				+ "{effect_1_modifier_2_value_bonus_percent}|"
-				+ "{effect_1_duration}"
+				(
+					"{program_1_action_1_modifier_1_"
+					+ "value_bonus_percent}|"
+				)
+				+ (
+					"{program_1_action_1_modifier_2_"
+					+ "value_bonus_percent}|"
+				)
+				+ "{program_1_action_1_duration}"
 			),
 			haste,
 			ability_stats
@@ -2341,7 +2371,7 @@ func _expect_poison_dot_status() -> void:
 
 	GameState.change_state(GameState.PLAYING, {"source": "l1_poison_smoke"})
 	var poison_result: Dictionary = skill_system.call("cast_primary_skill")
-	_expect(bool(poison_result.get("ok", false)), "SkillSystem should apply poison through skill_effect_apply_status")
+	_expect(bool(poison_result.get("ok", false)), "SkillSystem should apply poison through the apply_status action")
 	_expect((enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.POISON), "Enemy should report poison as an active status")
 	var starting_life: float = _enemy_life(enemy)
 	await _wait_physics_frames(16)
@@ -2469,21 +2499,26 @@ func _l1_self_modifier_skill(skill_id: String) -> Dictionary:
 		"scaling": {
 			"cost_stat": STATS.ABILITY_EFFICIENCY,
 		},
-		"effects": [
-			{
-				"effect":
-					SKILL_EFFECTS.SKILL_EFFECT_ACTOR_MODIFIERS,
-				"params": {
-					"duration": 1.0,
-					"modifiers": [
-						{
-							"stat": STATS.MOVE_SPEED,
-							"type": "mult",
-							"value": 1.0,
+		"programs": [
+			_activation_program(
+				"self_modifier_on_activation",
+				[
+					{
+						"action": EFFECT_ACTIONS.TEMPORARY_MODIFIER,
+						"params": {
+							"slot": "actor",
+							"duration": 1.0,
+							"modifiers": [
+								{
+									"stat": STATS.MOVE_SPEED,
+									"type": "mult",
+									"value": 1.0,
+								},
+							],
 						},
-					],
-				},
-			},
+					},
+				]
+			),
 		],
 	}
 
@@ -2602,11 +2637,16 @@ func _l1_damage_skill() -> Dictionary:
 			"radius": 120.0,
 			"max_targets": 0,
 		},
-		"effects": [
-			{
-				"effect": SKILL_EFFECTS.SKILL_EFFECT_DAMAGE,
-				"params": {"amount": 4.0, "element_id": ELEMENTS.ELEMENT_NEUTRAL},
-			},
+		"programs": [
+			_activation_program("damage_on_activation", [
+				{
+					"action": EFFECT_ACTIONS.DAMAGE,
+					"params": {
+						"amount": 4.0,
+						"element_id": ELEMENTS.ELEMENT_NEUTRAL,
+					},
+				},
+			]),
 		],
 	}
 
@@ -2630,16 +2670,18 @@ func _l1_self_silence_skill() -> Dictionary:
 			"radius": 0.0,
 			"max_targets": 1,
 		},
-		"effects": [
-			{
-				"effect": SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS,
-				"params": {
+		"programs": [
+			_activation_program("silence_self_on_activation", [
+				{
+					"action": EFFECT_ACTIONS.APPLY_STATUS,
+					"params": {
 					"status": STATUS_EFFECTS.SILENCE,
 					"duration": 0.06,
 					"stack_rule": STATUS_STACK_RULES.REFRESH,
 					"granted_ability_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED],
+					},
 				},
-			},
+			]),
 		],
 	}
 
@@ -2664,10 +2706,11 @@ func _l1_poison_dot_skill() -> Dictionary:
 			"radius": 180.0,
 			"max_targets": 1,
 		},
-		"effects": [
-			{
-				"effect": SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS,
-				"params": {
+		"programs": [
+			_activation_program("poison_on_activation", [
+				{
+					"action": EFFECT_ACTIONS.APPLY_STATUS,
+					"params": {
 					"status": STATUS_EFFECTS.POISON,
 					"duration": 1.2,
 					"stack_rule": STATUS_STACK_RULES.REFRESH,
@@ -2675,8 +2718,9 @@ func _l1_poison_dot_skill() -> Dictionary:
 					"magnitude": 1.5,
 					"tick_interval": 0.2,
 					"element_id": ELEMENTS.ELEMENT_PRIMARY_C,
+					},
 				},
-			},
+			]),
 		],
 	}
 
@@ -2700,17 +2744,33 @@ func _l1_enemy_silence_skill() -> Dictionary:
 			"radius": 120.0,
 			"max_targets": 1,
 		},
-		"effects": [
-			{
-				"effect": SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS,
-				"params": {
+		"programs": [
+			_activation_program("silence_enemy_on_activation", [
+				{
+					"action": EFFECT_ACTIONS.APPLY_STATUS,
+					"params": {
 					"status": STATUS_EFFECTS.SILENCE,
 					"duration": 0.06,
 					"stack_rule": STATUS_STACK_RULES.REFRESH,
 					"granted_ability_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED],
+					},
 				},
-			},
+			]),
 		],
+	}
+
+
+func _activation_program(
+	program_id: String,
+	actions: Array[Dictionary]
+) -> Dictionary:
+	return {
+		"program_id": program_id,
+		"trigger": EFFECT_TRIGGERS.SKILL_ACTIVATED,
+		"conditions": [],
+		"actions": actions,
+		"proc_chance": 1.0,
+		"internal_cooldown": 0.0,
 	}
 
 
@@ -2788,22 +2848,22 @@ func _expect_mod_loader_data_patch() -> void:
 		return
 
 	var manifest: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "l1_smoke_mod",
 		"name": "L1 Smoke Mod",
 		"version": "0.0.1",
 		"enabled": true,
 		"load_order": 0,
 		"contract_extensions": {
-			"content_tags": ["mod_l1_smoke_mod_tag"],
+			"gear_mod_ids": ["mod_l1_smoke_mod_test_gear"],
 			"locale_prefixes": ["mod_l1_smoke_mod_"],
 		},
 		"data_patches": [
 			{
 				"type": "json_array_append",
-				"target": "relics.json",
-				"path": "data/relics_patch.json",
-				"array_key": "relics",
+				"target": "gear_mods.json",
+				"path": "data/gear_mods_patch.json",
+				"array_key": "mods",
 			},
 			{
 				"type": "csv_append",
@@ -2812,50 +2872,53 @@ func _expect_mod_loader_data_patch() -> void:
 			},
 		],
 	}
-	var relic_patch: Dictionary = {
-		"relics": [
+	var gear_mod_patch: Dictionary = {
+		"mods": [
 			{
-				"id": "relic_l1_smoke_mod",
-				"name_key": "mod_l1_smoke_mod_relic_name",
-				"desc_key": "mod_l1_smoke_mod_relic_desc",
+				"id": "mod_l1_smoke_mod_test_gear",
+				"name_key": "mod_l1_smoke_mod_gear_name",
+				"desc_key": "mod_l1_smoke_mod_gear_desc",
 				"default_unlocked": true,
-				"tags": ["tag_relic", "mod_l1_smoke_mod_tag"],
-				"modifiers": [
-					{"stat": "damage", "type": "add", "value": 0.1},
+				"rarity": "common",
+				"components": [
+					{
+						"component_id": "occupy_cell",
+						"type": "board_rule",
+						"rule_id": "occupy_only",
+					},
 				],
-				"behaviors": [],
 			},
 		],
 	}
 	_write_text(MOD_SMOKE_ROOT.path_join("mod.json"), JSON.stringify(manifest, "\t"))
-	_write_text(MOD_SMOKE_ROOT.path_join("data/relics_patch.json"), JSON.stringify(relic_patch, "\t"))
+	_write_text(MOD_SMOKE_ROOT.path_join("data/gear_mods_patch.json"), JSON.stringify(gear_mod_patch, "\t"))
 	_write_text(
 		MOD_SMOKE_ROOT.path_join("data/strings_patch.csv"),
-		"keys,zh_CN,en\nmod_l1_smoke_mod_relic_name,Smoke Relic,Smoke Relic\nmod_l1_smoke_mod_relic_desc,Smoke Relic Desc,Smoke Relic Desc\n"
+		"keys,zh_CN,en\nmod_l1_smoke_mod_gear_name,Smoke Gear Mod,Smoke Gear Mod\nmod_l1_smoke_mod_gear_desc,Smoke Gear Mod Desc,Smoke Gear Mod Desc\n"
 	)
 
-	ModLoader.reload_mods()
+	ModLoader.reload_packages()
 	_expect(ModLoader.enabled_mod_count() >= 1, "ModLoader should enable the temporary smoke mod")
-	_expect(DataLoader.has_contract_value("content_tags", "mod_l1_smoke_mod_tag"), "DataLoader should include mod contract extensions")
+	_expect(DataLoader.has_contract_value("gear_mod_ids", "mod_l1_smoke_mod_test_gear"), "DataLoader should include package Gear Mod ids")
 	_expect(DataLoader.has_contract_value("locale_prefixes", "mod_l1_smoke_mod_"), "DataLoader should include mod locale prefix extensions")
-	var relics_payload: Variant = DataLoader.load_json(DataLoader.RELICS_PATH)
-	var found_relic: bool = false
-	if relics_payload is Dictionary:
-		for relic: Variant in (relics_payload as Dictionary).get("relics", []):
-			if relic is Dictionary and String((relic as Dictionary).get("id", "")) == "relic_l1_smoke_mod":
-				found_relic = true
+	var gear_mods_payload: Variant = DataLoader.load_json(DataLoader.GEAR_MODS_PATH)
+	var found_gear_mod: bool = false
+	if gear_mods_payload is Dictionary:
+		for gear_mod: Variant in (gear_mods_payload as Dictionary).get("mods", []):
+			if gear_mod is Dictionary and String((gear_mod as Dictionary).get("id", "")) == "mod_l1_smoke_mod_test_gear":
+				found_gear_mod = true
 				break
-	_expect(found_relic, "DataLoader should expose mod JSON array append entries")
+	_expect(found_gear_mod, "DataLoader should expose package Gear Mod append entries")
 	var found_locale_key: bool = false
 	for row: Dictionary in DataLoader.load_csv(DataLoader.LOCALE_STRINGS_PATH):
-		if String(row.get("keys", "")) == "mod_l1_smoke_mod_relic_name":
+		if String(row.get("keys", "")) == "mod_l1_smoke_mod_gear_name":
 			found_locale_key = true
 			break
 	_expect(found_locale_key, "DataLoader should expose mod CSV append entries")
 	_expect(DataLoader.validate_project_data(), "DataLoader should validate merged mod data")
 
 	_remove_l1_mod()
-	ModLoader.reload_mods()
+	ModLoader.reload_packages()
 
 
 func _expect_platform_services_reserved_interface() -> void:
@@ -2886,7 +2949,7 @@ func _write_text(path: String, text: String) -> void:
 
 func _remove_l1_mod() -> void:
 	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("data/strings_patch.csv"))
-	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("data/relics_patch.json"))
+	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("data/gear_mods_patch.json"))
 	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("data"))
 	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("mod.json"))
 	DirAccess.remove_absolute(MOD_SMOKE_ROOT)

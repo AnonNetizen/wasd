@@ -5,12 +5,16 @@ const GEAR_MOD_IDS := preload("res://scripts/contracts/gear_mod_ids.gd")
 const GEAR_MOD_BOARD_SCRIPT := preload(
 	"res://scripts/gameplay/gear_mod_board.gd"
 )
-const GEAR_MOD_GRID_BEHAVIORS := preload(
-	"res://scripts/contracts/gear_mod_grid_behaviors.gd"
+const EFFECT_ACTIONS := preload("res://scripts/contracts/effect_actions.gd")
+const EFFECT_CONDITIONS := preload(
+	"res://scripts/contracts/effect_conditions.gd"
 )
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
-const GEAR_MOD_MAP_BEHAVIORS := preload(
-	"res://scripts/contracts/gear_mod_map_behaviors.gd"
+const EFFECT_TRIGGERS := preload("res://scripts/contracts/effect_triggers.gd")
+const GEAR_MOD_BOARD_RULES := preload(
+	"res://scripts/contracts/gear_mod_board_rules.gd"
+)
+const GEAR_MOD_COMPONENT_TYPES := preload(
+	"res://scripts/contracts/gear_mod_component_types.gd"
 )
 const GEAR_MOD_PLACEMENT_OUTCOMES := preload(
 	"res://scripts/contracts/gear_mod_placement_outcomes.gd"
@@ -62,6 +66,7 @@ func _run() -> void:
 	_expect_preview()
 	_expect_drop_rules()
 	_expect_board_domain()
+	_expect_composite_components()
 	_expect_modifier_layers()
 	_expect_hud_feedback()
 
@@ -82,16 +87,23 @@ func _expect_data_contract() -> void:
 		DataLoader.GEAR_MODS_PATH
 	) as Dictionary
 	_expect(
-		int(payload.get("schema_version", 0)) == 5
+		int(payload.get("schema_version", 0)) == 6
 		and not payload.has("overflow_gold"),
-		"Gear Mod schema v5 should not expose overflow conversion data"
+		"Gear Mod schema v6 should not expose overflow conversion data"
 	)
 	var definition: Dictionary = GearModSystem.mod_definition(
 		GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
 	)
+	var modifier_components: Array[Dictionary] = (
+		GearModSystem.modifier_components(
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST
+		)
+	)
 	_expect(
-		String(definition.get("slot", "")) == GEAR_MOD_SLOTS.WEAPON,
-		"weapon damage Mod should preserve its weapon slot"
+		modifier_components.size() == 1
+		and String(modifier_components[0].get("slot", ""))
+		== GEAR_MOD_SLOTS.WEAPON,
+		"weapon damage Mod should preserve its modifier component slot"
 	)
 	_expect(
 		String(definition.get("rarity", "")) == GEAR_MOD_RARITIES.COMMON,
@@ -107,6 +119,10 @@ func _expect_data_contract() -> void:
 	)
 	_expect(
 		GearModSystem.has_method("modifiers")
+		and GearModSystem.has_method("components")
+		and GearModSystem.has_method("modifier_components")
+		and GearModSystem.has_method("program_components")
+		and GearModSystem.has_method("board_rule_components")
 		and not GearModSystem.has_method("rank_modifiers")
 		and not GearModSystem.has_method("max_rank")
 		and not GearModSystem.has_method("overflow_gold")
@@ -129,39 +145,70 @@ func _expect_data_contract() -> void:
 	var map_definition: Dictionary = GearModSystem.mod_definition(
 		GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE
 	)
-	var map_behavior: Dictionary = map_definition.get(
-		"map_behavior",
-		{}
-	) as Dictionary
+	var program_components: Array[Dictionary] = (
+		GearModSystem.program_components(
+			GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE
+		)
+	)
+	var cage_component: Dictionary = (
+		program_components[0] if not program_components.is_empty() else {}
+	)
+	var cage_program: Dictionary = cage_component.get("program", {}) as Dictionary
+	var cage_conditions: Array = _array_or_empty(cage_program.get("conditions", []))
+	var cage_actions: Array = _array_or_empty(cage_program.get("actions", []))
 	_expect(
-		String(map_definition.get("kind", "")) == GEAR_MOD_KINDS.MAP
-		and String(map_behavior.get("id", ""))
-		== GEAR_MOD_MAP_BEHAVIORS.PERIODIC_ENEMY_SPAWN
+		String(cage_component.get("type", ""))
+		== GEAR_MOD_COMPONENT_TYPES.PROGRAM
+		and String(cage_program.get("trigger", "")) == EFFECT_TRIGGERS.INTERVAL
 		and is_equal_approx(
-			float(map_behavior.get("interval_seconds", 0.0)),
+			float(cage_program.get("interval_seconds", 0.0)),
 			10.0
 		)
-		and bool(map_behavior.get("reset_on_module_exit", false))
-		and bool(map_behavior.get("current_layer_only", false))
-		and bool(map_behavior.get("normal_rewards", false))
+		and cage_conditions.size() == 1
+		and String((cage_conditions[0] as Dictionary).get("condition", ""))
+		== EFFECT_CONDITIONS.MODULE_RELATION
+		and String(
+			((cage_conditions[0] as Dictionary).get("params", {}) as Dictionary).get(
+				"value",
+				""
+			)
+		) == "source_is_current"
+		and cage_actions.size() == 1
+		and String((cage_actions[0] as Dictionary).get("action", ""))
+		== EFFECT_ACTIONS.SPAWN_ENEMY
+		and bool(
+			((cage_actions[0] as Dictionary).get("params", {}) as Dictionary).get(
+				"current_layer_only",
+				false
+			)
+		)
+		and bool(
+			((cage_actions[0] as Dictionary).get("params", {}) as Dictionary).get(
+				"normal_rewards",
+				false
+			)
+		)
 		and not map_definition.has("slot")
 		and not map_definition.has("modifiers"),
-		"spawner cage should expose only the strict periodic map behavior"
+		"spawner cage should expose the strict interval program component"
 	)
 	var grid_definition: Dictionary = GearModSystem.mod_definition(
 		GEAR_MOD_IDS.GEAR_MOD_GRID_ROCK
 	)
-	var grid_behavior: Dictionary = grid_definition.get(
-		"grid_behavior",
-		{}
-	) as Dictionary
+	var board_components: Array[Dictionary] = (
+		GearModSystem.board_rule_components(GEAR_MOD_IDS.GEAR_MOD_GRID_ROCK)
+	)
+	var rock_component: Dictionary = (
+		board_components[0] if not board_components.is_empty() else {}
+	)
 	_expect(
-		String(grid_definition.get("kind", "")) == GEAR_MOD_KINDS.GRID
-		and String(grid_behavior.get("id", ""))
-		== GEAR_MOD_GRID_BEHAVIORS.OCCUPY_ONLY
+		String(rock_component.get("type", ""))
+		== GEAR_MOD_COMPONENT_TYPES.BOARD_RULE
+		and String(rock_component.get("rule_id", ""))
+		== GEAR_MOD_BOARD_RULES.OCCUPY_ONLY
 		and not grid_definition.has("slot")
 		and not grid_definition.has("modifiers"),
-		"rock should expose only the strict occupy-only grid behavior"
+		"rock should expose only the occupy-only board rule component"
 	)
 	var fingerprint: Dictionary = (
 		DataLoader.gear_mod_gameplay_fingerprint_payload()
@@ -176,19 +223,16 @@ func _expect_data_contract() -> void:
 		):
 			fingerprint_map_mod = raw_mod as Dictionary
 			break
-	var fingerprint_map_behavior: Dictionary = fingerprint_map_mod.get(
-		"map_behavior",
-		{}
-	) as Dictionary
+	var fingerprint_components: Array = _array_or_empty(
+		fingerprint_map_mod.get("components", [])
+	)
 	_expect(
 		int(fingerprint_board.get("width", 0)) == 7
 		and _array_or_empty(
 			fingerprint_board.get("initial_unlocked_cells", [])
 		).size() == 13
-		and bool(
-			fingerprint_map_behavior.get("reset_on_module_exit", false)
-		),
-		"gameplay fingerprint should include board topology and map behavior"
+		and fingerprint_components == map_definition.get("components", []),
+		"gameplay fingerprint should include board topology and components"
 	)
 
 
@@ -332,7 +376,7 @@ func _expect_board_domain() -> void:
 			"x": 3,
 			"y": 2,
 		},
-		"placement should atomically return the flattened Run v18 shape"
+		"placement should atomically return the flattened Run v19 shape"
 	)
 	var cage_result: Dictionary = board.request_placement(
 		2,
@@ -395,38 +439,6 @@ func _expect_board_domain() -> void:
 		== GEAR_MOD_PLACEMENT_OUTCOMES.CANCELLED,
 		"relocation should be unavailable without a cost authorizer"
 	)
-	_expect(
-		not board.set_map_behavior_state(
-			2,
-			{
-				"elapsed": 4.5,
-				"pending_plan": {
-					"enemy_id": POOL_IDS.ENEMY_STALKER,
-					"position": Vector2(128.0, 256.0),
-					"module_coord": Vector2i(3, 2),
-				},
-			}
-		)
-		and not board.set_map_behavior_state(
-			2,
-			{
-				"elapsed": 4.5,
-				"pending_plan": {
-					"enemy_id": POOL_IDS.ENEMY_STALKER,
-					"position": Vector2(128.0, 256.0),
-					"module_coord": Vector2i(7, 2),
-				},
-			}
-		),
-		"map state should reject a locked plan outside the board or outside its cage placement"
-	)
-	_expect(
-		board.set_map_behavior_state(
-			2,
-			{"elapsed": 4.5, "pending_plan": {}}
-		),
-		"map Mod should accept state before relocation"
-	)
 	var relocated: Dictionary = board.request_relocation(
 		2,
 		Vector2i(4, 2),
@@ -439,12 +451,8 @@ func _expect_board_domain() -> void:
 			"mod_id": GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE,
 			"x": 4,
 			"y": 2,
-		}
-		and board.map_behavior_state(2) == {
-			"elapsed": 0.0,
-			"pending_plan": {},
 		},
-		"authorized relocation should atomically move a still-connected Mod and reset its map state"
+		"authorized relocation should atomically move a still-connected Mod"
 	)
 	var before_disconnect: Dictionary = board.snapshot()
 	var disconnect_result: Dictionary = board.request_relocation(
@@ -457,43 +465,7 @@ func _expect_board_domain() -> void:
 		and board.snapshot() == before_disconnect,
 		"relocation should reject a move that disconnects a Mod from core"
 	)
-	_expect(
-		board.set_map_behavior_state(
-			2,
-			{
-				"elapsed": 4.5,
-				"pending_plan": {
-					"enemy_id": POOL_IDS.ENEMY_STALKER,
-					"position": Vector2(128.0, 256.0),
-					"module_coord": Vector2i(4, 2),
-				},
-			}
-		),
-		"map behavior state should accept a finite locked spawn plan"
-	)
 	var saved: Dictionary = board.snapshot()
-	var tampered_saved: Dictionary = saved.duplicate(true)
-	var tampered_states: Array = tampered_saved.get(
-		"map_behavior_states",
-		[]
-	) as Array
-	(
-		(tampered_states[0] as Dictionary).get(
-			"pending_plan",
-			{}
-		) as Dictionary
-	)["module_coord"] = {"x": 3, "y": 2}
-	var rejected_restore: GearModBoard = (
-		GEAR_MOD_BOARD_SCRIPT.new() as GearModBoard
-	)
-	_expect(
-		rejected_restore.configure(
-			GearModSystem.board_config(),
-			GearModSystem.mod_definitions()
-		)
-		and not rejected_restore.restore_snapshot(tampered_saved),
-		"board restore should reject a locked plan whose module differs from the cage placement"
-	)
 	var restored: GearModBoard = GEAR_MOD_BOARD_SCRIPT.new() as GearModBoard
 	_expect(
 		restored.configure(
@@ -502,21 +474,63 @@ func _expect_board_domain() -> void:
 		)
 		and restored.restore_snapshot(saved)
 		and restored.snapshot() == saved
+		and not saved.has("map_behavior_states")
 		and restored.placements()[0].get("y") == 2
 		and restored.placements()[0].get("x") == 3,
-		"board snapshot should roundtrip sorted placements and map state"
+		"board snapshot should roundtrip sorted placements without runtime effect state"
 	)
-	var behavior_snapshots: Array[Dictionary] = restored.map_behavior_snapshots()
+
+
+func _expect_composite_components() -> void:
+	var definitions: Array[Dictionary] = GearModSystem.mod_definitions()
+	var composite_id: String = "gear_mod_smoke_composite"
+	var composite_definition: Dictionary = {
+		"id": composite_id,
+		"components": [
+			{
+				"component_id": "composite_modifier",
+				"type": GEAR_MOD_COMPONENT_TYPES.MODIFIER,
+				"slot": GEAR_MOD_SLOTS.WEAPON,
+				"modifiers": [
+					{"stat": STATS.DAMAGE, "type": "mult", "value": 1.1},
+				],
+			},
+			{
+				"component_id": "composite_program",
+				"type": GEAR_MOD_COMPONENT_TYPES.PROGRAM,
+				"program": {
+					"program_id": "spawn_on_dash",
+					"trigger": EFFECT_TRIGGERS.DASH,
+					"conditions": [],
+					"actions": [
+						{
+							"action": EFFECT_ACTIONS.SPAWN_ENEMY,
+							"params": {
+								"normal_rewards": true,
+								"current_layer_only": true,
+							},
+						},
+					],
+					"proc_chance": 1.0,
+					"internal_cooldown": 0.0,
+				},
+			},
+			{
+				"component_id": "composite_board_rule",
+				"type": GEAR_MOD_COMPONENT_TYPES.BOARD_RULE,
+				"rule_id": GEAR_MOD_BOARD_RULES.OCCUPY_ONLY,
+			},
+		],
+	}
+	definitions.append(composite_definition)
+	var board: GearModBoard = GEAR_MOD_BOARD_SCRIPT.new() as GearModBoard
+	var placement: Dictionary = {}
+	if board.configure(GearModSystem.board_config(), definitions):
+		placement = board.request_placement(99, composite_id, Vector2i(3, 2))
 	_expect(
-		behavior_snapshots.size() == 1
-		and int(behavior_snapshots[0].get("instance_id", 0)) == 2
-		and String(
-			(behavior_snapshots[0].get("behavior", {}) as Dictionary).get(
-				"id",
-				""
-			)
-		) == GEAR_MOD_MAP_BEHAVIORS.PERIODIC_ENEMY_SPAWN,
-		"map behavior snapshots should expose the resolved behavior and state"
+		bool(placement.get("ok", false))
+		and (composite_definition.get("components", []) as Array).size() == 3,
+		"one Gear Mod should compose modifier, program, and board rule components"
 	)
 
 

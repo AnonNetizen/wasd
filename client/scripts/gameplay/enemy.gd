@@ -335,6 +335,18 @@ func max_life() -> float:
 	return _max_life
 
 
+func heal(amount: float) -> float:
+	var requested_amount: float = maxf(amount, 0.0)
+	if requested_amount <= 0.0 or not is_alive():
+		return 0.0
+	var previous_life: float = _life_points
+	_life_points = minf(_life_points + requested_amount, _max_life)
+	var applied_amount: float = _life_points - previous_life
+	if applied_amount > 0.0:
+		_refresh_visuals()
+	return applied_amount
+
+
 func enemy_spawn_snapshot() -> Dictionary:
 	return {
 		"health_multiplier": _spawn_health_multiplier,

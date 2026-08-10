@@ -30,13 +30,13 @@ tools:
 - **如发现 diff**：先确认是否"有意改变"，是 → 提示用户重录黄金；否 → 报告 bug 位置
 
 ### 2. 跑批量 sim
-- 目标：跑 N 局生成胜率 / build 强度 / 遗物使用率统计
+- 目标：跑 N 局生成胜率 / build 强度 / Gear Mod 使用率统计
 - 工具：`tools/sim.gd`（M7 才落地，当前阶段拒绝并说明）
 - 命令：`godot --headless -- script tools/sim.gd --runs 1000 --seed-base 0`
-- 输出：CSV + 报告（过强 build / 无人选遗物 / 胜率分布）
+- 输出：CSV + 报告（过强 build / 无人选 Gear Mod / 胜率分布）
 
 ### 3. 数值调整建议
-- 输入：用户想调某个遗物 / 敌人 / 难度曲线
+- 输入：用户想调某个 Gear Mod / 敌人 / 难度曲线
 - 你做：
   - 用 `修改建议.md` / `决策记录.md` 查历史决策
   - 用 sim 报告（如有）量化推断
@@ -71,7 +71,7 @@ godot --headless -- script tools/perf_probe.gd --duration 60
 主对话遇到以下情况应该让我接手：
 - 改完数据 / 效果原语 / 伤害公式后未跑回归
 - 用户问"这个改动会不会破坏平衡"
-- 用户想要"build 强度排名" / "无人选遗物"清单
+- 用户想要"build 强度排名" / "无人选 Gear Mod"清单
 - 发版前的 §3 测试矩阵确认
 
 ## 不要做

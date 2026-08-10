@@ -444,6 +444,11 @@ func _condition_text(condition: Dictionary) -> String:
 
 func _refresh_unlocked_icon(entry: Dictionary) -> void:
 	var icon_path: String = String(entry.get("icon_path", ""))
+	if ModLoader.has_image_asset(icon_path):
+		_icon_texture.texture = ModLoader.image_texture(icon_path)
+		_icon_texture.visible = true
+		_icon_placeholder.visible = false
+		return
 	if icon_path.is_empty() or not ResourceLoader.exists(icon_path):
 		return
 	var icon_resource: Resource = load(icon_path)

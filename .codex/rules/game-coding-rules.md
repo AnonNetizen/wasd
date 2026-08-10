@@ -27,7 +27,7 @@ alwaysApply: true
 - `client/scripts/`（即 `res://scripts/`）：脚本（`.gd`）
 - `client/data/`（即 `res://data/`）：可调数值配置（平表 CSV + 复杂 JSON）
 - `client/locale/`（即 `res://locale/`）：本地化翻译表（CSV → `.translation`）
-- `client/templates/`（即 `res://templates/`）：脚手架模板（enemy/relic 等）
+- `client/templates/`（即 `res://templates/`）：模块等文件脚手架模板
 - `client/assets/`（即 `res://assets/`）：美术 / 音效
 - `user://settings.cfg`：玩家设置存档；`user://` 下另存元进度存档
 
@@ -35,12 +35,12 @@ alwaysApply: true
 
 ## 3. 数据与逻辑分离（核心需求）
 - **严禁在代码中写死可调数值（魔法数字）**：生命、移速、射速、伤害、子弹速度、刷怪曲线、掉落概率等一律读取 `res://data/` 下的配置文件。
-- 配置通过 `DataLoader` 统一加载：**平表数值优先 CSV**（如敌人基础数值、经验曲线、刷怪波次、掉落权重），**复杂配置优先 JSON**（如遗物行为、角色能力、局外成长树、嵌套参数）。Godot 读取 CSV 走 `FileAccess.get_csv_line()`，读取 JSON 走 `FileAccess.open()` / `JSON.parse_string()`。
+- 配置通过 `DataLoader` 统一加载：**平表数值优先 CSV**（如敌人基础数值、经验曲线、刷怪波次、掉落权重），**复杂配置优先 JSON**（如 Gear Mod 组件、角色能力、局外成长树、嵌套参数）。Godot 读取 CSV 走 `FileAccess.get_csv_line()`，读取 JSON 走 `FileAccess.open()` / `JSON.parse_string()`。
 - 支持**配置热重载**（运行时重读即时生效），新增 / 修改数值文件或字段需同步 `client/data/README.md`，写清含义、单位、默认值、取值范围和调参影响。
 
 ## 4. 多语言本地化（框架级，强制）
 - **任何面向玩家的文本都不得硬编码**，一律使用文本键：`tr("some_key")`。
-- 数据文件（道具/遗物等）只存 `name_key` / `desc_key`，译文放 `res://locale/` 翻译表。
+- 数据文件（Gear Mod / 道具等）只存 `name_key` / `desc_key`，译文放 `res://locale/` 翻译表。
 - 动态数值用占位符（如 `"伤害 +{value}"`），禁止用字符串拼接组句。
 - 技能、被动、道具等描述中的伤害、消耗、冷却、范围、持续时间、概率、层数、倍率等**可能调整的数值**，必须使用命名占位符，并由对应数据配置和统一格式化器注入；禁止在 `*_desc` 译文中重复写死。只有不属于配置、不会参与平衡调整的固定语义数字才可直接写，仍应优先改写为自然语言。
 - 通过 `Localization`（autoload）与 `TranslationServer` 管理与切换语言。
@@ -54,14 +54,13 @@ alwaysApply: true
 - 变更通过信号 `setting_changed(key, value)` 广播，相关系统订阅后**即时生效，无需重启**。
 - 持久化到 `user://settings.cfg`（`ConfigFile`）。
 
-## 6. 道具 / 遗物系统（数据驱动，最关键）
-- **严禁为每个遗物/道具写独立硬编码分支**。
-- 采用「**修正器 modifiers + 行为事件 behaviors**」数据驱动模型：
-  - 数值类用 `modifiers`：`{ stat, type(add/mult), value }`。
-  - 行为类用 `behaviors`：`{ event, effect, params }`。
-- 逻辑层只实现有限的「效果原语」（加成 / 穿透 / 分裂 / 追踪 / 点燃……），实现为脚本方法或小型 `Node`/`Resource`，由数据中的 `effect` id 映射调用。
-- **新增遗物/道具 = 新增一条数据**，不改逻辑层。
-- 未来角色 / 道具 / 遗物允许突破默认玩法限制，但必须通过已登记的 `capability`、`effect`、`behavior`、`StatusEffect` 或可复用 strategy 表达；禁止写 `if relic_id == ...` / `if character_id == ...` 这类一次性特殊分支。
+## 6. Gear Mod 与通用效果程序（数据驱动，最关键）
+- **严禁为每个 Gear Mod、技能或道具写独立硬编码分支**。
+- 技能与 Gear Mod 统一通过 `GameplayEffectRuntime` 执行受控效果程序；程序只组合已登记的 trigger / condition / action，由 `EffectPrimitiveRegistry` 注册 handler，并经 `EffectExecutionGateway` 访问 Combat、StatusEffect、PoolManager、金币、生成与 AudioManager。
+- Gear Mod v6 使用 `components[]` 任意组合 `modifier`、`program`、`board_rule`；每项必须有 Mod 内唯一 `component_id`。`modifier` 必须通过 `hero` / `weapon` 槽位-stat 支持矩阵校验。
+- **新增 Gear Mod = 新增一条数据**，不改逻辑层；新增通用原语必须先登记契约，再实现 handler、参数校验 / 描述与测试，不得修改内容 ID 分支。
+- 本地 Gear Mod 只能组合官方内置原语，不得加载脚本、场景、Shader 或扩展核心 id；本地内容按包命名空间、独立校验和坏包隔离。
+- 未来角色、Gear Mod 与道具允许突破默认玩法限制，但必须通过已登记的 capability、primitive、StatusEffect 或可复用 strategy 表达；禁止写按内容 id 的一次性特殊分支。
 
 ## 7. 属性计算模型
 - 最终属性统一为：`最终值 = (基础值 + Σ加法修正) × Π乘法修正`。
@@ -156,7 +155,7 @@ alwaysApply: true
 - 项目需收集玩家数据用于后续分析，**必须从框架阶段预留统一的数据收集接口**，不得后期临时硬塞。
 - 统一走 `Analytics`（autoload 单例）：对外暴露 `track_event(event_name, params)` 等接口，由它统一缓冲、批量上报或落盘。
 - **埋点与业务逻辑解耦**：各系统通过 `signal` 或调用 `Analytics.track_event()` 上报，**禁止把上报细节散落进业务代码**；事件名与字段集中定义为常量/配置，避免裸字符串。
-- 关键节点都要留好埋点接口（即使暂未接后端）：开局/结束、死亡（位置/时间/击杀数）、升级与遗物选择、道具使用、关键战斗与难度节点等。
+- 关键节点都要留好埋点接口（即使暂未接后端）：开局/结束、死亡（位置/时间/击杀数）、升级与 Gear Mod 选择、道具使用、关键战斗与难度节点等。
 - 数据收集需遵守隐私合规：可在 `Settings` 中提供「数据收集开关」，默认行为以用户约定为准；不收集敏感个人信息。
 - 上报实现可插拔（本地落盘 / HTTP 上报等），通过接口隔离，便于切换后端而不改业务代码。
 
@@ -186,7 +185,7 @@ alwaysApply: true
 - 里程碑结束前对应层测试必须就位（见 §3 测试矩阵），否则不进下一里程碑。
 
 ## 14-A. AI 协作工程（框架级，第五条横向基础设施）
-- 高频任务套用 `docs/AI协作/任务模板/`（加遗物 / 加敌人 / 加效果原语 / 加设置项 / 加埋点 / 调数值 / 加本地化文本），不要每次重新摸索。
+- 高频任务套用 `docs/AI协作/任务模板/`（加 Gear Mod / 加敌人 / 加效果原语 / 加设置项 / 加埋点 / 调数值 / 加本地化文本），不要每次重新摸索。
 - 不在模板的任务，按 `docs/AI协作/上下文预算.md` 决定读取范围，**禁止盲目全仓搜索**。
 - 复杂任务可参照 `docs/AI协作/角色分工.md` 切角色（设计 / 实现 / 评审 / 平衡）。
 - 项目维护者已授权支持 subagent 的平台在复杂、专业或可并行任务中主动启用对应项目 subagent；只读小任务或直接实现更高效时不必强行拆分；平台不支持或外层工具策略限制时，读取同名 agent `.md` 作为 prompt 模板执行角色流程。
@@ -209,13 +208,13 @@ alwaysApply: true
 
 ## 16. 数据校验与黄金样例
 - `DataLoader` 加载配置时必须**校验字段、类型与取值范围**，并遵循 fail-fast：出错时打印**具体文件名 + 字段 + 期望值**，便于人和 AI 立即定位修正。
-- 每类数据文件（`relics.json` / `enemies.csv` 等）保留**一条"黄金样例"条目**作为结构参照，新增内容照其结构填写。
+- 每类数据文件（`gear_mods.json` / `enemies.csv` 等）保留**一条"黄金样例"条目**作为结构参照，新增内容照其结构填写。
 - 数据字段含义、单位、取值范围记录在 `client/data/README.md` 中，与 `docs/词表与契约.md` 配合；本地化 key、语言列和占位符规则记录在 `client/locale/README.md` 中。
 
 ## 17. 类型化 GDScript 与脚手架模板
 - 一律使用**类型化 GDScript**：变量、参数、返回值都标注类型（如 `var hp: int`、`func take_damage(amount: float) -> void`），利用静态检查并帮助 AI 推断用法。
 - 仅当右侧表达式在同一行类型明确时使用 `:=`；`get_node()`、复杂函数返回值、外部数据或可能歧义的表达式必须显式标注类型。`as` 可能静默得到 `null`，不保证类型时先用 `is` 检查或在使用前校验。
-- 新增同类内容优先复制 `res://templates/` 下的模板（如 `enemy_template.gd`、`relic_template.json`），保证结构统一、可被 AI 模仿。
+- 新增同类内容优先使用对应编辑器 / 数据目录的黄金样例与模板；Gear Mod 使用数据配表的三类组件模板，模块文件使用 `res://templates/module_template.json`，保证结构统一、可被 AI 模仿。
 - 显式 `class_name` / `@export` 标注，避免依赖隐式约定。
 
 ## 18. 决策记录、日志与运行说明
@@ -254,9 +253,9 @@ alwaysApply: true
 - 文档应面向 AI 检索与续写：标题稳定、路径真实、权威来源明确、联动关系用表格或短清单表达，禁止只在自然语言段落里暗藏必须遵守的规则。
 
 ## 23. 内容扩展与破限能力（强制）
-- 项目长期目标是支持大量角色、遗物、道具和“突破默认限制”的内容；玩法限制（如默认鼠标瞄准、左右朝向、按住开火、主动栏数量、摄像机策略）是默认配置，不是硬编码上限。
+- 项目长期目标是支持大量角色、Gear Mod、道具和“突破默认限制”的内容；玩法限制（如默认鼠标瞄准、左右朝向、按住开火、主动栏数量、摄像机策略）是默认配置，不是硬编码上限。
 - 新英雄必须数据驱动：场景、配色、主属性、被动、两个 `hero_skill_ids` 与起始携带来自 `client/data/characters.json`；主英雄提供属性 / 被动 / 技能 1–2，子英雄只提供强调色 / 技能 3–4，组合逻辑走 `HeroCompositionResolver`。
-- 项目后续可能存在多种游戏模式；角色、遗物、道具、敌人、成长奖励等资源本体默认保持模式无关，模式配置只通过资源池、权重、禁用列表、tags / availability、capability / strategy 和轻量覆盖组合资源，禁止为某个模式复制一套资源或写 `if mode_id == ...` 的内容分支。
+- 项目后续可能存在多种游戏模式；角色、Gear Mod、道具、敌人、成长奖励等资源本体默认保持模式无关，模式配置只通过资源池、权重、禁用列表、tags / availability、capability / strategy 和轻量覆盖组合资源，禁止为某个模式复制一套资源或写 `if mode_id == ...` 的内容分支。
 - 当前不做多人，但需预留未来多人 PvE / PvP 边界：业务逻辑禁止写死唯一玩家、唯一队伍或“玩家只打敌人 / 敌人只打玩家”；输入走生成 action 常量与 `InputService` 的归一化 intent，伤害走 `Combat` 的 source / target / team / friendly_fire 模式规则边界，回放 / 存档 / 埋点可预留 participant / team 概念；不得提前实现网络层、同步协议或服务器权威。
 - 破限内容必须声明 `tag_limit_break` 与对应 `capability_id`，并在 `docs/词表与契约.md` 第 12 节登记；代码引用走生成常量，禁止裸字符串。
 - 现有 primitive 表达不了时，先新增可复用 primitive / strategy（effect、behavior、StatusEffect、movement_model、aim_model、fire_model 等），再由数据引用；不得把特殊逻辑塞进某个系统的 id 判断。
@@ -325,7 +324,7 @@ alwaysApply: true
 - [ ] 新增 / 修改玩家可见 UI 文案或 UI 布局是否已按英文 `en` 长度验收，确认无截断、溢出或遮挡？
 - [ ] 没有硬编码键盘按键、手柄按钮或手柄轴，业务没有直调 GUIDE / `Input` / `InputMap`（都走生成 action 常量 + `InputService`，重绑定走 GUIDE 配置）？
 - [ ] 玩家偏好都走 `Settings` 单例并能即时生效？
-- [ ] 新遗物/道具是加数据而非加逻辑分支？
+- [ ] 新 Gear Mod / 道具是加数据而非加逻辑分支？
 - [ ] 新角色 / 破限道具是否通过 `capability` / primitive / strategy 表达，而不是按 id 写特殊分支？
 - [ ] 高频实体用了对象池？
 - [ ] 相机是否保持 GLUED 跟随、瞄准方向平滑偏移、无 limit / drag margin，并保证稳定引导与震屏噪声互不干扰？

@@ -17,25 +17,25 @@
 
 ## 1. 当前优先级（P0）
 
-- [x] F13 默认关卡改为 7×7 无缝模块世界：左下角落出生房、三个确定性随机意识核角、11×11 模块 JSON、AI candidate/approved 门禁、seed 组图 / 安全布局、`ModuleWorldManager`、3×3 流式激活、迷雾、意识核直接完成、同坐标 Gear Mod 地图行为、Run v18 与 `module-world-smoke` 已建立；旧 RoomManager / 线性序列 / 撤离模块已删除。
+- [x] F13 默认关卡改为 7×7 无缝模块世界：左下角落出生房、三个确定性随机意识核角、11×11 模块 JSON、AI candidate/approved 门禁、seed 组图 / 安全布局、`ModuleWorldManager`、3×3 流式激活、迷雾、意识核直接完成、Gear Mod v6 当前模块程序、Run v19 / GameplayEffectRuntime 快照与 `module-world-smoke` 已建立；旧 RoomManager / 线性序列 / 撤离模块已删除。
 - [x] F14 敌人共享流场与混合感知：完整 77×77 静态导航 mask、半径 8 / 最多 289 格的局部确定性八方向活动流场、全图守家 / 记忆 AStar waypoint、视线 / 路径 / 1.5 秒记忆分层、冲锋走廊与远程视线门禁、profile schema v5 和专项 smoke 已建立；F13 保持完成状态。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
 
-- [ ] 深化接入强 `SaveManager`：在 Meta v4 / Run v18 内容进度、7×7 assignment 与局内 Gear Mod 棋盘 / 带 ID 地面实例接入后，补更多组合字段回归和正式人工存档迁移 checklist。
-- [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG、GameClock、暂停菜单和升级选择面板；后续补遗物、主动道具和正式测试。
-- [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
-- [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。
+- [ ] 深化接入强 `SaveManager`：在 Meta v4 / Run v19 内容进度、7×7 assignment、Gear Mod v6 棋盘、GameplayEffectRuntime 与带 ID 地面实例接入后，补更多组合字段回归；旧 Run v18 保留但拒绝继续，不安排迁移。
+- [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG、GameClock、暂停菜单和升级选择面板；后续补主动道具和正式测试。Gear Mod v6 与效果 Runtime 状态由 Run v19 专项覆盖。
+- [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估主动强化、回血、刷新 / 跳过 / banish 等候选类型；Gear Mod 继续走专用掉落 / 奖励池。
+- [ ] 决策待定项 E：升级选项池内容是否包含属性、主动强化、回血、刷新 / 跳过 / banish；不再包含已删除遗物。
 
 ## 3. 中期任务（P2）
 
 - [ ] 实现基础玩家、输入、按住开火、子弹、敌人、刷怪和对象池，进入完整项目 M1 / M2 可玩闭环。
 - [ ] 建立 L1 GUT 单测框架，优先覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager`、`ModifierEngine`、`Combat`。
-- [ ] 扩展黄金回放：`golden_basic_run`、`golden_pause_resume`、`golden_full_death` 和 `golden_level_up_choice` 已有运行时摘要 + 扩展稳定帧样本 / 场景语义字段版，runner 已有输入播放与 runtime event 播放首片；后续在遗物运行时 / 协同原语存在后补 `golden_relic_synergy` 等更多场景。
+- [ ] 扩展黄金回放：四条基线升级到 Replay v9 后，后续按统一效果运行时补复合 Gear Mod / 技能程序协同场景。
 - [ ] 实现本地化导入与运行时语言切换，确保 `strings.csv` 中 `zh_CN` / `en` 可直接验证。
 - [ ] 建立基础 UI：主菜单、HUD、暂停菜单、设置菜单、升级选择与最终构筑结算；Gear Mod 不提供局外配置入口。
-- [ ] 建立首批数据内容：扩展到 3~5 个遗物、更多武器 / 主动道具 / 消耗品和 2 种机关，并保持默认角色起始携带引用可校验。
+- [ ] 建立首批数据内容：扩展更多复合 Gear Mod、武器 / 主动道具 / 消耗品和机关，并保持默认角色起始携带、掉落与奖励池引用可校验。
 
 ## 4. 长期积压（P3）
 
@@ -43,7 +43,7 @@
 - [ ] 平衡 sim：实现 `AIPlayer` 接口与 headless 批量模拟，输出胜率、存活时长、构筑强度报表。
 - [ ] 其他宽高比适配：当前正式客户端只支持固定 16:9 预设，非 16:9 屏幕加黑边；未来按需为 16:10、4:3、21:9 等比例分别增加固定分辨率预设与 UI / 瞄准 / 玩法视野验收，不做连续任意比例适配。
 - [ ] Gear Mod 局内扩展：更多稀有度、套装 / 标签协同、局内奖励来源和挑战型构筑路线。
-- [ ] 内容生产流水线：加敌人 / 加遗物 / 加装备 Mod 节点的 schema、模板、自动校验和示例数据。
+- [ ] 内容生产流水线：加敌人 / 加 Gear Mod 节点的 schema、组件模板、契约下拉、槽位-stat 校验、双语结构化预览和示例数据。
 - [ ] 音频与美术资源规范落地：Bus 配置、SFX / BGM id、占位美术替换策略。
 - [ ] 发版前完整 L5 手动回归 checklist，覆盖输入设备插拔、语言切换、存档迁移、回放重现和性能预算。
 
@@ -74,8 +74,8 @@
 - [x] 正式项目 F6 局外成长首切片：`MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、升级购买、解锁授予、下一局永久 modifiers 和 `meta-smoke` 已完成。
 - [x] F11 历史局外装配首片已完成，后由 ADR #188 整体取代；当前工作包和 GearModSystem 文档已改为纯局内构筑。
 - [x] F11 旧局外成长退役：ADR #117 已删除 `MetaProgressionSystem` autoload、`MetaProgressionPanel`、标题旧入口、死亡旧结算和 `meta-smoke`；ADR #118 已删除旧 `meta_progression.json`、旧 meta 契约、旧文案和旧测试档迁移 / 补偿路径。
-- [x] F11 Gear Mod 数据升级为 schema v5：固定 7×7 棋盘、严格 effect / map / grid、公共池和敌人掉率进入双端 schema；rank、升级、满阶溢出、fusion / dust 契约全部删除。
-- [x] F11 Gear Mod 运行时改为纯局内无等级棋盘实例：拾取确认合法四邻坐标后追加 placement，重复 effect 逐份乘算，map / grid 按声明行为，Player / Weapon 使用替换式 Mod 层，Run v18 恢复和 Gear Mod / module-world smokes 已建立。
+- [x] F11 Gear Mod 数据升级为 schema v6：固定 7×7 棋盘，`components[]` 可组合 `modifier` / `program` / `board_rule`，公共池、奖励池贡献和敌人掉率进入双端 schema；旧 v5 kind / behavior 与 rank、升级、溢出契约全部拒绝。
+- [x] F11 Gear Mod 运行时改为纯局内无等级棋盘实例：拾取确认合法四邻坐标后追加 placement，modifier 严格校验 hero / weapon 槽位 stat，program 统一进入 `GameplayEffectRuntime`，board_rule 承载纯占格；Run v19 恢复和 Gear Mod / effect-runtime / module-world smokes 已建立，旧 Run v18 保留拒绝。
 - [x] F11 正式拾取配置与 Tab 查看合并为非暂停 `GearModBoardPanel`；开发者测试岛只接受显式坐标且不提供等级、数量、升级或移动控件。
 - [x] F12 短刷图默认循环规划入口：ADR #120、`docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD、AI 导航、数据手册、Gameplay Runtime 模块文档和测试策略已同步；默认标准模式改为 8-12 分钟短刷图，并暂时屏蔽局内升级 3 选 1。
 - [x] F13 方向决策已由 ADR #142 更新：`F13-ModularGridWorld.md` 取代 ADR #127 线性手工房间默认方向，ADR #128 和 `F13-HandcraftedRooms.md` 只作历史 / superseded 记录。
@@ -84,7 +84,7 @@
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。
 - [x] 正式项目 F8 当前验收基线：L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、runtime event 播放首片、basic / pause-resume / full-death / level-up choice 四条 golden、稳定 RNG 子流 seed 和 schema v2 perf / balance baseline 已完成并通过收口审计。
 - [x] 正式项目 F9 工作包准备：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 已建立为内容扩展 / Demo 打磨阶段入口，F8 四条 golden replay 与 perf-probe 保留为回归护栏。
-- [x] 正式项目 F9.0 内容盘点：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 已列出当前可复用 runtime / 数据内容、暂不适合作为首片的角色 / 武器 / 遗物 / 主动道具 / 消耗品 / 机关边界、F9.1 推荐小内容包和 Demo 手动 checklist 首版。
+- [x] 正式项目 F9.0 内容盘点：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 保留当时的内容盘点；当前能力以统一效果运行时、Gear Mod v6 与本地 manifest v2 为准。
 - [x] 正式项目 F9.1 小内容首片：新增慢速高血量 `enemy_bulwark`、55 秒后中段刷怪波次、`growth_move_speed_small` / `growth_max_hp_small` 两个三级 `stat_modifier` 升级候选和双语文案；四条 golden replay 仅更新 data fingerprint 并通过 runtime summary rerun，`perf-probe` 仍 pass。
 - [x] 正式项目 F9.2 自动化 Demo 前置探针：新增 `f9-demo-smoke` bridge 命令，headless 快进到 55 秒后确认 `enemy_bulwark` / `wave_standard_mid_bulwarks` 出现，覆盖 run snapshot / SaveManager roundtrip、三级成长候选加载和死亡结算记忆余烬链路；人工手感试玩仍待执行。
 - [x] 正式项目 F9.2 手动 Demo 试玩 / 手感复核：用户试玩 F9.1 内容后反馈没有问题，因此未改 `enemy_bulwark` / 波次 / 三级成长候选数值。

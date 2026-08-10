@@ -7,7 +7,6 @@ const VALUES: Array[String] = [
 	"player_death",
 	"level_up",
 	"reward_choice",
-	"relic_pick",
 	"item_use",
 	"wave_milestone",
 	"game_pause",
@@ -31,7 +30,6 @@ const RUN_END: String = "run_end"
 const PLAYER_DEATH: String = "player_death"
 const LEVEL_UP: String = "level_up"
 const REWARD_CHOICE: String = "reward_choice"
-const RELIC_PICK: String = "relic_pick"
 const ITEM_USE: String = "item_use"
 const WAVE_MILESTONE: String = "wave_milestone"
 const GAME_PAUSE: String = "game_pause"

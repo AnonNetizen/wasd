@@ -27,7 +27,7 @@ IGNORE_PARTS = {"draft", "DRAFT", ".git", "__pycache__"}
 NON_LONG_TERM_PARTS = {"contracts", "tests", "test", "templates", "debug", "dev_tools"}
 
 SPECIAL_BRANCH_RE = re.compile(
-    r"^\s*(?:if|elif)\s+.*\b(?:character_id|relic_id|mode_id|game_mode_id)\b\s*(?:==|!=|in)\s*"
+    r"^\s*(?:if|elif)\s+.*\b(?:character_id|mode_id|game_mode_id)\b\s*(?:==|!=|in)\s*"
 )
 FUNC_RE = re.compile(r"^\s*(?:static\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?:->\s*[^:]+)?\s*:")
 FUNC_WITH_RETURN_RE = re.compile(r"^\s*(?:static\s+)?func\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)\s*->\s*[^:]+\s*:")
@@ -548,7 +548,7 @@ def _param_has_type(param: str) -> bool:
 def _requires_doc_header(path: Path) -> bool:
     if not _is_relative_to(path, SCRIPTS_DIR):
         return False
-    rel_parts = set(path.relative_to(SCRIPTS_DIR).parts)
+    rel_parts = set(_relative_parts(path, SCRIPTS_DIR))
     if rel_parts.intersection(NON_LONG_TERM_PARTS):
         return False
     return True
@@ -557,7 +557,7 @@ def _requires_doc_header(path: Path) -> bool:
 def _is_business_script(path: Path) -> bool:
     if not _is_relative_to(path, SCRIPTS_DIR):
         return False
-    relative_parts = set(path.relative_to(SCRIPTS_DIR).parts)
+    relative_parts = set(_relative_parts(path, SCRIPTS_DIR))
     if relative_parts.intersection({"autoload", "contracts", "boot", "debug", "dev_tools", "editor", "tests", "test", "templates"}):
         return False
     return True
@@ -623,6 +623,19 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _relative_parts(path: Path, parent: Path) -> tuple[str, ...]:
+    """Return relative parts after the caller established containment.
+
+    Windows may resolve the same temporary directory through a long path in
+    ``path`` and an 8.3 alias in ``parent``. ``Path.relative_to`` compares
+    those spellings lexically, so slice the already-resolved component lists
+    after the case-insensitive containment guard instead.
+    """
+    path_parts = path.resolve().parts
+    parent_parts = parent.resolve().parts
+    return path_parts[len(parent_parts):]
 
 
 def _rel(path: Path) -> str:

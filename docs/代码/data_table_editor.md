@@ -42,7 +42,10 @@
 - `references`：声明跨表、locale 或 contract 目标；`contract:*` 字段直接使用生成契约中的既有值下拉，并在文档模型层拒绝未登记的代码原语，最终权威仍是通用引用扫描与 `DataLoader` 全项目校验。
 - `contract_key`：只允许绑定受控内容契约。
 - `locale_fields`：记录内的 `name_key` / `desc_key` 等本地化引用。
-- `preview: "skill"`：复用 `SkillDescriptionFormatter` 显示默认能力倍率下的中英文实时描述。
+- `preview: "skill"`：复用 `SkillDescriptionFormatter` 显示 skills v3 `programs[]` 在默认能力倍率下的中英文实时描述。
+- `preview: "gear_mod"`：显示 `modifier` / `program` / `board_rule` 的中英文结构化预览，明确 component / program id、trigger、条件、动作参数、概率、内部冷却和周期。
+- `component_templates`：为 Gear Mod `components[]` 提供三类深拷贝模板；根数组新增时先选择组件类型，再生成记录内不重复的 `component_id`。
+- `slot_stat_support`：声明 `hero` / `weapon` 槽位支持的 stat；模型层在改 stat 时按当前 slot 拒绝不支持值，改 slot 时反向检查现有 modifiers，避免配置通过但运行时无效。
 
 目录加载时递归扫描 `client/data/` 的 JSON/CSV，并额外检查 `strings.csv`。任何新来源如果既未登记为可编辑数据集，也未登记为专用/生成来源，`data-table-editor-smoke` 会失败。此门禁防止新表静默漏出一站式工具。
 
@@ -52,7 +55,7 @@
 
 新增、复制、删除与字段编辑进入文档级 100 步 Undo/Redo。已有主键只读，重命名必须“复制为新 ID → 修正引用 → 删除旧记录”；复合键创建时按字段顺序用 `/` 分隔。删除前由 `DataSearchIndex.references_to()` 扫描跨表精确引用；仍被引用时拒绝删除。经全局与当前草稿确认无人引用的专属 locale 行和对应内容契约随删除进入同一保存事务。
 
-`locale_fields` 在右侧显示中文与英文输入框，写入 `strings.csv` 的同一文档会话。技能描述用真实配置、占位符和能力缩放 resolver 预览，不维护第二套格式化公式。
+`locale_fields` 在右侧显示中文与英文输入框，写入 `strings.csv` 的同一文档会话。技能描述用 skills v3 真实程序、占位符和能力缩放 resolver 预览，不维护第二套格式化公式；Gear Mod 预览直接遍历 v6 组件，定性译文与结构化玩法摘要并列显示。
 
 ## 全局搜索
 
@@ -96,7 +99,7 @@ py -3 tools/sync_contracts.py --check
 py -3 tools/godot_bridge.py --project client headless-boot
 ```
 
-`data-table-editor-smoke` 覆盖目录完整性、深层/多态搜索、排除源、CRUD、TSV、Undo/Redo、locale、技能预览、草稿、外部冲突和回滚。UI 的实际可读性、Excel 粘贴手感、双语联改、搜索定位与冲突确认属于 L5，必须由人工在 Godot 编辑器执行。
+`data-table-editor-smoke` 覆盖目录完整性、深层/多态搜索、排除源、CRUD、TSV、Undo/Redo、locale、skills v3 预览、Gear Mod 三类模板深拷贝、slot-stat 双向拒绝、双语组件预览、草稿、外部冲突和回滚。UI 的实际可读性、Excel 粘贴手感、双语联改、模板菜单、搜索定位与冲突确认属于 L5，必须由人工在 Godot 编辑器执行。
 
 常见故障：
 

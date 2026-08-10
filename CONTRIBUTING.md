@@ -31,7 +31,7 @@ git config --global user.email "<your email>"
 | **CodeBuddy IDE** | 想用项目级 subagents / slash commands（`.codebuddy/agents/`、`.codebuddy/commands/`）|
 | **OpenAI Codex CLI** | 想用 Codex 平台配置（`.codex/agents/`、`.codex/commands/`、`.codex/rules/`）|
 | **OpenCode** | 想用 OpenCode 协作；入口见 `OPENCODE.md` 与 `.opencode/opencode.json` |
-| **Godot 4.6.3** | 真正运行 / 调试 `client/`（M1 起）|
+| **Godot 4.7.1** | 真正运行 / 调试 `client/` |
 | **Python 3.10+** | 跑 `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`tools/lint_gdscript_rules.py`、`tools/lint_project_rules.py`、`tools/lint_semantic_rules.py`、`tools/test_semantic_rules_lint.py`、`tools/docs_health_check.py` 与后续工具脚本 |
 | **pre-commit** | 可选但推荐；执行 `pip install pre-commit && pre-commit install` 后，commit 前自动跑 Stage 1 本地 hook |
 | **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
@@ -65,7 +65,8 @@ git config --global user.email "<your email>"
 
 | 任务 | 入口 |
 |------|------|
-| 加敌人 / 遗物 / 道具 | 改 `client/data/*.json`（即 `res://data/`），**不改逻辑** |
+| 加 Gear Mod | 用 `/new-gear-mod` 或 `docs/AI协作/任务模板/加GearMod.md`，组合 `components[]`，**不写内容 ID 分支** |
+| 加敌人 / 道具 | 改 `client/data/*.json` / CSV（即 `res://data/`），**不改逻辑** |
 | 改数值 | 只改 `client/data/`，**绝不改代码常量** |
 | 加面向玩家文本 | 加 `client/locale/strings.csv` 的 key + 译文 |
 | 加设置项 | `Settings` 加配置 + UI 控件 |
@@ -106,7 +107,7 @@ git config --global user.email "<your email>"
 示例：
 ```
 feat(weapon): 添加 split 效果原语
-data(relics): 新增锋利弹头与急速射击
+data(gear-mod): 新增复合护盾触发组件
 docs(adr): 记录暂停功能实现约定
 ```
 
@@ -159,7 +160,7 @@ python tools/docs_health_check.py
 - [ ] 没有硬编码可调数值（都在 `res://data/`）？
 - [ ] 没有硬编码玩家可见文本（都用 `tr()` 文本键）？
 - [ ] 玩家偏好都走 `Settings` 单例？
-- [ ] 新遗物/道具是加数据而非加逻辑分支？
+- [ ] 新 Gear Mod / 道具是加数据并复用内置原语，而非加内容 ID 分支？
 - [ ] 高频实体用了对象池？
 - [ ] 约定字符串都来自 `docs/词表与契约.md` 且以常量引用？
 - [ ] 改词表后是否已运行 `python tools/sync_contracts.py` 并确认 `--check` 通过？

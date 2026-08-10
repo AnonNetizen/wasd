@@ -74,12 +74,6 @@
             "weight": 100
           }
         ],
-        "relics": [
-          {
-            "id": "relic_sharp_rounds",
-            "weight": 100
-          }
-        ],
         "active_items": [
           {
             "id": "active_item_blink_burst",

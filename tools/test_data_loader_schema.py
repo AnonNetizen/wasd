@@ -1345,11 +1345,11 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
-            "gear mod schema v5 is required",
-            _mutate_json("client/data/gear_mods.json", _set_gear_mod_schema_version(4)),
+            "gear mod schema v6 is required",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_schema_version(5)),
             [
                 "client/data/gear_mods.json:schema_version",
-                "must equal 5",
+                "must equal 6",
             ],
         ),
         (
@@ -1369,75 +1369,70 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
-            "gear mod kind must be registered",
-            _mutate_json("client/data/gear_mods.json", _set_first_gear_mod_kind("unknown")),
+            "gear mod component type must be registered",
+            _mutate_json("client/data/gear_mods.json", _set_first_gear_mod_component_type("unknown")),
             [
-                "client/data/gear_mods.json:mods[0].kind",
-                "unknown id unknown; expected one of gear_mod_kinds",
+                "client/data/gear_mods.json:mods[0].components[0].type",
+                "unknown id unknown; expected one of gear_mod_component_types",
             ],
         ),
         (
-            "effect gear mods reject map fields",
-            _mutate_json("client/data/gear_mods.json", _add_effect_map_behavior),
+            "modifier components reject program fields",
+            _mutate_json("client/data/gear_mods.json", _add_modifier_component_program),
             [
-                "client/data/gear_mods.json:mods[0].map_behavior",
+                "client/data/gear_mods.json:mods[0].components[0].program",
                 "is not allowed",
             ],
         ),
         (
-            "map gear mods require map behavior",
-            _mutate_json("client/data/gear_mods.json", _remove_map_gear_mod_behavior),
+            "program components require a nested program",
+            _mutate_json("client/data/gear_mods.json", _remove_program_component_program),
             [
-                "client/data/gear_mods.json:mods[3].map_behavior",
+                "client/data/gear_mods.json:mods[3].components[0].program",
                 "is required",
             ],
         ),
         (
-            "map gear mods reject effect fields",
-            _mutate_json("client/data/gear_mods.json", _add_map_gear_mod_slot),
+            "interval programs require a positive interval",
+            _mutate_json("client/data/gear_mods.json", _set_program_interval(0.0)),
             [
-                "client/data/gear_mods.json:mods[3].slot",
+                "client/data/gear_mods.json:mods[3].components[0].program[0].interval_seconds",
+                "must be > 0",
+            ],
+        ),
+        (
+            "effect program conditions must be registered",
+            _mutate_json("client/data/gear_mods.json", _set_program_condition("condition_missing")),
+            [
+                "client/data/gear_mods.json:mods[3].components[0].program[0].conditions[0].condition",
+                "unknown id condition_missing; expected one of effect_conditions",
+            ],
+        ),
+        (
+            "effect program actions must be registered",
+            _mutate_json("client/data/gear_mods.json", _set_program_action("action_missing")),
+            [
+                "client/data/gear_mods.json:mods[3].components[0].program[0].actions[0].action",
+                "unknown id action_missing; expected one of effect_actions",
+            ],
+        ),
+        (
+            "board rule components reject modifier fields",
+            _mutate_json("client/data/gear_mods.json", _add_board_rule_modifiers),
+            [
+                "client/data/gear_mods.json:mods[4].components[0].modifiers",
                 "is not allowed",
             ],
         ),
         (
-            "map gear mod spawn interval is fixed",
-            _mutate_json("client/data/gear_mods.json", _set_map_gear_mod_interval(9.0)),
-            [
-                "client/data/gear_mods.json:mods[3].map_behavior.interval_seconds",
-                "must equal 10.0",
-            ],
-        ),
-        (
-            "map gear mod rejects the old layer-exit reset field",
+            "gear mod board rule is occupy only",
             _mutate_json(
                 "client/data/gear_mods.json",
-                _rename_map_reset_to_layer_exit,
+                _set_board_rule("periodic_enemy_spawn"),
             ),
             [
-                "client/data/gear_mods.json:mods[3].map_behavior.reset_on_layer_exit",
-                "is not allowed",
-                "client/data/gear_mods.json:mods[3].map_behavior.reset_on_module_exit",
-                "is required",
-            ],
-        ),
-        (
-            "grid gear mods reject effect fields",
-            _mutate_json("client/data/gear_mods.json", _add_grid_gear_mod_modifiers),
-            [
-                "client/data/gear_mods.json:mods[4].modifiers",
-                "is not allowed",
-            ],
-        ),
-        (
-            "grid gear mod behavior is occupy only",
-            _mutate_json(
-                "client/data/gear_mods.json",
-                _set_grid_gear_mod_behavior("periodic_enemy_spawn"),
-            ),
-            [
-                "client/data/gear_mods.json:mods[4].grid_behavior.id",
-                "unknown id periodic_enemy_spawn; expected one of gear_mod_grid_behaviors",
+                "client/data/gear_mods.json:mods[4].components[0].rule_id",
+                "unknown id periodic_enemy_spawn; expected one of gear_mod_board_rules",
             ],
         ),
         (
@@ -1484,8 +1479,16 @@ def main(argv: list[str] | None = None) -> int:
             "gear mod modifier stat must be registered",
             _mutate_json("client/data/gear_mods.json", _set_gear_mod_modifier_stat("stat_missing")),
             [
-                "client/data/gear_mods.json:mods[0].modifiers[0].stat",
+                "client/data/gear_mods.json:mods[0].components[0].modifiers[0].stat",
                 "unknown id stat_missing; expected one of stats",
+            ],
+        ),
+        (
+            "gear mod modifier stat must be supported by its slot",
+            _mutate_json("client/data/gear_mods.json", _set_first_gear_mod_modifier_slot("hero")),
+            [
+                "client/data/gear_mods.json:mods[0].components[0].modifiers[0].stat",
+                "is not supported by hero slot",
             ],
         ),
         (
@@ -1529,18 +1532,18 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
-            "gear mod legacy base value is rejected",
+            "gear mod legacy top-level modifiers are rejected",
             _mutate_json("client/data/gear_mods.json", _add_gear_mod_legacy_base_value),
             [
-                "client/data/gear_mods.json:mods[0].modifiers[0].base_value",
+                "client/data/gear_mods.json:mods[0].modifiers",
                 "is not allowed",
             ],
         ),
         (
-            "gear mod legacy value per rank is rejected",
+            "gear mod legacy modifier fields remain outside v6 components",
             _mutate_json("client/data/gear_mods.json", _add_gear_mod_legacy_value_per_rank),
             [
-                "client/data/gear_mods.json:mods[0].modifiers[0].value_per_rank",
+                "client/data/gear_mods.json:mods[0].modifiers",
                 "is not allowed",
             ],
         ),
@@ -1840,35 +1843,11 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
-            "relic must include relic tag",
-            _mutate_json("client/data/relics.json", _set_relic_tags([])),
+            "mode unsupported resource pool is rejected",
+            _mutate_json("client/data/game_modes.json", _set_mode_unsupported_pool),
             [
-                "client/data/relics.json:relics[0].tags",
-                "must include tag_relic",
-            ],
-        ),
-        (
-            "relic behavior effect must be registered",
-            _mutate_json("client/data/relics.json", _set_relic_behavior_effect("arcane")),
-            [
-                "client/data/relics.json:relics[0].behaviors[0].effect",
-                "unknown id arcane; expected one of effects",
-            ],
-        ),
-        (
-            "relic must have modifier or behavior",
-            _mutate_json("client/data/relics.json", _clear_relic_effects),
-            [
-                "client/data/relics.json:relics[0]",
-                "must contain at least one modifier or behavior",
-            ],
-        ),
-        (
-            "mode relic reference must exist",
-            _mutate_json("client/data/game_modes.json", _set_mode_relic("relic_missing")),
-            [
-                "client/data/game_modes.json:modes[0].resource_pools.relics[0].id",
-                "relic is not defined in relics.json: relic_missing",
+                "client/data/game_modes.json:modes[0].resource_pools.legacy_rewards",
+                "must be a supported resource pool",
             ],
         ),
         (
@@ -1912,15 +1891,23 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
+            "skills schema v3 is required",
+            _mutate_json("client/data/skills.json", _set_schema_version(2)),
+            [
+                "client/data/skills.json:schema_version",
+                "must equal 3",
+            ],
+        ),
+        (
             "skill description placeholders must resolve from config",
             _mutate_locale_description_placeholder(
                 "skill_deploy_projectile_barrier_desc",
-                "{effect_1_missing}",
+                "{program_1_action_1_missing}",
             ),
             [
                 "client/data/skills.json:skills[0].desc_key",
                 "unsupported config description placeholders",
-                "{effect_1_missing}",
+                "{program_1_action_1_missing}",
             ],
         ),
         (
@@ -1952,10 +1939,74 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
+            "skill programs only use activation trigger in v3",
+            _mutate_json("client/data/skills.json", _set_skill_program_trigger("damage_dealt")),
+            [
+                "client/data/skills.json:skills[0].programs[0].trigger",
+                "must equal skill_activated",
+            ],
+        ),
+        (
+            "skill program conditions must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_program_condition("condition_missing")),
+            [
+                "client/data/skills.json:skills[0].programs[0].conditions[0].condition",
+                "unknown id condition_missing; expected one of effect_conditions",
+            ],
+        ),
+        (
+            "skill program actions must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_program_action("action_missing")),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].action",
+                "unknown id action_missing; expected one of effect_actions",
+            ],
+        ),
+        (
+            "spawn projectile rejects undeclared params",
+            _mutate_json("client/data/skills.json", _add_skill_projectile_surplus_param),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.surprise",
+                "is not allowed",
+            ],
+        ),
+        (
+            "spawn projectile requires explicit gameplay params",
+            _mutate_json("client/data/skills.json", _remove_skill_projectile_speed),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.speed",
+                "is required",
+            ],
+        ),
+        (
+            "spawn enemy params are exact",
+            _mutate_json("client/data/gear_mods.json", _add_spawn_enemy_surplus_param),
+            [
+                "client/data/gear_mods.json:mods[3].components[0].program[0].actions[0].params.surprise",
+                "is not allowed",
+            ],
+        ),
+        (
+            "spawn enemy keeps normal rewards",
+            _mutate_json("client/data/gear_mods.json", _disable_spawn_enemy_rewards),
+            [
+                "client/data/gear_mods.json:mods[3].components[0].program[0].actions[0].params.normal_rewards",
+                "must be true",
+            ],
+        ),
+        (
+            "spawn barrier recast policy is replace",
+            _mutate_json("client/data/skills.json", _set_skill_barrier_recast_policy("stack")),
+            [
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.recast_policy",
+                "must equal replace",
+            ],
+        ),
+        (
             "skill apply status id must be registered",
             _mutate_json("client/data/skills.json", _set_skill_apply_status_param("status", "status_missing")),
             [
-                "client/data/skills.json:skills[0].effects[0].params.status",
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.status",
                 "unknown id status_missing; expected one of status_effects",
             ],
         ),
@@ -1963,7 +2014,7 @@ def main(argv: list[str] | None = None) -> int:
             "skill apply status stack rule must be registered",
             _mutate_json("client/data/skills.json", _set_skill_apply_status_param("stack_rule", "STACK_MISSING")),
             [
-                "client/data/skills.json:skills[0].effects[0].params.stack_rule",
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.stack_rule",
                 "unknown id STACK_MISSING; expected one of status_stack_rules",
             ],
         ),
@@ -1971,31 +2022,15 @@ def main(argv: list[str] | None = None) -> int:
             "skill apply status granted ability tag must be registered",
             _mutate_json("client/data/skills.json", _set_skill_apply_status_granted_tag("ability_tag_missing")),
             [
-                "client/data/skills.json:skills[0].effects[0].params.granted_ability_tags[0]",
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.granted_ability_tags[0]",
                 "unknown id ability_tag_missing; expected one of ability_tags",
-            ],
-        ),
-        (
-            "skill apply status element must be registered",
-            _mutate_json("client/data/skills.json", _set_skill_apply_status_param("element_id", "element_missing")),
-            [
-                "client/data/skills.json:skills[0].effects[0].params.element_id",
-                "unknown id element_missing; expected one of elements",
-            ],
-        ),
-        (
-            "skill apply status dot requires element",
-            _mutate_json("client/data/skills.json", _set_skill_apply_status_dot_without_element),
-            [
-                "client/data/skills.json:skills[0].effects[0].params.element_id",
-                "is required when magnitude and tick_interval are positive",
             ],
         ),
         (
             "skill damage element must be registered",
             _mutate_json("client/data/skills.json", _set_skill_damage_element("element_missing")),
             [
-                "client/data/skills.json:skills[0].effects[0].params.element_id",
+                "client/data/skills.json:skills[0].programs[0].actions[0].params.element_id",
                 "unknown id element_missing; expected one of elements",
             ],
         ),
@@ -2003,7 +2038,7 @@ def main(argv: list[str] | None = None) -> int:
             "skill weapon modifier duration must be positive",
             _mutate_json("client/data/skills.json", _set_skill_weapon_modifier_duration(0.0)),
             [
-                "client/data/skills.json:skills[2].effects[0].params.duration",
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.duration",
                 "must be > 0",
             ],
         ),
@@ -2011,7 +2046,7 @@ def main(argv: list[str] | None = None) -> int:
             "skill weapon modifier stat must be registered",
             _mutate_json("client/data/skills.json", _set_skill_weapon_modifier_stat("stat_missing")),
             [
-                "client/data/skills.json:skills[2].effects[0].params.modifiers[0].stat",
+                "client/data/skills.json:skills[2].programs[0].actions[0].params.modifiers[0].stat",
                 "unknown id stat_missing; expected one of stats",
             ],
         ),
@@ -3048,52 +3083,51 @@ def _remove_gear_mod_initial_cell(payload: dict[str, Any]) -> None:
     payload["board"]["initial_unlocked_cells"].pop()
 
 
-def _set_first_gear_mod_kind(value: str) -> JsonMutator:
+def _set_first_gear_mod_component_type(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["mods"][0]["kind"] = value
+        payload["mods"][0]["components"][0]["type"] = value
 
     return mutate
 
 
-def _add_effect_map_behavior(payload: dict[str, Any]) -> None:
-    payload["mods"][0]["map_behavior"] = {
-        "id": "periodic_enemy_spawn",
-        "interval_seconds": 10.0,
-        "reset_on_module_exit": True,
-        "current_layer_only": True,
-        "normal_rewards": True,
-    }
+def _add_modifier_component_program(payload: dict[str, Any]) -> None:
+    payload["mods"][0]["components"][0]["program"] = {}
 
 
-def _remove_map_gear_mod_behavior(payload: dict[str, Any]) -> None:
-    payload["mods"][3].pop("map_behavior")
+def _remove_program_component_program(payload: dict[str, Any]) -> None:
+    payload["mods"][3]["components"][0].pop("program")
 
 
-def _add_map_gear_mod_slot(payload: dict[str, Any]) -> None:
-    payload["mods"][3]["slot"] = "weapon"
-
-
-def _set_map_gear_mod_interval(value: float) -> JsonMutator:
+def _set_program_interval(value: float) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["mods"][3]["map_behavior"]["interval_seconds"] = value
+        payload["mods"][3]["components"][0]["program"]["interval_seconds"] = value
 
     return mutate
 
 
-def _rename_map_reset_to_layer_exit(payload: dict[str, Any]) -> None:
-    behavior = payload["mods"][3]["map_behavior"]
-    behavior["reset_on_layer_exit"] = behavior.pop("reset_on_module_exit")
+def _set_program_condition(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][3]["components"][0]["program"]["conditions"][0]["condition"] = value
+
+    return mutate
 
 
-def _add_grid_gear_mod_modifiers(payload: dict[str, Any]) -> None:
-    payload["mods"][4]["modifiers"] = [
+def _set_program_action(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][3]["components"][0]["program"]["actions"][0]["action"] = value
+
+    return mutate
+
+
+def _add_board_rule_modifiers(payload: dict[str, Any]) -> None:
+    payload["mods"][4]["components"][0]["modifiers"] = [
         {"stat": "damage", "type": "mult", "value": 1.2}
     ]
 
 
-def _set_grid_gear_mod_behavior(value: str) -> JsonMutator:
+def _set_board_rule(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["mods"][4]["grid_behavior"]["id"] = value
+        payload["mods"][4]["components"][0]["rule_id"] = value
 
     return mutate
 
@@ -3121,7 +3155,14 @@ def _set_gear_mod_name_key(value: str) -> JsonMutator:
 
 def _set_gear_mod_modifier_stat(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["mods"][0]["modifiers"][0]["stat"] = value
+        payload["mods"][0]["components"][0]["modifiers"][0]["stat"] = value
+
+    return mutate
+
+
+def _set_first_gear_mod_modifier_slot(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][0]["components"][0]["slot"] = value
 
     return mutate
 
@@ -3160,11 +3201,15 @@ def _add_gear_mod_legacy_rank_modifiers(payload: dict[str, Any]) -> None:
 
 
 def _add_gear_mod_legacy_base_value(payload: dict[str, Any]) -> None:
-    payload["mods"][0]["modifiers"][0]["base_value"] = 1.1
+    payload["mods"][0]["modifiers"] = [
+        {"stat": "damage", "type": "mult", "base_value": 1.1}
+    ]
 
 
 def _add_gear_mod_legacy_value_per_rank(payload: dict[str, Any]) -> None:
-    payload["mods"][0]["modifiers"][0]["value_per_rank"] = 0.05
+    payload["mods"][0]["modifiers"] = [
+        {"stat": "damage", "type": "mult", "value_per_rank": 0.05}
+    ]
 
 
 def _set_gear_mod_reward_pool_id(value: str) -> JsonMutator:
@@ -3327,36 +3372,10 @@ def _set_spawn_wave_hazard(hazard_id: str, hazard_weight: str) -> CsvMutator:
     return mutate
 
 
-def _set_relic_tags(value: list[str]) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["relics"][0]["tags"] = value
-
-    return mutate
-
-
-def _set_relic_behavior_effect(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["relics"][0]["behaviors"] = [
-            {
-                "event": "on_hit",
-                "effect": value,
-                "params": {},
-            }
-        ]
-
-    return mutate
-
-
-def _clear_relic_effects(payload: dict[str, Any]) -> None:
-    payload["relics"][0]["modifiers"] = []
-    payload["relics"][0]["behaviors"] = []
-
-
-def _set_mode_relic(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["modes"][0]["resource_pools"]["relics"][0]["id"] = value
-
-    return mutate
+def _set_mode_unsupported_pool(payload: dict[str, Any]) -> None:
+    payload["modes"][0]["resource_pools"]["legacy_rewards"] = [
+        {"id": "legacy_reward", "weight": 100}
+    ]
 
 
 def _set_active_item_tags(value: list[str]) -> JsonMutator:
@@ -3408,34 +3427,93 @@ def _set_skill_activation_blocked_tag(value: str) -> JsonMutator:
     return mutate
 
 
+def _set_skill_program_trigger(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["programs"][0]["trigger"] = value
+
+    return mutate
+
+
+def _set_skill_program_condition(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["programs"][0]["conditions"] = [
+            {"condition": value, "params": {}}
+        ]
+
+    return mutate
+
+
+def _set_skill_program_action(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["programs"][0]["actions"][0]["action"] = value
+
+    return mutate
+
+
+def _projectile_action_payload() -> dict[str, Any]:
+    return {
+        "action": "spawn_projectile",
+        "params": {
+            "pool_id": "bullet_basic",
+            "amount": 8.0,
+            "element_id": "element_neutral",
+            "speed": 800.0,
+            "range": 600.0,
+            "hit_radius": 8.0,
+            "lifetime": 2.0,
+            "count": 1,
+            "spread_degrees": 0.0,
+            "pierce_count": 0,
+            "wall_pierce": False,
+            "damage_target_groups": ["active_enemies"],
+        },
+    }
+
+
+def _add_skill_projectile_surplus_param(payload: dict[str, Any]) -> None:
+    payload["skills"][0]["programs"][0]["actions"][0] = _projectile_action_payload()
+    payload["skills"][0]["programs"][0]["actions"][0]["params"]["surprise"] = 1
+
+
+def _remove_skill_projectile_speed(payload: dict[str, Any]) -> None:
+    payload["skills"][0]["programs"][0]["actions"][0] = _projectile_action_payload()
+    payload["skills"][0]["programs"][0]["actions"][0]["params"].pop("speed")
+
+
+def _add_spawn_enemy_surplus_param(payload: dict[str, Any]) -> None:
+    payload["mods"][3]["components"][0]["program"]["actions"][0]["params"]["surprise"] = 1
+
+
+def _disable_spawn_enemy_rewards(payload: dict[str, Any]) -> None:
+    payload["mods"][3]["components"][0]["program"]["actions"][0]["params"]["normal_rewards"] = False
+
+
+def _set_skill_barrier_recast_policy(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["programs"][0]["actions"][0]["params"]["recast_policy"] = value
+
+    return mutate
+
+
 def _set_skill_apply_status_param(field: str, value: Any) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
-        payload["skills"][0]["effects"][0]["params"][field] = value
+        payload["skills"][0]["programs"][0]["actions"][0] = _apply_status_action_payload()
+        payload["skills"][0]["programs"][0]["actions"][0]["params"][field] = value
 
     return mutate
 
 
 def _set_skill_apply_status_granted_tag(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
-        payload["skills"][0]["effects"][0]["params"]["granted_ability_tags"][0] = value
+        payload["skills"][0]["programs"][0]["actions"][0] = _apply_status_action_payload()
+        payload["skills"][0]["programs"][0]["actions"][0]["params"]["granted_ability_tags"][0] = value
 
     return mutate
 
 
-def _set_skill_apply_status_dot_without_element(payload: dict[str, Any]) -> None:
-    payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
-    params = payload["skills"][0]["effects"][0]["params"]
-    params["status"] = "poison"
-    params["magnitude"] = 2.0
-    params["tick_interval"] = 0.5
-    params.pop("element_id", None)
-
-
-def _apply_status_effect_payload() -> dict[str, Any]:
+def _apply_status_action_payload() -> dict[str, Any]:
     return {
-        "effect": "skill_effect_apply_status",
+        "action": "apply_status",
         "params": {
             "status": "silence",
             "duration": 1.0,
@@ -3447,28 +3525,28 @@ def _apply_status_effect_payload() -> dict[str, Any]:
 
 def _set_skill_damage_element(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][0]["effects"][0] = {
-            "effect": "skill_effect_damage",
+        payload["skills"][0]["programs"][0]["actions"][0] = {
+            "action": "damage",
             "params": {
                 "amount": 8.0,
                 "element_id": "element_neutral",
             },
         }
-        payload["skills"][0]["effects"][0]["params"]["element_id"] = value
+        payload["skills"][0]["programs"][0]["actions"][0]["params"]["element_id"] = value
 
     return mutate
 
 
 def _set_skill_weapon_modifier_duration(value: float) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][2]["effects"][0]["params"]["duration"] = value
+        payload["skills"][2]["programs"][0]["actions"][0]["params"]["duration"] = value
 
     return mutate
 
 
 def _set_skill_weapon_modifier_stat(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][2]["effects"][0]["params"]["modifiers"][0]["stat"] = value
+        payload["skills"][2]["programs"][0]["actions"][0]["params"]["modifiers"][0]["stat"] = value
 
     return mutate
 

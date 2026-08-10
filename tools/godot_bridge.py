@@ -116,6 +116,14 @@ def main() -> int:
     )
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser(
+        "effect-runtime-smoke",
+        help="Run deterministic GameplayEffectRuntime coverage in headless Godot.",
+    )
+    subparsers.add_parser(
+        "mod-loader-smoke",
+        help="Run isolated local Mod manifest v2 and media registry coverage.",
+    )
+    subparsers.add_parser(
         "gear-mod-pickup-smoke",
         help="Run focused Gear Mod manual-pickup coverage in headless Godot.",
     )
@@ -558,6 +566,36 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--gear-mod-smoke"],
+            cwd=project,
+        )
+    if args.command == "mod-loader-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "mod_loader_v2_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing ModLoader smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_isolated_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--script",
+                "res://tools/mod_loader_v2_smoke.gd",
+            ],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script", "ERROR:"),
+            success_markers=("MOD LOADER V2 SMOKE ALL PASS",),
+        )
+    if args.command == "effect-runtime-smoke":
+        smoke_script = project / "tools" / "effect_runtime_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing effect runtime smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--effect-runtime-smoke"],
             cwd=project,
         )
     if args.command == "gear-mod-pickup-smoke":

@@ -33,10 +33,10 @@ Godot 中央主界面的“数据配表”把 `strings.csv` 作为完整可编�
 | 加元素 / 智能碎片被动文案 | 在 `strings.csv` 加 `element_*_name` 与遗留稳定 key `passive_*_name` / `passive_*_desc`；数据只引用 key；被动数值使用 `{param_<字段>...}` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
 | 加心象个体名 / 图鉴描述 | 在 `strings.csv` 加遗留稳定 key `enemy_*_name` / `enemy_*_desc`；`enemies.csv` 填 `name_key` / `desc_key` |
-| 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
+| 加道具名和描述 | 在 `strings.csv` 加 `item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key`；消耗、范围、效果参数等使用下方配置占位符 |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，可能调整的数值必须使用命名占位符并由配置注入 |
-| 加 Gear Mod 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key，例如 effect / map / grid Mod 名称与描述、7×7 棋盘、核心、坐标、放置 / 取消和无空间反馈；effect 实际修正值由固定 `modifiers` 通用摘要显示，map / grid 详情使用定性描述；UI 代码使用 `tr("ui_xxx")` |
+| 加 Gear Mod 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key；`modifier` 实际数值、`program` 的触发 / 条件 / 动作和 `board_rule` 由结构化预览生成，描述只写定性用途；本地包使用 `mod_<package_id>_*` 命名空间并同时提供 `zh_CN` / `en` |
 | 加开发者测试岛文案 | 在 `strings.csv` 加 `ui_debug_test_arena_*` key；该域只供独立 debug/dev_tools scene 的配装、区域标签、控制面板和伤害 HUD 使用，仍须维护 `zh_CN` / `en` 并按英文长度验收 |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
@@ -90,7 +90,6 @@ ui_resume,继续,Resume
 | `element_` | 七元素名称 | `element_neutral_name` / `element_composite_ab_name` |
 | `passive_` | 智能碎片被动名称和描述；`passive` key 保持稳定 | `passive_primary_a_guard_name` / `passive_primary_a_guard_desc` |
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
-| `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
 | `skill_` | 技能名称和描述 | `skill_overdrive_rounds_name` / `skill_overdrive_rounds_desc` |
 | `status_` | HUD 与状态观察中的状态名称 | `status_slow_name` / `status_vulnerable_name` |
@@ -122,7 +121,7 @@ ui_resume,继续,Resume
 
 ```csv
 keys,zh_CN,en
-relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
+gear_mod_weapon_damage_test_desc,提高主武器伤害。,Increases primary weapon damage.
 ui_reward_choice_title,选择奖励,Choose Reward
 ```
 
@@ -229,27 +228,6 @@ ui_settings_input_pause,暂停,Pause
 2. 若需要新的分组标题、角色或用途标签，在 `strings.csv` 新增 `ui_credits_*` key，并补齐 `zh_CN` / `en`。
 3. 同步根目录 `CREDITS.md`，发行前人工复核许可证和 notice 要求。
 
-### 加一个遗物名称和描述
-
-1. 在 `strings.csv` 新增：
-
-```csv
-relic_sharp_rounds_name,锋利弹头,Sharp Rounds
-relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
-```
-
-2. 在 `client/data/relics.json` 使用：
-
-```json
-{
-  "id": "relic_sharp_rounds",
-  "name_key": "relic_sharp_rounds_name",
-  "desc_key": "relic_sharp_rounds_desc"
-}
-```
-
-3. 代码显示时通过 key 查译文，不直接读取硬文本。
-
 ### 加一个装备 Mod 名称和描述
 
 1. 在 `strings.csv` 新增 `gear_mod_<id>_name` / `gear_mod_<id>_desc`，例如：
@@ -261,8 +239,9 @@ gear_mod_weapon_spread_stabilizer_name,弹道稳定器,Ballistic Stabilizer
 gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces primary weapon projectile spread.
 ```
 
-2. `gear_mods.json` 只引用对应 `name_key` / `desc_key`；描述说明用途，不重复写死倍率或百分比。
-3. 固定 `modifiers` 的实际加成或减免由通用 modifier 摘要格式化，避免数据调整后译文中的数值失真。
+2. `gear_mods.json` 只引用对应 `name_key` / `desc_key`；描述说明用途，不重复写死倍率、概率、冷却或周期。
+3. `components[]` 的 `modifier` / `program` / `board_rule` 由数据配表生成中英文结构化预览，避免数据调整后译文失真。
+4. 本地 Gear Mod 的 key 必须使用 `mod_<package_id>_` 前缀；包内 `strings.csv` 仍须同时提供 `zh_CN` / `en`，缺语言属于玩法包校验失败。
 
 ### 加图鉴与解锁结果文案
 

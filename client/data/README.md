@@ -39,11 +39,11 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 加 / 改模块模板 | 在 Godot 的 `Module JSON` 中央主编辑区编辑 `modules/<id>.json`，再显式 Validate / Bake | 模块固定 11×11 格；JSON 是人工与 AI 协作主源，生成 TSCN 禁止手改，玩法变化会降为 `candidate` |
 | 改 7×7 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；左下起点固定，意识核按 `RNG.world` + run seed 等概率选取其余三个角落，其余槽位再组合；不存在撤离锚点 |
 | 改世界事件数值 / 波次 / 祭坛概率 | `world_events.json` | schema v1；事件、Gear Mod 池、波次与祭坛参数严格校验，运行时随机走 `RNG.world_event` |
-| 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
+| 加 / 改 Gear Mod | `gear_mods.json` | schema v6 组合 `modifier` / `program` / `board_rule`；效果程序只引用已登记原语，不改内容 ID 分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
 | 改消耗品堆叠 / 效果声明 | `consumables.json` | 用 `stack` 和 `use_effects`，不要实现拾取 / 背包运行时 |
-| 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池、难度 profile 和轻量覆盖；不要复制角色 / 遗物本体 |
+| 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池、难度 profile 和轻量覆盖；Gear Mod 走独立奖励池 / 掉落表，不挂模式资源池 |
 | 改难度名称 / 系数或敌人随时间增长的生命 / 伤害曲线 | `difficulty_profiles.json` | 难度系数缩放威胁时间和生成金币；当前只配置标准 `1.0`，尚无选择 UI |
 | 改敌人金币基础系数 / 阶段增长 / 随机范围 | `enemy_rewards.json` | schema v1；实际金币在敌人成功生成时用 `RNG.economy` 锁定，死亡时不重算 |
 | 改开放战区刷怪组合 / 波次 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
@@ -61,11 +61,10 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `camera_feedback.json` | 已建立 | 摄像机表现反馈；含瞄准方向引导偏移、玩家有效受伤与武器后坐力的 Phantom Camera 参数 |
 | `difficulty_profiles.json` | 已建立 | schema v2：难度双语名称 / 系数、模式级威胁时间曲线、阶段跃升、伤害换算比例和九段名称 |
 | `enemy_rewards.json` | 已建立 | schema v1：敌人金币基础系数、每阶段增长与 `RNG.economy` 随机倍率范围 |
-| `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 主动道具 / 技能 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；不含 Gear Mod 池 |
 | `content_unlock_rules.json` | 已建立 | schema v1：智能碎片、Gear Mod 与心象的跨局解锁条件；现有 `rules` 为空，全部内容默认解锁 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
 | `weapons.json` | 已建立 | schema v5：武器、后坐力 / 弹道扩散与子弹基础配置；玩家武器无限射击，精确拒绝遗留 `ammo` |
-| `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
@@ -82,7 +81,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `level_progression.json` | 已建立 | 金币驱动等级曲线：首段成本和整数倍率 |
 | `reward_choice_pools.json` | 已建立 | 通用奖励选项池、权重、等级条件和 modifier 边界 |
-| `gear_mods.json` | JSON | 局内 Gear Mod schema v5：固定 7×7 棋盘、严格 effect / map / grid 类型、公共奖励池与拾取放置配置 |
+| `gear_mods.json` | JSON | 局内 Gear Mod schema v6：固定 7×7 棋盘、可组合组件、公共奖励池 / 本地贡献与拾取放置配置 |
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；G.U.I.D.E、Xelu prompts 与 Lato 字体分别登记，vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
 | `visual_effects.json` | 已建立 | 视觉效果 catalog：资源、领域、技术标签、空间、生命周期、对象池与预览元数据 |
@@ -91,7 +90,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 
 ## 视觉效果与表现 Profile
 
-正式内容通过 `presentation_profile_id` 选择表现：当前角色、武器、技能、敌人和机关均必填；未来遗物、主动道具和消耗品可选。profile id 是数据主键，不要求新增代码常量；固定 `cue/domain/kind/space/lifecycle/anchor/quality` 必须来自 `docs/词表与契约.md` §16。
+正式内容通过 `presentation_profile_id` 选择表现：当前角色、武器、技能、敌人和机关均必填；主动道具和消耗品可选。profile id 是数据主键，不要求新增代码常量；固定 `cue/domain/kind/space/lifecycle/anchor/quality` 必须来自 `docs/词表与契约.md` §16。
 
 `visual_effects.json` 当前为 schema v3；旧 v1/v2 和遗留 `reduced_motion` / `quality_variants` 字段不兼容。`effects[]` 字段：
 
@@ -140,49 +139,64 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 user://mods/my_first_mod/
   mod.json
   data/
-    relics_patch.json
+    gear_mods_patch.json
+    gear_mod_drop_tables.csv
     strings_patch.csv
+  media/
+    icon.png
+    proc.ogg
 ```
 
 `mod.json` 示例：
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 2,
   "id": "my_first_mod",
   "name": "My First Mod",
   "version": "0.1.0",
   "enabled": true,
   "load_order": 0,
   "contract_extensions": {
-    "content_tags": ["mod_my_first_mod_tag"],
+    "gear_mod_ids": ["mod_my_first_mod_arc_coil"],
     "locale_prefixes": ["mod_my_first_mod_"]
   },
   "data_patches": [
     {
       "type": "json_array_append",
-      "target": "relics.json",
-      "path": "data/relics_patch.json",
-      "array_key": "relics"
+      "target": "gear_mods.json",
+      "path": "data/gear_mods_patch.json",
+      "array_key": "mods"
+    },
+    {
+      "type": "csv_append",
+      "target": "gear_mod_drop_tables.csv",
+      "path": "data/gear_mod_drop_tables.csv"
     },
     {
       "type": "csv_append",
       "target": "strings.csv",
       "path": "data/strings_patch.csv"
     }
+  ],
+  "media_assets": [
+    {"id": "mod_my_first_mod_icon", "type": "image", "path": "media/icon.png"},
+    {"id": "mod_my_first_mod_proc", "type": "sfx", "path": "media/proc.ogg"}
   ]
 }
 ```
 
 | 规则 | 说明 |
 |------|------|
-| 包 id | `mod.json` 的 `id` 必须等于目录名 `<mod_id>`，重复 id 只会启用第一个 |
-| 数据追加 | 当前只支持 `json_array_append` 和 `csv_append`，不支持覆盖 / 删除基础数据 |
-| 动态 id | 只允许 manifest 扩展 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes`；值必须以 `mod_<mod_id>_` 开头 |
-| 核心契约 | mod 不能扩展 `stats`、`effects`、`events`、`elements`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等需要代码或资源同步的类别 |
-| 文案 | mod 文案仍用 CSV，建议通过 `locale_prefixes` 声明 `mod_<mod_id>_` 前缀；基础 `zh_CN` / `en` 列规则不变 |
-| 安全 | manifest 的 `path` 只能指向 mod 自身目录内相对路径，禁止 `..`、绝对路径和 `://` |
-| 验证 | 启动时 `DataLoader` 校验合并后的数据；错误看 `[ModLoader]` / `[DataLoader]` 日志 |
+| manifest | 当前只接受 schema v2；`id` 必须等于目录名，包按 `load_order`、包 id 稳定排序 |
+| 数据追加 | 只允许给 `gear_mods.json.mods[]` / `reward_pool_contributions[]`、`gear_mod_drop_tables.csv` 与 `strings.csv` 追加；禁止覆盖 / 删除基础记录 |
+| 动态 id | 只允许 manifest 扩展 `gear_mod_ids` 与 `locale_prefixes`；Gear Mod id 必须以 `mod_<package_id>_` 开头，且每个声明 id 恰有一个包内定义 |
+| 玩法边界 | 本地 Gear Mod 安装即开放，不写 Meta、不声明解锁规则；只能组合官方 `stat`、trigger、condition、action、status、enemy、pool 与 RNG 契约，禁止扩展核心 id |
+| 文案 | 包内 `strings.csv` 必须提供 `zh_CN` / `en`，key 使用 `mod_<package_id>_` 命名空间 |
+| 媒体 | 图片支持 PNG/WebP/JPEG，单项 ≤4 MiB 且 ≤1024×1024；SFX 支持 Ogg Vorbis/MP3/WAV，单项 ≤8 MiB、≤30 秒且不得循环。每包最多 128 项、总大小 ≤64 MiB |
+| 安全 | 所有路径必须是包目录内安全相对路径；禁止 `..`、绝对路径、`://`、玩家脚本、场景、Shader、动态库和远端资源 |
+| 隔离 | 每个包先独立校验；玩法数据无效会禁用整个包，其他包与基础游戏继续启动。媒体损坏 / 超限只记录诊断并回退图标或静音 |
+| 快照 | 启动 / 主菜单显式重载后缓存不可变包快照；活动 Run / Replay 拒绝重载。Run v19 与 Replay v9 保存精确 `{id,version,gameplay_hash}` 环境，不匹配时保留文件并阻止继续 / 播放 |
 
 ## 通用格式规则
 
@@ -195,7 +209,7 @@ user://mods/my_first_mod/
 | snake_case | 字段名和 id 使用蛇形小写，和词表 id 保持一致 |
 | `schema_version` | 长期维护数据文件必须有 schema 版本，schema 变更要配迁移 / 校验说明 |
 | 单位明确 | 速度用 `px/s`，时间用秒，概率用 `0.0`~`1.0`，倍率用 `1.0` 表示不变 |
-| 模式复用 | 角色、遗物、道具、敌人等资源本体默认模式无关；模式配置只引用资源池、权重、条件、禁用列表和轻量覆盖 |
+| 模式复用 | 角色、Gear Mod、道具、敌人等资源本体默认模式无关；模式配置只引用资源池、权重、条件、禁用列表和轻量覆盖 |
 | 多人预留 | 当前只做单人；模式 / 伤害 / 回放 / 存档数据可预留 participant / team / friendly_fire 等字段，但不得提前实现网络协议或复制多人专用资源 |
 | 文案 key | 玩家可见名字 / 描述只存 `name_key` / `desc_key` / `hint_key` 等，不存硬文本 |
 | 致谢原文 | 外部项目名、人员名、许可证名、URL 与版权声明保持原文；面向玩家的分组标题 / 角色说明用 locale key |
@@ -207,7 +221,7 @@ user://mods/my_first_mod/
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`content_unlock_rules.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`weapons.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`level_progression.json`、`reward_choice_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`content_unlock_rules.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`weapons.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`skills.json`、`level_progression.json`、`reward_choice_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -225,11 +239,16 @@ JSON 示例：
 
 ```json
 {
-  "id": "relic_split_rounds",
-  "behaviors": [
-    { "event": "on_hit", "effect": "split", "params": { "count": 2, "angle": 20.0 } },
-    { "event": "on_fire", "effect": "pierce", "params": { "count": 1 } }
-  ]
+  "component_id": "heal_on_damage",
+  "type": "program",
+  "program": {
+    "program_id": "heal_on_damage",
+    "trigger": "damage_taken",
+    "conditions": [],
+    "actions": [{"action": "heal", "params": {"amount": 5.0}}],
+    "proc_chance": 0.25,
+    "internal_cooldown": 2.0
+  }
 }
 ```
 
@@ -393,7 +412,7 @@ JSON 示例：
 
 ## 内容数据通用字段
 
-角色、武器、敌人、遗物、道具等内容数据落地后，优先使用这些字段名，便于人和 AI 复用同一结构。
+角色、武器、敌人、Gear Mod、道具等内容数据落地后，优先使用这些字段名，便于人和 AI 复用同一结构。
 
 | 字段 | 类型 | 是否常见必填 | 说明 |
 |------|------|--------------|------|
@@ -407,8 +426,7 @@ JSON 示例：
 | `capabilities` | array[string] | 视内容而定 | 允许突破的默认规则；id 来自词表 §12 |
 | `availability` | object | 否 | 可用条件；需要限制模式时用 tags / 条件声明，由 `game_modes.json` 组合，不在代码写分支 |
 | `base_stats` | object | 视内容而定 | 基础属性，字段来自词表 stat |
-| `modifiers` | array[object] | 遗物常见 | 数值修正，格式见下节 |
-| `behaviors` | array[object] | 行为内容常见 | 行为触发，格式见下节 |
+| `components` | array[object] | Gear Mod 必填 | 可组合的 `modifier` / `program` / `board_rule`；每项有 Mod 内唯一 `component_id` |
 
 ## `content_unlock_rules.json`
 
@@ -566,7 +584,6 @@ round(
           { "id": "hazard_spike_trap", "weight": 100 },
           { "id": "hazard_fea_12_pulse", "weight": 100 }
         ],
-        "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "active_items": [{ "id": "active_item_blink_burst", "weight": 100 }],
         "skills": [
           { "id": "skill_overdrive_rounds", "weight": 100 }
@@ -603,8 +620,6 @@ round(
 | `resource_pools.enemies[].id` | string | 必须存在于 `enemies.csv` | 可用敌人 id |
 | `resource_pools.hazards[]` | array[object] | 已声明时必须非空 | 本模式可用机关池 |
 | `resource_pools.hazards[].id` | string | 必须存在于 `hazards.csv` | 可用机关 id |
-| `resource_pools.relics[]` | array[object] | 已声明时必须非空 | 本模式可用遗物池 |
-| `resource_pools.relics[].id` | string | 必须存在于 `relics.json` | 可用遗物 id |
 | `resource_pools.active_items[]` | array[object] | 已声明时必须非空 | 本模式可用主动道具池 |
 | `resource_pools.active_items[].id` | string | 必须存在于 `active_items.json` | 可用主动道具 id |
 | `resource_pools.skills[]` | array[object] | 已声明时必须非空 | 本模式可用技能池；角色或道具仍通过 skill id 引用技能本体 |
@@ -615,7 +630,7 @@ round(
 | `blocklists.content_tags[]` | array[string] | 词表 §12.3 content tag | 禁用某类内容标签；当前样例为空 |
 | `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
 
-`game_modes.json` 只声明模式边界和 `difficulty_profile_id`，不实现模式选择 UI、匹配、联网、刷怪、奖励抽取、敌人生成、遗物抽取或实际战斗规则。地图尺寸、PCG 机关和人工摆点不写在模式资源池里，改 `map_layouts.json`。通用奖励池由发起请求的系统显式选择，不再挂在模式 `resource_pools` 下。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+`game_modes.json` 只声明模式边界和 `difficulty_profile_id`，不实现模式选择 UI、匹配、联网、刷怪、奖励抽取、敌人生成或实际战斗规则。Gear Mod 由 `gear_mods.json.reward_pools[]`、`reward_pool_contributions[]` 与 `gear_mod_drop_tables.csv` 提供，不挂在模式 `resource_pools` 下。地图尺寸、PCG 机关和人工摆点改 `map_layouts.json`；通用奖励池由发起请求的系统显式选择。
 
 ## `map_layouts.json`
 
@@ -719,7 +734,7 @@ enemy_spitter,enemy_spitter_name,enemy_spitter_desc,true,,,tag_enemy,enemy_spitt
 
 ```json
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "profiles": [
     {
       "id": "enemy_ai_charge_stalker",
@@ -1309,43 +1324,6 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 `weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。玩家 WeaponSystem 按 `base_stats.fire_rate` 无限射击；不得重新加入弹量、换弹或空弹倍率字段。角色通过 `characters[].starting_loadout.weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。
 
-## `relics.json`
-
-当前结构：
-
-```json
-{
-  "schema_version": 1,
-  "relics": [
-    {
-      "id": "relic_sharp_rounds",
-      "name_key": "relic_sharp_rounds_name",
-      "desc_key": "relic_sharp_rounds_desc",
-      "default_unlocked": true,
-      "tags": ["tag_relic"],
-      "modifiers": [
-        { "stat": "damage", "type": "add", "value": 0.5 }
-      ],
-      "behaviors": []
-    }
-  ]
-}
-```
-
-字段说明：
-
-| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
-|----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
-| `relics[].id` | string | 文件内唯一，非空 | 遗物 id；模式遗物池引用此 id |
-| `relics[].name_key` / `desc_key` | string | `relic_*_name` / `relic_*_desc` | 遗物名称和描述译文 key |
-| `relics[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
-| `relics[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_relic` | 内容标签；破限遗物还需含 `tag_limit_break` 并声明 capability / primitive |
-| `relics[].modifiers` | array[object] | 可为空；与 `behaviors` 至少一个非空 | 数值修正列表，格式见下节 |
-| `relics[].behaviors` | array[object] | 可为空；与 `modifiers` 至少一个非空 | 行为触发列表，格式见下节 |
-
-`relics.json` 只声明被动遗物数据边界，不实现拾取、掉落、升级候选、`ModifierEngine` 应用、行为原语执行、UI 展示或存档快照。游戏模式可通过 `resource_pools.relics` 声明可用遗物池；实际抽取、解锁和应用由后续系统解释。
-
 ## `active_items.json`
 
 当前结构：
@@ -1407,7 +1385,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "skills": [
     {
       "id": "skill_aoe_slow",
@@ -1437,20 +1415,29 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
         "duration_stat": "ability_duration",
         "strength_stat": "ability_strength"
       },
-      "effects": [
+      "programs": [
         {
-          "effect": "skill_effect_apply_status",
-          "params": {
-            "status": "slow",
-            "duration": 5.0,
-            "stack_rule": "MAX_MAGNITUDE",
-            "magnitude": 0.35,
-            "magnitude_cap": 0.7,
-            "modifiers": [
-              {"stat": "move_speed", "type": "mult", "value": 0.65, "scale_mode": "inverse_from_magnitude"}
-            ],
-            "granted_ability_tags": []
-          }
+          "program_id": "slow_on_activation",
+          "trigger": "skill_activated",
+          "conditions": [],
+          "actions": [
+            {
+              "action": "apply_status",
+              "params": {
+                "status": "slow",
+                "duration": 5.0,
+                "stack_rule": "MAX_MAGNITUDE",
+                "magnitude": 0.35,
+                "magnitude_cap": 0.7,
+                "modifiers": [
+                  {"stat": "move_speed", "type": "mult", "value": 0.65, "scale_mode": "inverse_from_magnitude"}
+                ],
+                "granted_ability_tags": []
+              }
+            }
+          ],
+          "proc_chance": 1.0,
+          "internal_cooldown": 0.0
         }
       ]
     }
@@ -1462,7 +1449,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `2` | 数据结构版本 |
+| `schema_version` | int | 必须为 `3` | 数据结构版本；旧 v2 `effects[]` 不兼容 |
 | `skills[].id` | string | 词表 §12-C skill id，文件内唯一 | 技能 id；角色、主动道具、敌人或事件系统可复用引用 |
 | `skills[].name_key` / `desc_key` | string | `skill_*_name` / `skill_*_desc` | 技能名称和描述译文 key |
 | `skills[].default_unlocked` | bool | 当前必须为 `true` 或省略；省略按 `true` | 技能随所属智能碎片整包解锁，不是独立解锁内容；首版显式 `false` 非法，现有四技能均保持 `true` |
@@ -1485,29 +1472,30 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `skills[].scaling.radius_stat` | string | 可选，必须为 `ability_range` | targeting 或 effect 半径乘范围倍率 |
 | `skills[].scaling.duration_stat` | string | 可选，必须为 `ability_duration` | 状态 / buff 持续时间乘持续倍率 |
 | `skills[].scaling.strength_stat` | string | 可选，必须为 `ability_strength` | 屏障 HP、减速 magnitude 或 modifier 相对 1.0 的增量乘强度倍率 |
-| `skills[].effects[]` | array[object] | 必须非空 | 命中目标后执行的技能效果原语列表 |
-| `skills[].effects[].effect` | string | 词表 §12-F skill effect id | 技能效果原语 |
-| `skills[].effects[].params` | object | 由 effect 解释 | 技能效果参数 |
-| `skills[].effects[].params.amount` | number | `> 0` | `skill_effect_damage` 的伤害量 |
-| `skills[].effects[].params.element_id` | string | 词表 §9 element id | `skill_effect_damage` 的战斗元素；`skill_effect_apply_status` 做 DoT 时也必须填写；结算走 `Combat.apply_damage` |
-| `skills[].effects[].params.status` | string | 词表 §9-A status effect id | `skill_effect_apply_status` 施加的状态 id |
-| `skills[].effects[].params.duration` | number | 秒，`> 0` | `skill_effect_apply_status` 的持续时间，过期走 `GameClock` |
-| `skills[].effects[].params.stack_rule` | string | 词表 §9-B status stack rule | 状态重复施加时的叠加 / 刷新规则 |
-| `skills[].effects[].params.granted_ability_tags` | array[string] | 词表 §12-G ability tag，可为空 | 状态存在期间授予目标的 ability tags；当前沉默使用 `ability_tag_silenced` |
-| `skills[].effects[].params.magnitude` | number | 可选 | 状态强度；DoT 中表示单 tick 伤害，减速 / 增伤标记后续可复用 |
-| `skills[].effects[].params.tick_interval` | number | 可选，`>= 0` | DoT tick 间隔；与正 `magnitude` 同时出现时必须提供已登记 `element_id` |
-| `skills[].effects[].params.modifiers[]` | array[object] | actor / weapon modifier 或状态修正使用；格式同词表 §1 modifier | 临时属性修正；slow 可加 `scale_mode=inverse_from_magnitude` |
-| `skills[].effects[].params.modifiers[].scale_mode` | string | 可选；当前只允许 `inverse_from_magnitude` | 按 `1 - magnitude × ability_strength` 重算减速乘区 |
-| `skills[].effects[].params.radius` | number | `> 0`，px | 屏障或效果自身半径 |
-| `skills[].effects[].params.hp` | number | `> 0` | 屏障生命值 |
-| `skills[].effects[].params.max_active` | int | `>= 1` | 同一释放者可同时存在的屏障数量 |
-| `skills[].effects[].params.recast_policy` | string | 当前必须为 `replace` | 达到 max_active 后重施替换旧屏障 |
-| `skills[].effects[].params.magnitude_cap` | number | `>= 0` | ability strength 缩放后的状态强度上限 |
-| `skills[].effects[].params.max_stacks` | int | 可选，`>= 1` | `ADD_STACK_REFRESH` 的叠层上限 |
-| `skills[].effects[].params.incoming_damage_per_stack` | number | 可选，`>= 0` | vulnerable 每层易伤倍率 |
-| `skills[].effects[].params.incoming_damage_source_team` | string | 非空 team id | 易伤只对指定来源队伍生效；当前为 `team_player` |
+| `skills[].programs[]` | array[object] | 必须非空；`program_id` 技能内唯一 | 通用效果程序；技能首版只允许 `skill_activated` trigger |
+| `programs[].program_id` | string | 技能内唯一，非空 | Runtime 稳定状态键的一部分，不得随意改名 |
+| `programs[].trigger` | string | 词表 effect trigger；技能当前固定 `skill_activated` | 激活提交后向本局 `GameplayEffectRuntime` 发出的触发器 |
+| `programs[].conditions[]` | array[object] | 每项严格 `{condition,params}` | 全部条件通过后才执行动作；condition 来自官方原语契约 |
+| `programs[].conditions[].condition` | string | `effect_conditions` | 官方条件 id；技能首版通常为空数组 |
+| `programs[].conditions[].params` | object | 由 condition 契约解释 | 条件参数；不允许内容自定义解释器 |
+| `programs[].actions[]` | array[object] | 非空；每项严格 `{action,params}` | 按声明顺序执行；action 来自官方原语契约，伤害 / 状态 / 生成等统一经 Gateway |
+| `programs[].actions[].action` | string | `effect_actions` | 官方 action id；技能当前使用 `spawn_barrier` / `apply_status` / `temporary_modifier` |
+| `programs[].proc_chance` | number | `0.0..1.0` | 固定使用 `RNG.combat` 判定；`1.0` 不消费概率 roll |
+| `programs[].internal_cooldown` | number | 秒，`>= 0` | 程序内部冷却，独立于技能自身 cooldown，时间走 `GameClock` |
+| `programs[].interval_seconds` | number | 仅 `interval` trigger，秒，`> 0` | 周期程序间隔；技能 v3 首片不使用 |
+| `programs[].actions[].params` | object | 由 action 契约解释 | 伤害量、状态、持续、modifier、屏障、投射物或生成参数；能力缩放仍由技能 `scaling` 处理 |
+| `actions[].params.status` / `stack_rule` | string | 登记的 status / stack rule | `apply_status` 的状态与叠加语义 |
+| `actions[].params.duration` / `magnitude` / `magnitude_cap` | number | 秒 / 非负数 | 状态或临时 modifier 的持续时间、幅度与可选上限 |
+| `actions[].params.max_stacks` | int | `>= 1` | 可叠层状态的最大层数 |
+| `actions[].params.incoming_damage_per_stack` | number | `>= 0` | 易伤每层的额外承伤倍率 |
+| `actions[].params.incoming_damage_source_team` | string | team id | 限制易伤只接受指定来源队伍 |
+| `actions[].params.granted_ability_tags` | array[string] | ability tag id | 状态存续期间授予的能力标签，可为空 |
+| `actions[].params.modifiers[]` | array[object] | `{stat,type,value}` | `apply_status` / `temporary_modifier` 应用的属性修正 |
+| `actions[].params.modifiers[].scale_mode` | string | action 支持的缩放模式，可选 | 当前减速使用 `inverse_from_magnitude`；其他 modifier 可省略 |
+| `actions[].params.radius` / `hp` / `max_active` | number / number / int | `>= 0` / `> 0` / `>= 1` | `spawn_barrier` 半径、生命与同来源最大活动数量 |
+| `actions[].params.recast_policy` | string | 当前 `replace` | 屏障重施策略；不允许内容自定义脚本策略 |
 
-`skills.json` 是技能本体数据；英雄只通过 `hero_skill_ids` 引用技能。当前四技能为静域屏障、镇静脉冲、怒意超频和激怒标记，分别复用 deploy barrier、apply status 与 actor modifiers 原语；运行时按 `skill_1`～`skill_4` 解释，禁止按技能或英雄 id 特判。
+`skills.json` 是技能本体数据；英雄只通过 `hero_skill_ids` 引用技能。冷却、消耗、目标选择与能力缩放仍由 `SkillSystem` 管理，效果执行统一迁入每局 `GameplayEffectRuntime`。当前四技能分别组合 `spawn_barrier`、`apply_status` 与 `temporary_modifier` action；运行时按 `skill_1`～`skill_4` 解释，禁止按技能或英雄 id 特判。
 
 ## `consumables.json`
 
@@ -1578,24 +1566,20 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `type` | string | `add` / `mult` | 加法或乘法修正 |
 | `value` | number | 由具体 stat 决定 | `add` 为直接加值，`mult` 为倍率；`1.3` 表示乘 1.3 |
 
-## `behaviors` 格式
+## 通用效果程序格式
 
 ```json
 {
-  "event": "on_hit",
-  "effect": "split",
-  "params": {
-    "count": 2,
-    "angle": 30.0
-  }
+  "program_id": "heal_on_damage",
+  "trigger": "damage_taken",
+  "conditions": [{"condition": "health_ratio", "params": {"comparison": "lte", "value": 0.5}}],
+  "actions": [{"action": "heal", "params": {"amount": 5.0}}],
+  "proc_chance": 0.25,
+  "internal_cooldown": 2.0
 }
 ```
 
-| 字段 | 类型 | 合法值 | 说明 |
-|------|------|--------|------|
-| `event` | string | 词表 §3 behavior.event | 触发时机 |
-| `effect` | string | 词表 §2 effect id | 效果原语 |
-| `params` | object | 由 effect 定义 | 原语参数；新增参数要同步对应模块文档 |
+程序结构固定为 `program_id + trigger + conditions[] + actions[] + proc_chance + internal_cooldown`；`interval` trigger 额外要求正数 `interval_seconds`，可用 `reset_on_condition_fail` 声明条件失败是否归零周期。条件项严格 `{condition,params}`，动作项严格 `{action,params}`，都只引用 `docs/词表与契约.md` 登记的官方原语；执行、稳定队列、概率、内部冷却和快照契约见 `docs/代码/gameplay_effect_runtime.md`。
 
 ## `gear_mods.json`
 
@@ -1603,7 +1587,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "board": {
     "width": 7,
     "height": 7,
@@ -1625,17 +1609,23 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
   "reward_pools": [
     {"id": "world_event_mod_pool_common", "mod_ids": ["gear_mod_weapon_damage_test"]}
   ],
+  "reward_pool_contributions": [],
   "mods": [
     {
       "id": "gear_mod_weapon_damage_test",
       "name_key": "gear_mod_weapon_damage_test_name",
       "desc_key": "gear_mod_weapon_damage_test_desc",
       "default_unlocked": true,
-      "kind": "effect",
-      "slot": "weapon",
       "rarity": "common",
-      "modifiers": [
-        { "stat": "damage", "type": "mult", "value": 1.20 }
+      "components": [
+        {
+          "component_id": "weapon_damage_modifier",
+          "type": "modifier",
+          "slot": "weapon",
+          "modifiers": [
+            { "stat": "damage", "type": "mult", "value": 1.20 }
+          ]
+        }
       ]
     }
   ]
@@ -1646,7 +1636,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `5` | 数据结构版本；旧 v4 无坐标与类型行为，不能继续使用 |
+| `schema_version` | int | 必须为 `6` | 数据结构版本；旧 v5 `kind` / `map_behavior` / `grid_behavior` 不兼容 |
 | `board.width` / `board.height` | int | 都必须为 `7` | 与正式 7×7 模块地图同坐标，不允许旋转或镜像 |
 | `board.center.x` / `board.center.y` | int | 都必须为 `3` | 固定核心坐标；核心从主英雄被动派生，不是普通 Mod 定义 |
 | `board.initial_unlocked_cells[].x` / `board.initial_unlocked_cells[].y` | int | 各为 `0..6`，不重复 | 初始 13 格掩码；逐行为 `0,1,3,5,3,1,0`，且必须包含中心 |
@@ -1656,24 +1646,37 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `pickup.spawn_spread` | number | `>= 0`；当前 `28` | 双件奖励的左右对称偏移，不消费 RNG |
 | `reward_pools[].id` | string | `world_event_mod_pool_ids`，唯一且完整覆盖 | 世界事件与缓存共用的 Gear Mod 池 |
 | `reward_pools[].mod_ids` | array[string] | 已存在的 `gear_mod_ids`，非空且不重复 | 公共池内等权候选 |
+| `reward_pool_contributions` | array[object] | 可为空 | 本地包只追加自己拥有的 Mod 到基础奖励池；基础数据默认空 |
+| `reward_pool_contributions[].pool_id` | string | 已存在的基础 reward pool id | 贡献目标池；不能由本地包创建核心池 id |
+| `reward_pool_contributions[].mod_ids` | array[string] | 非空、不重复、均归当前包所有 | 按稳定包顺序追加的 Gear Mod 候选 |
 | `mods[].id` | string | 词表 §13-A `gear_mod_id` | 装备 Mod id |
 | `mods[].name_key` / `desc_key` | string | `gear_mod_*_name` / `gear_mod_*_desc` | 名称和描述译文 key |
 | `mods[].default_unlocked` | bool | `true` / `false`；缺失默认 `true` | 新档中是否允许该 Mod 进入奖励来源；当前五个 Mod 均显式为 `true` |
 | `mods[].unlock_rule_id` | string | 可选；必须存在于 `content_unlock_rules.json` | 非默认解锁 Mod 的规则引用；`default_unlocked=false` 时必填，默认解锁时省略 |
 | `mods[].codex_icon_path` | string | 可选；存在的 `res://` 资源 | 图鉴图标；缺失时使用 Gear Mod 类型回退图标 |
-| `mods[].kind` | string | `effect` / `map` / `grid` | 严格判别类型；三类字段不得混用 |
-| `mods[].slot` | string | 仅 `effect`；词表 §13-B | modifier 应用到 hero 或 weapon 独立层 |
+| `mods[].placement_sfx_id` | string | 可选；包内已验证、namespaced 的非循环 SFX id | 成功放置后经 `AudioManager` 播放；缺失 / 损坏媒体时 ModLoader 删除该字段并静音回退，不禁用玩法；展示 / 媒体字段不进入 gameplay hash |
 | `mods[].rarity` | string | 词表 §13-C | 仅展示 / 图鉴分类，不参与效果、掉率权重或 Replay 指纹 |
-| `mods[].modifiers[]` | array[object] | 仅 `effect`；stat 来自词表 §1；每项严格为 `{stat,type,value}` | 每份 Mod 的固定全局效果；同 id 重复实例逐份应用 |
-| `modifiers[].value` | number | 由 modifier 类型决定；`mult` 用 `1.0` 表示不变 | 固定效果值，不随拾取次数变化 |
-| `mods[].map_behavior.id` | string | 仅 `map`；当前 `periodic_enemy_spawn` | 在棋盘同坐标模块内执行的声明式地图行为 |
-| `mods[].map_behavior.interval_seconds` | number | `> 0`；当前 `10.0` | 连续停留达到该缩放时间后锁定一次生成计划 |
-| `mods[].map_behavior.reset_on_module_exit` | bool | 当前必须为 `true` | 离开对应模块立即清空累计时间和未执行计划 |
-| `mods[].map_behavior.current_layer_only` | bool | 当前必须为 `true` | 候选只取本局冻结池与当前威胁时间开放池的交集 |
-| `mods[].map_behavior.normal_rewards` | bool | 当前必须为 `true` | 生成敌人沿用普通击杀、金币、掉落和内容进度链 |
-| `mods[].grid_behavior.id` | string | 仅 `grid`；当前 `occupy_only` | 只占格并参与四邻连接，不产生属性或地图效果 |
+| `mods[].components[]` | array[object] | 非空；每项 `component_id` 在 Mod 内唯一 | 可任意组合 `modifier` / `program` / `board_rule`，顺序参与稳定执行 |
+| `components[].type` | string | 词表 `gear_mod_component_types` | 组件判别类型；每种类型只允许对应字段 |
+| modifier `slot` | string | `hero` / `weapon` | 修正器目标层；其 stat 必须通过槽位支持矩阵，禁止“校验通过但运行时无效” |
+| modifier `modifiers[]` | array[object] | 非空；每项严格 `{stat,type,value}` | 每份实例的固定属性修正；同 id 重复实例逐份应用 |
+| program `program` | object | 通用效果程序 | 必含唯一 `program_id`、trigger、conditions、actions、概率与内部冷却 |
+| `program.program_id` | string | 同一 Mod 内唯一，非空 | Runtime 状态键的一部分 |
+| `program.trigger` | string | `effect_triggers` | 官方 trigger id；`interval` 需额外间隔 |
+| `program.reset_on_condition_fail` | bool | 可选，默认由 trigger 契约决定 | 条件失败时是否重置已累计周期时间 |
+| `program.conditions[]` | array[object] | 每项严格 `{condition,params}` | 组合官方登记条件；本地包不能新增 condition id |
+| `program.conditions[].condition` | string | `effect_conditions` | 官方 condition id |
+| `program.conditions[].params` | object | 由 condition 契约解释 | 队伍、元素、伤害标记、actor tag、生命比例、棋盘格或模块关系参数 |
+| `program.actions[]` | array[object] | 非空；每项严格 `{action,params}` | 按数组顺序经 `EffectExecutionGateway` 执行 |
+| `program.actions[].action` | string | `effect_actions` | 官方 action id |
+| `program.actions[].params` | object | 由 action 契约解释 | 伤害、状态、临时属性、治疗、护盾、金币、投射物、敌人或屏障参数 |
+| `program.actions[].params.current_layer_only` / `normal_rewards` | bool | `spawn_enemy` 可选 | 刷怪只取当前意识层，并沿用普通奖励 / 掉落 / 进度链 |
+| `program.proc_chance` | number | `0.0..1.0` | 概率固定走 `RNG.combat` |
+| `program.internal_cooldown` | number | 秒，`>= 0` | 由 `GameplayEffectRuntime` 按来源实例 / component / program 保存 |
+| `program.interval_seconds` | number | 仅 `interval`，秒，`> 0` | 周期程序间隔；时间固定走 `GameClock` |
+| board_rule `rule_id` | string | 当前只允许 `occupy_only` | 只占格并参与四邻连接，不产生属性或效果程序 |
 
-当前普通武器 Mod 包含基础伤害、后坐力和弹道扩散三类固定修正：伤害 `1.20`，后坐力与扩散上限均为 `0.80`。`gear_mod_map_spawner_cage` 是地图测试 Mod，`gear_mod_grid_rock` 是纯占格测试 Mod。每份 Mod 都有唯一正整数 `instance_id` 并占一个格；新实例只可在已解锁、为空、与核心或现有实例四邻相接的格确认放置。数据、运行时和工具不得增加 rank、tier、升级、满阶或溢出补偿字段。所有掉落都必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
+当前三个属性 Mod 各含一个 `modifier`；刷怪笼含“所在格模块周期触发 + 生成敌人”的 `program`；石头只含 `board_rule=occupy_only`。每份 Mod 都有唯一正整数 `instance_id` 并占一个格；新实例只可在已解锁、为空、与核心或现有实例四邻相接的格确认放置。Runtime 按来源类型、内容 id、实例 id、组件顺序稳定执行并保存程序状态；数据、运行时和工具不得增加 rank、tier、升级、满阶或溢出补偿字段。所有掉落必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
 
 ## `gear_mod_drop_tables.csv`
 

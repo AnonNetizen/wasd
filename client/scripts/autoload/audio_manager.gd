@@ -20,9 +20,11 @@ const SFX_BUS: String = "SFX"
 const UI_BUS: String = "UI"
 const MIN_VOLUME_DB: float = -80.0
 const DEFAULT_SFX_POLYPHONY: int = 8
+const MAX_MOD_SFX_POLYPHONY: int = 32
 
 var _sfx_streams: Dictionary = {}
 var _music_streams: Dictionary = {}
+var _mod_sfx_ids: Dictionary = {}
 var _active_sfx: Dictionary = {}
 var _current_music_id: String = ""
 var _music_player: AudioStreamPlayer = null
@@ -38,6 +40,9 @@ func _ready() -> void:
 	_sync_all_volumes()
 	if not Settings.setting_changed.is_connected(_on_setting_changed):
 		Settings.setting_changed.connect(_on_setting_changed)
+	if not ModLoader.mods_reloaded.is_connected(_on_mods_reloaded):
+		ModLoader.mods_reloaded.connect(_on_mods_reloaded)
+	_sync_mod_sfx()
 
 
 func registered_audio_prefixes() -> Array[String]:
@@ -94,6 +99,24 @@ func register_sfx(audio_id: String, stream: AudioStream, max_polyphony: int = DE
 		"stream": stream,
 		"max_polyphony": maxi(max_polyphony, 1),
 	}
+	sfx_registered.emit(audio_id, int(_sfx_streams[audio_id]["max_polyphony"]))
+	return true
+
+
+func register_mod_sfx(package_id: String, audio_id: String, stream: AudioStream, max_polyphony: int = DEFAULT_SFX_POLYPHONY) -> bool:
+	if package_id.is_empty() or not audio_id.begins_with("mod_%s_" % package_id):
+		push_error("[AudioManager] mod SFX id is outside package namespace: %s" % audio_id)
+		return false
+	if stream == null:
+		push_error("[AudioManager] cannot register null mod SFX stream: %s" % audio_id)
+		return false
+
+	_disable_stream_loop(stream)
+	_sfx_streams[audio_id] = {
+		"stream": stream,
+		"max_polyphony": clampi(max_polyphony, 1, MAX_MOD_SFX_POLYPHONY),
+	}
+	_mod_sfx_ids[audio_id] = package_id
 	sfx_registered.emit(audio_id, int(_sfx_streams[audio_id]["max_polyphony"]))
 	return true
 
@@ -198,6 +221,46 @@ func _on_setting_changed(key: String, _value: Variant) -> void:
 		_sync_all_volumes()
 
 
+func _on_mods_reloaded() -> void:
+	_sync_mod_sfx()
+
+
+func _sync_mod_sfx() -> void:
+	for audio_id_variant: Variant in _mod_sfx_ids.keys():
+		var audio_id: String = String(audio_id_variant)
+		_stop_sfx_id(audio_id)
+		_sfx_streams.erase(audio_id)
+	_mod_sfx_ids.clear()
+	for entry: Dictionary in ModLoader.media_audio_entries():
+		register_mod_sfx(
+			String(entry.get("package_id", "")),
+			String(entry.get("id", "")),
+			entry.get("stream") as AudioStream,
+			int(entry.get("max_polyphony", DEFAULT_SFX_POLYPHONY))
+		)
+
+
+func _stop_sfx_id(audio_id: String) -> void:
+	if not _active_sfx.has(audio_id):
+		return
+	var active_list: Array = _active_sfx[audio_id]
+	for raw_player: Variant in active_list:
+		var player: AudioStreamPlayer = raw_player as AudioStreamPlayer
+		if player != null and is_instance_valid(player):
+			player.stop()
+			player.queue_free()
+	_active_sfx.erase(audio_id)
+
+
+func _disable_stream_loop(stream: AudioStream) -> void:
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = false
+	elif stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = false
+	elif stream is AudioStreamWAV:
+		(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_DISABLED
+
+
 func _sync_all_volumes() -> void:
 	_set_bus_linear_volume(MASTER_BUS, float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER, 1.0)))
 	_set_bus_linear_volume(MUSIC_BUS, float(Settings.get_value(SETTINGS_KEYS.AUDIO_MUSIC, 0.8)))
@@ -260,7 +323,7 @@ func _active_count(audio_id: String) -> int:
 
 
 func _is_sfx_id(audio_id: String) -> bool:
-	return _has_prefix(audio_id, ["sfx_player_", "sfx_enemy_", "sfx_pickup_", "sfx_ui_", "voice_"])
+	return _mod_sfx_ids.has(audio_id) or _has_prefix(audio_id, ["sfx_player_", "sfx_enemy_", "sfx_pickup_", "sfx_ui_", "voice_"])
 
 
 func _is_music_id(audio_id: String) -> bool:

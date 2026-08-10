@@ -19,7 +19,6 @@ func available_content() -> Dictionary:
 		"weapons": _load_items(DataLoader.WEAPONS_PATH, "weapons"),
 		"skills": _load_items(DataLoader.SKILLS_PATH, "skills"),
 		"gear_mods": _load_items(DataLoader.GEAR_MODS_PATH, "mods"),
-		"relics": _load_items(DataLoader.RELICS_PATH, "relics"),
 		"active_items": _load_items(DataLoader.ACTIVE_ITEMS_PATH, "active_items"),
 		"consumables": _load_items(DataLoader.CONSUMABLES_PATH, "consumables"),
 	}

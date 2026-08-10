@@ -211,6 +211,8 @@ func set_record_value(
 	var converted: Variant = _convert_value(value, original)
 	if not _field_value_is_valid(value_path, converted):
 		return false
+	if not _slot_stat_value_is_valid(current, value_path, converted):
+		return false
 	if original == converted:
 		return true
 	_push_undo_state()
@@ -236,6 +238,22 @@ func append_array_value(
 	_push_undo_state()
 	var values: Array = value as Array
 	values.append(_default_value(values[0]) if not values.is_empty() else {})
+	_mark_changed()
+	return true
+
+
+func append_array_value_from_template(
+	section_path: String,
+	record_index: int,
+	value_path: Array,
+	template: Dictionary
+) -> bool:
+	var current: Dictionary = record(section_path, record_index)
+	var value: Variant = _value_at_path(current, value_path)
+	if not value is Array or template.is_empty():
+		return false
+	_push_undo_state()
+	(value as Array).append(template.duplicate(true))
 	_mark_changed()
 	return true
 
@@ -895,6 +913,66 @@ func _field_value_is_valid(value_path: Array, value: Variant) -> bool:
 		if not options is Array or not (options as Array).has(value):
 			return false
 	return true
+
+
+func _slot_stat_value_is_valid(
+	record_data: Dictionary,
+	value_path: Array,
+	value: Variant
+) -> bool:
+	var raw_support: Variant = descriptor.get("slot_stat_support", {})
+	if not raw_support is Dictionary or value_path.size() < 3:
+		return true
+	if String(value_path[0]) != "components" or not value_path[1] is int:
+		return true
+	var components: Variant = record_data.get("components", [])
+	if not components is Array:
+		return false
+	var component_index: int = int(value_path[1])
+	if component_index < 0 or component_index >= (components as Array).size():
+		return false
+	var raw_component: Variant = (components as Array)[component_index]
+	if not raw_component is Dictionary:
+		return false
+	var component: Dictionary = raw_component as Dictionary
+	var rule_path: String = _rule_path(value_path)
+	if rule_path == "components[].slot":
+		return _modifiers_support_slot(
+			component.get("modifiers", []),
+			String(value),
+			raw_support as Dictionary
+		)
+	if rule_path != "components[].modifiers[].stat":
+		return true
+	return _slot_supports_stat(
+		String(component.get("slot", "")),
+		String(value),
+		raw_support as Dictionary
+	)
+
+
+func _modifiers_support_slot(
+	raw_modifiers: Variant,
+	slot: String,
+	support: Dictionary
+) -> bool:
+	if not raw_modifiers is Array:
+		return false
+	for raw_modifier: Variant in raw_modifiers as Array:
+		if not raw_modifier is Dictionary:
+			return false
+		if not _slot_supports_stat(
+			slot,
+			String((raw_modifier as Dictionary).get("stat", "")),
+			support
+		):
+			return false
+	return true
+
+
+func _slot_supports_stat(slot: String, stat: String, support: Dictionary) -> bool:
+	var raw_stats: Variant = support.get(slot, [])
+	return raw_stats is Array and (raw_stats as Array).has(stat)
 
 
 func _rule_path(value_path: Array) -> String:

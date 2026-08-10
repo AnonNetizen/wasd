@@ -114,8 +114,8 @@ func _expect_default_availability_and_codex_fallbacks() -> void:
 		and (character_default.get("details", {}) as Dictionary).has(
 			"passive_id"
 		)
-		and gear_mod_details.has("modifiers")
-		and (gear_mod_details.get("modifiers", []) as Array).size() == 1
+		and gear_mod_details.has("components")
+		and (gear_mod_details.get("components", []) as Array).size() == 1
 		and (enemy_default.get("details", {}) as Dictionary).has("max_hp"),
 		"unlocked Codex entries should normalize details for all three content types"
 	)
@@ -326,10 +326,16 @@ func _fixture_system() -> Dictionary:
 			"gear_mod_default": {
 				"id": "gear_mod_default",
 				"name_key": "gear_mod_default_name",
-				"slot": "weapon",
 				"rarity": "common",
-				"modifiers": [
-					{"stat": "damage", "type": "mult", "value": 1.2},
+				"components": [
+					{
+						"component_id": "weapon_damage",
+						"type": "modifier",
+						"slot": "weapon",
+						"modifiers": [
+							{"stat": "damage", "type": "mult", "value": 1.2},
+						],
+					},
 				],
 			},
 			"gear_mod_locked": {

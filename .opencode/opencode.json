@@ -14,9 +14,9 @@
       "description": "跑词表到代码常量同步流水线。",
       "template": "按 `.opencode/commands/sync-contracts.md` 的步骤执行，并报告同步/校验结果。"
     },
-    "new-relic": {
-      "description": "交互式创建一个新遗物条目。",
-      "template": "按 `.opencode/commands/new-relic.md` 的步骤执行；用户输入作为遗物概念。"
+    "new-gear-mod": {
+      "description": "交互式创建一个官方或本地 Gear Mod 条目。",
+      "template": "按 `.opencode/commands/new-gear-mod.md` 的步骤执行；用户输入作为 Gear Mod 概念。"
     },
     "run-replay-regression": {
       "description": "跑黄金回放回归。",

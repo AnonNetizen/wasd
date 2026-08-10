@@ -76,6 +76,10 @@ func _run() -> void:
 		),
 		"write isolated run sentinel"
 	)
+	var normalized_sentinel_run: Dictionary = SaveManager.load(
+		SaveManager.DEFAULT_SLOT,
+		SAVE_KINDS.RUN
+	)
 
 	var config_manager: RefCounted = CONFIG_SCRIPT.new()
 	var legacy: Dictionary = config_manager.call(
@@ -726,7 +730,7 @@ func _run() -> void:
 		SaveManager.load(
 			SaveManager.DEFAULT_SLOT,
 			SAVE_KINDS.RUN
-		) == SENTINEL_RUN,
+		) == normalized_sentinel_run,
 		"formal run sentinel remains unchanged"
 	)
 	_finish()
@@ -748,8 +752,7 @@ func _verify_setup_panel(
 		"setup panel lists runtime content"
 	)
 	_check(
-		bool(summary.get("relics_disabled", false))
-		and bool(summary.get("active_items_disabled", false))
+		bool(summary.get("active_items_disabled", false))
 		and bool(summary.get("consumables_disabled", false)),
 		"data-only content remains visibly disabled"
 	)

@@ -47,14 +47,24 @@ const ENEMY_DEFEAT_CAUSES := preload(
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
 const EFFECTS := preload("res://scripts/contracts/effects.gd")
+const EFFECT_ACTIONS := preload("res://scripts/contracts/effect_actions.gd")
+const EFFECT_EXECUTION_GATEWAY_SCRIPT := preload(
+	"res://scripts/gameplay/effects/effect_execution_gateway.gd"
+)
+const EFFECT_PRIMITIVE_REGISTRY_SCRIPT := preload(
+	"res://scripts/gameplay/effects/effect_primitive_registry.gd"
+)
+const EFFECT_TRIGGERS := preload("res://scripts/contracts/effect_triggers.gd")
+const GAMEPLAY_EFFECT_RUNTIME_SCRIPT := preload(
+	"res://scripts/gameplay/effects/gameplay_effect_runtime.gd"
+)
 const HERO_COMPOSITION_RESOLVER := preload(
 	"res://scripts/data/hero_composition_resolver.gd"
 )
 const DAMAGE_NUMBER_SCENE := preload("res://scenes/gameplay/damage_number.tscn")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
-const GEAR_MOD_MAP_BEHAVIORS := preload(
-	"res://scripts/contracts/gear_mod_map_behaviors.gd"
+const GEAR_MOD_COMPONENT_TYPES := preload(
+	"res://scripts/contracts/gear_mod_component_types.gd"
 )
 const GEAR_MOD_PLACEMENT_OUTCOMES := preload(
 	"res://scripts/contracts/gear_mod_placement_outcomes.gd"
@@ -143,7 +153,7 @@ const ENERGY_ORB_POOL_SIZE: int = 64
 const GEAR_MOD_PICKUP_POOL_SIZE: int = 65_536
 const GEAR_MOD_PICKUP_POOL_PREWARM: int = 8
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 18
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 19
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -203,6 +213,9 @@ var _content_progress_delta: Dictionary = {}
 var _enemy_rows: Dictionary = {}
 var _enemy_reward_config: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
+var _effect_gateway: EffectExecutionGateway = null
+var _effect_registry: EffectPrimitiveRegistry = null
+var _effect_runtime: GameplayEffectRuntime = null
 var _gear_mod_board: RefCounted = null
 var _gear_mod_board_panel: Node = null
 var _gear_mod_pickup_config: Dictionary = {}
@@ -302,11 +315,11 @@ func _process(delta: float) -> void:
 	_refresh_difficulty_hud()
 	if not GameState.is_state(GameState.PLAYING):
 		return
+	_update_effect_runtime(delta)
 	if _is_debug_test_arena():
 		return
 	if _module_world_enabled:
 		_update_module_world(delta)
-		_update_gear_mod_map_behaviors(delta)
 	else:
 		_advance_difficulty(delta)
 	if _world_event_controller != null:
@@ -567,6 +580,7 @@ func create_run_snapshot() -> Dictionary:
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
 		"skills": _skill_system.call("snapshot") if _skill_system != null and _skill_system.has_method("snapshot") else {},
+		"effects": _effect_runtime.snapshot() if _effect_runtime != null else {},
 		"hazards": _entity_snapshots("active_hazards"),
 		"enemies": _entity_snapshots("active_enemies"),
 		"bullets": _entity_snapshots("active_bullets"),
@@ -983,6 +997,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_camera_controller.call("configure", _player, camera_feedback)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
+	_player.connect("dash_started", Callable(self, "_on_player_dash_started"))
 	_connect_status_feedback(_player)
 	_play_feedback(_actor_profile_id(_player, PRESENTATION_PLAYER_DEFAULT), VFX_CUES.SPAWN, {
 		"owner": _player,
@@ -1012,6 +1027,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 			Callable(self, "_is_combat_allowed")
 		)
 	_connect_weapon_feedback()
+	_configure_effect_runtime()
 	_configure_skill_system(character)
 	_apply_initial_gear_modifiers()
 
@@ -1396,6 +1412,25 @@ func _create_projectile_barrier_node() -> Node:
 	return PROJECTILE_BARRIER_SCENE.instantiate()
 
 
+func _configure_effect_runtime() -> void:
+	_effect_registry = EFFECT_PRIMITIVE_REGISTRY_SCRIPT.new()
+	_effect_gateway = EFFECT_EXECUTION_GATEWAY_SCRIPT.new()
+	_effect_gateway.configure({
+		EFFECT_ACTIONS.GRANT_GOLD: Callable(self, "_execute_effect_grant_gold"),
+		EFFECT_ACTIONS.SPAWN_ENEMY: Callable(self, "_execute_effect_spawn_enemy"),
+		EFFECT_ACTIONS.SPAWN_PROJECTILE: Callable(
+			self,
+			"_execute_effect_spawn_projectile"
+		),
+		EFFECT_ACTIONS.SPAWN_BARRIER: Callable(
+			self,
+			"_execute_effect_spawn_barrier"
+		),
+	})
+	_effect_runtime = GAMEPLAY_EFFECT_RUNTIME_SCRIPT.new()
+	_effect_runtime.configure(_effect_registry, _effect_gateway)
+
+
 func _configure_skill_system(
 	character: Dictionary
 ) -> void:
@@ -1416,6 +1451,12 @@ func _configure_skill_system(
 		_load_composition_skill_definitions(),
 		skill_resources
 	)
+	if _skill_system.has_method("configure_effect_runtime"):
+		_skill_system.call(
+			"configure_effect_runtime",
+			_effect_runtime,
+			_effect_gateway
+		)
 	if _skill_system.has_method("configure_combat_gate"):
 		_skill_system.call(
 			"configure_combat_gate",
@@ -2777,8 +2818,8 @@ func debug_pending_gear_mod_placement() -> Dictionary:
 	return _pending_gear_mod_placement_snapshot()
 
 
-func debug_tick_gear_mod_map_behaviors(delta: float) -> void:
-	_update_gear_mod_map_behaviors(delta)
+func debug_tick_effect_runtime(delta: float) -> void:
+	_update_effect_runtime(delta)
 
 
 func request_gear_mod_relocation(
@@ -3328,105 +3369,275 @@ func _update_module_world(delta: float) -> void:
 	_refresh_module_world_hud()
 
 
-func _update_gear_mod_map_behaviors(delta: float) -> void:
-	if _gear_mod_board == null or _module_world_manager == null:
+func _update_effect_runtime(delta: float) -> void:
+	if _effect_runtime == null:
 		return
-	var current_module_coord: Vector2i = _module_world_manager.call(
-		"current_module_coord"
-	) as Vector2i
-	var scaled_delta: float = GameClock.delta_scaled(delta)
-	for behavior_snapshot: Dictionary in _typed_dictionary_array(
-		_gear_mod_board.call("map_behavior_snapshots")
+	var context: Dictionary = {"source_actor": _player}
+	if _module_world_manager != null:
+		context["current_module"] = _module_world_manager.call(
+			"current_module_coord"
+		) as Vector2i
+	_effect_runtime.tick(delta, context)
+
+
+func _execute_effect_spawn_enemy(
+	params: Dictionary,
+	context: Dictionary
+) -> Dictionary:
+	if (
+		not bool(params.get("normal_rewards", false))
+		or not bool(params.get("current_layer_only", false))
 	):
-		var behavior: Dictionary = _dictionary_or_empty(
-			behavior_snapshot.get("behavior", {})
-		)
-		if (
-			String(behavior.get("id", ""))
-			!= GEAR_MOD_MAP_BEHAVIORS.PERIODIC_ENEMY_SPAWN
-		):
+		return {"ok": false, "reason": "invalid_spawn_enemy", "applied_targets": 0}
+	if _module_world_manager == null:
+		return {"ok": false, "applied_targets": 0}
+	var module_coord: Vector2i = context.get("source_module", Vector2i(-1, -1))
+	var action_state: Dictionary = _dictionary_or_empty(
+		context.get("program_state", {})
+	)
+	var pending_plan: Dictionary = _dictionary_or_empty(
+		action_state.get("pending_plan", {})
+	)
+	if pending_plan.is_empty():
+		pending_plan = _build_gear_mod_cage_spawn_plan(module_coord)
+	if pending_plan.is_empty():
+		return {
+			"ok": false,
+			"applied_targets": 0,
+			"retain_interval": true,
+			"action_state": {},
+		}
+	var enemy_id: String = String(pending_plan.get("enemy_id", ""))
+	var spawn_position: Vector2 = _dict_to_vector(
+		pending_plan.get("position", {}),
+		Vector2.ZERO
+	)
+	var planned_module_coord: Vector2i = _dict_to_vector2i(
+		pending_plan.get("module_coord", {})
+	)
+	var retained_state: Dictionary = {"pending_plan": pending_plan}
+	var frozen_pool: Dictionary = _eligible_first_visit_enemy_pool(
+		_dictionary_or_empty(
+			_module_world_definition.get("first_visit_enemy_spawn", {})
+		),
+		float(_difficulty_snapshot().get("elapsed", 0.0))
+	)
+	var frozen_enemy_ids: Array = _array_or_empty(frozen_pool.get("enemy_ids", []))
+	if (
+		planned_module_coord != module_coord
+		or not frozen_enemy_ids.has(enemy_id)
+		or not is_finite(spawn_position.x)
+		or not is_finite(spawn_position.y)
+		or not bool(_module_world_manager.call(
+			"is_world_position_walkable",
+			spawn_position
+		))
+	):
+		return {"ok": false, "applied_targets": 0, "action_state": {}}
+	if _is_gear_mod_cage_position_occupied(
+		spawn_position
+	):
+		return {
+			"ok": false,
+			"applied_targets": 0,
+			"retain_interval": true,
+			"action_state": retained_state,
+		}
+	var instance_id: int = int(context.get("source_instance_id", 0))
+	if not _spawn_enemy_at(
+		enemy_id,
+		spawn_position,
+		"gear_mod_cage_%d" % instance_id,
+		_module_slot_key(module_coord)
+	):
+		return {
+			"ok": false,
+			"applied_targets": 0,
+			"retain_interval": true,
+			"action_state": retained_state,
+		}
+	return {"ok": true, "applied_targets": 1, "action_state": {}}
+
+
+func _execute_effect_grant_gold(
+	params: Dictionary,
+	_context: Dictionary
+) -> Dictionary:
+	var amount: int = maxi(int(params.get("amount", 0)), 0)
+	var reason_id: String = String(params.get("reason_id", ""))
+	if amount <= 0 or reason_id.is_empty():
+		return {"ok": false, "applied_targets": 0}
+	var result: Dictionary = add_gold(amount, reason_id)
+	result["applied_targets"] = 1 if bool(result.get("ok", false)) else 0
+	return result
+
+
+func _execute_effect_spawn_projectile(
+	params: Dictionary,
+	context: Dictionary
+) -> Dictionary:
+	for required_field: String in [
+		"pool_id",
+		"amount",
+		"element_id",
+		"speed",
+		"range",
+		"hit_radius",
+		"lifetime",
+		"count",
+		"spread_degrees",
+		"pierce_count",
+		"wall_pierce",
+		"damage_target_groups",
+	]:
+		if not params.has(required_field):
+			return {
+				"ok": false,
+				"reason": "missing_projectile_param",
+				"field": required_field,
+				"applied_targets": 0,
+			}
+	var source: Variant = context.get("source_actor")
+	if not source is Node2D or not is_instance_valid(source):
+		return {"ok": false, "reason": "source_unavailable", "applied_targets": 0}
+	var source_2d: Node2D = source as Node2D
+	var pool_id: String = String(params.get("pool_id", ""))
+	if pool_id != POOL_IDS.BULLET_BASIC:
+		return {"ok": false, "reason": "invalid_pool", "applied_targets": 0}
+	if not PoolManager.has_pool(pool_id):
+		return {"ok": false, "reason": "pool_unavailable", "applied_targets": 0}
+	var direction: Vector2 = _effect_projectile_direction(params, context, source_2d)
+	if direction.length_squared() <= 0.0:
+		return {"ok": false, "reason": "direction_unavailable", "applied_targets": 0}
+	var count: int = int(params.get("count", 0))
+	if count <= 0 or count > 64:
+		return {"ok": false, "reason": "invalid_count", "applied_targets": 0}
+	var spread_radians: float = deg_to_rad(
+		maxf(float(params.get("spread_degrees", -1.0)), 0.0)
+	)
+	var stats: Dictionary = {
+		STATS.DAMAGE: maxf(float(params.get("amount", 0.0)), 0.0),
+		STATS.BULLET_SPEED: maxf(float(params.get("speed", 0.0)), 0.0),
+		STATS.BULLET_RANGE: maxf(float(params.get("range", 0.0)), 0.0),
+		STATS.PIERCE_COUNT: maxi(int(params.get("pierce_count", -1)), 0),
+		STATS.WALL_PIERCE: 1.0 if bool(params.get("wall_pierce")) else 0.0,
+	}
+	var projectile: Dictionary = {
+		"element_id": String(params.get("element_id", "")),
+		"hit_radius": maxf(float(params.get("hit_radius", 0.0)), 0.0),
+		"lifetime": maxf(float(params.get("lifetime", 0.0)), 0.0),
+		"source_team": String(context.get("source_team", "team_player")),
+		"target_team": String(context.get("target_team", "team_enemy")),
+		"damage_target_groups": _string_array(params.get("damage_target_groups")),
+	}
+	if (
+		float(stats.get(STATS.DAMAGE, 0.0)) <= 0.0
+		or float(stats.get(STATS.BULLET_SPEED, 0.0)) <= 0.0
+		or float(stats.get(STATS.BULLET_RANGE, 0.0)) <= 0.0
+		or String(projectile.get("element_id", "")).is_empty()
+		or float(projectile.get("hit_radius", 0.0)) <= 0.0
+		or float(projectile.get("lifetime", 0.0)) <= 0.0
+		or (projectile.get("damage_target_groups", []) as Array).is_empty()
+	):
+		return {"ok": false, "reason": "invalid_projectile", "applied_targets": 0}
+	var spawned: int = 0
+	for projectile_index: int in count:
+		var raw_bullet: Node = PoolManager.acquire(pool_id)
+		if not raw_bullet is Bullet:
 			continue
-		var instance_id: int = int(
-			behavior_snapshot.get("instance_id", 0)
-		)
-		var placement_cell := Vector2i(
-			int(behavior_snapshot.get("x", -1)),
-			int(behavior_snapshot.get("y", -1))
-		)
-		var state: Dictionary = _dictionary_or_empty(
-			behavior_snapshot.get("state", {})
-		)
-		if placement_cell != current_module_coord:
-			if (
-				bool(behavior.get("reset_on_module_exit", false))
-				and (
-					float(state.get("elapsed", 0.0)) > 0.0
-					or not _dictionary_or_empty(
-						state.get("pending_plan", {})
-					).is_empty()
-				)
-			):
-				_gear_mod_board.call(
-					"set_map_behavior_state",
-					instance_id,
-					{"elapsed": 0.0, "pending_plan": {}}
-				)
-			continue
-		if not bool(behavior.get("current_layer_only", false)):
-			continue
-		if not bool(behavior.get("normal_rewards", false)):
-			continue
-		var interval: float = maxf(
-			float(behavior.get("interval_seconds", 0.0)),
-			0.0
-		)
-		if interval <= 0.0:
-			continue
-		state["elapsed"] = minf(
-			float(state.get("elapsed", 0.0)) + scaled_delta,
-			interval
-		)
-		var pending_plan: Dictionary = _dictionary_or_empty(
-			state.get("pending_plan", {})
-		)
-		if float(state.get("elapsed", 0.0)) >= interval and pending_plan.is_empty():
-			pending_plan = _build_gear_mod_cage_spawn_plan(
-				placement_cell
+		var bullet: Bullet = raw_bullet as Bullet
+		_reparent_to_active_world(bullet)
+		bullet.global_position = source_2d.global_position
+		var angle_offset: float = 0.0
+		if count > 1:
+			angle_offset = lerpf(
+				-spread_radians * 0.5,
+				spread_radians * 0.5,
+				float(projectile_index) / float(count - 1)
 			)
-			state["pending_plan"] = pending_plan
-		if not bool(_gear_mod_board.call(
-			"set_map_behavior_state",
-			instance_id,
-			state
-		)):
-			continue
-		if pending_plan.is_empty():
-			continue
-		var enemy_id: String = String(
-			pending_plan.get("enemy_id", "")
-		)
-		var spawn_position: Vector2 = _dict_to_vector(
-			pending_plan.get("position", {}),
+		bullet.configure(stats, projectile, direction.rotated(angle_offset), source_2d)
+		spawned += 1
+	return {"ok": spawned > 0, "applied_targets": spawned}
+
+
+func _execute_effect_spawn_barrier(
+	params: Dictionary,
+	context: Dictionary
+) -> Dictionary:
+	if _active_world == null or not is_instance_valid(_active_world):
+		return {"ok": false, "reason": "world_unavailable", "applied_targets": 0}
+	var source: Variant = context.get("source_actor")
+	if not source is Node2D or not is_instance_valid(source):
+		return {"ok": false, "reason": "source_unavailable", "applied_targets": 0}
+	var pool_id: String = String(params.get("pool_id", ""))
+	var max_health: float = float(params.get("hp", 0.0))
+	var radius: float = float(params.get("radius", 0.0))
+	var max_active: int = int(params.get("max_active", 0))
+	var recast_policy: String = String(params.get("recast_policy", ""))
+	if (
+		pool_id != POOL_IDS.PROJECTILE_BARRIER
+		or max_health <= 0.0
+		or radius <= 0.0
+		or max_active <= 0
+		or recast_policy != "replace"
+		or not PoolManager.has_pool(pool_id)
+	):
+		return {"ok": false, "reason": "invalid_barrier", "applied_targets": 0}
+	var owner_id: String = String(
+		context.get("skill_slot", context.get("source_key", "effect"))
+	)
+	var owned_barriers: Array[Node] = []
+	for raw_barrier: Node in _active_world.get_tree().get_nodes_in_group(
+		"active_projectile_blockers"
+	):
+		if (
+			raw_barrier is ProjectileBarrier
+			and raw_barrier.has_method("slot_id")
+			and String(raw_barrier.call("slot_id")) == owner_id
+		):
+			owned_barriers.append(raw_barrier)
+	var dismiss_count: int = maxi(owned_barriers.size() - max_active + 1, 0)
+	for barrier_index: int in dismiss_count:
+		var old_barrier: Node = owned_barriers[barrier_index]
+		if is_instance_valid(old_barrier) and old_barrier.has_method("dismiss"):
+			old_barrier.call("dismiss")
+	var raw_node: Node = PoolManager.acquire(pool_id)
+	if not raw_node is ProjectileBarrier:
+		return {"ok": false, "reason": "pool_type_mismatch", "applied_targets": 0}
+	var barrier: ProjectileBarrier = raw_node as ProjectileBarrier
+	_reparent_to_active_world(barrier)
+	barrier.global_position = (source as Node2D).global_position
+	barrier.configure(max_health, radius, source as Node, owner_id, true)
+	if _skill_system != null and _skill_system.has_method(
+		"track_effect_deployable"
+	):
+		_skill_system.call("track_effect_deployable", owner_id, barrier)
+	return {"ok": true, "applied_targets": 1}
+
+
+func _effect_projectile_direction(
+	params: Dictionary,
+	context: Dictionary,
+	source: Node2D
+) -> Vector2:
+	var raw_direction: Variant = params.get("direction")
+	if raw_direction is Dictionary:
+		var configured_direction: Vector2 = _dict_to_vector(
+			raw_direction,
 			Vector2.ZERO
 		)
-		var planned_module_coord: Vector2i = _dict_to_vector2i(
-			pending_plan.get("module_coord", {})
-		)
-		if planned_module_coord != placement_cell:
-			continue
-		if _is_gear_mod_cage_position_occupied(spawn_position):
-			continue
-		if _spawn_enemy_at(
-			enemy_id,
-			spawn_position,
-			"gear_mod_cage_%d" % instance_id,
-			_module_slot_key(placement_cell)
-		):
-			_gear_mod_board.call(
-				"set_map_behavior_state",
-				instance_id,
-				{"elapsed": 0.0, "pending_plan": {}}
-			)
+		if configured_direction.length_squared() > 0.0:
+			return configured_direction.normalized()
+	var target: Variant = context.get("target_actor")
+	if target is Node2D and is_instance_valid(target):
+		var target_direction: Vector2 = (target as Node2D).global_position - source.global_position
+		if target_direction.length_squared() > 0.0:
+			return target_direction.normalized()
+	if source is Player:
+		var aim_direction: Vector2 = (source as Player).aim_direction
+		if aim_direction.length_squared() > 0.0:
+			return aim_direction.normalized()
+	return Vector2.RIGHT
 
 
 func _build_gear_mod_cage_spawn_plan(
@@ -3477,8 +3688,8 @@ func _build_gear_mod_cage_spawn_plan(
 		return {}
 	return {
 		"enemy_id": enemy_id,
-		"position": available_positions[position_index],
-		"module_coord": module_coord,
+		"position": _vector_to_dict(available_positions[position_index]),
+		"module_coord": _coord_to_dict(module_coord),
 	}
 
 
@@ -3523,6 +3734,7 @@ func _handle_module_stream_change(stream_change: Dictionary) -> void:
 	for raw_coord: Variant in _array_or_empty(stream_change.get("activated", [])):
 		_activate_module_slot(_dict_to_vector2i(raw_coord), true)
 	_handle_first_module_entry(stream_change)
+	_emit_module_entered_effect(stream_change)
 
 
 func _handle_module_stream_change_staged(stream_change: Dictionary) -> bool:
@@ -3533,7 +3745,23 @@ func _handle_module_stream_change_staged(stream_change: Dictionary) -> bool:
 		if not await _yield_loading_frame():
 			return false
 	_handle_first_module_entry(stream_change)
+	_emit_module_entered_effect(stream_change)
 	return true
+
+
+func _emit_module_entered_effect(stream_change: Dictionary) -> void:
+	if _effect_runtime == null or not bool(stream_change.get("entered", false)):
+		return
+	var module_coord: Vector2i = _dict_to_vector2i(
+		stream_change.get("current_module", {})
+	)
+	_effect_runtime.emit_event(EFFECT_TRIGGERS.MODULE_ENTERED, {
+		"source_actor": _player,
+		"target_actor": _player,
+		"targets": [_player],
+		"current_module": module_coord,
+		"event_board_cell": module_coord,
+	})
 
 
 func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool) -> void:
@@ -4765,6 +4993,7 @@ func _confirm_pending_gear_mod_placement(
 	_pending_gear_mod_placement.clear()
 	_sync_run_gear_mod_ids_from_board()
 	_apply_run_gear_modifiers()
+	_play_gear_mod_placement_sfx(mod_id)
 	_show_placed_gear_mod_feedback(mod_id)
 	_close_gear_mod_board_panel(true)
 	var resolved: Dictionary = {
@@ -4899,6 +5128,16 @@ func _show_placed_gear_mod_feedback(mod_id: String) -> void:
 		"show_gear_mod_drop_feedback",
 		String(definition.get("name_key", ""))
 	)
+
+
+func _play_gear_mod_placement_sfx(mod_id: String) -> void:
+	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
+	var sfx_id: String = String(
+		definition.get("placement_sfx_id", "")
+	).strip_edges()
+	if sfx_id.is_empty() or not AudioManager.has_stream(sfx_id):
+		return
+	AudioManager.play_sfx(sfx_id)
 
 
 func open_gear_mod_board_inspect() -> bool:
@@ -5054,7 +5293,7 @@ func _update_gear_mod_pickup_prompt(
 	if definition.is_empty():
 		return
 	var effect_text: String = tr(String(definition.get("desc_key", "")))
-	if String(definition.get("kind", "")) == GEAR_MOD_KINDS.EFFECT:
+	if not GearModSystem.modifier_components(mod_id).is_empty():
 		effect_text = _format_gear_mod_pickup_effect(
 			mod_id,
 			GearModSystem.modifiers(mod_id)
@@ -5607,9 +5846,10 @@ func _on_player_life_changed(current_life: float, max_life: float) -> void:
 		_hud.call("set_life", current_life, max_life)
 
 
-func _on_combat_damage_applied(target: Node, _info: RefCounted, result: Dictionary) -> void:
+func _on_combat_damage_applied(target: Node, info: RefCounted, result: Dictionary) -> void:
 	if not bool(result.get("applied", false)):
 		return
+	_emit_combat_effect_events(target, info, result)
 	if not target is Node2D or not _is_active_world_entity(target):
 		return
 	var target_2d: Node2D = target as Node2D
@@ -5640,6 +5880,47 @@ func _on_combat_damage_applied(target: Node, _info: RefCounted, result: Dictiona
 		_play_feedback(profile_id, VFX_CUES.DEFEAT, context)
 	elif player_damage or enemy_damage:
 		_play_feedback(profile_id, VFX_CUES.HURT, context)
+
+
+func _emit_combat_effect_events(
+	target: Node,
+	info: RefCounted,
+	result: Dictionary
+) -> void:
+	if (
+		_effect_runtime == null
+		or info == null
+		or not bool(result.get("applied", false))
+	):
+		return
+	var effect_context: Dictionary = {
+		"source_actor": info.get("source"),
+		"target_actor": target,
+		"targets": [target],
+		"source_team": String(info.get("source_team")),
+		"target_team": String(info.get("target_team")),
+		"element_id": String(info.get("element_id")),
+		"damage_flags": Array(info.get("flags")),
+		"damage_result": result.duplicate(true),
+	}
+	if String(info.get("source_team")) == "team_player":
+		_effect_runtime.emit_event(EFFECT_TRIGGERS.DAMAGE_DEALT, effect_context)
+		if bool(result.get("defeated", false)):
+			_effect_runtime.emit_event(EFFECT_TRIGGERS.KILL, effect_context)
+	if target == _player:
+		_effect_runtime.emit_event(EFFECT_TRIGGERS.DAMAGE_TAKEN, effect_context)
+
+
+func _on_player_dash_started(direction: Vector2) -> void:
+	if _effect_runtime == null:
+		return
+	_effect_runtime.emit_event(EFFECT_TRIGGERS.DASH, {
+		"source_actor": _player,
+		"target_actor": _player,
+		"targets": [_player],
+		"source_team": "team_player",
+		"dash_direction": direction,
+	})
 
 
 func _play_feedback(profile_id: String, cue: String, context: Dictionary = {}) -> void:
@@ -6414,95 +6695,7 @@ func _validate_run_gear_mod_pickup_snapshots(
 	for raw_instance_id: Variant in seen_instance_ids.keys():
 		if int(raw_instance_id) >= next_instance_id:
 			return false
-	return (
-		pickup_count <= GEAR_MOD_PICKUP_POOL_SIZE
-		and _validate_run_gear_mod_map_behavior_plans(snapshot_data)
-	)
-
-
-func _validate_run_gear_mod_map_behavior_plans(
-	snapshot_data: Dictionary
-) -> bool:
-	var board: Dictionary = _dictionary_or_empty(
-		snapshot_data.get("gear_mods", {})
-	)
-	var placements_by_instance: Dictionary = {}
-	for placement: Dictionary in _typed_dictionary_array(
-		board.get("placements", [])
-	):
-		placements_by_instance[int(placement.get("instance_id", 0))] = (
-			placement
-		)
-	var difficulty_snapshot: Dictionary = _dictionary_or_empty(
-		snapshot_data.get("difficulty", {})
-	)
-	var frozen_pool: Dictionary = _eligible_first_visit_enemy_pool(
-		_dictionary_or_empty(
-			_module_world_definition.get("first_visit_enemy_spawn", {})
-		),
-		float(difficulty_snapshot.get("elapsed", 0.0))
-	)
-	var frozen_enemy_ids: Array = _array_or_empty(
-		frozen_pool.get("enemy_ids", [])
-	)
-	for state: Dictionary in _typed_dictionary_array(
-		board.get("map_behavior_states", [])
-	):
-		var pending_plan: Dictionary = _dictionary_or_empty(
-			state.get("pending_plan", {})
-		)
-		if pending_plan.is_empty():
-			continue
-		var instance_id: int = int(state.get("instance_id", 0))
-		var placement: Dictionary = _dictionary_or_empty(
-			placements_by_instance.get(instance_id, {})
-		)
-		var placement_coord := Vector2i(
-			int(placement.get("x", -1)),
-			int(placement.get("y", -1))
-		)
-		var planned_coord: Vector2i = _dict_to_vector2i(
-			pending_plan.get("module_coord", {})
-		)
-		var enemy_id: String = String(
-			pending_plan.get("enemy_id", "")
-		)
-		if (
-			_module_world_manager == null
-			or placement.is_empty()
-			or planned_coord != placement_coord
-			or not frozen_enemy_ids.has(enemy_id)
-		):
-			return false
-		var position: Vector2 = _dict_to_vector(
-			pending_plan.get("position", {}),
-			Vector2(INF, INF)
-		)
-		if (
-			not is_finite(position.x)
-			or not is_finite(position.y)
-			or not bool(_module_world_manager.call(
-				"is_world_position_walkable",
-				position
-			))
-		):
-			return false
-		var global_cell: Vector2i = _module_world_manager.call(
-			"world_to_global_cell",
-			position
-		) as Vector2i
-		var mapped: Dictionary = _module_world_manager.call(
-			"global_cell_to_module_and_local",
-			global_cell
-		) as Dictionary
-		if not mapped.get("module_coord") is Vector2i:
-			return false
-		var mapped_coord: Vector2i = mapped.get(
-			"module_coord"
-		) as Vector2i
-		if mapped_coord != planned_coord:
-			return false
-	return true
+	return pickup_count <= GEAR_MOD_PICKUP_POOL_SIZE
 
 
 func _register_valid_gear_mod_pickup_snapshot(
@@ -6549,26 +6742,6 @@ func _normalize_persisted_gear_mod_numbers(
 	var raw_placements: Variant = board.get("placements")
 	if not _normalize_coordinate_entries(raw_placements, true):
 		return false
-	var raw_behavior_states: Variant = board.get("map_behavior_states")
-	if not raw_behavior_states is Array:
-		return false
-	for raw_state: Variant in raw_behavior_states as Array:
-		if not raw_state is Dictionary:
-			return false
-		var state: Dictionary = raw_state as Dictionary
-		if not _normalize_integral_field(state, "instance_id"):
-			return false
-		var raw_pending_plan: Variant = state.get("pending_plan")
-		if not raw_pending_plan is Dictionary:
-			return false
-		var pending_plan: Dictionary = raw_pending_plan as Dictionary
-		if (
-			not pending_plan.is_empty()
-			and not _normalize_coordinate_dictionary(
-				pending_plan.get("module_coord")
-			)
-		):
-			return false
 	if not _normalize_pickup_instance_ids(
 		snapshot_data.get("gear_mod_pickups")
 	):
@@ -6827,6 +7000,14 @@ func _restore_run_snapshot(
 	_apply_run_gear_modifiers()
 	if _skill_system != null and _skill_system.has_method("restore_snapshot") and snapshot_data.get("skills", {}) is Dictionary:
 		_skill_system.call("restore_snapshot", snapshot_data.get("skills", {}) as Dictionary)
+	var effect_snapshot: Variant = snapshot_data.get("effects")
+	if (
+		_effect_runtime == null
+		or not effect_snapshot is Dictionary
+		or not _effect_runtime.restore_snapshot(effect_snapshot as Dictionary)
+	):
+		push_error("[GameplayRunLoop] effect runtime snapshot restore failed")
+		return false
 
 	var hazard_snapshots: Array = _array_or_empty(snapshot_data.get("hazards", []))
 	if hazard_snapshots.is_empty() and not _module_world_enabled and _map_manager != null and _map_manager.has_method("generate_hazard_placements"):
@@ -6987,18 +7168,62 @@ func _sync_run_gear_mod_ids_from_board() -> void:
 func _apply_run_gear_modifiers() -> void:
 	var hero_modifiers: Array[Dictionary] = []
 	var weapon_modifiers: Array[Dictionary] = []
-	for mod_id: String in _sorted_run_gear_mod_ids():
-		var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-		if String(definition.get("kind", "")) != GEAR_MOD_KINDS.EFFECT:
+	var stale_effect_sources: Array[String] = []
+	var desired_effect_sources: Array[String] = []
+	if _effect_runtime != null:
+		stale_effect_sources = _effect_runtime.source_keys_for_type("gear_mod")
+	var placements: Array[Dictionary] = []
+	if _gear_mod_board != null:
+		placements = _typed_dictionary_array(_gear_mod_board.call("placements"))
+	for placement: Dictionary in placements:
+		var mod_id: String = String(placement.get("mod_id", ""))
+		for modifier: Dictionary in GearModSystem.modifiers(mod_id):
+			match String(modifier.get("slot", "")):
+				GEAR_MOD_SLOTS.HERO:
+					hero_modifiers.append(modifier)
+				GEAR_MOD_SLOTS.WEAPON:
+					weapon_modifiers.append(modifier)
+				_:
+					continue
+		if _effect_runtime == null:
 			continue
-		var modifiers: Array[Dictionary] = GearModSystem.modifiers(mod_id)
-		match String(definition.get("slot", "")):
-			GEAR_MOD_SLOTS.HERO:
-				hero_modifiers.append_array(modifiers)
-			GEAR_MOD_SLOTS.WEAPON:
-				weapon_modifiers.append_array(modifiers)
-			_:
-				continue
+		var component_order: int = 0
+		for component: Dictionary in GearModSystem.components(mod_id):
+			if String(component.get("type", "")) == GEAR_MOD_COMPONENT_TYPES.PROGRAM:
+				var program: Dictionary = _dictionary_or_empty(
+					component.get("program", {})
+				)
+				var programs: Array[Dictionary] = [program]
+				desired_effect_sources.append(_effect_runtime.source_key(
+					"gear_mod",
+					mod_id,
+					int(placement.get("instance_id", 0)),
+					component_order
+				))
+				_effect_runtime.register_source(
+					"gear_mod",
+					mod_id,
+					int(placement.get("instance_id", 0)),
+					component_order,
+					programs,
+					{
+						"source_actor": _player,
+						"source_team": "team_player",
+						"source_board_cell": Vector2i(
+							int(placement.get("x", -1)),
+							int(placement.get("y", -1))
+						),
+						"source_module": Vector2i(
+							int(placement.get("x", -1)),
+							int(placement.get("y", -1))
+						),
+					}
+				)
+			component_order += 1
+	if _effect_runtime != null:
+		for source_key: String in stale_effect_sources:
+			if not desired_effect_sources.has(source_key):
+				_effect_runtime.unregister_source(source_key)
 	if _player != null and _player.has_method("set_gear_modifiers"):
 		_player.call("set_gear_modifiers", hero_modifiers)
 	if _weapon_system != null and _weapon_system.has_method(

@@ -15,7 +15,9 @@
 - `client/data/enemies.csv`
 - `client/data/hazards.csv`
 - `client/data/spawn_waves.csv`
-- `client/data/relics.json`
+- `client/data/skills.json`（schema v3 programs）
+- `client/data/gear_mods.json`（schema v6 components / reward pool contributions）
+- `client/data/gear_mod_drop_tables.csv`
 - `client/data/active_items.json`
 - `client/data/consumables.json`
 - `client/data/credits.json`

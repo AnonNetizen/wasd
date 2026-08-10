@@ -48,7 +48,7 @@ var _property_editor: DataTablePropertyEditor
 var _navigation_split: HSplitContainer
 var _inspector_split: HSplitContainer
 var _locale_box: VBoxContainer
-var _skill_preview: RichTextLabel
+var _content_preview: RichTextLabel
 var _status_label: Label
 var _save_button: Button
 var _undo_button: Button
@@ -64,6 +64,8 @@ var _conflict_dialog: ConfirmationDialog
 var _draft_dialog: ConfirmationDialog
 var _raw_dialog: AcceptDialog
 var _raw_text: TextEdit
+var _component_template_menu: PopupMenu
+var _pending_component_path: Array = []
 var _table_column_paths: Array[Array] = []
 var _current_section: String = ""
 var _selected_record_index: int = -1
@@ -344,13 +346,13 @@ func _build_inspector_panel() -> VBoxContainer:
 	_locale_box = VBoxContainer.new()
 	panel.add_child(_locale_box)
 	var preview_title := Label.new()
-	preview_title.text = "技能描述实时预览"
+	preview_title.text = "中英文结构化效果实时预览"
 	panel.add_child(preview_title)
-	_skill_preview = RichTextLabel.new()
-	_skill_preview.fit_content = true
-	_skill_preview.custom_minimum_size.y = 92.0
-	_skill_preview.bbcode_enabled = false
-	panel.add_child(_skill_preview)
+	_content_preview = RichTextLabel.new()
+	_content_preview.fit_content = true
+	_content_preview.custom_minimum_size.y = 120.0
+	_content_preview.bbcode_enabled = false
+	panel.add_child(_content_preview)
 	return panel
 
 
@@ -403,6 +405,10 @@ func _build_dialogs() -> void:
 	_raw_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_raw_dialog.add_child(_raw_text)
 	add_child(_raw_dialog)
+
+	_component_template_menu = PopupMenu.new()
+	add_child(_component_template_menu)
+	_component_template_menu.id_pressed.connect(_on_component_template_selected)
 
 
 func _connect_signals() -> void:
@@ -664,7 +670,7 @@ func _update_inspector(record_index: int) -> void:
 	var record_data: Dictionary = _document.record(_current_section, record_index)
 	_property_editor.refresh(_inspector_record(record_data), _property_field_options())
 	_rebuild_locale_fields(record_data)
-	_rebuild_skill_preview(record_data)
+	_rebuild_content_preview(record_data)
 
 
 func _inspector_record(record_data: Dictionary) -> Dictionary:
@@ -751,12 +757,23 @@ func _rebuild_locale_fields(record_data: Dictionary) -> void:
 		_locale_box.add_child(row)
 
 
-func _rebuild_skill_preview(record_data: Dictionary) -> void:
-	_skill_preview.visible = String(_document.descriptor.get("preview", "")) == "skill"
-	if not _skill_preview.visible or record_data.is_empty():
-		_skill_preview.text = ""
+func _rebuild_content_preview(record_data: Dictionary) -> void:
+	var preview_type: String = String(_document.descriptor.get("preview", ""))
+	_content_preview.visible = preview_type == "skill" or preview_type == "gear_mod"
+	if not _content_preview.visible or record_data.is_empty():
+		_content_preview.text = ""
 		return
 	var desc_key: String = String(record_data.get("desc_key", ""))
+	if preview_type == "gear_mod":
+		var zh_description: String = _document.locale_value(desc_key, "zh_CN")
+		var en_description: String = _document.locale_value(desc_key, "en")
+		_content_preview.text = "中文：%s\n%s\n\nEnglish: %s\n%s" % [
+			zh_description,
+			format_gear_mod_preview(record_data, "zh_CN"),
+			en_description,
+			format_gear_mod_preview(record_data, "en"),
+		]
+		return
 	var ability_stats: Dictionary = {
 		"ability_strength": 1.0,
 		"ability_range": 1.0,
@@ -769,7 +786,166 @@ func _rebuild_skill_preview(record_data: Dictionary) -> void:
 	var en: String = SKILL_DESCRIPTION_FORMATTER.format_skill(
 		_document.locale_value(desc_key, "en"), record_data, ability_stats
 	)
-	_skill_preview.text = "中文：%s\nEnglish: %s" % [zh, en]
+	_content_preview.text = "中文：%s\nEnglish: %s" % [zh, en]
+
+
+static func format_gear_mod_preview(record_data: Dictionary, language: String) -> String:
+	var is_zh: bool = language == "zh_CN"
+	var raw_components: Variant = record_data.get("components", [])
+	if not raw_components is Array or (raw_components as Array).is_empty():
+		return "无组件" if is_zh else "No components"
+	var lines := PackedStringArray()
+	for component_index: int in range((raw_components as Array).size()):
+		var raw_component: Variant = (raw_components as Array)[component_index]
+		if not raw_component is Dictionary:
+			continue
+		var component: Dictionary = raw_component as Dictionary
+		var component_id: String = String(component.get("component_id", ""))
+		var component_type: String = String(component.get("type", ""))
+		var prefix: String = (
+			"组件 %d · %s" % [component_index + 1, component_id]
+			if is_zh
+			else "Component %d · %s" % [component_index + 1, component_id]
+		)
+		match component_type:
+			"modifier":
+				var slot: String = String(component.get("slot", ""))
+				var modifiers: PackedStringArray = _modifier_preview_parts(
+					component.get("modifiers", [])
+				)
+				lines.append("%s [%s]: %s" % [prefix, slot, ", ".join(modifiers)])
+			"program":
+				var program: Dictionary = (
+					component.get("program", {}) as Dictionary
+					if component.get("program", {}) is Dictionary
+					else {}
+				)
+				lines.append(
+					_program_preview_line(prefix, program, is_zh)
+				)
+			"board_rule":
+				var rule_id: String = String(component.get("rule_id", ""))
+				lines.append(
+					"%s [%s]: %s" % [
+						prefix,
+						"棋盘规则" if is_zh else "board rule",
+						rule_id,
+					]
+				)
+			_:
+				lines.append("%s [%s]" % [prefix, component_type])
+	return "\n".join(lines)
+
+
+static func _modifier_preview_parts(raw_modifiers: Variant) -> PackedStringArray:
+	var parts := PackedStringArray()
+	if not raw_modifiers is Array:
+		return parts
+	for raw_modifier: Variant in raw_modifiers as Array:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
+		var operator: String = (
+			"+" if String(modifier.get("type", "")) == "add" else "×"
+		)
+		parts.append(
+			"%s %s%s" % [
+				String(modifier.get("stat", "")),
+				operator,
+				_preview_number(float(modifier.get("value", 0.0))),
+			]
+		)
+	return parts
+
+
+static func _program_preview_line(
+	prefix: String,
+	program: Dictionary,
+	is_zh: bool
+) -> String:
+	var conditions := PackedStringArray()
+	var raw_conditions: Variant = program.get("conditions", [])
+	if raw_conditions is Array:
+		for raw_condition: Variant in raw_conditions as Array:
+			if raw_condition is Dictionary:
+				conditions.append(String((raw_condition as Dictionary).get("condition", "")))
+	var actions := PackedStringArray()
+	var raw_actions: Variant = program.get("actions", [])
+	if raw_actions is Array:
+		for raw_action: Variant in raw_actions as Array:
+			if not raw_action is Dictionary:
+				continue
+			var action: Dictionary = raw_action as Dictionary
+			actions.append(
+				"%s%s" % [
+					String(action.get("action", "")),
+					_preview_params(action.get("params", {})),
+				]
+			)
+	var chance: String = "%s%%" % _preview_number(
+		float(program.get("proc_chance", 1.0)) * 100.0
+	)
+	var cooldown: String = _preview_number(
+		float(program.get("internal_cooldown", 0.0))
+	)
+	var program_id: String = String(program.get("program_id", ""))
+	var trigger: String = String(program.get("trigger", ""))
+	var condition_text: String = "无" if conditions.is_empty() and is_zh else (
+		"none" if conditions.is_empty() else ", ".join(conditions)
+	)
+	var text: String = (
+		"%s [触发程序]: %s · 触发 %s · 条件 %s · 动作 %s · 概率 %s · 内置冷却 %s 秒"
+		% [
+			prefix,
+			program_id,
+			trigger,
+			condition_text,
+			", ".join(actions),
+			chance,
+			cooldown,
+		]
+		if is_zh
+		else "%s [program]: %s · trigger %s · conditions %s · actions %s · chance %s · cooldown %ss"
+		% [
+			prefix,
+			program_id,
+			trigger,
+			condition_text,
+			", ".join(actions),
+			chance,
+			cooldown,
+		]
+	)
+	if program.has("interval_seconds"):
+		text += (
+			" · 周期 %s 秒" if is_zh else " · interval %ss"
+		) % _preview_number(float(program.get("interval_seconds", 0.0)))
+	return text
+
+
+static func _preview_params(raw_params: Variant) -> String:
+	if not raw_params is Dictionary or (raw_params as Dictionary).is_empty():
+		return ""
+	var params: Dictionary = raw_params as Dictionary
+	var keys: Array = params.keys()
+	keys.sort_custom(func(left: Variant, right: Variant) -> bool: return String(left) < String(right))
+	var parts := PackedStringArray()
+	for raw_key: Variant in keys:
+		var value: Variant = params[raw_key]
+		var value_text: String = (
+			_preview_number(float(value))
+			if value is int or value is float
+			else String(value)
+		)
+		parts.append("%s=%s" % [String(raw_key), value_text])
+	return "(%s)" % ", ".join(parts)
+
+
+static func _preview_number(value: float) -> String:
+	var rounded: float = snappedf(value, 0.01)
+	if is_equal_approx(rounded, roundf(rounded)):
+		return str(int(roundf(rounded)))
+	return ("%.2f" % rounded).trim_suffix("0")
 
 
 func _on_property_value_changed(path: Array, value: Variant) -> void:
@@ -781,8 +957,91 @@ func _on_property_value_changed(path: Array, value: Variant) -> void:
 
 
 func _on_array_add(path: Array) -> void:
+	if _show_component_template_menu(path):
+		return
 	if _document.append_array_value(_current_section, _selected_record_index, path):
 		_refresh_current_view(_selected_record_index)
+
+
+func _show_component_template_menu(path: Array) -> bool:
+	if (
+		String(_document.descriptor.get("preview", "")) != "gear_mod"
+		or path.size() != 1
+		or String(path[0]) != "components"
+	):
+		return false
+	var raw_templates: Variant = _document.descriptor.get("component_templates", [])
+	if not raw_templates is Array or (raw_templates as Array).is_empty():
+		return false
+	_component_template_menu.clear()
+	for raw_template: Variant in raw_templates as Array:
+		if not raw_template is Dictionary:
+			continue
+		var template: Dictionary = raw_template as Dictionary
+		var template_id: String = String(template.get("id", ""))
+		var item_index: int = _component_template_menu.item_count
+		_component_template_menu.add_item(_component_template_label(template_id), item_index)
+		_component_template_menu.set_item_metadata(item_index, template.get("value", {}))
+	if _component_template_menu.item_count == 0:
+		return false
+	_pending_component_path = path.duplicate()
+	_component_template_menu.position = Vector2i(get_viewport().get_mouse_position())
+	_component_template_menu.popup()
+	return true
+
+
+func _on_component_template_selected(item_id: int) -> void:
+	var item_index: int = _component_template_menu.get_item_index(item_id)
+	if item_index < 0:
+		return
+	var raw_template: Variant = _component_template_menu.get_item_metadata(item_index)
+	if not raw_template is Dictionary:
+		return
+	var component: Dictionary = (raw_template as Dictionary).duplicate(true)
+	component["component_id"] = _unique_component_id(
+		String(component.get("component_id", "component_1"))
+	)
+	if _document.append_array_value_from_template(
+		_current_section,
+		_selected_record_index,
+		_pending_component_path,
+		component
+	):
+		_refresh_current_view(_selected_record_index)
+		return
+	_set_status("组件模板插入失败。")
+
+
+func _unique_component_id(base_id: String) -> String:
+	var normalized_base: String = base_id if not base_id.is_empty() else "component_1"
+	var used: Dictionary = {}
+	var record_data: Dictionary = _document.record(
+		_current_section, _selected_record_index
+	)
+	var raw_components: Variant = record_data.get("components", [])
+	if raw_components is Array:
+		for raw_component: Variant in raw_components as Array:
+			if raw_component is Dictionary:
+				used[String((raw_component as Dictionary).get("component_id", ""))] = true
+	if not used.has(normalized_base):
+		return normalized_base
+	var prefix: String = normalized_base.trim_suffix("_1")
+	var suffix: int = 2
+	while used.has("%s_%d" % [prefix, suffix]):
+		suffix += 1
+	return "%s_%d" % [prefix, suffix]
+
+
+func _component_template_label(template_id: String) -> String:
+	match template_id:
+		"modifier":
+			return "属性修正（modifier）"
+		"program":
+			return "触发程序（program）"
+		"board_rule":
+			return "棋盘规则（board_rule）"
+		_:
+			return template_id
 
 
 func _on_array_remove(path: Array, index: int) -> void:

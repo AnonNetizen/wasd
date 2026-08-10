@@ -1,8 +1,9 @@
 {
 	"created_at": "golden:golden_pause_resume",
-	"data_fingerprint": "5fc30d06b63dd7213e8b8fb17eac1ccc30790350f2a2b297c408f1f19f6b2396",
-	"file_schema_version": 8,
-	"game_version": "v1.17",
+	"data_fingerprint": "ae289a23d12e2a6aae462df13a047830f6e4ef860ef77a9dd551ce198e8b72d5",
+	"file_schema_version": 9,
+	"game_version": "v1.18",
+	"mod_environment": [],
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -336,11 +337,11 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 8,
+		"schema_version": 9,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "8eafb5cadd9114d9663ea363eb1486f0be8ff4e5f06e57e1ec266551c899846c",
+	"recording_hash": "ddd65e25889effb68cc4b39ba892614d76e097497a918afb0963c6e47938e262",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,
@@ -509,7 +510,7 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 8,
+		"schema_version": 9,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

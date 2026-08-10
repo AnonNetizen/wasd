@@ -14,7 +14,7 @@
 ## 非职责
 
 - 不是正式 game mode，不进入 `game_modes.json`，不新增 save kind、pool id 或 input action。
-- 不接金币成长、通用奖励选择、遗物、主动道具、消耗品、机关、兴趣点、巢核、撤离、奖励结算或正式 Game Over。
+- 不接金币成长、通用奖励选择、主动道具、消耗品、机关、兴趣点、意识核、奖励结算或正式 Game Over。
 - 不支持局内热切换主／子英雄、武器或 Gear Mod；改变配装必须重建测试局。四技能可在控制面板逐槽触发。
 - 不替代完整试玩、黄金回放、平衡 sim 或性能测试。
 
@@ -86,7 +86,7 @@ gear_mod_placements=[{"mod_id":"gear_mod_weapon_damage_test","x":3,"y":2}]
 
 - 配置使用 `ConfigFile`，不走 `SaveManager`，不触碰 `user://saves/`。
 - 可用选择器从 `DataLoader` 动态列出主英雄、子英雄、武器和 Gear Mod；重复组合自动修正。
-- 遗物、主动道具和消耗品只列出名称并明确显示“运行时尚未接入”，不可选择。
+- 主动道具和消耗品只列出名称并明确显示“运行时尚未接入”，不可选择。Gear Mod 使用正式 v6 组件定义与显式棋盘坐标；`program` 组件通过同一 `GameplayEffectRuntime` 注册，但依赖 ModuleWorld 的条件在测试岛中不会激活。
 - 测试内容视为已解锁，不读取背包或货币。
 - 每个 Gear Mod ID 只有一个启用开关和一组显式坐标；setup 不提供 rank、count、容量、drain、移动或升级控件。配置先按 `y,x` 排序，再用正式 `GearModBoard` 的当前合法目标逐项展开；`effect` 正常生成 hero / weapon modifier，`grid` 只占格，`map` 保留 placement 但因测试岛没有 7×7 ModuleWorld 而不激活。旧 schema v3 直接重置，不推断坐标。
 
@@ -194,7 +194,7 @@ gear_mod_placements=[{"mod_id":"gear_mod_weapon_damage_test","x":3,"y":2}]
 
 - 开发配置 schema 当前为 v3；旧 v2 含 rank 语义，直接重置为 v3 默认，不迁移或推断等级。旧 `character_id` 兼容只适用于同版本配置的主英雄字段；缺失子英雄时回退到另一名合法英雄，未知 / 缺失版本记录诊断且不触碰正式存档。
 - 新增正式内容无需改选择器结构；只要 DataLoader 数据合法，就会自动进入对应列表。
-- 遗物、主动道具、消耗品在运行时接线前必须继续保持禁用；接线属于新的设计 / API 变更，需要更新 ADR、测试与本文档。
+- 主动道具、消耗品在运行时接线前必须继续保持禁用；接线属于新的设计 / API 变更，需要更新 ADR、测试与本文档。Gear Mod 不得在测试岛维护第二套效果解释器。
 
 ## 相关文档
 

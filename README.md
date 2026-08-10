@@ -21,7 +21,7 @@
 ---
 
 ## 一句话定位
-俯视角 2D 表现，WASD / 手柄左摇杆在 2D 平面移动，鼠标 / 方向键 / 手柄右摇杆或 D-pad 控制射击方向，按住 `fire` action 持续开火、松开停火；在开放有限大地图中反复刷装备、词条、遗物、技能资源和局外成长，用掉落追求与构筑迭代驱动长期复刷，在敌群与机关中推进破巢行动。
+俯视角 2D 表现，WASD / 手柄左摇杆在 2D 平面移动，鼠标 / 方向键 / 手柄右摇杆或 D-pad 控制射击方向，按住 `fire` action 持续开火、松开停火；在 7×7 模块世界中拾取、组合 Gear Mod 与技能效果，用掉落追求与构筑迭代驱动长期复刷，在敌群与机关中寻找并清理意识核。
 
 ## 技术栈
 - **引擎**：Godot 4.7.1 stable
@@ -30,7 +30,7 @@
 
 ## 设计支柱
 - **数据驱动**：所有可调数值集中在 `res://data/` 下，平表数值优先 CSV、复杂配置优先 JSON，字段说明见 `client/data/README.md`，零代码调参 + 热重载。
-- **遗物 = 数据**：用「修正器 modifiers + 行为 behaviors」描述，新增遗物 = 加一条数据，不改逻辑。
+- **效果 = 数据程序**：技能与 Gear Mod 共享 trigger / condition / action 运行时；Gear Mod 用 `modifier` / `program` / `board_rule` 组件组合，新增内容不写 ID 分支。
 - **扩展优先**：默认玩法规则不是硬编码上限；破限角色 / 道具走 capability、tag、primitive 或 strategy，不写一次性 id 分支。
 - **代码-文档同源**：长期代码模块、公共 API、数据 schema 与扩展点变化必须同步 `docs/代码/` 模块文档。
 - **三条横向基础设施**（框架阶段就内建）：
@@ -95,7 +95,7 @@ client/
 ├── scripts/    # 脚本 .gd（按系统单一职责拆分）
 ├── data/       # 可调数值配置（CSV / JSON）+ README.md 人工调参手册
 ├── locale/     # 本地化翻译表（CSV → .translation）+ README.md 多语言文案手册
-├── templates/  # 新内容脚手架模板（enemy / relic ...）
+├── templates/  # 模块等文件脚手架模板
 └── assets/     # 美术 / 音效
 # 玩家设置存档：user://settings.cfg；user:// 下另存元进度存档
 ```

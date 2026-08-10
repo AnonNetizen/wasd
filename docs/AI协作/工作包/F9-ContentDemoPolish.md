@@ -15,7 +15,7 @@
 - 以 F8 golden replay、smoke 和手动 checklist 保护内容扩展，避免内容变多后回归问题变隐蔽；`perf-probe` 仅在用户明确要求性能测试时运行。
 - 只在内容确实需要时新增可复用 primitive / runtime 能力；不要为某个 id 写特殊分支。
 
-F9 的核心是“可试玩 Demo 的第一层内容和体验打磨”，不是无限堆数据、重做美术风格、做完整平衡平台、做商店页、做完整遗物协同系统或提前发版。
+F9 的核心是“可试玩 Demo 的第一层内容和体验打磨”，不是无限堆数据、重做美术风格、做完整平衡平台、做商店页、无边界扩充效果原语或提前发版。
 
 ## 必读
 
@@ -30,7 +30,7 @@ F9 的核心是“可试玩 Demo 的第一层内容和体验打磨”，不是�
 9. `client/data/README.md`
 10. `client/locale/README.md`
 11. `docs/词表与契约.md` 与目标内容类型相关章节
-12. 目标数据文件：`characters.json`、`weapons.json`、`enemies.csv`、`growth.csv`、`growth_pools.json`、`relics.json`、`active_items.json`、`consumables.json`、`hazards.csv`、`spawn_waves.csv`、`game_modes.json` 中本次会改的最小集合
+12. 目标数据文件：`characters.json`、`weapons.json`、`enemies.csv`、`skills.json`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`active_items.json`、`consumables.json`、`hazards.csv`、`spawn_waves.csv`、`game_modes.json` 中本次会改的最小集合
 
 只在新增 stat / effect / event / action / pool / audio id、修改运行时行为、改变回放 schema、改变存档 schema 或新增长期模块时，补读对应 GDD、ADR、模块文档和目标源码。不要为了“准备 F9”默认整篇加载 GDD 或批量扫全仓。
 
@@ -57,7 +57,7 @@ F9 的核心是“可试玩 Demo 的第一层内容和体验打磨”，不是�
 
 - **角色扩展**：可以补数据样例，但当前没有角色选择 UI；新增角色若不能被玩家选择，不适合作为首个 Demo 可见切片。
 - **武器扩展**：可以补数据样例，但当前 runtime 只按角色起始武器开局；新增武器若没有选择 / 掉落 / 解锁路径，玩家不可感知。
-- **遗物 / 主动道具 / 消耗品**：已有数据边界和样例，但缺少完整拾取、选择、使用、冷却、栏位、存档恢复和效果执行 runtime；不要把它们作为 F9.1 首个可玩切片，除非先实现对应系统。
+- **Gear Mod**：schema v6、拾取棋盘与 `GameplayEffectRuntime` 已落地；新增内容必须只组合已登记 components / trigger / condition / action，并按 Gear Mod 模板与专项 smoke 验证。本地包另受 manifest v2 安全边界约束。主动道具 / 消耗品仍未接完整使用 runtime，不作为首个切片。
 - **机关 / hazard**：HazardSystem runtime 已落地，通用机关走 `hazards.csv.radius_tiles` + `map_layouts.json.grid` 的量化矩形格；第一批 Demo 内容可调现有 FEA-12 / 尖刺样例，但新增行为型机关仍需先设计 primitive、补 smoke 和文档。
 - **新 effect / behavior / capability**：任何新原语都要先登记词表、实现可复用 runtime、补测试和文档；F9.1 优先避免。
 - **音频 / 正式美术替换**：当前可以写占位规范和 audio id 计划，但不要直接绕过 `AudioManager` 或把资源路径硬写进 gameplay 脚本。
@@ -200,7 +200,7 @@ F9.1~F9.3 首批内容 / 表现切片完成后，已按 F9.4 守门口径重跑�
 
 用户完成 F9.5 完整 Demo 手动 checklist 复核后确认“没什么问题，已经可以收口”。F9 第一轮 Demo 内容 / 表现打磨因此收口：保留当前 `enemy_bulwark` 中段内容、三级成长候选、无音频视觉反馈规范、命中火花 / 伤害数字池，以及 F8 golden replay / smoke 作为后续内容扩展护栏；`perf-probe` 仅在用户明确要求性能测试时运行。
 
-本轮不继续追加第二个小内容包。下一步转为中型系统决策：优先评估武器选择 / 第二把武器的可见获取路径、角色选择、遗物 runtime、hazard runtime 或音频资源接入中的一个；若临时音频资源先到位，则回到 `AudioManager` 注册 / smoke。
+本轮不继续追加第二个小内容包。下一步转为中型系统决策：优先评估武器选择 / 第二把武器的可见获取路径、角色选择、效果原语扩展、hazard runtime 或音频资源接入中的一个；若临时音频资源先到位，则回到 `AudioManager` 注册 / smoke。
 
 ## 可改文件
 
@@ -210,7 +210,9 @@ F9.1~F9.3 首批内容 / 表现切片完成后，已按 F9.4 守门口径重跑�
 - `client/data/spawn_waves.csv`
 - `client/data/growth.csv`
 - `client/data/growth_pools.json`
-- `client/data/relics.json`
+- `client/data/skills.json`
+- `client/data/gear_mods.json`
+- `client/data/gear_mod_drop_tables.csv`
 - `client/data/active_items.json`
 - `client/data/consumables.json`
 - `client/data/hazards.csv`
@@ -230,13 +232,13 @@ F9.1~F9.3 首批内容 / 表现切片完成后，已按 F9.4 守门口径重跑�
 ## 禁止事项
 
 - 不批量新增几十条内容；每个切片必须能独立验证、独立回滚、独立说明玩家可感知价值。
-- 不为具体角色 / 武器 / 敌人 / 遗物 id 写特殊分支；需要新能力时先抽象为 stat、effect、behavior、capability、tag、strategy 或 runtime primitive。
+- 不为具体角色 / 武器 / 敌人 / Gear Mod id 写特殊分支；需要新能力时先抽象为 stat、trigger、condition、action、capability、tag、strategy 或 Runtime primitive。
 - 不新增玩家可见文本而漏 `zh_CN` / `en`；不把显示名写死在代码或数据外。
 - 不新增可调数值字段而漏 `client/data/README.md`、DataLoader schema 和校验。
 - 不复活历史 MVP 临时代码；只能迁移已经被正式文档 / ADR 吸收的经验。
 - 不绕过 `RNG`、`GameClock`、`GameState`、`PoolManager`、`Combat`、`SaveManager`、`AudioManager`、`UIManager` 等既有系统边界。
 - 不把内容扩展作为修测试快照的借口；golden replay 只有在行为有意改变并已说明时才重录。
-- 不在 F9 第一轮就做完整 AIPlayer、完整商店、完整遗物协同、完整手柄重绑定、正式美术替换或发版工程。
+- 不在 F9 第一轮就做完整 AIPlayer、完整商店、无边界效果原语集、完整手柄重绑定、正式美术替换或发版工程。
 - 不因为矩形机关和量化背景网格，把角色、敌人、拾取物、子弹、障碍物或特效强制做成矩形；非地面资产靠俯视轮廓、方向读法、功能色和真实判定形状保持可读性。
 - 不读取、整理、引用或修改 `draft/` / `DRAFT/`。
 

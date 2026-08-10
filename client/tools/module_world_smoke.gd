@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective completion, threat-time combat gates and Run v18 restore.
+## objective completion, threat-time combat gates and Run v19 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -98,9 +98,9 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 18
+		int(fresh_run_snapshot.get("schema_version", 0)) == 19
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v18 should save registered world-event state"
+		"Run v19 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	var expected_start_coord := Vector2i(3, 3) if OS.get_cmdline_user_args().has("--module-world-technical-slice") else Vector2i(0, 6)
@@ -767,6 +767,14 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 	if not bool(other_placement_result.get("ok", false)):
 		return
 	run_loop.call("_sync_run_gear_mod_ids_from_board")
+	run_loop.call("_apply_run_gear_modifiers")
+	var effect_runtime: RefCounted = run_loop.get("_effect_runtime") as RefCounted
+	_expect(
+		effect_runtime != null,
+		"cage behavior smoke should have a GameplayEffectRuntime"
+	)
+	if effect_runtime == null:
+		return
 	var cage_floor_positions: Array[Vector2] = manager.call(
 		"empty_floor_positions_at",
 		cage_coord
@@ -812,107 +820,117 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 
 	var old_time_scale: float = GameClock.time_scale()
 	GameClock.set_time_scale(0.5)
-	board.call(
-		"set_map_behavior_state",
-		cage_instance_id,
-		{"elapsed": 1.0, "pending_plan": {}}
-	)
-	board.call(
-		"set_map_behavior_state",
-		other_cage_instance_id,
-		{"elapsed": 4.0, "pending_plan": {}}
-	)
-	run_loop.call("debug_tick_gear_mod_map_behaviors", 0.5)
-	var scaled_state: Dictionary = board.call(
-		"map_behavior_state",
-		cage_instance_id
-	) as Dictionary
-	var other_scaled_state: Dictionary = board.call(
-		"map_behavior_state",
-		other_cage_instance_id
-	) as Dictionary
 	_expect(
-		is_equal_approx(float(scaled_state.get("elapsed", 0.0)), 1.25)
+		_set_cage_effect_state(
+			effect_runtime,
+		cage_instance_id,
+			1.0,
+			{}
+		)
+		and _set_cage_effect_state(
+			effect_runtime,
+		other_cage_instance_id,
+			4.0,
+			{}
+		),
+		"cage fixtures should seed independent runtime program states"
+	)
+	effect_runtime.call("tick", 0.5, {"current_module": cage_coord})
+	var scaled_state: Dictionary = _cage_effect_state(
+		effect_runtime,
+		cage_instance_id
+	)
+	var other_scaled_state: Dictionary = _cage_effect_state(
+		effect_runtime,
+		other_cage_instance_id
+	)
+	_expect(
+		is_equal_approx(
+			float(scaled_state.get("interval_elapsed", 0.0)),
+			1.25
+		)
 		and is_equal_approx(
-			float(other_scaled_state.get("elapsed", -1.0)),
+			float(other_scaled_state.get("interval_elapsed", -1.0)),
 			0.0
 		),
-		"only the cage under the player should advance while another instance resets independently"
+		(
+			"only the cage under the player should advance while another instance "
+			+ "resets independently: first=%s other=%s"
+		) % [str(scaled_state), str(other_scaled_state)]
 	)
 	GameClock.set_time_scale(old_time_scale)
 
-	board.call(
-		"set_map_behavior_state",
-		cage_instance_id,
-		{"elapsed": 10.0, "pending_plan": locked_plan}
+	_expect(
+		_set_cage_effect_state(
+			effect_runtime,
+			cage_instance_id,
+			10.0,
+			locked_plan
+		),
+		"cage runtime should accept a locked spawn plan fixture"
 	)
-	locked_plan = (
-		board.call("map_behavior_state", cage_instance_id) as Dictionary
-	).get("pending_plan", {}) as Dictionary
-	var board_snapshot: Dictionary = board.call("snapshot") as Dictionary
-	board.call(
-		"set_map_behavior_state",
-		cage_instance_id,
-		{"elapsed": 0.0, "pending_plan": {}}
-	)
-	var restored_board_state: bool = bool(board.call(
+	var effect_snapshot: Dictionary = effect_runtime.call("snapshot") as Dictionary
+	_set_cage_effect_state(effect_runtime, cage_instance_id, 0.0, {})
+	var restored_effect_state: bool = bool(effect_runtime.call(
 		"restore_snapshot",
-		board_snapshot
+		effect_snapshot
 	))
 	_expect(
-		restored_board_state
+		restored_effect_state
 		and (
-			board.call("map_behavior_state", cage_instance_id) as Dictionary
-		).get("pending_plan", {}) == locked_plan,
-		"board snapshot restore should preserve the cage locked plan"
-	)
-	var valid_plan_snapshot: Dictionary = run_loop.call(
-		"create_run_snapshot"
-	) as Dictionary
-	var unknown_enemy_snapshot: Dictionary = valid_plan_snapshot.duplicate(true)
-	var unknown_enemy_states: Array = (
-		(unknown_enemy_snapshot.get("gear_mods", {}) as Dictionary).get(
-			"map_behavior_states",
-			[]
-		) as Array
-	)
-	(
-		(unknown_enemy_states[0] as Dictionary).get(
-			"pending_plan",
-			{}
-		) as Dictionary
-	)["enemy_id"] = "missing_enemy"
-	var wrong_module_position_snapshot: Dictionary = (
-		valid_plan_snapshot.duplicate(true)
-	)
-	var wrong_position_states: Array = (
-		(
-			wrong_module_position_snapshot.get(
-				"gear_mods",
+			_cage_effect_state(effect_runtime, cage_instance_id).get(
+				"action_state",
 				{}
 			) as Dictionary
-		).get("map_behavior_states", []) as Array
+		).get("pending_plan", {}) == locked_plan,
+		"effect runtime snapshot restore should preserve the cage locked plan"
 	)
-	(
-		(wrong_position_states[0] as Dictionary).get(
-			"pending_plan",
-			{}
-		) as Dictionary
-	)["position"] = _vector_to_dict(original_player_position)
+	var cage_run_snapshot: Dictionary = run_loop.call(
+		"create_run_snapshot"
+	) as Dictionary
 	_expect(
-		bool(run_loop.call(
-			"_validate_run_gear_mod_map_behavior_plans",
-			valid_plan_snapshot
-		))
-		and not bool(run_loop.call(
-			"_validate_run_gear_mod_map_behavior_plans",
-			unknown_enemy_snapshot
-		))
-		and not bool(run_loop.call(
-			"_validate_run_gear_mod_map_behavior_plans",
-			wrong_module_position_snapshot
-		)),
-		"run restore validation should reject cage plans with an unavailable enemy or a position outside the cage module"
+		int(cage_run_snapshot.get("schema_version", 0)) == 19
+		and cage_run_snapshot.get("effects", {}) == effect_snapshot,
+		"Run v19 should persist cage state through the unified effect snapshot"
+	)
+	var unknown_enemy_plan: Dictionary = locked_plan.duplicate(true)
+	unknown_enemy_plan["enemy_id"] = "missing_enemy"
+	_set_cage_effect_state(
+		effect_runtime,
+		cage_instance_id,
+		10.0,
+		unknown_enemy_plan
+	)
+	run_loop.call("debug_tick_effect_runtime", 0.01)
+	var invalid_enemy_state: Dictionary = _cage_effect_state(
+		effect_runtime,
+		cage_instance_id
+	)
+	var wrong_position_plan: Dictionary = locked_plan.duplicate(true)
+	wrong_position_plan["position"] = _vector_to_dict(original_player_position)
+	_set_cage_effect_state(
+		effect_runtime,
+		cage_instance_id,
+		10.0,
+		wrong_position_plan
+	)
+	run_loop.call("debug_tick_effect_runtime", 0.01)
+	var invalid_position_state: Dictionary = _cage_effect_state(
+		effect_runtime,
+		cage_instance_id
+	)
+	_expect(
+		(invalid_enemy_state.get("action_state", {}) as Dictionary).is_empty()
+		and (
+			invalid_position_state.get("action_state", {}) as Dictionary
+		).is_empty(),
+		"runtime should discard unavailable enemies and positions outside the cage module"
+	)
+	_set_cage_effect_state(
+		effect_runtime,
+		cage_instance_id,
+		10.0,
+		locked_plan
 	)
 	var enemy_id: String = String(locked_plan.get("enemy_id", ""))
 	var cage_enemy_rows: Dictionary = run_loop.get("_enemy_rows") as Dictionary
@@ -922,25 +940,27 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 	cage_enemy_rows.erase(enemy_id)
 	run_loop.set("_enemy_rows", cage_enemy_rows)
 	var rng_before_failed_spawn: Dictionary = RNG.snapshot()
-	run_loop.call("debug_tick_gear_mod_map_behaviors", 0.0)
+	run_loop.call("debug_tick_effect_runtime", 0.01)
 	print("[ModuleWorldSmoke] stage=cage_failed_retry")
-	var failed_state: Dictionary = board.call(
-		"map_behavior_state",
+	var failed_state: Dictionary = _cage_effect_state(
+		effect_runtime,
 		cage_instance_id
-	) as Dictionary
+	)
 	_expect(
-		failed_state.get("pending_plan", {}) == locked_plan
+		(
+			failed_state.get("action_state", {}) as Dictionary
+		).get("pending_plan", {}) == locked_plan
 		and RNG.snapshot() == rng_before_failed_spawn,
 		"failed cage spawn should retain its exact plan without consuming RNG for a reroll"
 	)
 	cage_enemy_rows[enemy_id] = saved_enemy_row
 	run_loop.set("_enemy_rows", cage_enemy_rows)
-	run_loop.call("debug_tick_gear_mod_map_behaviors", 0.0)
+	run_loop.call("debug_tick_effect_runtime", 0.01)
 	print("[ModuleWorldSmoke] stage=cage_spawned")
-	var success_state: Dictionary = board.call(
-		"map_behavior_state",
+	var success_state: Dictionary = _cage_effect_state(
+		effect_runtime,
 		cage_instance_id
-	) as Dictionary
+	)
 	var spawned_enemy: Node2D = _find_active_entity_at(
 		"active_enemies",
 		planned_position
@@ -960,8 +980,11 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 				false
 			)
 		)
-		and is_equal_approx(float(success_state.get("elapsed", -1.0)), 0.0)
-		and (success_state.get("pending_plan", {}) as Dictionary).is_empty(),
+		and is_equal_approx(
+			float(success_state.get("interval_elapsed", -1.0)),
+			0.0
+		)
+		and (success_state.get("action_state", {}) as Dictionary).is_empty(),
 		"successful cage spawn should use normal rewards, bind to the module slot, and reset its timer: enemy=%s slot=%s reward=%s state=%s"
 		% [
 			str(spawned_enemy),
@@ -975,10 +998,11 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 		]
 	)
 
-	board.call(
-		"set_map_behavior_state",
+	_set_cage_effect_state(
+		effect_runtime,
 		cage_instance_id,
-		{"elapsed": 5.0, "pending_plan": locked_plan}
+		5.0,
+		locked_plan
 	)
 	var away_positions: Array[Vector2] = manager.call(
 		"empty_floor_positions_at",
@@ -987,15 +1011,20 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 	if not away_positions.is_empty():
 		run_loop.call("debug_set_player_position", away_positions[0])
 		run_loop.call("debug_module_world_tick")
-		run_loop.call("debug_tick_gear_mod_map_behaviors", 0.0)
-	var left_state: Dictionary = board.call(
-		"map_behavior_state",
+		effect_runtime.call(
+			"tick",
+			0.01,
+			{"current_module": Vector2i(3, 3)}
+		)
+	var left_state: Dictionary = _cage_effect_state(
+		effect_runtime,
 		cage_instance_id
-	) as Dictionary
+	)
 	_expect(
-		is_equal_approx(float(left_state.get("elapsed", -1.0)), 0.0)
-		and (left_state.get("pending_plan", {}) as Dictionary).is_empty(),
-		"leaving the cage module should clear elapsed time and its pending plan"
+		is_equal_approx(float(left_state.get("interval_elapsed", -1.0)), 0.0)
+		and (left_state.get("action_state", {}) as Dictionary).is_empty(),
+		"leaving the cage module should clear elapsed time and its pending plan: %s"
+		% str(left_state)
 	)
 	run_loop.call("debug_clear_enemies")
 	run_loop.call("debug_set_player_position", original_player_position)
@@ -1123,7 +1152,7 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 	)
 	_expect(
 		_saved_slot_has_encounter(saved_slot_states, encounter_slot_key, spawn_plan),
-		"Run v18 snapshot should persist the fixed telegraph plan"
+		"Run v19 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -1502,16 +1531,16 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v18 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v19 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 18, "module run snapshot should use schema v18")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v18 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 19, "module run snapshot should use schema v19")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v19 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v18 should load")
+	_expect(not loaded.is_empty(), "module run v19 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -1557,7 +1586,7 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 				0
 			)
 		) >= 1,
-		"Run v18 restore should preserve active event progress, pin, and fixed wave plan"
+		"Run v19 restore should preserve active event progress, pin, and fixed wave plan"
 	)
 	_expect(
 		is_equal_approx(
@@ -1574,13 +1603,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v18 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v19 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v18 fixture should resume after difficulty comparison"
+		"restored paused Run v19 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
@@ -2015,6 +2044,76 @@ func _has_active_module_enemy_at(
 			and (enemy as Node2D).global_position.is_equal_approx(world_position)
 		):
 			return true
+	return false
+
+
+func _cage_effect_state(
+	effect_runtime: RefCounted,
+	instance_id: int
+) -> Dictionary:
+	var source_key: String = String(effect_runtime.call(
+		"source_key",
+		"gear_mod",
+		GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE,
+		instance_id,
+		0
+	))
+	var snapshot: Dictionary = effect_runtime.call("snapshot") as Dictionary
+	for raw_source_state: Variant in snapshot.get("source_states", []) as Array:
+		if (
+			raw_source_state is Dictionary
+			and String((raw_source_state as Dictionary).get("source_key", ""))
+			== source_key
+		):
+			var states: Dictionary = (
+				(raw_source_state as Dictionary).get("states", {}) as Dictionary
+			)
+			if states.is_empty():
+				return {}
+			var program_ids: Array = states.keys()
+			program_ids.sort()
+			return (states.get(program_ids[0], {}) as Dictionary).duplicate(true)
+	return {}
+
+
+func _set_cage_effect_state(
+	effect_runtime: RefCounted,
+	instance_id: int,
+	interval_elapsed: float,
+	pending_plan: Dictionary
+) -> bool:
+	var source_key: String = String(effect_runtime.call(
+		"source_key",
+		"gear_mod",
+		GEAR_MOD_IDS.GEAR_MOD_MAP_SPAWNER_CAGE,
+		instance_id,
+		0
+	))
+	var snapshot: Dictionary = effect_runtime.call("snapshot") as Dictionary
+	for raw_source_state: Variant in snapshot.get("source_states", []) as Array:
+		if (
+			not raw_source_state is Dictionary
+			or String((raw_source_state as Dictionary).get("source_key", ""))
+			!= source_key
+		):
+			continue
+		var states: Dictionary = (
+			(raw_source_state as Dictionary).get("states", {}) as Dictionary
+		)
+		if states.is_empty():
+			return false
+		var program_ids: Array = states.keys()
+		program_ids.sort()
+		states[program_ids[0]] = {
+			"cooldown_remaining": 0.0,
+			"interval_elapsed": maxf(interval_elapsed, 0.0),
+			"action_state": (
+				{}
+				if pending_plan.is_empty()
+				else {"pending_plan": pending_plan.duplicate(true)}
+			),
+		}
+		return bool(effect_runtime.call("restore_snapshot", snapshot))
 	return false
 
 

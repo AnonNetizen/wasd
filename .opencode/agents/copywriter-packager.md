@@ -1,6 +1,6 @@
 ---
 name: copywriter-packager
-description: 文案包装助手。包装 UI 文案、道具名、遗物描述、商店页文案、短宣传语、中文/英文表达和本地化占位符时调用；产出可直接进 locale 的文案草案。
+description: 文案包装助手。包装 UI 文案、道具名、Gear Mod 描述、商店页文案、短宣传语、中文/英文表达和本地化占位符时调用；产出可直接进 locale 的文案草案。
 mode: subagent
 permission:
   read: allow

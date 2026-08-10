@@ -66,7 +66,7 @@
 ## 数据与契约
 
 - 子流 id 权威来源是 `docs/词表与契约.md` §11。
-- 当前子流：`spawn`、`drop`、`combat`、`camera_fx`、`vfx`、`ui_choice`、`world`、`world_event`、`economy`、`meta`。`world` 先等概率选择 7×7 世界的意识核角落，再负责模块 assignment；`world_event` 隔离事件波次与祭坛判定；`economy` 只在敌人成功取得对象池实体、即将正式生成时抽取一次金币随机倍率；`drop` 负责玩家归因击杀在本局可用表中的 Gear Mod 判定；刷怪笼使用 `spawn` 锁定当前层敌人与落点。Run v18 保存全部 state、完整 assignment、Gear Mod 棋盘 / 地图计划、消费前冻结的内容池与已经锁定 `instance_id + mod_id` 的未拾取实体，恢复不得重抽目标角落、刷怪计划、再次消费 `economy` 或补判掉落；旧 Run v17 及更早版本因 ADR #194 不兼容。
+- 当前子流：`spawn`、`drop`、`combat`、`camera_fx`、`vfx`、`ui_choice`、`world`、`world_event`、`economy`、`meta`。`world` 先等概率选择 7×7 世界的意识核角落，再负责模块 assignment；`world_event` 隔离事件波次与祭坛判定；`economy` 只在敌人成功取得对象池实体、即将正式生成时抽取一次金币随机倍率；`drop` 负责玩家归因击杀在本局可用表中的 Gear Mod 判定；所有效果程序概率固定走 `combat`，刷怪笼 action 使用 `spawn` 锁定当前层敌人与落点。Run v19 保存全部 state、完整 assignment、Gear Mod 棋盘 / GameplayEffectRuntime 状态、消费前冻结的内容池与已经锁定 `instance_id + mod_id` 的未拾取实体，恢复不得重抽目标角落、效果计划、再次消费 `economy` 或补判掉落；旧 Run v18 保持源文件但不继续。
 - 代码引用应走 `client/scripts/contracts/rng_streams.gd` 生成常量；本 autoload 的初始子流后续应与生成常量保持一致。
 - 子流 seed 派生使用 `STREAM_SEED_DOMAIN + run_seed + stream_id` 组成文本，取 SHA-256 hex digest 后按 16 进制逐位折叠到固定模数 `2_147_483_647`；该规则是 F8 回放确定性与跨子流防相关性基线的一部分，改变时必须跑 `rng-audit`、重跑受影响 golden replay 并追加 ADR。
 - 普通玩家从标题开始新局或局内重开时，由 `FormalClientBoot` 调用 `set_random_run_seed()`；继续游戏必须从 run snapshot 恢复 RNG，不生成新 seed；回放 / smoke / golden 工具必须显式固定 seed 或走不随机化的工具启动路径。

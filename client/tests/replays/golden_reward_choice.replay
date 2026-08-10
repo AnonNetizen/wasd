@@ -1,8 +1,9 @@
 {
 	"created_at": "golden:golden_reward_choice",
-	"data_fingerprint": "5fc30d06b63dd7213e8b8fb17eac1ccc30790350f2a2b297c408f1f19f6b2396",
-	"file_schema_version": 8,
-	"game_version": "v1.17",
+	"data_fingerprint": "ae289a23d12e2a6aae462df13a047830f6e4ef860ef77a9dd551ce198e8b72d5",
+	"file_schema_version": 9,
+	"game_version": "v1.18",
+	"mod_environment": [],
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -54,8 +55,8 @@
 					"selected": "reward_damage_small",
 					"trigger_id": "debug_command"
 				},
-				"tick": 29,
-				"time": 0.494160333333333
+				"tick": 28,
+				"time": 0.478688666666667
 			}
 		],
 		"dropped_decision_events": 0,
@@ -348,11 +349,11 @@
 				"time": 0.75
 			}
 		],
-		"schema_version": 8,
+		"schema_version": 9,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "e717091b796d26b6409d0c4bcb0a22b242505d7d8229c60bed23c5763be9ba59",
+	"recording_hash": "201d2ca24403ec4cabb72898fc8b90802b30fa405c5045640d3acc34bb0f41c5",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -535,7 +536,7 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 8,
+		"schema_version": 9,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

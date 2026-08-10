@@ -56,7 +56,6 @@
       "player_death",
       "level_up",
       "reward_choice",
-      "relic_pick",
       "item_use",
       "wave_milestone",
       "game_pause",
@@ -237,7 +236,6 @@
       "tag_character",
       "tag_enemy",
       "tag_hazard",
-      "tag_relic",
       "tag_active_item",
       "tag_consumable",
       "tag_skill",
@@ -277,12 +275,35 @@
       "target_self",
       "target_aim_position"
     ],
-    "skill_effects": [
-      "skill_effect_damage",
-      "skill_effect_apply_status",
-      "skill_effect_weapon_modifiers",
-      "skill_effect_deploy_barrier",
-      "skill_effect_actor_modifiers"
+    "effect_triggers": [
+      "skill_activated",
+      "damage_dealt",
+      "kill",
+      "damage_taken",
+      "dash",
+      "module_entered",
+      "interval"
+    ],
+    "effect_conditions": [
+      "team",
+      "element",
+      "damage_flag",
+      "actor_tag",
+      "health_ratio",
+      "board_cell_relation",
+      "module_relation"
+    ],
+    "effect_actions": [
+      "damage",
+      "apply_status",
+      "temporary_modifier",
+      "heal",
+      "grant_shield",
+      "grant_overshield",
+      "grant_gold",
+      "spawn_projectile",
+      "spawn_enemy",
+      "spawn_barrier"
     ],
     "ability_tags": [
       "ability_tag_skill",
@@ -315,15 +336,12 @@
     "gear_mod_rarities": [
       "common"
     ],
-    "gear_mod_kinds": [
-      "effect",
-      "map",
-      "grid"
+    "gear_mod_component_types": [
+      "modifier",
+      "program",
+      "board_rule"
     ],
-    "gear_mod_map_behaviors": [
-      "periodic_enemy_spawn"
-    ],
-    "gear_mod_grid_behaviors": [
+    "gear_mod_board_rules": [
       "occupy_only"
     ],
     "gear_mod_placement_outcomes": [
@@ -489,7 +507,6 @@
       "element_",
       "passive_",
       "weapon_",
-      "relic_",
       "item_",
       "skill_",
       "status_",

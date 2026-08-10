@@ -32,6 +32,7 @@ const TEST_CSV: String = TEST_ROOT + "/fixture.csv"
 const TEST_BAD_CSV: String = TEST_ROOT + "/invalid.csv"
 const TEST_CATALOG: String = TEST_ROOT + "/catalog.json"
 const TEST_TRANSACTION: String = TEST_ROOT + "/transaction.json"
+const TEST_GEAR_JSON: String = TEST_ROOT + "/gear_fixture.json"
 
 var _failures := PackedStringArray()
 
@@ -52,6 +53,7 @@ func _run() -> void:
 	_test_contract_dry_run()
 	_test_headless_validation_bridge()
 	_test_skill_preview()
+	_test_gear_mod_editor_contracts()
 	_cleanup()
 	if _failures.is_empty():
 		print("[data-table-editor-smoke] ALL PASS")
@@ -80,6 +82,22 @@ func _test_catalog_and_search() -> void:
 	_expect_ok(catalog_result, "catalog loads and covers every project data source")
 	if not bool(catalog_result.get("ok", false)):
 		return
+	var gear_descriptor: Dictionary = catalog.dataset_by_id("gear_mods")
+	_expect(
+		(gear_descriptor.get("component_templates", []) as Array).size() == 3,
+		"gear mod catalog exposes all three component templates"
+	)
+	_expect(
+		gear_descriptor.get("slot_stat_support", {}) is Dictionary,
+		"gear mod catalog exposes slot-stat support"
+	)
+	var skill_descriptor: Dictionary = catalog.dataset_by_id("skills")
+	_expect(
+		JSON.stringify(skill_descriptor.get("references", [])).contains(
+			"programs[].actions[].action"
+		),
+		"skill catalog references v3 program actions"
+	)
 	var index := DATA_SEARCH_INDEX.new() as DataSearchIndex
 	var rebuild: Dictionary = index.rebuild(catalog)
 	_expect_ok(rebuild, "search index rebuilds")
@@ -169,7 +187,7 @@ func _test_document_editing() -> void:
 				"power": 2.5,
 				"nested": {
 					"enabled": true,
-					"effect": "skill_effect_damage",
+					"effect": "damage",
 					"values": [1, 2],
 				},
 			},
@@ -180,7 +198,7 @@ func _test_document_editing() -> void:
 				"power": 3.0,
 				"nested": {
 					"enabled": false,
-					"effect": "skill_effect_damage",
+					"effect": "damage",
 					"values": [3],
 				},
 			},
@@ -203,7 +221,7 @@ func _test_document_editing() -> void:
 		"locale_fields": ["name_key", "desc_key"],
 		"field_rules": [{"path": "power", "type": "number", "min": 0.0}],
 		"references": [
-			{"path": "nested.effect", "target": "contract:skill_effects"}
+			{"path": "nested.effect", "target": "contract:effect_actions"}
 		],
 	}
 	var document := DATA_TABLE_DOCUMENT.new() as DataTableDocument
@@ -223,9 +241,7 @@ func _test_document_editing() -> void:
 	)
 	_expect(not document.has_undo(), "rejected edits do not create empty undo history")
 	_expect(
-		document.set_record_value(
-			"records", 0, ["nested", "effect"], "skill_effect_apply_status"
-		),
+		document.set_record_value("records", 0, ["nested", "effect"], "apply_status"),
 		"code primitive references accept registered values"
 	)
 	_expect(
@@ -560,16 +576,147 @@ func _test_skill_preview() -> void:
 	var skill: Dictionary = {
 		"cooldown": 5.0,
 		"targeting": {"radius": 100.0},
-		"scaling": {"radius_stat": "ability_range"},
+		"scaling": {
+			"radius_stat": "ability_range",
+			"strength_stat": "ability_strength",
+		},
 		"costs": [],
-		"effects": [],
+		"programs": [
+			{
+				"program_id": "preview_program",
+				"trigger": "skill_activated",
+				"conditions": [],
+				"actions": [
+					{"action": "heal", "params": {"amount": 20.0}}
+				],
+				"proc_chance": 1.0,
+				"internal_cooldown": 0.0,
+			}
+		],
 	}
 	var preview: String = SKILL_DESCRIPTION_FORMATTER.format_skill(
-		"冷却 {cooldown} 秒，范围 {target_radius}",
+		"冷却 {cooldown} 秒，范围 {target_radius}，治疗 {program_1_action_1_amount}",
 		skill,
-		{"ability_range": 1.5}
+		{"ability_range": 1.5, "ability_strength": 1.5}
 	)
-	_expect(preview == "冷却 5 秒，范围 150", "skill preview resolves placeholders and scaling")
+	_expect(
+		preview == "冷却 5 秒，范围 150，治疗 30",
+		"skill v3 preview resolves program action placeholders and scaling"
+	)
+
+
+func _test_gear_mod_editor_contracts() -> void:
+	var payload: Dictionary = {
+		"mods": [
+			{
+				"id": "gear_mod_fixture",
+				"components": [
+					{
+						"component_id": "weapon_modifier",
+						"type": "modifier",
+						"slot": "weapon",
+						"modifiers": [
+							{"stat": "damage", "type": "mult", "value": 1.2}
+						],
+					},
+					{
+						"component_id": "hero_modifier",
+						"type": "modifier",
+						"slot": "hero",
+						"modifiers": [
+							{"stat": "max_hp", "type": "add", "value": 10.0}
+						],
+					},
+				],
+			}
+		]
+	}
+	_write_text(TEST_GEAR_JSON, JSON.stringify(payload, "  ") + "\n")
+	var descriptor: Dictionary = {
+		"id": "gear_mod_fixture",
+		"path": TEST_GEAR_JSON,
+		"format": "json",
+		"sections": [{"path": "mods", "primary_keys": ["id"]}],
+		"slot_stat_support": {
+			"hero": ["max_hp", "move_speed"],
+			"weapon": ["damage", "fire_rate"],
+		},
+	}
+	var document := DATA_TABLE_DOCUMENT.new() as DataTableDocument
+	_expect_ok(document.open_dataset(descriptor), "gear mod fixture opens")
+	_expect(
+		not document.set_record_value(
+			"mods", 0, ["components", 0, "modifiers", 0, "stat"], "max_hp"
+		),
+		"weapon slot rejects hero-only stat"
+	)
+	_expect(
+		not document.set_record_value("mods", 0, ["components", 0, "slot"], "hero"),
+		"slot change rejects existing incompatible modifiers"
+	)
+	_expect(
+		document.set_record_value(
+			"mods", 0, ["components", 0, "modifiers", 0, "stat"], "fire_rate"
+		),
+		"weapon slot accepts supported stat"
+	)
+	_expect(
+		not document.set_record_value(
+			"mods", 0, ["components", 1, "modifiers", 0, "stat"], "damage"
+		),
+		"hero slot rejects weapon-only stat"
+	)
+	var board_template: Dictionary = {
+		"component_id": "board_rule_1",
+		"type": "board_rule",
+		"rule_id": "occupy_only",
+	}
+	_expect(
+		document.append_array_value_from_template(
+			"mods", 0, ["components"], board_template
+		),
+		"catalog component template appends as a deep copy"
+	)
+	board_template["rule_id"] = "changed_after_append"
+	var inserted_record: Dictionary = document.record("mods", 0)
+	var inserted_components: Array = inserted_record.get("components", []) as Array
+	var appended: Dictionary = inserted_components[2] as Dictionary
+	_expect(
+		String(appended.get("rule_id", "")) == "occupy_only",
+		"component template insertion does not alias catalog data"
+	)
+	var preview_record: Dictionary = document.record("mods", 0).duplicate(true)
+	var preview_components: Array = preview_record.get("components", []) as Array
+	preview_components.append(
+		{
+			"component_id": "trigger_program",
+			"type": "program",
+			"program": {
+				"program_id": "heal_on_damage",
+				"trigger": "damage_taken",
+				"conditions": [{"condition": "health_ratio", "params": {}}],
+				"actions": [{"action": "heal", "params": {"amount": 5.0}}],
+				"proc_chance": 0.5,
+				"internal_cooldown": 2.0,
+			},
+		}
+	)
+	var zh_preview: String = DATA_TABLE_MAIN_SCREEN.format_gear_mod_preview(
+		preview_record, "zh_CN"
+	)
+	var en_preview: String = DATA_TABLE_MAIN_SCREEN.format_gear_mod_preview(
+		preview_record, "en"
+	)
+	_expect(
+		zh_preview.contains("heal_on_damage")
+		and zh_preview.contains("触发 damage_taken")
+		and zh_preview.contains("heal(amount=5)"),
+		"gear mod preview renders structured Chinese program details"
+	)
+	_expect(
+		en_preview.contains("conditions") and en_preview.contains("occupy_only"),
+		"gear mod preview renders structured English component details"
+	)
 
 
 func _test_contract_dry_run() -> void:

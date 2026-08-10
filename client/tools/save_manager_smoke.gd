@@ -28,17 +28,12 @@ func _run() -> void:
 
 	_expect_basic_roundtrip()
 	_expect_backup_fallback_and_broken_isolation()
-	_expect_meta_v2_migration()
-	_expect_migration_chain()
-	_expect_run_v9_reward_incompatibility()
-	_expect_run_v11_incompatibility()
-	_expect_run_v12_incompatibility()
-	_expect_run_v13_incompatibility()
-	_expect_run_v14_incompatibility()
-	_expect_run_v15_pickup_migration()
-	_expect_run_v16_gear_mod_rank_incompatibility()
-	_expect_run_v17_gear_mod_list_incompatibility()
+	_expect_meta_migration_chain()
+	_expect_run_v18_is_preserved_and_rejected()
+	_expect_mod_environment_mismatches_are_preserved()
+	_expect_hash_damage_wins_over_environment_mismatch()
 
+	_set_mod_environment([])
 	_cleanup_smoke_files()
 	_finish()
 
@@ -52,19 +47,24 @@ func _expect_basic_roundtrip() -> void:
 	if envelope.is_empty():
 		return
 
-	_expect(int(envelope.get("version", 0)) == SaveManager.current_version(RUN_KIND), "run envelope should use current version")
+	var saved_payload: Dictionary = envelope.get("payload", {}) as Dictionary
+	_expect(int(envelope.get("version", 0)) == 19, "run envelope should use Run v19")
 	_expect(String(envelope.get("kind", "")) == RUN_KIND, "run envelope kind should match")
 	_expect(String(envelope.get("slot", "")) == SMOKE_SLOT, "run envelope slot should match")
-	_expect(
-		String(envelope.get("game_version", "")) == "v1.17",
-		"run envelope should use game version v1.17"
-	)
+	_expect(String(envelope.get("game_version", "")) == "v1.18", "run envelope should use game version v1.18")
 	_expect(String(envelope.get("data_hash", "")).length() == 64, "run envelope should contain sha256 data_hash")
-	_expect(_payloads_match(envelope.get("payload", {}), payload), "run payload should roundtrip with stable hash")
-	_expect(_loaded_versions.has(SaveManager.current_version(RUN_KIND)), "run load should emit save_loaded")
+	_expect(int(saved_payload.get("schema_version", 0)) == 19, "run payload should be normalized to schema v19")
+	_expect(saved_payload.get("mod_environment", null) is Array, "run payload should contain an exact mod_environment array")
+	_expect(
+		(saved_payload.get("mod_environment", []) as Array) == ModLoader.mod_environment(),
+		"run payload mod_environment should match the immutable loader snapshot"
+	)
+	_expect(String(saved_payload.get("marker", "")) == "roundtrip", "run payload fields should roundtrip")
+	_expect(_loaded_versions.has(19), "run load should emit save_loaded v19")
 
 
 func _expect_backup_fallback_and_broken_isolation() -> void:
+	_cleanup_smoke_files()
 	var backup_payload: Dictionary = _run_payload("backup", 4)
 	var primary_payload: Dictionary = _run_payload("primary", 5)
 	_expect(SaveManager.save(SMOKE_SLOT, RUN_KIND, backup_payload), "first run save should create primary file")
@@ -74,7 +74,7 @@ func _expect_backup_fallback_and_broken_isolation() -> void:
 
 	_write_text(_save_path(), "{broken")
 	var recovered_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	_expect(_payloads_match(recovered_payload, backup_payload), "bad primary should fall back to backup payload")
+	_expect(String(recovered_payload.get("marker", "")) == "backup", "bad primary should fall back to backup payload")
 
 	var before_corrupted_count: int = _corrupted_count
 	_write_text(_backup_path(), "{also_broken")
@@ -86,671 +86,162 @@ func _expect_backup_fallback_and_broken_isolation() -> void:
 	_expect(_broken_file_count() >= 2, "bad primary and backup should both be isolated with unique broken names")
 
 
-func _expect_meta_v2_migration() -> void:
+func _expect_meta_migration_chain() -> void:
 	_cleanup_smoke_files()
-	var old_payload: Dictionary = {
-		"hero_composition": {
-			"main_hero_id": "character_primary_b",
-			"sub_hero_id": "character_primary_a",
-		},
-		"gear_mods": {
-			"owned": {"gear_mod_bulwark": 2},
-		},
-		"marker": "meta_v2",
+	var meta_payload: Dictionary = {
+		"gear_mods": {"owned": {"gear_mod_weapon_damage_test": 2}},
+		"marker": "meta_v1",
 	}
-	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, old_payload),
-		"Meta v2 migration fixture should create its slot directory"
-	)
-	var old_envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, META_KIND)
-	old_envelope["version"] = 2
-	old_envelope["game_version"] = "v1.11"
-	old_envelope["payload"] = old_payload
-	old_envelope["data_hash"] = SaveManager.call("_payload_hash", old_payload)
-	_write_json(_meta_save_path(), old_envelope)
+	_expect(SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload), "meta migration fixture should create its slot directory")
+	var envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, META_KIND)
+	envelope["version"] = 1
+	envelope["game_version"] = "v1.0"
+	envelope["payload"] = meta_payload
+	envelope["data_hash"] = SaveManager.call("_payload_hash", meta_payload)
+	_write_json(_meta_save_path(), envelope)
+
 	var migrated_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
 	var composition: Dictionary = migrated_meta.get("hero_composition", {}) as Dictionary
-	_expect(
-		String(composition.get("main_hero_id", "")) == "character_primary_b"
-		and String(composition.get("sub_hero_id", "")) == "character_primary_a",
-		"Meta v2->v3 should preserve the confirmed main/sub hero composition"
-	)
-	_expect(
-		not migrated_meta.has("gear_mods"),
-		"Meta v2->v3 should delete retired account-level Gear Mod state"
-	)
-	_expect(
-		String(migrated_meta.get("marker", "")) == "meta_v2",
-		"Meta v2->v3 should preserve unrelated profile fields"
-	)
-	_expect(
-		migrated_meta.get("content_progression", null) is Dictionary,
-		"Meta v3->v4 should add sparse content progression"
-	)
+	_expect(String(composition.get("main_hero_id", "")) == "character_primary_a", "Meta v1->v2 should default the main hero")
+	_expect(String(composition.get("sub_hero_id", "")) == "character_primary_b", "Meta v1->v2 should default the sub hero")
+	_expect(not migrated_meta.has("gear_mods"), "Meta v2->v3 should remove retired account-level Gear Mod state")
+	_expect(migrated_meta.get("content_progression", null) is Dictionary, "Meta v3->v4 should add sparse content progression")
+	_expect(String(migrated_meta.get("marker", "")) == "meta_v1", "Meta migration should preserve unrelated fields")
+	for step: String in ["meta:1:2", "meta:2:3", "meta:3:4"]:
+		_expect(_migrated_steps.has(step), "Meta migration should emit save_migrated for %s" % step)
 
 
-func _expect_migration_chain() -> void:
+func _expect_run_v18_is_preserved_and_rejected() -> void:
 	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"gear_mods": {"owned": {"gear_mod_bulwark": 2}},
-		"marker": "must_survive_legacy_run_reset",
+	_set_mod_environment([])
+	var payload: Dictionary = _run_payload("legacy_v18", 6)
+	payload["schema_version"] = 18
+	payload["mod_environment"] = []
+	var envelope: Dictionary = _run_envelope(18, "v1.17", payload)
+	var source_text: String = JSON.stringify(envelope, "\t")
+	_write_text(_save_path(), source_text)
+	var before_corrupted_count: int = _corrupted_count
+
+	_expect(SaveManager.load(SMOKE_SLOT, RUN_KIND).is_empty(), "Run v18 should be rejected without migration")
+	_expect(
+		SaveManager.last_error() == "[SaveManager] unsupported run version: 18; expected 19",
+		"Run v18 rejection should report the exact clean-cut version mismatch"
+	)
+	_expect(not SaveManager.has_save(SMOKE_SLOT, RUN_KIND), "Run v18 should not appear as continuable")
+	var status: Dictionary = SaveManager.save_status(SMOKE_SLOT, RUN_KIND)
+	_expect(
+		bool(status.get("exists", false))
+		and not bool(status.get("compatible", true))
+		and bool(status.get("preserved_incompatible", false)),
+		"Run v18 status should remain present and explicitly preserved-incompatible"
+	)
+	_expect(_read_text(_save_path()) == source_text, "Run v18 rejection should preserve the original file")
+	_expect(_corrupted_count == before_corrupted_count, "Run v18 rejection should not isolate the source as corrupted")
+	_expect(_broken_file_count() == 0, "Run v18 rejection should not create a broken-file copy")
+
+
+func _expect_mod_environment_mismatches_are_preserved() -> void:
+	var installed: Dictionary = {
+		"id": "fixture",
+		"version": "2.0.0",
+		"gameplay_hash": "installed_hash",
 	}
-	_expect(SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload), "meta save should exist before run migration")
-	var meta_envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, META_KIND)
-	meta_envelope["version"] = 1
-	meta_envelope["payload"] = meta_payload
-	meta_envelope["data_hash"] = SaveManager.call("_payload_hash", meta_payload)
-	_write_json(_meta_save_path(), meta_envelope)
-	var migrated_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
-	var hero_composition: Dictionary = migrated_meta.get("hero_composition", {}) as Dictionary
-	_expect(
-		String(hero_composition.get("main_hero_id", "")) == "character_primary_a",
-		"meta v1->v2 migration should default the main hero"
-	)
-	_expect(
-		String(hero_composition.get("sub_hero_id", "")) == "character_primary_b",
-		"meta v1->v2 migration should default the sub hero"
-	)
-	_expect(
-		not migrated_meta.has("gear_mods"),
-		"meta v2->v3 migration should remove retired Gear Mod state"
-	)
-	_expect(
-		migrated_meta.get("content_progression", null) is Dictionary,
-		"meta v3->v4 migration should add sparse content progression"
-	)
+	var expected: Dictionary = {
+		"id": "fixture",
+		"version": "2.0.0",
+		"gameplay_hash": "installed_hash",
+	}
 
-	var old_payload: Dictionary = _run_payload("migration", 6)
-	_expect(SaveManager.save(SMOKE_SLOT, RUN_KIND, old_payload), "old-version run save should write")
-	var old_envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, RUN_KIND)
-	old_envelope["version"] = 1
-	var legacy_payload: Dictionary = old_payload.duplicate(true)
-	legacy_payload["level"] = 6
-	legacy_payload["xp"] = 60
-	legacy_payload.erase("map")
-	legacy_payload.erase("hazards")
-	legacy_payload.erase("pickups")
-	old_envelope["payload"] = legacy_payload
-	old_envelope["data_hash"] = SaveManager.call("_payload_hash", legacy_payload)
-	_write_json(_save_path(), old_envelope)
+	_set_mod_environment([])
+	_expect_preserved_environment_rejection([expected], "missing package")
 
-	var migrated_envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, RUN_KIND)
-	_expect(not migrated_envelope.is_empty(), "old-version run save should load through migration")
-	if migrated_envelope.is_empty():
-		return
+	_set_mod_environment([installed])
+	var wrong_version: Dictionary = expected.duplicate(true)
+	wrong_version["version"] = "1.0.0"
+	_expect_preserved_environment_rejection([wrong_version], "version mismatch")
 
-	var migrated_payload: Dictionary = migrated_envelope.get("payload", {}) as Dictionary
-	_expect(int(migrated_envelope.get("version", 0)) == SaveManager.current_version(RUN_KIND), "migrated envelope should report target version")
-	_expect(not migrated_payload.has("pickups"), "run v6->v7 migration should remove legacy pickup snapshots")
-	_expect(migrated_payload.get("map", null) is Dictionary, "run v1->v2 migration should normalize missing map snapshot")
-	_expect(migrated_payload.get("hazards", null) is Array, "run v1->v2 migration should normalize missing hazard snapshots")
-	_expect(migrated_payload.get("room", null) is Dictionary, "run v2->v3 migration should normalize missing room snapshot")
-	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
-	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18,
-		"run migration chain should advance the gameplay snapshot schema to v18"
-	)
-	_expect(
-		migrated_payload.get("world_events", null) is Dictionary,
-		"run v8->v9 migration should add an empty world-event snapshot"
-	)
-	_expect(
-		migrated_payload.get("hero_composition", null) is Dictionary,
-		"run v4->v5 migration should add an empty composition marker"
-	)
-	_expect(
-		migrated_payload.get("difficulty_progression", null) is Dictionary,
-		"run v5->v6 migration should add an empty difficulty marker"
-	)
-	_expect(
-		migrated_payload.get("gold_progression", null) is Dictionary,
-		"run v6->v7 migration should add an empty gold marker"
-	)
-	_expect(
-		migrated_payload.get("reward_choice", null) is Dictionary,
-		"run v6->v7 migration should add an empty reward-choice marker"
-	)
-	_expect(
-		migrated_payload.get("gold_orbs", null) is Array,
-		"run v6->v7 migration should add an empty gold-orb snapshot list"
-	)
-	_expect(
-		not migrated_payload.has("xp") and not migrated_payload.has("level"),
-		"run v6->v7 migration should discard legacy XP-derived state"
-	)
-	_expect(
-		(migrated_payload.get("enemies", null) as Array).is_empty(),
-		"legacy run migration should discard enemies without locked reward snapshots"
-	)
-	_expect(
-		int(migrated_payload.get("next_enemy_spawn_serial", 0)) == 1,
-		"run v7->v8 migration should reset the enemy spawn serial marker"
-	)
-	var parent_boot: Node = get_parent()
-	_expect(
-		String(parent_boot.call("_run_save_unavailable_notice_key", migrated_payload)) == "ui_run_save_legacy_incompatible",
-		"legacy run should select the explicit incompatibility notice"
-	)
-	_expect(
-		String(parent_boot.call("_run_save_unavailable_notice_key", {})) == "ui_run_save_unavailable",
-		"missing/corrupted run should keep the corruption notice"
-	)
-	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
-	_expect(
-		String(preserved_meta.get("marker", "")) == "must_survive_legacy_run_reset"
-		and not preserved_meta.has("gear_mods"),
-		"run migration/reset path must preserve Meta v4 while retired Gear Mods stay removed"
-	)
-	_expect(_migrated_steps.has("%s:%d:%d" % [META_KIND, 1, 2]), "meta migration should emit save_migrated for meta 1->2")
-	_expect(_migrated_steps.has("%s:%d:%d" % [META_KIND, 2, 3]), "meta migration should emit save_migrated for meta 2->3")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 1, 2]), "run migration should emit save_migrated for run 1->2")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 2, 3]), "run migration should emit save_migrated for run 2->3")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 3, 4]), "run migration should emit save_migrated for run 3->4")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 4, 5]), "run migration should emit save_migrated for run 4->5")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 5, 6]), "run migration should emit save_migrated for run 5->6")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 6, 7]), "run migration should emit save_migrated for run 6->7")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 7, 8]), "run migration should emit save_migrated for run 7->8")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 8, 9]), "run migration should emit save_migrated for run 8->9")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 9, 10]), "run migration should emit save_migrated for run 9->10")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 10, 11]), "run migration should emit save_migrated for run 10->11")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 11, 12]), "run migration should emit save_migrated for run 11->12")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 12, 13]), "run migration should emit save_migrated for run 12->13")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 13, 14]), "run migration should emit save_migrated for run 13->14")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 14, 15]), "run migration should emit save_migrated for run 14->15")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 15, 16]), "run migration should emit save_migrated for run 15->16")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 16, 17]), "run migration should emit save_migrated for run 16->17")
+	var wrong_hash: Dictionary = expected.duplicate(true)
+	wrong_hash["gameplay_hash"] = "recorded_hash"
+	_expect_preserved_environment_rejection([wrong_hash], "gameplay hash mismatch")
 
 
-func _expect_run_v9_reward_incompatibility() -> void:
+func _expect_preserved_environment_rejection(environment: Array, label: String) -> void:
 	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"marker": "preserve_meta_across_v9_reward_reset",
-	}
+	var payload: Dictionary = _run_payload("environment_%s" % label.replace(" ", "_"), 7)
+	payload["schema_version"] = 19
+	payload["mod_environment"] = environment.duplicate(true)
+	var envelope: Dictionary = _run_envelope(19, "v1.18", payload)
+	var source_text: String = JSON.stringify(envelope, "\t")
+	_write_text(_save_path(), source_text)
+	var before_corrupted_count: int = _corrupted_count
+
+	_expect(SaveManager.load(SMOKE_SLOT, RUN_KIND).is_empty(), "Run with %s should be rejected" % label)
+	_expect(SaveManager.last_error().contains("run mod environment mismatch"), "Run %s should report a mod environment diagnostic" % label)
+	_expect(not SaveManager.has_save(SMOKE_SLOT, RUN_KIND), "Run with %s should not appear as continuable" % label)
+	var status: Dictionary = SaveManager.save_status(SMOKE_SLOT, RUN_KIND)
 	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
-		"meta save should exist before explicit Run v9 rejection"
+		bool(status.get("exists", false))
+		and not bool(status.get("compatible", true))
+		and bool(status.get("preserved_incompatible", false)),
+		"Run with %s should expose preserved_incompatible status" % label
 	)
-	var old_payload: Dictionary = _run_payload("reward_v9", 7)
-	old_payload["schema_version"] = 9
-	old_payload["enemies"] = [
-		{
-			"enemy_id": "enemy_chaser",
-			"runtime_spawn_serial": 1,
-		},
-	]
-	var old_envelope: Dictionary = {
-		"version": 9,
+	_expect(_read_text(_save_path()) == source_text, "Run with %s should preserve the original file" % label)
+	_expect(_corrupted_count == before_corrupted_count, "Run with %s should not emit corruption" % label)
+	_expect(_broken_file_count() == 0, "Run with %s should not be isolated" % label)
+
+
+func _expect_hash_damage_wins_over_environment_mismatch() -> void:
+	_cleanup_smoke_files()
+	_set_mod_environment([])
+	var recorded_environment: Array[Dictionary] = [{
+		"id": "fixture",
+		"version": "1.0.0",
+		"gameplay_hash": "recorded_hash",
+	}]
+	var payload: Dictionary = _run_payload("hash_and_environment_damage", 8)
+	payload["schema_version"] = 19
+	payload["mod_environment"] = recorded_environment
+	var envelope: Dictionary = _run_envelope(19, "v1.18", payload)
+	envelope["data_hash"] = "0".repeat(64)
+	_write_json(_save_path(), envelope)
+	var before_corrupted_count: int = _corrupted_count
+
+	var status: Dictionary = SaveManager.save_status(SMOKE_SLOT, RUN_KIND)
+	_expect(
+		bool(status.get("exists", false))
+		and not bool(status.get("compatible", true))
+		and not bool(status.get("preserved_incompatible", true)),
+		"data_hash damage should not be marked preserved even when mod environment also mismatches"
+	)
+	_expect(
+		String(status.get("error", "")) == "[SaveManager] save data_hash mismatch",
+		"data_hash damage should remain the primary diagnostic"
+	)
+	_expect(SaveManager.has_save(SMOKE_SLOT, RUN_KIND), "ordinary damaged Run should remain actionable before explicit load")
+	_expect(SaveManager.load(SMOKE_SLOT, RUN_KIND).is_empty(), "hash-damaged Run should fail to load")
+	_expect(SaveManager.last_error() == "[SaveManager] save data_hash mismatch", "hash-damaged Run should not be reclassified as an environment mismatch")
+	_expect(not FileAccess.file_exists(_save_path()), "hash-damaged Run should be removed from the active slot")
+	_expect(_broken_file_count() == 1, "hash-damaged Run should be isolated exactly once")
+	_expect(_corrupted_count == before_corrupted_count + 1, "hash-damaged Run should emit one corruption signal")
+
+
+func _run_envelope(version: int, game_version: String, payload: Dictionary) -> Dictionary:
+	return {
+		"version": version,
 		"kind": RUN_KIND,
 		"slot": SMOKE_SLOT,
-		"created_at": "2026-07-29T00:00:00",
-		"updated_at": "2026-07-29T00:00:00",
-		"game_version": "v1.8",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
+		"created_at": "2026-08-10T00:00:00",
+		"updated_at": "2026-08-10T00:00:00",
+		"game_version": game_version,
+		"data_hash": SaveManager.call("_payload_hash", payload),
+		"payload": payload,
 	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(
-		SMOKE_SLOT,
-		RUN_KIND
-	)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18
-		and bool(
-			migrated_payload.get(
-				"legacy_run_incompatible",
-				false
-			)
-		),
-		"Run v9 should migrate only to an explicit incompatible v18 marker"
-	)
-	_expect(
-		(migrated_payload.get("enemies", []) as Array).is_empty(),
-		"Run v9 enemies without reward snapshots must not be restored"
-	)
-	var preserved_meta: Dictionary = SaveManager.load(
-		SMOKE_SLOT,
-		META_KIND
-	)
-	_expect(
-		String(preserved_meta.get("marker", ""))
-		== "preserve_meta_across_v9_reward_reset",
-		"Run v9 incompatibility must preserve the separate Meta v4 save"
-	)
-
-
-func _expect_run_v11_incompatibility() -> void:
-	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"marker": "preserve_meta_across_v11_reset",
-	}
-	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
-		"meta save should exist before explicit Run v11 rejection"
-	)
-	var old_payload: Dictionary = _run_payload("v11", 4)
-	old_payload["schema_version"] = 11
-	old_payload["ammo_drop_misses"] = 3
-	old_payload["ammo_magazines"] = [{"amount": 30}]
-	old_payload["rng"] = {
-		"run_seed": 20260729,
-		"streams": {
-			"ammo": {"id": "ammo", "seed": "1", "state": "2"},
-			"combat": {"id": "combat", "seed": "3", "state": "4"},
-		},
-	}
-	old_payload["weapon"] = {
-		"cooldown_remaining": 0.25,
-		"magazine_ammo": 17,
-		"reserve_ammo": 120,
-		"is_reloading": true,
-		"reload_remaining": 0.6,
-	}
-	var old_envelope: Dictionary = {
-		"version": 11,
-		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
-		"created_at": "2026-07-29T00:00:00",
-		"updated_at": "2026-07-29T00:00:00",
-		"game_version": "v1.10",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
-	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(
-		SMOKE_SLOT,
-		RUN_KIND
-	)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18
-		and bool(
-			migrated_payload.get("legacy_run_incompatible", false)
-		),
-		"Run v11 should migrate only to an explicit incompatible v18 marker"
-	)
-	_expect(
-		not migrated_payload.has("ammo_drop_misses")
-		and not migrated_payload.has("ammo_magazines")
-		and not (
-			(migrated_payload.get("rng", {}) as Dictionary).get(
-				"streams",
-				{}
-			) as Dictionary
-		).has("ammo")
-		and (
-			(migrated_payload.get("rng", {}) as Dictionary).get(
-				"streams",
-				{}
-			) as Dictionary
-		).has("combat")
-		and not (migrated_payload.get("weapon", {}) as Dictionary).has(
-			"magazine_ammo"
-		),
-		"Run v11 incompatibility should remove retired ammunition fields"
-	)
-	var preserved_meta: Dictionary = SaveManager.load(
-		SMOKE_SLOT,
-		META_KIND
-	)
-	_expect(
-		String(preserved_meta.get("marker", ""))
-		== "preserve_meta_across_v11_reset",
-		"Run v11 incompatibility must preserve the separate Meta v4 save"
-	)
-
-
-func _expect_run_v12_incompatibility() -> void:
-	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"hero_composition": {
-			"main_hero_id": "character_primary_a",
-			"sub_hero_id": "character_primary_b",
-		},
-		"marker": "preserve_meta_across_v12_reset",
-	}
-	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
-		"meta save should exist before explicit Run v12 rejection"
-	)
-	var old_payload: Dictionary = _run_payload("v12", 5)
-	old_payload["schema_version"] = 12
-	old_payload["pending_loot"] = {
-		"resources": {"gear_mod_dust": 30},
-		"gear_mods": [{"mod_id": "gear_mod_bulwark"}],
-	}
-	old_payload["extraction"] = {
-		"active": true,
-		"source_point_id": "poi_minor_nest_core",
-	}
-	old_payload["gear_mods"] = {"legacy": true}
-	old_payload["gear_mod_inventory"] = [{"mod_id": "gear_mod_bulwark"}]
-	old_payload["gear_mod_loadout"] = {"hero": ["gear_mod_bulwark"]}
-	old_payload["gear_mod_profile"] = {"schema_version": 1}
-	old_payload["gear_mod_resources"] = {"gear_mod_dust": 30}
-	old_payload["hero_gear_mods"] = ["gear_mod_bulwark"]
-	old_payload["weapon_gear_mods"] = ["gear_mod_weapon_damage_test"]
-	var old_envelope: Dictionary = {
-		"version": 12,
-		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
-		"created_at": "2026-08-06T00:00:00",
-		"updated_at": "2026-08-06T00:00:00",
-		"game_version": "v1.11",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
-	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18
-		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v12 should migrate only to an explicit incompatible v18 marker"
-	)
-	for retired_field: String in [
-		"pending_loot",
-		"extraction",
-		"gear_mods",
-		"gear_mod_inventory",
-		"gear_mod_loadout",
-		"gear_mod_profile",
-		"gear_mod_resources",
-		"hero_gear_mods",
-		"weapon_gear_mods",
-	]:
-		_expect(
-			not migrated_payload.has(retired_field),
-			"Run v12->v13 should remove retired field: %s" % retired_field
-		)
-	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
-	_expect(
-		String(preserved_meta.get("marker", ""))
-		== "preserve_meta_across_v12_reset",
-		"Run v12 incompatibility must preserve the separate Meta v4 save"
-	)
-
-
-func _expect_run_v13_incompatibility() -> void:
-	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"hero_composition": {
-			"main_hero_id": "character_primary_a",
-			"sub_hero_id": "character_primary_b",
-		},
-		"content_progression": {
-			"unlocked": {},
-			"counters": {"runs_ended": 3},
-		},
-		"marker": "preserve_meta_across_v13_reset",
-	}
-	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
-		"meta save should exist before explicit Run v13 rejection"
-	)
-	var old_payload: Dictionary = _run_payload("v13", 6)
-	old_payload["schema_version"] = 13
-	old_payload.erase("content_availability")
-	old_payload.erase("content_progress_delta")
-	var old_envelope: Dictionary = {
-		"version": 13,
-		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
-		"created_at": "2026-08-06T00:00:00",
-		"updated_at": "2026-08-06T00:00:00",
-		"game_version": "v1.12",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
-	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18
-		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v13 should migrate only to an explicit incompatible v18 marker"
-	)
-	_expect(
-		not migrated_payload.has("content_availability")
-		and not migrated_payload.has("content_progress_delta"),
-		"Run v13 migration must not fabricate unlock snapshots or pending progress"
-	)
-	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
-	var preserved_progression: Dictionary = (
-		preserved_meta.get("content_progression", {}) as Dictionary
-	)
-	var preserved_counters: Dictionary = (
-		preserved_progression.get("counters", {}) as Dictionary
-	)
-	_expect(
-		String(preserved_meta.get("marker", ""))
-		== "preserve_meta_across_v13_reset"
-		and int(preserved_counters.get("runs_ended", 0)) == 3,
-		"Run v13 incompatibility must preserve the separate Meta v4 save"
-	)
-
-
-func _expect_run_v14_incompatibility() -> void:
-	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"content_progression": {
-			"unlocked": {},
-			"counters": {"runs_ended": 4},
-		},
-		"marker": "preserve_meta_across_v14_reset",
-	}
-	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
-		"meta save should exist before explicit Run v14 rejection"
-	)
-	var old_payload: Dictionary = _run_payload("v14", 7)
-	old_payload["schema_version"] = 14
-	old_payload["module_world"] = {
-		"world_id": "module_world_9x9",
-		"assignment": [],
-	}
-	var old_envelope: Dictionary = {
-		"version": 14,
-		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
-		"created_at": "2026-08-06T00:00:00",
-		"updated_at": "2026-08-06T00:00:00",
-		"game_version": "v1.13",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
-	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18
-		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v14 should migrate only to an explicit incompatible v18 marker"
-	)
-	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
-	var progression: Dictionary = (
-		preserved_meta.get("content_progression", {}) as Dictionary
-	)
-	var counters: Dictionary = progression.get("counters", {}) as Dictionary
-	_expect(
-		String(preserved_meta.get("marker", ""))
-		== "preserve_meta_across_v14_reset"
-		and int(counters.get("runs_ended", 0)) == 4,
-		"Run v14 incompatibility must preserve the separate Meta v4 save"
-	)
-
-
-func _expect_run_v15_pickup_migration() -> void:
-	_cleanup_smoke_files()
-	var old_payload: Dictionary = _run_payload("v15", 8)
-	_expect(
-		SaveManager.save(SMOKE_SLOT, RUN_KIND, old_payload),
-		"Run v15 migration fixture should create its slot directory"
-	)
-	old_payload["schema_version"] = 15
-	old_payload.erase("gear_mod_pickups")
-	old_payload["gear_mods"] = {
-		"ranks": {"gear_mod_weapon_damage_test": 3},
-	}
-	old_payload["marker"] = "preserve_v15_state"
-	var old_envelope: Dictionary = {
-		"version": 15,
-		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
-		"created_at": "2026-08-07T00:00:00",
-		"updated_at": "2026-08-07T00:00:00",
-		"game_version": "v1.14",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
-	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18,
-		"Run v15 should migrate through the explicit incompatible v18 boundary"
-	)
-	_expect(
-		(migrated_payload.get("gear_mod_pickups", []) as Array).is_empty(),
-		"Run v15->v16 should add an empty Gear Mod pickup snapshot list"
-	)
-	_expect(
-		String(migrated_payload.get("marker", "")) == "preserve_v15_state"
-		and int(
-			(
-				(migrated_payload.get("gear_mods", {}) as Dictionary).get(
-					"ranks",
-					{}
-				) as Dictionary
-			).get("gear_mod_weapon_damage_test", 0)
-		) == 3
-		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v15 should preserve diagnostic state but become incompatible at v18"
-	)
-
-
-func _expect_run_v16_gear_mod_rank_incompatibility() -> void:
-	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"content_progression": {
-			"unlocked": {},
-			"counters": {"runs_ended": 5},
-		},
-		"marker": "preserve_meta_across_v16_rank_reset",
-	}
-	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
-		"meta save should exist before explicit Run v16 rejection"
-	)
-	var old_payload: Dictionary = _run_payload("v16", 9)
-	old_payload["schema_version"] = 16
-	old_payload["gear_mods"] = {
-		"ranks": {
-			"gear_mod_weapon_damage_test": 5,
-			"gear_mod_weapon_recoil_damper": 2,
-		},
-	}
-	var old_envelope: Dictionary = {
-		"version": 16,
-		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
-		"created_at": "2026-08-08T00:00:00",
-		"updated_at": "2026-08-08T00:00:00",
-		"game_version": "v1.15",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
-	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	var migrated_gear_mods: Dictionary = (
-		migrated_payload.get("gear_mods", {}) as Dictionary
-	)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18
-		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v16 ranks should migrate only to an explicit incompatible v18 marker"
-	)
-	_expect(
-		migrated_gear_mods.get("ranks", null) is Dictionary
-		and not migrated_gear_mods.has("mod_ids"),
-		"Run v16 migration must not guess a fixed-effect Mod list from ranks"
-	)
-	var parent_boot: Node = get_parent()
-	_expect(
-		String(parent_boot.call("_run_save_unavailable_notice_key", migrated_payload))
-		== "ui_run_save_legacy_incompatible",
-		"Run v16 ranks should select the explicit incompatibility notice"
-	)
-	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
-	var progression: Dictionary = (
-		preserved_meta.get("content_progression", {}) as Dictionary
-	)
-	var counters: Dictionary = progression.get("counters", {}) as Dictionary
-	_expect(
-		String(preserved_meta.get("marker", ""))
-		== "preserve_meta_across_v16_rank_reset"
-		and int(counters.get("runs_ended", 0)) == 5,
-		"Run v16 incompatibility must preserve the separate Meta v4 save"
-	)
-
-
-func _expect_run_v17_gear_mod_list_incompatibility() -> void:
-	_cleanup_smoke_files()
-	var meta_payload: Dictionary = {
-		"content_progression": {
-			"unlocked": {},
-			"counters": {"runs_ended": 8},
-		},
-		"marker": "preserve_meta_across_v17_board_reset",
-	}
-	_expect(
-		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
-		"meta save should exist before explicit Run v17 rejection"
-	)
-	var old_payload: Dictionary = _run_payload("v17", 10)
-	old_payload["schema_version"] = 17
-	old_payload["gear_mods"] = {
-		"mod_ids": [
-			"gear_mod_weapon_damage_test",
-			"gear_mod_weapon_damage_test",
-		],
-	}
-	var old_envelope: Dictionary = {
-		"version": 17,
-		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
-		"created_at": "2026-08-08T00:00:00",
-		"updated_at": "2026-08-08T00:00:00",
-		"game_version": "v1.16",
-		"data_hash": SaveManager.call("_payload_hash", old_payload),
-		"payload": old_payload,
-	}
-	_write_json(_save_path(), old_envelope)
-	var migrated_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	var migrated_gear_mods: Dictionary = (
-		migrated_payload.get("gear_mods", {}) as Dictionary
-	)
-	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 18
-		and bool(migrated_payload.get("legacy_run_incompatible", false)),
-		"Run v17 Mod ids should migrate only to an explicit incompatible v18 marker"
-	)
-	_expect(
-		migrated_gear_mods.get("mod_ids", null) is Array
-		and not migrated_gear_mods.has("placements"),
-		"Run v17 migration must not guess spatial placements from the Mod list"
-	)
-	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
-	var progression: Dictionary = (
-		preserved_meta.get("content_progression", {}) as Dictionary
-	)
-	var counters: Dictionary = progression.get("counters", {}) as Dictionary
-	_expect(
-		String(preserved_meta.get("marker", ""))
-		== "preserve_meta_across_v17_board_reset"
-		and int(counters.get("runs_ended", 0)) == 8,
-		"Run v17 incompatibility must preserve the separate Meta v4 save"
-	)
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 18,
+		"schema_version": 19,
+		"marker": marker,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"gold_progression": {
@@ -779,70 +270,18 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 			},
 			"wave_plans": {},
 		},
-		"spawn_states": {
-			"wave_%s" % marker: {
-				"next_time": float(level),
-				"spawned": level,
-				"alive": 1,
-			},
-		},
-		"map": {
-			"layout_id": "map_standard_nest",
-			"bounds": {
-				"x": -1800.0,
-				"y": -1300.0,
-				"width": 3600.0,
-				"height": 2600.0,
-			},
-			"player_start": {
-				"x": 0.0,
-				"y": 0.0,
-			},
-			"hazard_placements": [],
-		},
-		"module_world": {
-			"world_id": "module_world_9x9",
-			"seed": 4242,
-			"assignments": [],
-			"map_hash": "smoke_hash",
-			"visited_slots": [],
-			"slot_states": {},
-		},
-		"player": {
-			"position": [float(level), float(level + 1)],
-			"life": float(level),
-			"max_life": float(level + 2),
-		},
-		"weapon": {
-			"cooldown_remaining": 0.25,
-		},
+		"spawn_states": {},
+		"map": {},
+		"module_world": {},
+		"player": {},
+		"weapon": {},
 		"hazards": [],
 		"enemies": [],
-		"bullets": [
-			{
-				"position": {
-					"x": 1064.0001220703125,
-					"y": -260.0,
-				},
-				"damage": 3.5,
-				"element_id": "element_neutral",
-				"hit_radius": 8.0,
-				"remaining_life": 0.5833333333333334,
-				"max_range": 650.0,
-				"pierce_remaining": 0,
-				"travelled": 346.66668701171875,
-				"velocity": {
-					"x": 520.0,
-					"y": 0.0,
-				},
-			},
-		],
+		"bullets": [],
 		"gold_orbs": [],
 		"gear_mod_pickups": [],
 		"reward_choice": {},
-		"content_availability": (
-			ContentUnlockSystem.build_run_availability_snapshot()
-		),
+		"content_availability": ContentUnlockSystem.build_run_availability_snapshot(),
 		"content_progress_delta": {
 			"runs_ended": 0,
 			"runs_completed": 0,
@@ -850,10 +289,16 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 			"enemy_defeated_total": 0,
 			"enemy_defeated": {},
 		},
-		"ui_restore": {
-			"state": "playing",
-		},
+		"ui_restore": {"state": "playing"},
 	}
+
+
+func _set_mod_environment(entries: Array) -> void:
+	var enabled_mods: Array[Dictionary] = []
+	for raw_entry: Variant in entries:
+		if raw_entry is Dictionary:
+			enabled_mods.append((raw_entry as Dictionary).duplicate(true))
+	ModLoader.set("_enabled_mods", enabled_mods)
 
 
 func _connect_signals() -> void:
@@ -894,7 +339,6 @@ func _remove_broken_smoke_files() -> void:
 	var dir: DirAccess = DirAccess.open(broken_dir)
 	if dir == null:
 		return
-
 	dir.list_dir_begin()
 	var entry_name: String = dir.get_next()
 	while not entry_name.is_empty():
@@ -909,7 +353,6 @@ func _broken_file_count() -> int:
 	var dir: DirAccess = DirAccess.open(broken_dir)
 	if dir == null:
 		return 0
-
 	var count: int = 0
 	dir.list_dir_begin()
 	var entry_name: String = dir.get_next()
@@ -922,9 +365,13 @@ func _broken_file_count() -> int:
 
 
 func _write_text(path: String, content: String) -> void:
+	var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	if make_dir_error != OK:
+		_expect(false, "smoke should create save directory: %s" % path.get_base_dir())
+		return
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
-		_expect(false, "smoke should open save path for corruption: %s" % path)
+		_expect(false, "smoke should open save path: %s" % path)
 		return
 	file.store_string(content)
 	file.flush()
@@ -934,13 +381,9 @@ func _write_json(path: String, value: Dictionary) -> void:
 	_write_text(path, JSON.stringify(value, "\t"))
 
 
-func _payloads_match(left: Variant, right: Dictionary) -> bool:
-	if not left is Dictionary:
-		return false
-	var normalized_right: Variant = SaveManager.call("_json_normalized_payload", right)
-	if not normalized_right is Dictionary:
-		return false
-	return String(SaveManager.call("_payload_hash", left as Dictionary)) == String(SaveManager.call("_payload_hash", normalized_right as Dictionary))
+func _read_text(path: String) -> String:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	return file.get_as_text() if file != null else ""
 
 
 func _remove_if_exists(path: String) -> void:
@@ -980,6 +423,5 @@ func _finish() -> void:
 		])
 		get_tree().quit(0)
 		return
-
 	print("[SaveSmoke] failed; failures=%d" % _failures.size())
 	get_tree().quit(1)

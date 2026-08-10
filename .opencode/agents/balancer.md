@@ -34,10 +34,10 @@ permission:
 
 ### 2. 跑批量 sim
 
-- 目标：跑 N 局生成胜率 / build 强度 / 遗物使用率统计。
+- 目标：跑 N 局生成胜率 / build 强度 / Gear Mod 使用率统计。
 - 工具：`tools/sim.gd`（M7 才落地，当前阶段拒绝并说明）。
 - 命令：`godot --headless -- script tools/sim.gd --runs 1000 --seed-base 0`。
-- 输出：CSV + 报告（过强 build / 无人选遗物 / 胜率分布）。
+- 输出：CSV + 报告（过强 build / 无人选 Gear Mod / 胜率分布）。
 
 ### 3. 数值调整建议
 

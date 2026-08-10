@@ -59,12 +59,12 @@ static func scaled_target_radius(
 	return radius
 
 
-static func scaled_effect_params(
+static func scaled_action_params(
 	skill: Dictionary,
-	effect: Dictionary,
+	action: Dictionary,
 	ability_stats: Dictionary
 ) -> Dictionary:
-	var params: Dictionary = _dictionary_or_empty(effect.get("params", {}))
+	var params: Dictionary = _dictionary_or_empty(action.get("params", {}))
 	var scaling: Dictionary = _dictionary_or_empty(skill.get("scaling", {}))
 	var duration_stat: String = String(scaling.get("duration_stat", ""))
 	if not duration_stat.is_empty() and params.has("duration"):

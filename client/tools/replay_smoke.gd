@@ -3,7 +3,6 @@ extends Node
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
 
 const REPLAY_FILE_NAME: String = "smoke_basic_run.replay"
 const UNSUPPORTED_REPLAY_FILE_NAME: String = "smoke_unsupported_input.replay"
@@ -101,9 +100,14 @@ func _run() -> void:
 
 	var envelope: Dictionary = Replay.load_replay_file(path)
 	_expect(String(envelope.get("data_fingerprint", "")) == Replay.current_data_fingerprint(), "Replay envelope should include the current data fingerprint")
-	_expect(String(envelope.get("game_version", "")) == "v1.17", "Replay envelope should use game version v1.17")
-	_expect(int(envelope.get("file_schema_version", 0)) == 8, "Replay envelope should use file schema v8")
-	_expect(int(loaded.get("schema_version", 0)) == 8, "Replay recording should use schema v8")
+	_expect(String(envelope.get("game_version", "")) == "v1.18", "Replay envelope should use game version v1.18")
+	_expect(int(envelope.get("file_schema_version", 0)) == 9, "Replay envelope should use file schema v9")
+	_expect(int(loaded.get("schema_version", 0)) == 9, "Replay recording should use schema v9")
+	_expect(envelope.get("mod_environment", null) is Array, "Replay v9 envelope should contain mod_environment")
+	_expect(
+		(envelope.get("mod_environment", []) as Array) == ModLoader.mod_environment(),
+		"Replay v9 envelope should freeze the exact local mod environment"
+	)
 	_expect_gear_mod_gameplay_fingerprint()
 	_expect(_has_typed_event(loaded, ACTIONS.MOVE, "vector2"), "Replay should persist typed Vector2 events")
 	_expect(_has_typed_event(loaded, ACTIONS.FIRE, "bool"), "Replay should persist typed bool events")
@@ -120,6 +124,7 @@ func _run() -> void:
 		"Replay should persist Gear Mod placement decisions"
 	)
 	_expect_unsupported_schemas_are_rejected(envelope)
+	_expect_mod_environment_mismatches_are_rejected(envelope)
 	_expect_semantic_trigger_capacity_boundary()
 
 	_cleanup_smoke_file()
@@ -189,7 +194,7 @@ func _has_decision(recording: Dictionary, event_name: String) -> bool:
 
 func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> void:
 	var path: String = Replay.replay_root().path_join(UNSUPPORTED_REPLAY_FILE_NAME)
-	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 9]:
+	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 8, 10]:
 		var unsupported: Dictionary = current_envelope.duplicate(true)
 		unsupported["file_schema_version"] = unsupported_version
 		var source_text: String = JSON.stringify(unsupported, "\t")
@@ -197,11 +202,11 @@ func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> v
 		var loaded: Dictionary = Replay.load_replay_file(path)
 		_expect(loaded.is_empty(), "replay schema %d should be rejected" % unsupported_version)
 		_expect(
-			Replay.last_error() == "[Replay] unsupported replay file schema: %d; expected 8" % unsupported_version,
+			Replay.last_error() == "[Replay] unsupported replay file schema: %d; expected 9" % unsupported_version,
 			"unsupported replay schema should report the exact version mismatch"
 		)
 		_expect(_read_replay_text(path) == source_text, "rejected replay schema should not rewrite the source file")
-	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 9]:
+	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 8, 10]:
 		var unsupported: Dictionary = current_envelope.duplicate(true)
 		var recording: Dictionary = (unsupported.get("recording", {}) as Dictionary).duplicate(true)
 		recording["schema_version"] = unsupported_version
@@ -211,10 +216,48 @@ func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> v
 		var loaded: Dictionary = Replay.load_replay_file(path)
 		_expect(loaded.is_empty(), "recording schema %d should be rejected" % unsupported_version)
 		_expect(
-			Replay.last_error() == "[Replay] unsupported replay recording schema: %d; expected 8" % unsupported_version,
+			Replay.last_error() == "[Replay] unsupported replay recording schema: %d; expected 9" % unsupported_version,
 			"unsupported recording schema should report the exact version mismatch"
 		)
 		_expect(_read_replay_text(path) == source_text, "rejected recording schema should not rewrite the source file")
+
+
+func _expect_mod_environment_mismatches_are_rejected(current_envelope: Dictionary) -> void:
+	var path: String = Replay.replay_root().path_join(UNSUPPORTED_REPLAY_FILE_NAME)
+	var installed: Dictionary = {
+		"id": "fixture",
+		"version": "2.0.0",
+		"gameplay_hash": "installed_hash",
+	}
+	var recorded: Dictionary = installed.duplicate(true)
+
+	_set_mod_environment([])
+	_expect_preserved_environment_rejection(current_envelope, [recorded], path, "missing package")
+
+	_set_mod_environment([installed])
+	var wrong_version: Dictionary = recorded.duplicate(true)
+	wrong_version["version"] = "1.0.0"
+	_expect_preserved_environment_rejection(current_envelope, [wrong_version], path, "version mismatch")
+
+	var wrong_hash: Dictionary = recorded.duplicate(true)
+	wrong_hash["gameplay_hash"] = "recorded_hash"
+	_expect_preserved_environment_rejection(current_envelope, [wrong_hash], path, "gameplay hash mismatch")
+	_set_mod_environment([])
+
+
+func _expect_preserved_environment_rejection(
+	current_envelope: Dictionary,
+	environment: Array,
+	path: String,
+	label: String
+	) -> void:
+	var incompatible: Dictionary = current_envelope.duplicate(true)
+	incompatible["mod_environment"] = environment.duplicate(true)
+	var source_text: String = JSON.stringify(incompatible, "\t")
+	_expect(_write_replay_text(path, source_text), "smoke should write %s replay fixture" % label)
+	_expect(Replay.load_replay_file(path).is_empty(), "Replay with %s should be rejected" % label)
+	_expect(Replay.last_error().contains("mod environment mismatch"), "Replay %s should report a mod environment diagnostic" % label)
+	_expect(_read_replay_text(path) == source_text, "Replay with %s should preserve the original file" % label)
 
 
 func _expect_gear_mod_gameplay_fingerprint() -> void:
@@ -222,13 +265,14 @@ func _expect_gear_mod_gameplay_fingerprint() -> void:
 		DataLoader.gear_mod_gameplay_fingerprint_payload()
 	)
 	_expect(
-		int(gear_mod_payload.get("schema_version", 0)) == 5,
-		"Replay fingerprint should include Gear Mod data schema v5"
+		int(gear_mod_payload.get("schema_version", 0)) == 6,
+		"Replay fingerprint should include Gear Mod data schema v6"
 	)
 	_expect(
 		gear_mod_payload.get("board", null) is Dictionary
 		and gear_mod_payload.get("pickup", null) is Dictionary
 		and gear_mod_payload.get("reward_pools", null) is Array
+		and gear_mod_payload.get("reward_pool_contributions", null) is Array
 		and gear_mod_payload.get("mods", null) is Array
 		and gear_mod_payload.get("drop_rows", null) is Array,
 		"Replay fingerprint should include normalized Gear Mod gameplay data"
@@ -287,7 +331,6 @@ func _expect_gear_mod_gameplay_fingerprint() -> void:
 			"name_key",
 			"desc_key",
 			"codex_icon_path",
-			"rarity",
 		]:
 			_expect(
 				not mod.has(display_field),
@@ -296,51 +339,52 @@ func _expect_gear_mod_gameplay_fingerprint() -> void:
 			)
 		for gameplay_field: String in [
 			"id",
-			"kind",
 			"default_unlocked",
-			"unlock_rule_id",
+			"rarity",
+			"components",
 		]:
 			_expect(
 				mod.has(gameplay_field),
 				"Replay Gear Mod fingerprint should include gameplay field %s"
 				% gameplay_field
 			)
-		var kind: String = String(mod.get("kind", ""))
-		if kind == GEAR_MOD_KINDS.EFFECT:
+		var components: Array = mod.get("components", []) as Array
+		_expect(not components.is_empty(), "Replay Gear Mod fingerprint should include ordered components")
+		for raw_component: Variant in components:
 			_expect(
-				mod.has("slot")
-				and mod.has("modifiers")
-				and not mod.has("map_behavior")
-				and not mod.has("grid_behavior"),
-				"effect fingerprint entry should contain only effect gameplay fields"
+				raw_component is Dictionary
+				and (raw_component as Dictionary).has("component_id")
+				and (raw_component as Dictionary).has("type"),
+				"Replay Gear Mod component fingerprint should preserve component identity and type"
 			)
-		elif kind == GEAR_MOD_KINDS.MAP:
-			_expect(
-				mod.has("map_behavior")
-				and not mod.has("slot")
-				and not mod.has("modifiers")
-				and not mod.has("grid_behavior"),
-				"map fingerprint entry should contain only map gameplay fields"
-			)
-		elif kind == GEAR_MOD_KINDS.GRID:
-			_expect(
-				mod.has("grid_behavior")
-				and not mod.has("slot")
-				and not mod.has("modifiers")
-				and not mod.has("map_behavior"),
-				"grid fingerprint entry should contain only grid gameplay fields"
-			)
-		else:
-			_expect(false, "Replay Gear Mod fingerprint should use a known kind")
+	var effect_payload: Dictionary = DataLoader.effect_gameplay_fingerprint_payload()
+	_expect(
+		(effect_payload.get("skills", {}) as Dictionary).get("schema_version", 0) == 3,
+		"Replay fingerprint should include Skills v3 effect programs"
+	)
+	_expect(
+		effect_payload.get("gear_mods", {}) == gear_mod_payload,
+		"Replay effect fingerprint should include the exact Gear Mod gameplay payload"
+	)
 	var expected_fingerprint: String = String(Replay.call("_payload_hash", {
 		"contracts": DataLoader.contracts(),
 		"schema_counts": DataLoader.schema_counts(),
+		"effect_gameplay": effect_payload,
 		"gear_mod_gameplay": gear_mod_payload,
+		"mod_environment": ModLoader.mod_environment(),
 	}))
 	_expect(
 		Replay.current_data_fingerprint() == expected_fingerprint,
 		"Replay data fingerprint should hash the Gear Mod gameplay payload"
 	)
+
+
+func _set_mod_environment(entries: Array) -> void:
+	var enabled_mods: Array[Dictionary] = []
+	for raw_entry: Variant in entries:
+		if raw_entry is Dictionary:
+			enabled_mods.append((raw_entry as Dictionary).duplicate(true))
+	ModLoader.set("_enabled_mods", enabled_mods)
 
 
 func _cleanup_smoke_file() -> void:

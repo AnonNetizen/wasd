@@ -1,196 +1,197 @@
 # ModLoader 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 `ModLoader` 本地 mod 接口的代码契约权威；改 manifest schema、允许的 patch 类型、动态契约扩展、加载顺序、安全边界或测试义务时必须同步本文档、GDD、ADR、AI 导航、数据手册与测试策略。
+> 本文档是 `ModLoader` 本地包接口的代码契约权威；改 manifest、patch 白名单、动态 Gear Mod id、媒体边界、环境指纹、加载顺序或测试义务时必须同步本文档、GDD、ADR、AI 导航、数据手册与测试策略。
 
 ## 职责
 
-- 扫描 `user://mods/<mod_id>/mod.json`，加载玩家本地 mod manifest。
-- 校验 manifest 的基础字段、数据 patch 声明、允许的动态契约扩展和相对路径安全。
-- 向 `DataLoader` 提供 JSON / CSV 数据追加接口，让现有运行时代码继续通过 `DataLoader` 读取合并后的数据。
-- 提供 mod 诊断信息和启用数量，供启动日志、调试 UI 和后续设置面板使用。
-- 不负责创意工坊下载 / 订阅 / 上传，不执行玩家脚本，不加载任意二进制，不绕过 `DataLoader` schema 校验。
+- 扫描 `user://mods/<package_id>/mod.json`，按 `load_order`、`id` 稳定加载 manifest v2。
+- 在合并前独立校验每个包的 Gear Mod 结构、ID 所有权、patch 目标、双语 locale 与安全路径；坏玩法包整体禁用，基础游戏和其他包继续。
+- 在扫描时把玩法 patch、locale 与媒体解码成不可变内存快照；本次加载周期内不再读取包文件。
+- 为 DataLoader 提供只读包级 payload 和最终 JSON/CSV append，为 Save/Replay 提供精确 `mod_environment`。
+- 注册本地图片与非循环 SFX；坏媒体只记录诊断并回退，不禁用玩法包。
+- 不执行脚本、场景、Shader 或二进制插件，不允许本地包扩展 stat、trigger、condition、action、status、enemy、pool、RNG 等核心契约。
 
 ## 阅读方式
 
 | 你想做什么 | 先看哪里 |
 |------------|----------|
-| 调整本地 mod manifest | 本文档“数据与契约” |
-| 接新数据 patch 类型 | `client/scripts/autoload/mod_loader.gd` 与 `DataLoader` |
-| 允许新动态 id 类别 | 本文档、GDD、ADR、`docs/词表与契约.md` 相关章节 |
-| 调试 mod 没生效 | 本文档“故障排查” |
+| 制作本地 Gear Mod 包 | 本文档“Manifest v2”与“数据 patch” |
+| 排查包被禁用 | `package_statuses()` 与“包级隔离” |
+| 接图片或音效 | “媒体注册表”与 `docs/代码/audio_manager.md` |
+| 校验 Run / Replay 环境 | `mod_environment()`、`validate_environment()` |
+| 修改 schema / 白名单 | `client/scripts/autoload/mod_loader.gd` 与 DataLoader 文档 |
 
 ## 代码位置
 
 | 路径 | 作用 |
 |------|------|
-| `client/scripts/autoload/mod_loader.gd` | `ModLoader` autoload 实现 |
-| `client/scripts/autoload/data_loader.gd` | 调用 `ModLoader.apply_json_mods()` / `apply_csv_mods()`，并合并允许的动态契约扩展 |
-| `client/project.godot` | 注册 `ModLoader` autoload；顺序在 `DataLoader` 之前 |
-| `client/tools/l1_smoke.gd` | 临时创建本地 mod，验证 manifest、动态 tag 和 JSON append |
+| `client/scripts/autoload/mod_loader.gd` | manifest v2、包快照、诊断、媒体和环境 API |
+| `client/scripts/autoload/data_loader.gd` | 逐包最终参数 / 跨表校验与合并 |
+| `client/scripts/autoload/localization.gd` | 把快照 locale rows 注册为运行时 Translation |
+| `client/scripts/autoload/audio_manager.gd` | 注册和播放包内非循环 SFX |
+| `client/tools/mod_loader_v2_smoke.gd` | manifest v2、隔离、媒体、locale、环境专项 smoke |
+| `tools/godot_bridge.py` | `mod-loader-smoke` 隔离入口 |
 
 ## 场景 / 节点结构
 
-无场景节点。`ModLoader` 通过 `client/project.godot` 的 `[autoload]` 注册为全局单例。
+无场景。`ModLoader` 是最早注册的 autoload；DataLoader、Localization 与 AudioManager 只读取其快照。
 
 ## 运行流程
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| autoload `_ready()` | 创建 / 扫描 `user://mods` | `reload_mods()` |
-| manifest 加载 | 读取每个子目录的 `mod.json` | `_load_mod_directory()` |
-| manifest 校验 | 校验 schema、id、patch、动态契约和安全路径 | `_validate_manifest()` |
-| 数据读取 | `DataLoader.load_json()` / `load_csv()` 请求合并 patch | `apply_json_mods()` / `apply_csv_mods()` |
-| 契约查询 | `DataLoader.contract_values()` 请求允许的动态扩展 id | `contract_extensions()` |
-| 重载 | 清空并重扫本地 mod | `mods_reloaded` |
+| 启动扫描 | 创建 / 扫描 `user://mods`，目录名排序后解析 manifest | `_ready()`、`reload_packages()` |
+| 包级校验 | 校验 v2、namespace、允许 patch、Gear Mod 组件和内置效果原语 | `package_statuses()` |
+| 快照 | 读取 JSON / CSV，解码媒体，计算排除 locale / 媒体的 `gameplay_hash` | `package_gameplay_payloads()` |
+| 最终校验 | DataLoader 对每个启用包做参数和跨表校验；失败包调用禁用接口后继续 | `disable_package()` |
+| 下游注册 | Localization 重建包 Translation；AudioManager 重建包 SFX | `mods_reloaded` |
+| 主菜单重载 | 仅无活动 Run / Replay 时重新扫描 | `set_runtime_activity()`、`can_reload_packages()` |
 
 ## 公共 API
 
-| 名称 | 输入 | 输出 | 约束 |
-|------|------|------|------|
-| `reload_mods()` | 无 | `void` | 重新扫描 `user://mods`；不下载、不联网 |
-| `enabled_mod_count()` | 无 | `int` | 返回当前启用 mod 数 |
-| `enabled_mods()` | 无 | `Array[Dictionary]` | 返回深拷贝，包含规范化后的 manifest 与 `root_path` |
-| `diagnostics()` | 无 | `Array[String]` | 返回 manifest / patch 诊断；同时用 `[ModLoader]` warning 输出 |
-| `contract_extensions(contract_key)` | `String` | `Array[String]` | 只返回 manifest 中允许动态扩展的 id |
-| `apply_json_mods(resource_path, base_data)` | `String`, `Variant` | `Variant` | 当前只支持顶层数组追加，不覆盖基础数据 |
-| `apply_csv_mods(resource_path, base_rows)` | `String`, `Array[Dictionary]` | `Array[Dictionary]` | 当前只支持追加 CSV 行 |
+| 名称 | 输出 / 作用 | 约束 |
+|------|-------------|------|
+| `reload_packages() -> bool` | 重新扫描并发出 `mods_reloaded` | 活动 Run / Replay 返回 `false`，保留现有快照 |
+| `set_runtime_activity(run_active, replay_active)` | 设置重载门 | 由正式流程接线，不自行查询业务模块 |
+| `can_reload_packages() -> bool` | 当前能否显式重载 | 只在主菜单应为 true |
+| `enabled_mod_count() -> int` | 已启用玩法包数量 | 不含 disabled / invalid 包 |
+| `package_statuses() -> Array[Dictionary]` | `{id,name,version,enabled,status,diagnostics}` | 稳定排序、深拷贝，主菜单面板只读 |
+| `diagnostics() -> Array[String]` | 全局诊断副本 | 同时输出 `[ModLoader]` warning |
+| `contract_extensions(key) -> Array[String]` | 动态 `gear_mod_ids` / `locale_prefixes` | 其他核心契约一律拒绝 |
+| `package_gameplay_payloads() -> Array[Dictionary]` | `{id,mods,reward_pool_contributions,drop_rows}` | 仅启用包、稳定顺序、深拷贝；供 DataLoader 逐包校验 |
+| `package_locale_rows() -> Array[Dictionary]` | 双语 locale rows 深拷贝 | 供 Localization 重建运行时 Translation |
+| `apply_json_mods(path, base)` | 向 `gear_mods.json` 指定数组追加快照条目 | 不覆盖基础记录 |
+| `apply_csv_mods(path, base)` | 向掉落表 / locale 追加快照行 | 不覆盖基础记录 |
+| `mod_environment() -> Array[Dictionary]` | `{id,version,gameplay_hash}` | 与包执行顺序一致，精确用于 Run / Replay |
+| `validate_environment(expected) -> Dictionary` | `{ok,reason}` | 数量、顺序、id、version、hash 任一不符即失败 |
+| `has_image_asset(id)` / `image_texture(id)` | 查询 / 返回运行时 `ImageTexture` | 缺失返回 false / null，由 UI 使用内置图标 |
+| `media_audio_entries()` | `{id,package_id,stream,max_polyphony}` | 只返回解码成功的非循环 SFX |
+
+`disable_package(package_id, reason)` 是 DataLoader 的启动期隔离接口：移除该包玩法 / 媒体并更新只读状态，不用于活动局内动态卸载。
 
 ## Signal / Event
 
 | 名称 | 参数 | 触发时机 |
 |------|------|----------|
-| `mods_reloaded` | 无 | `reload_mods()` 完成扫描后 |
+| `mods_reloaded` | 无 | 成功重扫，或 DataLoader 禁用坏包后 |
+| `reload_rejected` | `reason` | 活动 Run / Replay 拒绝重载时 |
 
-## 数据与契约
-
-本地 mod 目录结构：
-
-```text
-user://mods/<mod_id>/
-  mod.json
-  data/
-    relics_patch.json
-    enemies_patch.csv
-    strings_patch.csv
-```
-
-`mod.json` 最小结构：
+## Manifest v2
 
 ```json
 {
-  "schema_version": 1,
-  "id": "my_first_mod",
-  "name": "My First Mod",
-  "version": "0.1.0",
+  "schema_version": 2,
+  "id": "example_pack",
+  "name": "Example Pack",
+  "version": "1.0.0",
   "enabled": true,
   "load_order": 0,
   "contract_extensions": {
-    "content_tags": ["mod_my_first_mod_tag"],
-    "locale_prefixes": ["mod_my_first_mod_"]
+    "gear_mod_ids": ["mod_example_pack_guardian_cell"],
+    "locale_prefixes": ["mod_example_pack_"]
   },
   "data_patches": [
     {
       "type": "json_array_append",
-      "target": "relics.json",
-      "path": "data/relics_patch.json",
-      "array_key": "relics"
+      "target": "gear_mods.json",
+      "path": "data/gear_mods.json",
+      "array_key": "mods"
     },
     {
       "type": "csv_append",
       "target": "strings.csv",
-      "path": "data/strings_patch.csv"
+      "path": "data/strings.csv"
+    }
+  ],
+  "media_assets": [
+    {
+      "id": "mod_example_pack_guardian_icon",
+      "type": "image",
+      "path": "media/guardian.png"
+    },
+    {
+      "id": "mod_example_pack_guardian_sfx",
+      "type": "sfx",
+      "path": "media/guardian.ogg",
+      "max_polyphony": 4
     }
   ]
 }
 ```
 
-### Manifest 字段
+- `id` 必须是目录同名 snake_case；所有动态 Gear Mod、locale 与媒体 id 必须以 `mod_<package_id>_` 开头。
+- 本地 Gear Mod 只能使用 `id/name_key/desc_key/rarity/default_unlocked/codex_icon_path/placement_sfx_id/components`；`default_unlocked` 只能为 true 或省略，禁止 `unlock_rule_id`。`placement_sfx_id` 必须引用同包已验证、namespaced 的非循环 SFX；媒体失败时从合并定义删除该字段并静音回退，不禁用玩法内容。
+- `components[]` 只允许官方 `modifier`、`program`、`board_rule`；program 的 trigger / condition / action 必须来自生成契约。参数与跨表引用由 DataLoader 最终校验。
+- `codex_icon_path` 填媒体 id，不填文件路径；必须指向本包有效 image。缺图、坏图或越权 id 会从快照移除并回退内置图标，不禁用玩法包。
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `schema_version` | int | 当前必须为 `1` |
-| `id` | string | mod 自身 id，`snake_case`，必须等于目录名 `<mod_id>`；动态 id 必须以 `mod_<id>_` 开头；重复 id 只启用第一个 |
-| `name` | string | 展示名；当前只用于诊断，未来可接 UI |
-| `version` | string | mod 版本；当前不做语义版本比较 |
-| `enabled` | bool | 可选，默认 true |
-| `load_order` | int | 可选，默认 0；数字小的先加载，同序按 id 排序 |
-| `contract_extensions` | object | 允许的运行时动态 id 扩展 |
-| `data_patches` | array | 数据追加声明 |
+## 数据 patch
 
-### 允许的动态契约扩展
+| 类型 | 允许目标 | 作用 |
+|------|----------|------|
+| `json_array_append` | `gear_mods.json.mods` | 新增包拥有的 Gear Mod 定义 |
+| `json_array_append` | `gear_mods.json.reward_pool_contributions` | 向官方奖励池贡献本包 Gear Mod |
+| `csv_append` | `gear_mod_drop_tables.csv` | 为本包 Gear Mod 增加官方敌人掉落 |
+| `csv_append` | `strings.csv` | 增加 namespaced `zh_CN` / `en` 文案 |
 
-当前只允许这些 key：
+路径必须是包目录内的 `/` 分隔相对路径；拒绝绝对路径、`..`、反斜杠、协议和盘符。append 不能覆盖基础记录。
 
-| key | 用途 | 约束 |
-|-----|------|------|
-| `character_ids` | 允许 mod 新增角色 id | 值必须以 `mod_<mod_id>_` 开头 |
-| `game_modes` | 允许 mod 新增模式 id | 值必须以 `mod_<mod_id>_` 开头 |
-| `content_tags` | 允许 mod 新增内容标签 | 值必须以 `mod_<mod_id>_` 开头 |
-| `locale_prefixes` | 允许 mod 新增本地化 key 前缀 | 值必须以 `mod_<mod_id>_` 开头 |
+## 包级隔离与环境指纹
 
-不允许 mod 扩展 `stats`、`effects`、`events`、`elements`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等会要求代码、资源或确定性管线同步变更的核心契约。需要新原语或新底层类型时，必须先进入正式项目开发流程，而不是由玩家数据包直接打开。
+- 每个包先独立解析与校验，再进入基础数据合并；manifest、玩法 schema、ID 所有权或跨表失败会把该包标为 `invalid`。
+- patch 内容在扫描时深拷贝缓存；磁盘变化必须等主菜单显式 `reload_packages()` 才可见。
+- `gameplay_hash` 覆盖包拥有的 Gear Mod id、玩法 components、掉落与奖励池贡献；locale、图片、音频、`codex_icon_path` 与 `placement_sfx_id` 不影响玩法 hash。
+- Run / Replay 必须保存 `mod_environment()`；环境缺失、版本或 hash 不符由 Save / Replay 阻止继续，不把文件当损坏档隔离。
 
-### Patch 类型
+## 媒体注册表
 
-| 类型 | 字段 | 说明 |
-|------|------|------|
-| `json_array_append` | `target` / `path` / `array_key` | 读取 mod JSON，把指定顶层数组追加到基础 JSON 的同名数组 |
-| `csv_append` | `target` / `path` | 读取 mod CSV，把行追加到基础 CSV 行列表 |
+| 类型 | 格式 | 单文件限制 | 额外限制 |
+|------|------|------------|----------|
+| image | PNG / WebP / JPEG | 4 MiB | 最大 1024×1024，返回 `ImageTexture` |
+| sfx | Ogg Vorbis / MP3 / WAV | 8 MiB | 最长 30 秒、强制非循环，由 AudioManager 播放 |
 
-`target` 可写完整资源路径或文件名，如 `res://data/relics.json` / `relics.json`。`path` 必须是 mod 目录内的安全相对路径，禁止 `..`、绝对路径和 `://`。
+每包最多 128 项媒体、总大小最多 64 MiB。扩展名、真实文件头、解码结果、安全路径和命名空间都会校验。媒体失败只进入诊断并回退为空，不改变 `gameplay_hash`，也不禁用玩法包。
 
 ## 依赖
 
-- 上游依赖：Godot `DirAccess`、`FileAccess`、`JSON`、`RegEx`。
-- 下游调用方：`DataLoader`。
-- 禁止依赖：不得依赖玩法业务系统、UI、网络平台 SDK 或创意工坊 API。
+- 上游：Godot `DirAccess`、`FileAccess`、`JSON`、运行时图片 / 音频解码和生成契约。
+- 下游：DataLoader、Localization、AudioManager、SaveManager、Replay、主菜单 Mod 面板。
+- 禁止依赖：GameplayEffectRuntime、业务 UI、网络平台 SDK 或创意工坊下载逻辑。
 
 ## 扩展点
 
-- 新数据文件可通过新增 `json_array_append` 或 `csv_append` patch 接入，前提是 `DataLoader` 已有对应 schema。
-- 未来可新增 `replace_by_id`、`disable_by_id` 或 patch 优先级，但必须先补 ADR、schema、测试和冲突诊断。
-- 未来创意工坊只负责把订阅内容同步到 `user://mods/<mod_id>/`；进入游戏后的加载、校验和禁用仍走 `ModLoader`。
-
-## 常见改动入口
-
-| 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
-|------------|----------|----------|----------|
-| 允许新 patch 类型 | `mod_loader.gd`、`data_loader.gd` | 本文档、GDD、测试策略 | `l1-smoke`、headless boot |
-| 允许新动态契约 key | `mod_loader.gd` | 本文档、GDD、ADR、词表说明 | `l1-smoke`、数据校验 |
-| 增加 mod UI | 后续 UI 场景 / `Settings` | 本文档、AI 导航、locale README | settings-smoke / runtime-smoke |
-| 接创意工坊 | 新平台适配模块 | ADR、GDD、隐私 / 发行文档 | 单独验收，不在本切片 |
+- 新本地 Gear Mod 只通过现有组件和效果原语组合；新增底层 primitive 必须进入官方开发、契约和测试流程。
+- 新 patch 目标、媒体类型或核心契约扩展必须先改 GDD / ADR / schema / 安全测试，不能由 manifest 自声明打开。
+- 创意工坊未来只负责把内容同步到 `user://mods/<package_id>/`，不改变校验与运行时边界。
 
 ## 故障排查
 
 | 现象 | 优先检查 |
 |------|----------|
-| 启动日志 `mods=0` | `user://mods/<mod_id>/mod.json` 是否存在、`enabled` 是否为 true |
-| manifest 被跳过 | Godot warning 中的 `[ModLoader]` 诊断 |
-| 新内容 id 校验失败 | 是否缺 `contract_extensions`，或 id 未以 `mod_<mod_id>_` 开头 |
-| 新文案 key 校验失败 | 是否追加了 `strings.csv` patch，或 `locale_prefixes` 未声明 |
-| patch 不生效 | `target` 是否匹配目标文件名，`path` 是否安全且文件可读 |
+| 包显示 invalid | `package_statuses().diagnostics` 的字段路径、namespace 和 primitive id |
+| 修改文件后无变化 | 是否在无活动 Run / Replay 的主菜单显式重载 |
+| Run / Replay 被阻止 | `validate_environment()` 的 id / version / gameplay_hash 差异 |
+| 图标回退 | `codex_icon_path` 是否为本包 image id、文件头与尺寸是否有效 |
+| 音效静音 | 媒体诊断、30 秒 / 8 MiB 限制和 AudioManager 注册状态 |
+| 本地文案显示 key | strings patch 是否有 namespaced key、`zh_CN` / `en` 是否非空，Localization 是否收到 reload |
 
 ## 测试义务
 
-- 改 `ModLoader` 或 `DataLoader` mod 接口必须跑：
-  - `py -3 tools/lint_gdscript_rules.py`
-  - `py -3 tools/lint_semantic_rules.py`
-  - `py -3 tools/godot_bridge.py --project client l1-smoke`
-  - `py -3 tools/godot_bridge.py --project client headless-boot`
-- 改 manifest schema 或数据合并规则时，必须扩展 `client/tools/l1_smoke.gd` 或后续 GUT 单测。
-- 若 mod patch 改变运行时内容池并影响一局行为，按 `docs/测试策略.md` 判断是否需要重跑或重录黄金回放。
+- 必跑 `py -3 tools/godot_bridge.py --project client mod-loader-smoke`。
+- 同时跑 ModLoader / AudioManager / Localization 目标 GDScript lint、数据校验和 headless boot。
+- 修改 Gear Mod 最终 schema 时补 DataLoader schema 测试；修改环境指纹时补 Save / Replay mismatch 测试。
+- 真实本地包安装、主菜单诊断可读性、图片观感、音效质量和中英文 1920×1080 布局保持“待人工验收”。
 
 ## 迁移 / 兼容
 
-- 当前 manifest schema 为 `1`。未来升级 schema 时必须保留旧 schema 的可诊断失败或迁移说明。
-- mod 数据不写入 `SaveManager` 的 `meta` / `run` schema；存档和回放应记录数据指纹，避免加载缺失 mod 的旧局时静默错乱。
-- 当前不接创意工坊；未来分发平台不得改变本地 manifest 契约。
+- 只接受 manifest v2；v1 不迁移、不保留兼容接口。
+- 本地 Gear Mod 安装即开放，不写 Meta，也不能声明解锁规则。
+- 活动 Run / Replay 不支持热重载。
 
 ## 相关文档
 
 - `docs/游戏设计文档.md` §9.21
-- `docs/决策记录.md` ADR #83
 - `docs/代码/data_loader.md`
-- `client/data/README.md`
+- `docs/代码/audio_manager.md`
+- `docs/代码/localization.md`
 - `docs/测试策略.md`

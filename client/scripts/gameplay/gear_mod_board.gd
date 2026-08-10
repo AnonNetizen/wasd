@@ -4,12 +4,11 @@ class_name GearModBoard
 extends RefCounted
 
 
-const GEAR_MOD_GRID_BEHAVIORS := preload(
-	"res://scripts/contracts/gear_mod_grid_behaviors.gd"
+const GEAR_MOD_BOARD_RULES := preload(
+	"res://scripts/contracts/gear_mod_board_rules.gd"
 )
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
-const GEAR_MOD_MAP_BEHAVIORS := preload(
-	"res://scripts/contracts/gear_mod_map_behaviors.gd"
+const GEAR_MOD_COMPONENT_TYPES := preload(
+	"res://scripts/contracts/gear_mod_component_types.gd"
 )
 const GEAR_MOD_PLACEMENT_OUTCOMES := preload(
 	"res://scripts/contracts/gear_mod_placement_outcomes.gd"
@@ -32,7 +31,6 @@ var _unlock_sources: Dictionary = {}
 var _definitions_by_id: Dictionary = {}
 var _placements_by_instance: Dictionary = {}
 var _instance_by_cell: Dictionary = {}
-var _map_behavior_states: Dictionary = {}
 var _configured: bool = false
 
 
@@ -85,7 +83,6 @@ func configure(
 	_definitions_by_id = definitions_by_id
 	_placements_by_instance.clear()
 	_instance_by_cell.clear()
-	_map_behavior_states.clear()
 	_configured = true
 	return true
 
@@ -99,7 +96,6 @@ func snapshot() -> Dictionary:
 		"unlocked_cells": _serialize_cells(_sorted_dictionary_cells(_unlocked)),
 		"unlock_sources": _unlock_source_snapshots(),
 		"placements": placements(),
-		"map_behavior_states": _map_behavior_state_snapshots(),
 	}
 
 
@@ -110,7 +106,6 @@ func restore_snapshot(saved: Dictionary) -> bool:
 			"unlocked_cells",
 			"unlock_sources",
 			"placements",
-			"map_behavior_states",
 		]
 	):
 		return false
@@ -195,68 +190,10 @@ func restore_snapshot(saved: Dictionary) -> bool:
 	if not _placements_connect_to_core(restored_placements):
 		return false
 
-	var restored_map_states: Dictionary = {}
-	var raw_states: Variant = saved.get("map_behavior_states")
-	if not raw_states is Array:
-		return false
-	for raw_state: Variant in raw_states as Array:
-		if not raw_state is Dictionary:
-			return false
-		var state_snapshot: Dictionary = raw_state as Dictionary
-		if not _has_exact_keys(
-			state_snapshot,
-			["instance_id", "elapsed", "pending_plan"]
-		):
-			return false
-		var instance_id: int = _positive_instance_id_or_invalid(
-			state_snapshot.get("instance_id")
-		)
-		if (
-			instance_id <= 0
-			or restored_map_states.has(instance_id)
-			or not restored_placements.has(instance_id)
-		):
-			return false
-		var placement: Dictionary = restored_placements[instance_id] as Dictionary
-		var definition: Dictionary = _definitions_by_id[
-			String(placement.get("mod_id", ""))
-		] as Dictionary
-		if String(definition.get("kind", "")) != GEAR_MOD_KINDS.MAP:
-			return false
-		var placement_cell := Vector2i(
-			int(placement.get("x", -1)),
-			int(placement.get("y", -1))
-		)
-		var normalized_states: Array[Dictionary] = []
-		if not _normalize_map_behavior_state(
-			{
-				"elapsed": state_snapshot.get("elapsed"),
-				"pending_plan": state_snapshot.get("pending_plan"),
-			},
-			normalized_states,
-			placement_cell
-		):
-			return false
-		restored_map_states[instance_id] = normalized_states[0]
-	var expected_map_instances: Dictionary = {}
-	for raw_instance_id: Variant in restored_placements.keys():
-		var placement: Dictionary = restored_placements[raw_instance_id] as Dictionary
-		var definition: Dictionary = _definitions_by_id[
-			String(placement.get("mod_id", ""))
-		] as Dictionary
-		if String(definition.get("kind", "")) == GEAR_MOD_KINDS.MAP:
-			expected_map_instances[int(raw_instance_id)] = true
-	if restored_map_states.size() != expected_map_instances.size():
-		return false
-	for raw_instance_id: Variant in expected_map_instances.keys():
-		if not restored_map_states.has(raw_instance_id):
-			return false
-
 	_unlocked = restored_unlocked
 	_unlock_sources = restored_sources
 	_placements_by_instance = restored_placements
 	_instance_by_cell = restored_instances_by_cell
-	_map_behavior_states = restored_map_states
 	return true
 
 
@@ -292,8 +229,6 @@ func request_placement(
 		or not _is_legal_new_cell(target)
 	):
 		return _cancelled_result()
-	var definition: Dictionary = _definitions_by_id[mod_id] as Dictionary
-	var kind: String = String(definition.get("kind", ""))
 	var placement: Dictionary = {
 		"instance_id": instance_id,
 		"mod_id": mod_id,
@@ -302,8 +237,6 @@ func request_placement(
 	}
 	_placements_by_instance[instance_id] = placement
 	_instance_by_cell[target] = instance_id
-	if kind == GEAR_MOD_KINDS.MAP:
-		_map_behavior_states[instance_id] = _default_map_behavior_state()
 	return {
 		"ok": true,
 		"outcome": GEAR_MOD_PLACEMENT_OUTCOMES.PLACED,
@@ -391,11 +324,6 @@ func request_relocation(
 	_instance_by_cell.erase(old_cell)
 	_instance_by_cell[target] = instance_id
 	_placements_by_instance[instance_id] = candidate
-	var definition: Dictionary = _definitions_by_id[
-		String(candidate.get("mod_id", ""))
-	] as Dictionary
-	if String(definition.get("kind", "")) == GEAR_MOD_KINDS.MAP:
-		_map_behavior_states[instance_id] = _default_map_behavior_state()
 	return {
 		"ok": true,
 		"outcome": GEAR_MOD_PLACEMENT_OUTCOMES.PLACED,
@@ -403,96 +331,35 @@ func request_relocation(
 	}
 
 
-func set_map_behavior_state(instance_id: int, state: Dictionary) -> bool:
-	if not _map_behavior_states.has(instance_id):
-		return false
-	var placement: Dictionary = _placements_by_instance.get(
-		instance_id,
-		{}
-	) as Dictionary
-	var placement_cell := Vector2i(
-		int(placement.get("x", -1)),
-		int(placement.get("y", -1))
-	)
-	var normalized: Array[Dictionary] = []
-	if not _normalize_map_behavior_state(
-		state,
-		normalized,
-		placement_cell
-	):
-		return false
-	_map_behavior_states[instance_id] = normalized[0]
-	return true
-
-
-func map_behavior_state(instance_id: int) -> Dictionary:
-	if not _map_behavior_states.has(instance_id):
-		return {}
-	return (_map_behavior_states[instance_id] as Dictionary).duplicate(true)
-
-
-func map_behavior_snapshots() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for placement: Dictionary in placements():
-		var instance_id: int = int(placement.get("instance_id", 0))
-		var mod_id: String = String(placement.get("mod_id", ""))
-		var definition: Dictionary = _definitions_by_id[mod_id] as Dictionary
-		if String(definition.get("kind", "")) != GEAR_MOD_KINDS.MAP:
-			continue
-		result.append({
-			"instance_id": instance_id,
-			"mod_id": mod_id,
-			"x": int(placement.get("x", -1)),
-			"y": int(placement.get("y", -1)),
-			"behavior": (
-				definition.get("map_behavior", {}) as Dictionary
-			).duplicate(true),
-			"state": map_behavior_state(instance_id),
-		})
-	return result
-
-
 func _is_valid_definition(definition: Dictionary) -> bool:
 	var mod_id: String = String(definition.get("id", "")).strip_edges()
-	var kind: String = String(definition.get("kind", ""))
-	if mod_id.is_empty() or not GEAR_MOD_KINDS.VALUES.has(kind):
+	var raw_components: Variant = definition.get("components")
+	if mod_id.is_empty() or not raw_components is Array or (raw_components as Array).is_empty():
 		return false
-	if kind == GEAR_MOD_KINDS.EFFECT:
-		return (
-			definition.get("slot") is String
-			and not String(definition.get("slot", "")).is_empty()
-			and definition.get("modifiers") is Array
-			and not (definition.get("modifiers") as Array).is_empty()
-			and not definition.has("map_behavior")
-			and not definition.has("grid_behavior")
-		)
-	if kind == GEAR_MOD_KINDS.MAP:
+	var component_ids: Dictionary = {}
+	for raw_component: Variant in raw_components as Array:
+		if not raw_component is Dictionary:
+			return false
+		var component: Dictionary = raw_component as Dictionary
+		var component_id: String = String(component.get("component_id", "")).strip_edges()
+		var component_type: String = String(component.get("type", ""))
 		if (
-			definition.has("slot")
-			or definition.has("modifiers")
-			or definition.has("grid_behavior")
-			or not definition.get("map_behavior") is Dictionary
+			component_id.is_empty()
+			or component_ids.has(component_id)
+			or not GEAR_MOD_COMPONENT_TYPES.VALUES.has(component_type)
 		):
 			return false
-		var map_behavior: Dictionary = definition.get("map_behavior") as Dictionary
-		return (
-			String(map_behavior.get("id", ""))
-			== GEAR_MOD_MAP_BEHAVIORS.PERIODIC_ENEMY_SPAWN
-		)
-	if kind == GEAR_MOD_KINDS.GRID:
-		if (
-			definition.has("slot")
-			or definition.has("modifiers")
-			or definition.has("map_behavior")
-			or not definition.get("grid_behavior") is Dictionary
-		):
-			return false
-		var grid_behavior: Dictionary = definition.get("grid_behavior") as Dictionary
-		return (
-			String(grid_behavior.get("id", ""))
-			== GEAR_MOD_GRID_BEHAVIORS.OCCUPY_ONLY
-		)
-	return false
+		component_ids[component_id] = true
+		if component_type == GEAR_MOD_COMPONENT_TYPES.MODIFIER:
+			if not component.get("slot") is String or not component.get("modifiers") is Array:
+				return false
+		elif component_type == GEAR_MOD_COMPONENT_TYPES.PROGRAM:
+			if not component.get("program") is Dictionary:
+				return false
+		elif component_type == GEAR_MOD_COMPONENT_TYPES.BOARD_RULE:
+			if String(component.get("rule_id", "")) != GEAR_MOD_BOARD_RULES.OCCUPY_ONLY:
+				return false
+	return true
 
 
 func _is_legal_new_cell(cell: Vector2i) -> bool:
@@ -541,71 +408,6 @@ func _placements_connect_to_core(candidate_placements: Dictionary) -> bool:
 	return reached.size() == occupied.size()
 
 
-func _normalize_map_behavior_state(
-	state: Dictionary,
-	output: Array[Dictionary],
-	expected_module_coord: Vector2i
-) -> bool:
-	if not _has_exact_keys(state, ["elapsed", "pending_plan"]):
-		return false
-	var raw_elapsed: Variant = state.get("elapsed")
-	if (
-		not raw_elapsed is int
-		and not raw_elapsed is float
-	):
-		return false
-	var elapsed: float = float(raw_elapsed)
-	if elapsed < 0.0 or not is_finite(elapsed):
-		return false
-	var raw_plan: Variant = state.get("pending_plan")
-	if not raw_plan is Dictionary:
-		return false
-	var pending_plan: Dictionary = raw_plan as Dictionary
-	var normalized_plan: Dictionary = {}
-	if not pending_plan.is_empty():
-		if not _has_exact_keys(
-			pending_plan,
-			["enemy_id", "position", "module_coord"]
-		):
-			return false
-		var enemy_id: String = String(pending_plan.get("enemy_id", "")).strip_edges()
-		var position: Dictionary = _serialized_position_or_empty(
-			pending_plan.get("position")
-		)
-		var module_coord: Dictionary = _serialized_integer_coordinate_or_empty(
-			pending_plan.get("module_coord")
-		)
-		var normalized_module_coord: Vector2i = _board_cell_or_invalid(
-			module_coord,
-			_width,
-			_height
-		)
-		if (
-			enemy_id.is_empty()
-			or position.is_empty()
-			or normalized_module_coord == INVALID_CELL
-			or normalized_module_coord != expected_module_coord
-		):
-			return false
-		normalized_plan = {
-			"enemy_id": enemy_id,
-			"position": position,
-			"module_coord": {
-				"x": normalized_module_coord.x,
-				"y": normalized_module_coord.y,
-			},
-		}
-	output.append({
-		"elapsed": elapsed,
-		"pending_plan": normalized_plan,
-	})
-	return true
-
-
-func _default_map_behavior_state() -> Dictionary:
-	return {"elapsed": 0.0, "pending_plan": {}}
-
-
 func _unlock_source_snapshots() -> Array[Dictionary]:
 	var source_ids: Array[String] = []
 	for raw_source_id: Variant in _unlock_sources.keys():
@@ -616,24 +418,6 @@ func _unlock_source_snapshots() -> Array[Dictionary]:
 		result.append({
 			"source_id": source_id,
 			"cells": _serialize_cells(_copy_cell_array(_unlock_sources[source_id])),
-		})
-	return result
-
-
-func _map_behavior_state_snapshots() -> Array[Dictionary]:
-	var instance_ids: Array[int] = []
-	for raw_instance_id: Variant in _map_behavior_states.keys():
-		instance_ids.append(int(raw_instance_id))
-	instance_ids.sort()
-	var result: Array[Dictionary] = []
-	for instance_id: int in instance_ids:
-		var state: Dictionary = _map_behavior_states[instance_id] as Dictionary
-		result.append({
-			"instance_id": instance_id,
-			"elapsed": float(state.get("elapsed", 0.0)),
-			"pending_plan": (
-				state.get("pending_plan", {}) as Dictionary
-			).duplicate(true),
 		})
 	return result
 

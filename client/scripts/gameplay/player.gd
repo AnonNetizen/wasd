@@ -198,6 +198,19 @@ func current_overshield() -> float:
 	return _overshield
 
 
+func heal(amount: float) -> float:
+	var requested_amount: float = maxf(amount, 0.0)
+	if requested_amount <= 0.0 or not is_alive():
+		return 0.0
+	var previous_life: float = _life_points
+	_life_points = minf(_life_points + requested_amount, _max_life)
+	var applied_amount: float = _life_points - previous_life
+	if applied_amount > 0.0:
+		life_changed.emit(_life_points, _max_life)
+		_refresh_visuals()
+	return applied_amount
+
+
 func try_sacrifice_combined_health(
 	amount: float,
 	minimum_life: float = 1.0
@@ -601,6 +614,18 @@ func add_overshield(amount: float) -> float:
 	if applied_amount <= 0.0:
 		return 0.0
 	_emit_shield_changed()
+	return applied_amount
+
+
+func add_shield(amount: float) -> float:
+	var requested_amount: float = maxf(amount, 0.0)
+	if requested_amount <= 0.0 or not is_alive():
+		return 0.0
+	var previous_shield: float = _current_shield
+	_current_shield = minf(_current_shield + requested_amount, _max_shield)
+	var applied_amount: float = _current_shield - previous_shield
+	if applied_amount > 0.0:
+		_emit_shield_changed()
 	return applied_amount
 
 

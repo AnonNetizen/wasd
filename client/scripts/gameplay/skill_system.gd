@@ -14,9 +14,16 @@ signal resource_changed(
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
-const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const EFFECT_EXECUTION_GATEWAY_SCRIPT := preload(
+	"res://scripts/gameplay/effects/effect_execution_gateway.gd"
+)
+const EFFECT_PRIMITIVE_REGISTRY_SCRIPT := preload(
+	"res://scripts/gameplay/effects/effect_primitive_registry.gd"
+)
+const GAMEPLAY_EFFECT_RUNTIME_SCRIPT := preload(
+	"res://scripts/gameplay/effects/gameplay_effect_runtime.gd"
+)
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
-const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SLOTS := preload("res://scripts/contracts/skill_slots.gd")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
@@ -42,6 +49,8 @@ var _combat_gate: Callable = Callable()
 var _cooldowns: Dictionary = {}
 var _debug_free_casts: bool = false
 var _deployables_by_slot: Dictionary = {}
+var _effect_gateway: EffectExecutionGateway = null
+var _effect_runtime: GameplayEffectRuntime = null
 var _owned_tag_counts: Dictionary = {}
 var _resources: Dictionary = {}
 var _skills: Array[Dictionary] = []
@@ -121,10 +130,30 @@ func configure(
 				"current": maximum_energy,
 				"regen_per_second": 0.0,
 			}
+	_register_skill_programs()
 
 
 func configure_combat_gate(combat_gate: Callable) -> void:
 	_combat_gate = combat_gate
+
+
+func configure_effect_runtime(
+	runtime: GameplayEffectRuntime,
+	gateway: EffectExecutionGateway
+) -> void:
+	_effect_runtime = runtime
+	_effect_gateway = gateway
+	_effect_gateway.set_callback(
+		EffectPrimitiveRegistry.ACTION_APPLY_STATUS,
+		Callable(self, "_execute_apply_status")
+	)
+	_register_skill_programs()
+
+
+func track_effect_deployable(owner_id: String, deployable: Node) -> void:
+	if owner_id.is_empty() or deployable == null:
+		return
+	_deployables_by_slot[owner_id] = deployable
 
 
 func cast_primary_skill() -> Dictionary:
@@ -175,7 +204,7 @@ func cast_slot(slot_id: String) -> Dictionary:
 		"granted_tags"
 	)
 	_add_transient_tags(transient_tags)
-	var applied_targets: int = _apply_effects(skill, targets, slot_id)
+	var applied_targets: int = _execute_skill_programs(skill, targets, slot_id)
 	_remove_transient_tags(transient_tags)
 	_cooldowns[slot_id] = (
 		0.0
@@ -299,11 +328,29 @@ func remove_owned_tag(tag_id: String) -> bool:
 
 
 func has_owned_tag(tag_id: String) -> bool:
-	return int(_owned_tag_counts.get(tag_id, 0)) > 0
+	return (
+		int(_owned_tag_counts.get(tag_id, 0)) > 0
+		or (
+			_caster != null
+			and is_instance_valid(_caster)
+			and _caster.has_method("has_owned_tag")
+			and bool(_caster.call("has_owned_tag", tag_id))
+		)
+	)
 
 
 func owned_tags() -> Array[String]:
-	return _sorted_string_keys(_owned_tag_counts)
+	var tags: Array[String] = _sorted_string_keys(_owned_tag_counts)
+	if (
+		_caster != null
+		and is_instance_valid(_caster)
+		and _caster.has_method("owned_tags")
+	):
+		for tag_id: String in _string_array(_caster.call("owned_tags")):
+			if not tags.has(tag_id):
+				tags.append(tag_id)
+	tags.sort()
+	return tags
 
 
 func apply_status_effect(status_effect: Variant) -> Dictionary:
@@ -681,190 +728,127 @@ func _sort_targets_by_distance(left: Node2D, right: Node2D) -> bool:
 	return left_distance < right_distance
 
 
-func _apply_effects(
+func _execute_skill_programs(
 	skill: Dictionary,
 	targets: Array[Node],
 	slot_id: String
 ) -> int:
-	var applied_targets: int = 0
-	for effect: Dictionary in _typed_dictionary_array(
-		skill.get("effects", [])
+	_ensure_effect_runtime()
+	var programs: Array[Dictionary] = _scaled_programs(skill)
+	_effect_runtime.register_source(
+		"skill",
+		String(skill.get("id", "")),
+		slot_id,
+		0,
+		programs,
+		{"source_actor": _caster, "source_team": TEAM_PLAYER}
+	)
+	var result: Dictionary = _effect_runtime.emit_event(
+		EffectPrimitiveRegistry.TRIGGER_SKILL_ACTIVATED,
+		{
+			"effect_source_key": _effect_runtime.source_key(
+				"skill",
+				String(skill.get("id", "")),
+				slot_id,
+				0
+			),
+			"source_actor": _caster,
+			"source_team": TEAM_PLAYER,
+			"target_team": TEAM_ENEMY,
+			"targets": targets,
+			"skill_id": String(skill.get("id", "")),
+			"skill_slot": slot_id,
+		}
+	)
+	return int(result.get("applied_targets", 0))
+
+
+func _scaled_programs(skill: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for raw_program: Dictionary in _typed_dictionary_array(
+		skill.get("programs", [])
 	):
-		var effect_id: String = String(effect.get("effect", ""))
-		if effect_id == SKILL_EFFECTS.SKILL_EFFECT_DAMAGE:
-			applied_targets += _apply_damage_effect(
-				skill,
-				effect,
-				targets
-			)
-		elif effect_id == SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS:
-			applied_targets += _apply_status_effect(
-				skill,
-				effect,
-				targets
-			)
-		elif effect_id == SKILL_EFFECTS.SKILL_EFFECT_WEAPON_MODIFIERS:
-			applied_targets += _apply_weapon_modifiers_effect(
-				skill,
-				effect,
-				targets,
-				slot_id
-			)
-		elif effect_id == SKILL_EFFECTS.SKILL_EFFECT_ACTOR_MODIFIERS:
-			applied_targets += _apply_actor_modifiers_effect(
-				skill,
-				effect,
-				targets,
-				slot_id
-			)
-		elif effect_id == SKILL_EFFECTS.SKILL_EFFECT_DEPLOY_BARRIER:
-			applied_targets += _apply_deploy_barrier_effect(
-				skill,
-				effect,
-				slot_id
-			)
-	return applied_targets
+		var program: Dictionary = raw_program.duplicate(true)
+		var actions: Array[Dictionary] = []
+		for raw_action: Dictionary in _typed_dictionary_array(
+			program.get("actions", [])
+		):
+			var action: Dictionary = raw_action.duplicate(true)
+			action["params"] = _scaled_action_params(skill, action)
+			actions.append(action)
+		program["actions"] = actions
+		result.append(program)
+	return result
 
 
-func _apply_damage_effect(
-	skill: Dictionary,
-	effect: Dictionary,
-	targets: Array[Node]
-) -> int:
-	var params: Dictionary = _scaled_effect_params(skill, effect)
-	var amount: float = maxf(float(params.get("amount", 0.0)), 0.0)
-	var element_id: String = String(params.get("element_id", ""))
-	if amount <= 0.0 or element_id.is_empty():
-		return 0
-
-	var applied_targets: int = 0
-	for target: Node in targets:
-		var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-			amount,
-			element_id,
-			_caster,
-			target,
-			TEAM_PLAYER,
-			TEAM_ENEMY
+func _register_skill_programs() -> void:
+	if _effect_runtime == null:
+		return
+	_effect_runtime.unregister_source_type("skill")
+	for skill: Dictionary in _skills:
+		_effect_runtime.register_source(
+			"skill",
+			String(skill.get("id", "")),
+			String(skill.get("slot_id", "")),
+			0,
+			_scaled_programs(skill),
+			{"source_actor": _caster, "source_team": TEAM_PLAYER}
 		)
-		var result: Dictionary = Combat.apply_damage(target, info)
-		if bool(result.get("applied", false)):
-			applied_targets += 1
-	return applied_targets
 
 
-func _apply_status_effect(
-	skill: Dictionary,
-	effect: Dictionary,
-	targets: Array[Node]
-) -> int:
-	var params: Dictionary = _scaled_effect_params(skill, effect)
+func _ensure_effect_runtime() -> void:
+	if _effect_runtime != null and _effect_gateway != null:
+		return
+	_effect_gateway = EFFECT_EXECUTION_GATEWAY_SCRIPT.new()
+	_effect_gateway.configure({
+		EffectPrimitiveRegistry.ACTION_APPLY_STATUS: Callable(
+			self,
+			"_execute_apply_status"
+		),
+		EffectPrimitiveRegistry.ACTION_SPAWN_BARRIER: Callable(
+			self,
+			"_execute_spawn_barrier"
+		),
+	})
+	_effect_runtime = GAMEPLAY_EFFECT_RUNTIME_SCRIPT.new()
+	_effect_runtime.configure(EFFECT_PRIMITIVE_REGISTRY_SCRIPT.new(), _effect_gateway)
+	_register_skill_programs()
+
+
+func _execute_apply_status(
+	params: Dictionary,
+	context: Dictionary
+) -> Dictionary:
 	var status_id: String = String(params.get("status", ""))
 	if status_id.is_empty():
-		return 0
-
+		return {"ok": false, "applied_targets": 0}
 	var applied_targets: int = 0
-	for target: Node in targets:
+	for raw_target: Variant in _array_or_empty(context.get("targets", [])):
+		if not raw_target is Node or not is_instance_valid(raw_target):
+			continue
+		var target: Node = raw_target as Node
 		var status_effect: Variant = STATUS_EFFECT_SCRIPT.new()
 		status_effect.call("setup", status_id, params, _caster)
-		var result: Dictionary = _apply_status_to_target(
-			target,
-			status_effect
-		)
+		var result: Dictionary = {}
+		if target.has_method("apply_status_effect"):
+			result = target.call("apply_status_effect", status_effect) as Dictionary
+		elif target == _caster:
+			result = apply_status_effect(status_effect)
 		if bool(result.get("applied", false)):
 			applied_targets += 1
-	return applied_targets
+	return {"ok": applied_targets > 0, "applied_targets": applied_targets}
 
 
-func _apply_weapon_modifiers_effect(
-	skill: Dictionary,
-	effect: Dictionary,
-	targets: Array[Node],
-	slot_id: String
-) -> int:
-	var params: Dictionary = _scaled_effect_params(skill, effect)
-	return _apply_weapon_modifiers_to_targets(params, targets, slot_id)
-
-
-func _apply_actor_modifiers_effect(
-	skill: Dictionary,
-	effect: Dictionary,
-	targets: Array[Node],
-	slot_id: String
-) -> int:
-	var params: Dictionary = _scaled_effect_params(skill, effect)
-	var duration: float = maxf(float(params.get("duration", 0.0)), 0.0)
-	var modifiers: Array = _array_or_empty(params.get("modifiers", []))
-	if duration <= 0.0 or modifiers.is_empty():
-		return 0
-	var source_id: String = "skill:%s" % slot_id
-	var applied_targets: int = 0
-	for target: Node in targets:
-		var applied_to_target: bool = false
-		if target.has_method("apply_temporary_modifiers"):
-			target.call(
-				"apply_temporary_modifiers",
-				modifiers,
-				duration,
-				source_id
-			)
-			applied_to_target = true
-		var weapon_system: Node = target.get_node_or_null("WeaponSystem")
-		if (
-			weapon_system != null
-			and weapon_system.has_method("apply_temporary_modifiers")
-		):
-			weapon_system.call(
-				"apply_temporary_modifiers",
-				modifiers,
-				duration,
-				source_id
-			)
-			applied_to_target = true
-		if applied_to_target:
-			applied_targets += 1
-	return applied_targets
-
-
-func _apply_weapon_modifiers_to_targets(
+func _execute_spawn_barrier(
 	params: Dictionary,
-	targets: Array[Node],
-	slot_id: String
-) -> int:
-	var duration: float = maxf(float(params.get("duration", 0.0)), 0.0)
-	var modifiers: Array = _array_or_empty(params.get("modifiers", []))
-	if duration <= 0.0 or modifiers.is_empty():
-		return 0
-	var applied_targets: int = 0
-	for target: Node in targets:
-		var weapon_system: Node = target.get_node_or_null("WeaponSystem")
-		if (
-			weapon_system == null
-			or not weapon_system.has_method("apply_temporary_modifiers")
-		):
-			continue
-		weapon_system.call(
-			"apply_temporary_modifiers",
-			modifiers,
-			duration,
-			"skill:%s" % slot_id
-		)
-		applied_targets += 1
-	return applied_targets
-
-
-func _apply_deploy_barrier_effect(
-	skill: Dictionary,
-	effect: Dictionary,
-	slot_id: String
-) -> int:
+	context: Dictionary
+) -> Dictionary:
 	if _caster == null or not is_instance_valid(_caster):
-		return 0
-	var params: Dictionary = _scaled_effect_params(skill, effect)
+		return {"ok": false, "applied_targets": 0}
 	var max_health: float = maxf(float(params.get("hp", 0.0)), 0.0)
 	var radius: float = maxf(float(params.get("radius", 0.0)), 0.0)
 	if max_health <= 0.0 or radius <= 0.0:
-		return 0
+		return {"ok": false, "applied_targets": 0}
 	# The initial barrier skill is a global singleton for its caster. Keeping
 	# ownership by slot in the snapshot still lets a later duplicate slot become
 	# the new owner without leaving two barriers active.
@@ -874,13 +858,14 @@ func _apply_deploy_barrier_effect(
 	)
 	var pooled: bool = PoolManager.has_pool(pool_id)
 	if not pooled:
-		return 0
+		return {"ok": false, "applied_targets": 0}
 	var barrier: Node2D = null
 	var pooled_node: Node = PoolManager.acquire(pool_id)
 	if pooled_node is Node2D:
 		barrier = pooled_node as Node2D
 	if barrier == null or not barrier.has_method("configure"):
-		return 0
+		return {"ok": false, "applied_targets": 0}
+	var slot_id: String = String(context.get("skill_slot", ""))
 	_reparent_to_active_world(barrier)
 	barrier.global_position = _caster.global_position
 	barrier.call(
@@ -892,16 +877,16 @@ func _apply_deploy_barrier_effect(
 		pooled
 	)
 	_deployables_by_slot[slot_id] = barrier
-	return 1
+	return {"ok": true, "applied_targets": 1}
 
 
-func _scaled_effect_params(
+func _scaled_action_params(
 	skill: Dictionary,
-	effect: Dictionary
+	action: Dictionary
 ) -> Dictionary:
-	return SKILL_VALUE_RESOLVER.scaled_effect_params(
+	return SKILL_VALUE_RESOLVER.scaled_action_params(
 		skill,
-		effect,
+		action,
 		_ability_stats()
 	)
 
@@ -931,17 +916,6 @@ func _ability_stats() -> Dictionary:
 		STATS.ABILITY_EFFICIENCY:
 			_ability_stat_value(STATS.ABILITY_EFFICIENCY),
 	}
-
-
-func _apply_status_to_target(
-	target: Node,
-	status_effect: Variant
-) -> Dictionary:
-	if target == _caster:
-		return apply_status_effect(status_effect)
-	if target != null and target.has_method("apply_status_effect"):
-		return target.call("apply_status_effect", status_effect) as Dictionary
-	return _result(false, "status_target_unavailable")
 
 
 func _is_active_world_entity(node: Node) -> bool:

@@ -1,5 +1,5 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "board": {
     "width": 7,
     "height": 7,
@@ -80,20 +80,26 @@
       ]
     }
   ],
+  "reward_pool_contributions": [],
   "mods": [
     {
       "id": "gear_mod_weapon_damage_test",
       "name_key": "gear_mod_weapon_damage_test_name",
       "desc_key": "gear_mod_weapon_damage_test_desc",
       "default_unlocked": true,
-      "kind": "effect",
-      "slot": "weapon",
       "rarity": "common",
-      "modifiers": [
+      "components": [
         {
-          "stat": "damage",
-          "type": "mult",
-          "value": 1.2
+          "component_id": "weapon_damage_modifier",
+          "type": "modifier",
+          "slot": "weapon",
+          "modifiers": [
+            {
+              "stat": "damage",
+              "type": "mult",
+              "value": 1.2
+            }
+          ]
         }
       ]
     },
@@ -102,14 +108,19 @@
       "name_key": "gear_mod_weapon_recoil_damper_name",
       "desc_key": "gear_mod_weapon_recoil_damper_desc",
       "default_unlocked": true,
-      "kind": "effect",
-      "slot": "weapon",
       "rarity": "common",
-      "modifiers": [
+      "components": [
         {
-          "stat": "recoil",
-          "type": "mult",
-          "value": 0.8
+          "component_id": "weapon_recoil_modifier",
+          "type": "modifier",
+          "slot": "weapon",
+          "modifiers": [
+            {
+              "stat": "recoil",
+              "type": "mult",
+              "value": 0.8
+            }
+          ]
         }
       ]
     },
@@ -118,14 +129,19 @@
       "name_key": "gear_mod_weapon_spread_stabilizer_name",
       "desc_key": "gear_mod_weapon_spread_stabilizer_desc",
       "default_unlocked": true,
-      "kind": "effect",
-      "slot": "weapon",
       "rarity": "common",
-      "modifiers": [
+      "components": [
         {
-          "stat": "spread_angle_max",
-          "type": "mult",
-          "value": 0.8
+          "component_id": "weapon_spread_modifier",
+          "type": "modifier",
+          "slot": "weapon",
+          "modifiers": [
+            {
+              "stat": "spread_angle_max",
+              "type": "mult",
+              "value": 0.8
+            }
+          ]
         }
       ]
     },
@@ -134,26 +150,52 @@
       "name_key": "gear_mod_map_spawner_cage_name",
       "desc_key": "gear_mod_map_spawner_cage_desc",
       "default_unlocked": true,
-      "kind": "map",
       "rarity": "common",
-      "map_behavior": {
-        "id": "periodic_enemy_spawn",
-        "interval_seconds": 10.0,
-        "reset_on_module_exit": true,
-        "current_layer_only": true,
-        "normal_rewards": true
-      }
+      "components": [
+        {
+          "component_id": "cage_spawn_program",
+          "type": "program",
+          "program": {
+            "program_id": "spawn_enemy_in_current_module",
+            "trigger": "interval",
+            "interval_seconds": 10.0,
+            "conditions": [
+              {
+                "condition": "module_relation",
+                "params": {
+                  "value": "source_is_current"
+                }
+              }
+            ],
+            "actions": [
+              {
+                "action": "spawn_enemy",
+                "params": {
+                  "normal_rewards": true,
+                  "current_layer_only": true
+                }
+              }
+            ],
+            "proc_chance": 1.0,
+            "internal_cooldown": 0.0,
+            "reset_on_condition_fail": true
+          }
+        }
+      ]
     },
     {
       "id": "gear_mod_grid_rock",
       "name_key": "gear_mod_grid_rock_name",
       "desc_key": "gear_mod_grid_rock_desc",
       "default_unlocked": true,
-      "kind": "grid",
       "rarity": "common",
-      "grid_behavior": {
-        "id": "occupy_only"
-      }
+      "components": [
+        {
+          "component_id": "occupy_board_cell",
+          "type": "board_rule",
+          "rule_id": "occupy_only"
+        }
+      ]
     }
   ]
 }

@@ -62,6 +62,13 @@ ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD
 ui_title_subtitle,集体无意识,Collective Unconscious
 ui_codex,图鉴,Codex
+ui_mod_panel_button,本地 Mod,Local Mods
+ui_mod_panel_title,本地 Mod 状态,Local Mod Status
+ui_mod_panel_reload,重新加载,Reload
+ui_mod_panel_empty,未发现本地 Mod 包。,No local Mod packages found.
+ui_mod_panel_status_enabled,已启用,Enabled
+ui_mod_panel_status_disabled,已禁用,Disabled
+ui_mod_panel_status_invalid,无效,Invalid
 ui_codex_title,意识图鉴,Mind Codex
 ui_codex_category_character,智能碎片,Intelligence Fragments
 ui_codex_category_gear_mod,装备 Mod,Gear Mods
@@ -90,6 +97,7 @@ ui_loading,正在加载…,Loading…
 ui_loading_failed,加载失败，请重试。,Loading failed. Please try again.
 ui_continue_run,继续游戏,Continue Run
 ui_run_save_unavailable,续局存档已损坏，已重置本局。,The saved run was corrupted and has been reset.
+ui_run_save_environment_incompatible,当前局由旧版本或不同的本地 Mod 环境创建，文件已保留但不能继续。,This Run was created by an older version or a different local Mod environment. The file was preserved but cannot be continued.
 ui_run_save_legacy_incompatible,旧版本续局与当前意识层不兼容，已仅重置本局；局外进度不受影响。,The legacy run is incompatible with the current Mind Layer and has been reset; meta progression is unchanged.
 ui_resume,继续,Resume
 ui_pause,暂停,Pause
@@ -179,9 +187,9 @@ ui_gear_mod_board_core_type,核心 · 角色被动,Core · Hero Passive
 ui_gear_mod_board_core_chain_hint,核心只显示现有角色被动；效果仍由原有被动链执行，不会重复应用。,The core only represents the existing hero passive; the original passive chain remains authoritative and is not applied twice.
 ui_gear_mod_board_empty,空格,Empty Cell
 ui_gear_mod_board_coord,坐标 ({x}·{y}),Cell ({x}·{y})
-ui_gear_mod_kind_effect,效果 Mod,Effect Mod
-ui_gear_mod_kind_map,地图 Mod,Map Mod
-ui_gear_mod_kind_grid,格子 Mod,Grid Mod
+ui_gear_mod_component_modifier,属性组件,Modifier Component
+ui_gear_mod_component_program,效果程序,Effect Program
+ui_gear_mod_component_board_rule,棋盘规则,Board Rule
 ui_gear_mod_board_behavior_active,在对应地图模块内触发声明式地图行为。,Activates its declared map behavior in the matching map module.
 ui_gear_mod_board_occupy_only,仅占用此格并参与四邻连接。,Only occupies this cell and participates in orthogonal connections.
 ui_gear_mod_board_place_legal,这个格子可以放置。确认后立即生效。,This cell is a valid placement. Confirm to apply it immediately.
@@ -282,8 +290,6 @@ enemy_spitter_name,突击枪手,Assault Gunner
 enemy_spitter_desc,在远处游走，以短促点射压制清理智能。,A ranged Mindform that repositions and suppresses Cleanup Intelligence with short bursts.
 hazard_spike_trap_name,尖刺陷阱,Spike Trap
 hazard_fea_12_pulse_name,FEA-12脉冲阵列,FEA-12 Pulse Array
-relic_sharp_rounds_name,锋利弹头,Sharp Rounds
-relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
 item_blink_burst_name,闪冲,Blink Burst
 item_blink_burst_desc,击退附近心象,Knock back nearby Mindforms
 item_pocket_bomb_name,袖珍炸弹,Pocket Bomb
@@ -292,13 +298,13 @@ skill_overdrive_rounds_name,过载弹流,Overdrive Rounds
 skill_overdrive_rounds_desc,消耗能量，短时间提高射速和弹速,Spend energy to briefly increase fire rate and bullet speed
 skill_resource_mana_name,魔法,Mana
 skill_deploy_projectile_barrier_name,静域屏障,Quietude Barrier
-skill_deploy_projectile_barrier_desc,消耗 {cost_energy} 能量部署半径 {effect_1_radius}、生命 {effect_1_hp} 的屏障；同时只能存在一个，重施会替换旧屏障,"Spend {cost_energy} Energy to deploy a {effect_1_radius}-radius barrier with {effect_1_hp} HP. Only one may exist; recasting replaces it."
+skill_deploy_projectile_barrier_desc,消耗 {cost_energy} 能量部署半径 {program_1_action_1_radius}、生命 {program_1_action_1_hp} 的屏障；同时只能存在一个，重施会替换旧屏障,"Spend {cost_energy} Energy to deploy a {program_1_action_1_radius}-radius barrier with {program_1_action_1_hp} HP. Only one may exist; recasting replaces it."
 skill_aoe_slow_name,镇静脉冲,Calming Pulse
-skill_aoe_slow_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内心象减速 {effect_1_magnitude_percent}%，持续 {effect_1_duration} 秒；减速最高 {effect_1_magnitude_cap_percent}%,"Spend {cost_energy} Energy to slow Mindforms within {target_radius} radius by {effect_1_magnitude_percent}% for {effect_1_duration} seconds, capped at {effect_1_magnitude_cap_percent}%."
+skill_aoe_slow_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内心象减速 {program_1_action_1_magnitude_percent}%，持续 {program_1_action_1_duration} 秒；减速最高 {program_1_action_1_magnitude_cap_percent}%,"Spend {cost_energy} Energy to slow Mindforms within {target_radius} radius by {program_1_action_1_magnitude_percent}% for {program_1_action_1_duration} seconds, capped at {program_1_action_1_magnitude_cap_percent}%."
 skill_self_fire_move_haste_name,怒意超频,Fury Overdrive
-skill_self_fire_move_haste_desc,消耗 {cost_energy} 能量，使射速提高 {effect_1_modifier_1_value_bonus_percent}%、移动速度提高 {effect_1_modifier_2_value_bonus_percent}%，持续 {effect_1_duration} 秒；重施刷新持续时间,"Spend {cost_energy} Energy to gain {effect_1_modifier_1_value_bonus_percent}% fire rate and {effect_1_modifier_2_value_bonus_percent}% movement speed for {effect_1_duration} seconds. Recasting refreshes the duration."
+skill_self_fire_move_haste_desc,消耗 {cost_energy} 能量，使射速提高 {program_1_action_1_modifier_1_value_bonus_percent}%、移动速度提高 {program_1_action_1_modifier_2_value_bonus_percent}%，持续 {program_1_action_1_duration} 秒；重施刷新持续时间,"Spend {cost_energy} Energy to gain {program_1_action_1_modifier_1_value_bonus_percent}% fire rate and {program_1_action_1_modifier_2_value_bonus_percent}% movement speed for {program_1_action_1_duration} seconds. Recasting refreshes the duration."
 skill_enemy_haste_vulnerability_name,激怒标记,Enraging Mark
-skill_enemy_haste_vulnerability_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内心象移动速度提高 {effect_1_modifier_1_value_bonus_percent}%，并叠加每层 {effect_2_incoming_damage_per_stack_percent}% 的易伤，最多 {effect_2_max_stacks} 层，持续 {effect_1_duration} 秒,"Spend {cost_energy} Energy to increase the movement speed of Mindforms within {target_radius} radius by {effect_1_modifier_1_value_bonus_percent}% and add a Vulnerability stack worth {effect_2_incoming_damage_per_stack_percent}% damage, up to {effect_2_max_stacks} stacks, for {effect_1_duration} seconds."
+skill_enemy_haste_vulnerability_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内心象移动速度提高 {program_1_action_1_modifier_1_value_bonus_percent}%，并叠加每层 {program_1_action_2_incoming_damage_per_stack_percent}% 的易伤，最多 {program_1_action_2_max_stacks} 层，持续 {program_1_action_1_duration} 秒,"Spend {cost_energy} Energy to increase the movement speed of Mindforms within {target_radius} radius by {program_1_action_1_modifier_1_value_bonus_percent}% and add a Vulnerability stack worth {program_1_action_2_incoming_damage_per_stack_percent}% damage, up to {program_1_action_2_max_stacks} stacks, for {program_1_action_1_duration} seconds."
 status_burn_name,燃烧,Burn
 status_poison_name,中毒,Poison
 status_bleed_name,流血,Bleed
@@ -317,7 +323,6 @@ ui_debug_test_arena_primary_skill,主技能,Primary Skill
 ui_debug_test_arena_gear_mods,装备 Mod,Gear Mods
 ui_debug_test_arena_capacity,英雄容量 %d/%d · 武器容量 %d/%d,Hero Capacity %d/%d · Weapon Capacity %d/%d
 ui_debug_test_arena_unavailable_title,仅数据内容（不可用）,Data-only Content (Unavailable)
-ui_debug_test_arena_relics,遗物,Relics
 ui_debug_test_arena_active_items,主动道具,Active Items
 ui_debug_test_arena_consumables,消耗品,Consumables
 ui_debug_test_arena_runtime_unavailable,运行时尚未接入,Runtime not implemented

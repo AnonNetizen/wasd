@@ -606,9 +606,8 @@ func _codex_details(content_type: String, entry: Dictionary) -> Dictionary:
 			}
 		CONTENT_UNLOCK_TYPES.GEAR_MOD:
 			return {
-				"slot": String(entry.get("slot", "")),
 				"rarity": String(entry.get("rarity", "")),
-				"modifiers": _array_copy(entry.get("modifiers", [])),
+				"components": _array_copy(entry.get("components", [])),
 			}
 		CONTENT_UNLOCK_TYPES.ENEMY:
 			return {

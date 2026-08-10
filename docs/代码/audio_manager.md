@@ -5,9 +5,10 @@
 
 ## 职责
 
-- `AudioManager` 是完整项目的音频统一入口，负责 SFX / voice / music 的注册、播放请求、Bus 路由、音量设置同步和最小运行时诊断。
+- `AudioManager` 是完整项目的音频统一入口，负责官方与本地包 SFX / voice / music 的注册、播放请求、Bus 路由、音量设置同步和最小运行时诊断。
 - 本模块负责阻止业务代码直接调用 `AudioStreamPlayer.play()`，后续战斗、UI、道具等系统只能通过 `AudioManager.play_sfx()` / `play_music()` 发声。
-- 当前 F2 切片不负责实际音频资源清单、音频导入规范、完整 cross-fade 曲线、同 id ducking 策略或与 `PoolManager` 的真实音频播放器池集成；这些在音频内容 / F7 UI / F9 打磨阶段补齐。
+- 本地包音频只允许由 ModLoader 校验并解码的 Ogg Vorbis / MP3 / WAV 非循环 SFX；不能注册本地 BGM，也不能扩展官方音频前缀契约。
+- 本模块不负责包文件安全、大小 / 时长校验和媒体诊断；这些由 ModLoader 在快照阶段完成。
 
 ## 阅读方式
 
@@ -23,6 +24,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/audio_manager.gd` | AudioManager autoload 实现 |
+| `client/scripts/autoload/mod_loader.gd` | 提供已校验的包内 SFX 快照；reload 时驱动重注册 |
 | `client/project.godot` | 注册 `AudioManager` autoload |
 | `client/default_bus_layout.tres` | 默认音频 Bus 配置：`Master` / `Music` / `SFX` / `UI` |
 | `client/scripts/contracts/audio_ids.gd` | 自动生成的音频 id 前缀常量 |
@@ -45,7 +47,8 @@ SFX 播放时会临时创建 `AudioStreamPlayer` 子节点，播放结束后自�
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | `_ready()` | 校验 `Master` / `Music` / `SFX` / `UI` Bus 存在，创建 `MusicPlayer`，同步音量设置，订阅 `Settings.setting_changed` | `sync_volumes()`、`volume_synced` |
-| 注册资源 | 调用方注册 SFX 或 music 音频流 | `register_sfx()`、`register_music()` |
+| 注册资源 | 官方调用方注册 SFX / music；ModLoader 快照注册 namespaced SFX | `register_sfx()`、`register_mod_sfx()`、`register_music()` |
+| 包重载 | 停止并移除旧包 SFX，按新不可变快照重新注册 | `ModLoader.mods_reloaded` |
 | 播放 SFX | 校验 id 前缀与注册状态，创建播放器，设置 Bus / 音量 / pitch / polyphony，播放并记录 active 列表 | `play_sfx()`、`sfx_play_requested` |
 | 播放 Music | 校验 `music_` 前缀与注册状态，复用 `MusicPlayer` 播放当前音乐 | `play_music()`、`music_play_requested` |
 | 停止 | 停止当前 music 或所有 SFX，并释放临时播放器 | `stop_music()`、`stop_all_sfx()`、`playback_stopped` |
@@ -61,6 +64,7 @@ SFX 播放时会临时创建 `AudioStreamPlayer` 子节点，播放结束后自�
 | `required_buses_ready()` | 无 | `bool` | 检查 `Master` / `Music` / `SFX` / `UI` |
 | `missing_bus_count()` | 无 | `int` | 启动校验时缺失的 Bus 数量，非 0 表示项目 Bus 配置错误 |
 | `register_sfx(audio_id, stream, max_polyphony)` | `String`、`AudioStream`、`int` | `bool` | `audio_id` 必须以 `sfx_player_` / `sfx_enemy_` / `sfx_pickup_` / `sfx_ui_` / `voice_` 开头 |
+| `register_mod_sfx(package_id, audio_id, stream, max_polyphony)` | `String`、`String`、`AudioStream`、`int` | `bool` | id 必须以 `mod_<package_id>_` 开头；强制关闭 loop，polyphony 限制在 1~32 |
 | `register_music(audio_id, stream)` | `String`、`AudioStream` | `bool` | `audio_id` 必须以 `music_` 开头 |
 | `play_sfx(audio_id, opts)` | `String`、`Dictionary` | `bool` | 未注册 stream 会 fail-fast 返回 `false`；`opts` 支持 `bus`、`volume_db`、`pitch_scale`、`max_polyphony` |
 | `play_music(audio_id, fade)` | `String`、`float` | `bool` | 当前 F2 只保留 fade 参数和 API 形态，真实淡入淡出后续补 |
@@ -83,6 +87,9 @@ SFX 播放时会临时创建 `AudioStreamPlayer` 子节点，播放结束后自�
 
 - 音频 id 前缀权威在 `docs/词表与契约.md` §10；代码引用自动生成的 `client/scripts/contracts/audio_ids.gd`。
 - 当前契约是前缀白名单：`sfx_player_`、`sfx_enemy_`、`sfx_pickup_`、`sfx_ui_`、`music_`、`voice_`。
+- 本地 SFX id 不加入 `AudioIds.PREFIXES`；它们由 manifest v2 的包所有权 `mod_<package_id>_` 校验和运行时注册表识别。
+- ModLoader 只提供已验证真实文件头、成功解码、≤8 MiB、≤30 秒的 Ogg Vorbis / MP3 / WAV；AudioManager 注册时再次强制关闭 loop。
+- Gear Mod 可选 `placement_sfx_id` 只能指向同包已注册的 namespaced SFX；成功放置后由 GameplayRunLoop 调用 `play_sfx()`。媒体缺失 / 损坏时 ModLoader 删除字段，保持静音回退，不阻断放置或禁用玩法包。
 - 音量设置 key 来自 `SettingsKeys.AUDIO_MASTER`、`AUDIO_MUSIC`、`AUDIO_SFX`。
 - 未知前缀、空 stream、未注册 stream 都返回 `false` 并输出 `[AudioManager]` 前缀错误。
 
@@ -110,13 +117,14 @@ F9.3 先建立 Demo 占位音频 id 计划，不在没有资源时强行播放�
 
 ## 依赖
 
-- 上游依赖：`Settings`、`client/default_bus_layout.tres`、`client/scripts/contracts/audio_ids.gd`、`client/scripts/contracts/settings_keys.gd`、Godot `AudioServer`。
+- 上游依赖：`Settings`、`ModLoader`、`client/default_bus_layout.tres`、`client/scripts/contracts/audio_ids.gd`、`client/scripts/contracts/settings_keys.gd`、Godot `AudioServer`。
 - 下游调用方：后续 `Combat`、`UIManager`/UI 场景、道具 / 拾取 / 敌人反馈、结算与菜单音乐。
 - 禁止依赖：业务模块不得直接持有长期 `AudioStreamPlayer` 并自行 `play()`；音频 id 不得绕过词表前缀。
 
 ## 扩展点
 
 - 新增具体 SFX：先确认 id 前缀已登记，再通过资源加载切片调用 `register_sfx()`。
+- 本地包 SFX：只在 manifest v2 的 `media_assets[]` 声明，禁止业务代码直接调用 `register_mod_sfx()` 绕过 ModLoader 校验。
 - 新增 BGM：使用 `music_` 前缀并调用 `register_music()`。
 - 后续可把 SFX 临时播放器迁移到 `PoolManager` 池，但公共 API 不变。
 - 后续可补完整 fade / ducking / max_polyphony 溢出策略；行为变化需补 L1 测试。
@@ -136,19 +144,22 @@ F9.3 先建立 Demo 占位音频 id 计划，不在没有资源时强行播放�
 |------|----------|
 | headless 启动报未知 AudioManager | `client/project.godot` autoload 是否注册 |
 | `play_sfx()` 返回 `false` | id 前缀是否在 `audio_ids.gd`，stream 是否已注册 |
+| 本地包音效静音 | ModLoader 媒体诊断、包 namespace、格式 / 大小 / 30 秒限制，以及 `AudioManager.has_stream()` |
+| 重载后旧包音效仍响 | `ModLoader.mods_reloaded` 连接是否存在，旧包播放器是否被停止 |
 | `play_music()` 返回 `false` | id 是否以 `music_` 开头，music stream 是否已注册 |
 | 音量变化无效 | `Settings` 中 `audio.master` / `audio.music` / `audio.sfx` 是否变化，`required_buses_ready()` 是否为 true，`client/default_bus_layout.tres` 是否包含 Music / SFX / UI |
 | 业务代码绕过 AudioManager | 搜索 `AudioStreamPlayer.play()`，只允许在 `audio_manager.gd` 内部出现 |
 
 ## 测试义务
 
-- 当前切片必跑 L0 契约 / 数据 / 文档检查和 L2 headless boot。
+- 修改本地包音频接线时必跑 `py -3 tools/godot_bridge.py --project client mod-loader-smoke`、目标 GDScript lint、L0 数据 / 文档检查和 L2 headless boot。
 - 后续引入 GUT 后，`AudioManager` 需要覆盖 id 前缀拒绝、注册空 stream 拒绝、注册计数、音量同步、SFX polyphony 上限、music 切换和停止行为。
 - 接入真实音频资源后需要补手动听感回归：音量条独立可调，暂停 / UI 音效不误走 Music Bus。
 
 ## 迁移 / 兼容
 
-- 当前不影响存档、数据 schema 或回放格式。
+- 音频内容和 Gear Mod `placement_sfx_id` 不进入 `gameplay_hash`，不影响玩法确定性；Run / Replay 只校验包的玩法环境。
+- manifest v1 不支持本地媒体；只接受 manifest v2，不提供兼容注册壳。
 - 未来若录制回放需要记录音频事件，必须通过 `Replay.record_decision()` 或专门的非玩法诊断通道，不得让音频播放影响确定性。
 
 ## 相关文档

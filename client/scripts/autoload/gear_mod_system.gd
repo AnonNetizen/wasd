@@ -5,7 +5,9 @@ extends Node
 
 
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
-const GEAR_MOD_KINDS := preload("res://scripts/contracts/gear_mod_kinds.gd")
+const GEAR_MOD_COMPONENT_TYPES := preload(
+	"res://scripts/contracts/gear_mod_component_types.gd"
+)
 
 
 ## Rolls every matching enemy drop row without mutating run or meta state.
@@ -69,25 +71,66 @@ func board_config() -> Dictionary:
 
 func modifiers(mod_id: String) -> Array[Dictionary]:
 	var definition: Dictionary = mod_definition(mod_id)
-	if (
-		definition.is_empty()
-		or String(definition.get("kind", "")) != GEAR_MOD_KINDS.EFFECT
-	):
+	if definition.is_empty():
 		return []
 	var resolved_modifiers: Array[Dictionary] = []
-	for modifier: Dictionary in _typed_dictionary_array(
-		definition.get("modifiers", [])
-	):
-		var stat: String = String(modifier.get("stat", ""))
-		var modifier_type: String = String(modifier.get("type", ""))
-		if stat.is_empty() or not modifier_type in ["add", "mult"]:
-			continue
-		resolved_modifiers.append({
-			"stat": stat,
-			"type": modifier_type,
-			"value": float(modifier.get("value", 0.0)),
-		})
+	for component: Dictionary in modifier_components(mod_id):
+		for modifier: Dictionary in _typed_dictionary_array(
+			component.get("modifiers", [])
+		):
+			var stat: String = String(modifier.get("stat", ""))
+			var modifier_type: String = String(modifier.get("type", ""))
+			if stat.is_empty() or not modifier_type in ["add", "mult"]:
+				continue
+			resolved_modifiers.append({
+				"slot": String(component.get("slot", "")),
+				"component_id": String(component.get("component_id", "")),
+				"stat": stat,
+				"type": modifier_type,
+				"value": float(modifier.get("value", 0.0)),
+			})
 	return resolved_modifiers
+
+
+func components(mod_id: String) -> Array[Dictionary]:
+	return _typed_dictionary_array(mod_definition(mod_id).get("components", []))
+
+
+func modifier_components(mod_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for component: Dictionary in components(mod_id):
+		if String(component.get("type", "")) == GEAR_MOD_COMPONENT_TYPES.MODIFIER:
+			result.append(component)
+	return result
+
+
+func program_components(mod_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for component: Dictionary in components(mod_id):
+		if String(component.get("type", "")) == GEAR_MOD_COMPONENT_TYPES.PROGRAM:
+			result.append(component)
+	return result
+
+
+func board_rule_components(mod_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for component: Dictionary in components(mod_id):
+		if String(component.get("type", "")) == GEAR_MOD_COMPONENT_TYPES.BOARD_RULE:
+			result.append(component)
+	return result
+
+
+func component_summary(mod_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for component: Dictionary in components(mod_id):
+		var summary: Dictionary = {
+			"component_id": String(component.get("component_id", "")),
+			"type": String(component.get("type", "")),
+		}
+		if component.has("slot"):
+			summary["slot"] = String(component.get("slot", ""))
+		result.append(summary)
+	return result
 
 
 func pickup_config() -> Dictionary:
@@ -98,17 +141,31 @@ func reward_pool_ids(
 	pool_id: String,
 	allowed_mod_ids: Array[String] = []
 ) -> Array[String]:
+	var result: Array[String] = []
 	for pool: Dictionary in _typed_dictionary_array(
 		_gear_data().get("reward_pools", [])
 	):
 		if String(pool.get("id", "")) != pool_id:
 			continue
-		var result: Array[String] = []
 		for mod_id: String in _string_array(pool.get("mod_ids", [])):
-			if allowed_mod_ids.is_empty() or allowed_mod_ids.has(mod_id):
+			if (
+				(allowed_mod_ids.is_empty() or allowed_mod_ids.has(mod_id))
+				and not result.has(mod_id)
+			):
 				result.append(mod_id)
-		return result
-	return []
+		break
+	for contribution: Dictionary in _typed_dictionary_array(
+		_gear_data().get("reward_pool_contributions", [])
+	):
+		if String(contribution.get("pool_id", "")) != pool_id:
+			continue
+		for mod_id: String in _string_array(contribution.get("mod_ids", [])):
+			if (
+				(allowed_mod_ids.is_empty() or allowed_mod_ids.has(mod_id))
+				and not result.has(mod_id)
+			):
+				result.append(mod_id)
+	return result
 
 
 ## Resolves an in-memory developer selection without inventory or save access.
@@ -135,37 +192,36 @@ func resolve_preview_loadout(selections: Array) -> Dictionary:
 				"reason": "unknown_mod",
 			})
 			continue
-		var mod_kind: String = String(definition.get("kind", ""))
 		var resolved_selection: Dictionary = {
 			"mod_id": mod_id,
-			"kind": mod_kind,
 			"name_key": String(definition.get("name_key", "")),
 			"desc_key": String(definition.get("desc_key", "")),
+			"components": component_summary(mod_id),
 		}
-		if mod_kind == GEAR_MOD_KINDS.EFFECT:
-			var loadout_slot: String = String(definition.get("slot", ""))
+		for component: Dictionary in modifier_components(mod_id):
+			var loadout_slot: String = String(component.get("slot", ""))
 			if not GEAR_MOD_SLOTS.VALUES.has(loadout_slot):
 				diagnostics.append({
 					"mod_id": mod_id,
+					"component_id": String(component.get("component_id", "")),
 					"reason": "unknown_loadout_slot",
 				})
 				continue
-			resolved_selection["slot"] = loadout_slot
 			var slot_modifiers: Array = modifiers_by_slot[loadout_slot] as Array
-			slot_modifiers.append_array(modifiers(mod_id))
+			for modifier: Dictionary in _typed_dictionary_array(
+				component.get("modifiers", [])
+			):
+				var resolved_modifier: Dictionary = modifier.duplicate(true)
+				resolved_modifier["slot"] = loadout_slot
+				resolved_modifier["component_id"] = String(
+					component.get("component_id", "")
+				)
+				slot_modifiers.append(resolved_modifier)
 			modifiers_by_slot[loadout_slot] = slot_modifiers
-		elif mod_kind == GEAR_MOD_KINDS.MAP:
-			resolved_selection["map_behavior"] = _dictionary_or_empty(
-				definition.get("map_behavior", {})
-			)
-		elif mod_kind == GEAR_MOD_KINDS.GRID:
-			resolved_selection["grid_behavior"] = _dictionary_or_empty(
-				definition.get("grid_behavior", {})
-			)
-		else:
+		if components(mod_id).is_empty():
 			diagnostics.append({
 				"mod_id": mod_id,
-				"reason": "unknown_mod_kind",
+				"reason": "missing_components",
 			})
 			continue
 		selected.append(resolved_selection)
