@@ -17,6 +17,7 @@
 - ADR #193 将 Replay 升至 v7：`run_end` 使用无等级 Gear Mod 实例语义，data fingerprint 纳入规范化 Gear Mod 玩法数据；旧 Replay v6 精确拒绝且不迁移。
 - ADR #194 将 Replay 升至 v8：新增严格 `gear_mod_placement` 决策，指纹纳入 7×7 棋盘与当时的 Mod 类型行为。
 - ADR #196 将 Replay 升至 v9：指纹纳入 skills v3 programs、Gear Mod v6 components、统一效果契约、掉落 / 奖励池与精确 `mod_environment`；旧 Replay v8 保持源文件但拒绝播放，不迁移。
+- 任何录制只要 `dropped_input_events` 或 `dropped_decision_events` 大于 0，就只可作为内存诊断结果，不得保存或加载为可播放回放；`stop_recording()` 仍返回保留精确丢弃计数的录制快照。
 - `Replay` 受 `Settings.gameplay.record_replays` 控制；关闭后会清空当前内存录制并拒绝新录制。
 
 ## 阅读方式
@@ -60,8 +61,8 @@
 | 输入发生 | `InputService` 只在最终归一化值变化时记录已登记 action：按钮用 bool，移动 / 鼠标或手柄瞄准用 Vector2；物理 GUIDE event、设备类型和 raw strength 不进入 replay | `record_input_value()` / `input_recorded` |
 | 关键决策 | 调用方记录已登记 analytics event 与 payload | `record_decision()` / `decision_recorded` |
 | 进入 `GAME_OVER` / `RESULT` / `MAIN_MENU` | 结束内存录制，补齐结束 tick/time 与丢弃计数，并发出本地埋点 | `stop_recording()` / `recording_stopped` |
-| 需要持久化 | 调用方把完成的录制写入 `user://replays/<name>.replay`；文件 envelope 包含 schema、game version、data fingerprint、recording hash 和稳定摘要 | `save_recording()` / `replay_saved` |
-| 需要读取 / 对照 | runner 读取 `.replay` envelope，校验 schema 与 recording hash，比较 summary；可选 expectation JSON 或 `--rerun-runtime-summary` 会按 replay seed 启动 `GameplayRunLoop`，经 `InputService` playback override 播放 `input_events` 并比较运行时摘要 | `load_replay_file()` / `load_recording()` / `replay-runner` |
+| 需要持久化 | 调用方把无事件丢弃的完整录制写入 `user://replays/<name>.replay`；文件 envelope 包含 schema、game version、data fingerprint、recording hash 和稳定摘要。任一丢弃计数大于 0 时返回空路径并写入 `last_error()` | `save_recording()` / `replay_saved` |
+| 需要读取 / 对照 | runner 读取 `.replay` envelope，先拒绝任一丢弃计数大于 0 的不完整录制，再校验 schema 与 recording hash 并比较 summary；可选 expectation JSON 或 `--rerun-runtime-summary` 会按 replay seed 启动 `GameplayRunLoop`，经 `InputService` playback override 播放 `input_events` 并比较运行时摘要 | `load_replay_file()` / `load_recording()` / `replay-runner` |
 | 关闭录制设置 | 清空当前内存录制并停止接受新事件 | `set_enabled(false)` / `recording_cleared` |
 
 ## 公共 API
@@ -74,9 +75,9 @@
 | `record_input_value(action_name, value, participant_id = "player_0")` | action、`bool` 或 `Vector2`、参与者 | `bool` | v9 规范入口；只接受已登记 action，含四技能与冲刺；Vector2 会归一化并保存为 `[x, y]` |
 | `record_input_event(event, action_names, participant_id = "")` | 原始 Godot event、候选 action、参与者 | `bool` | 测试 / 旧边界兼容，只转成 bool；正式 gameplay 与 UI 不得调用 |
 | `record_decision(event_name, payload = {})` | 关键事件名、payload | `bool` | event 未登记会 `push_error` 并返回 `false` |
-| `save_recording(recording = {}, file_name = "")` | 已完成录制、可选文件名 | `String` | 写入 `user://replays/`，返回路径；文件名会归一化为 `.replay` |
+| `save_recording(recording = {}, file_name = "")` | 已完成录制、可选文件名 | `String` | 只写入无事件丢弃的完整录制；任一丢弃计数大于 0 时返回空字符串并设置 `last_error()`；文件名会归一化为 `.replay` |
 | `load_recording(path)` | `.replay` 路径 | `Dictionary` | 返回录制 payload；文件无效时返回空字典并设置 `last_error()` |
-| `load_replay_file(path)` | `.replay` 路径 | `Dictionary` | 仅接受 file / recording schema v9，并校验 `context.content_availability` 与 `mod_environment`；返回完整 envelope并校验 `recording_hash`，旧版或未来版本返回空字典并设置错误 |
+| `load_replay_file(path)` | `.replay` 路径 | `Dictionary` | 仅接受 file / recording schema v9、无事件丢弃的完整录制，并校验 `context.content_availability` 与 `mod_environment`；返回完整 envelope并校验 `recording_hash`，不完整、旧版或未来版本返回空字典并设置错误 |
 | `recording_summary(recording)` | 录制 payload | `Dictionary` | 返回 seed、tick/time、事件数量、停止原因等稳定摘要 |
 | `current_data_fingerprint()` | 无 | `String` | 基于统一效果契约、skills v3、Gear Mod v6、掉落 / 奖励池与本地玩法环境的稳定指纹 |
 | `replay_root()` | 无 | `String` | 返回 `user://replays` |
@@ -119,7 +120,7 @@
 | `context` | `Dictionary` | `GameState` 进入 `PLAYING` 时传入的上下文；必须包含稳定排序且非空的 `content_availability` 与精确 `mod_environment` |
 | `input_events` | `Array[Dictionary]` | action 输入事件 |
 | `decision_events` | `Array[Dictionary]` | 关键决策事件 |
-| `dropped_input_events` / `dropped_decision_events` | `int` | 缓冲上限丢弃计数 |
+| `dropped_input_events` / `dropped_decision_events` | `int` | 缓冲上限丢弃计数；任一大于 0 代表录制不完整，只保留诊断，不得落盘或加载播放 |
 
 F8 首片 `.replay` 文件 envelope：
 
@@ -202,7 +203,7 @@ Gear Mod fingerprint payload 由 `DataLoader` 提供规范化副本，包含 sch
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `replay-input-smoke`。改 golden 时追加四种 capture 命令与一次 `replay-regression`；默认 fail-fast，需要完整失败集合才追加 `--keep-going`。`--allow-data-fingerprint-mismatch` 仅供诊断，不能作为权威通过。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 v9 roundtrip、placement payload、内容池 / mod environment 校验与旧 v8 / 未来版本拒绝由 `replay-smoke` 覆盖；summary diff、四技能 / 冲刺输入播放、组合 / placement 决策与稳定帧样本 diff 由 `replay-runner` 覆盖。批量入口每条之间释放输入、Replay、UI、RunLoop 和对象池状态并回到 `MAIN_MENU`。专项 smoke 直接覆盖棋盘、效果 Runtime、拾取事务和 Godot Control 鼠标命中；现有 golden 只记录语义 placement，不记录原始鼠标轨迹，不得冒充这些行为的 L3 证据。
+- 当前 `.replay` 文件 v9 roundtrip、placement payload、内容池 / mod environment 校验、恰好 `MAX_DECISION_EVENTS` 可保存并加载的闭区间上界、真实 `MAX_INPUT_EVENTS + 1` / `MAX_DECISION_EVENTS + 1` 溢出诊断与不完整录制保存 / 加载拒绝，以及旧 v8 / 未来版本拒绝由 `replay-smoke` 覆盖；summary diff、四技能 / 冲刺输入播放、组合 / placement 决策与稳定帧样本 diff 由 `replay-runner` 覆盖。批量入口每条之间释放输入、Replay、UI、RunLoop 和对象池状态并回到 `MAIN_MENU`。专项 smoke 直接覆盖棋盘、效果 Runtime、拾取事务和 Godot Control 鼠标命中；现有 golden 只记录语义 placement，不记录原始鼠标轨迹，不得冒充这些行为的 L3 证据。
 
 ## 迁移 / 兼容
 

@@ -40,6 +40,8 @@ var _confirmation_confirmed: Callable = Callable()
 var _confirmation_modal: ConfirmationModal = null
 var _contexts: Dictionary = {}
 var _delayed_enters: Dictionary = {}
+var _exit_completions: Dictionary = {}
+var _exit_restore_pause: Dictionary = {}
 var _focus_restore: Dictionary = {}
 var _navigation_focus_visible: bool = false
 var _root: CanvasLayer
@@ -71,9 +73,11 @@ func _ready() -> void:
 	_set_navigation_focus_visible(
 		InputService.current_device_family() == InputService.DEVICE_GAMEPAD
 	)
+	_publish_ui_stack_active()
 
 
 func _exit_tree() -> void:
+	InputService.set_ui_stack_active(false)
 	if InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	if InputService.device_family_changed.is_connected(_on_input_device_family_changed):
@@ -90,15 +94,23 @@ func push(scene: PackedScene, context: Dictionary = {}) -> Node:
 	var focused: Control = get_viewport().gui_get_focus_owner()
 	var node: Node = scene.instantiate()
 	node.process_mode = Node.PROCESS_MODE_ALWAYS
+	var instance_id: int = node.get_instance_id()
+	node.tree_exited.connect(
+		Callable(self, "_on_managed_node_tree_exited").bind(
+			node,
+			instance_id
+		),
+		CONNECT_ONE_SHOT
+	)
 	_root.add_child(node)
 	_stack.append(node)
-	var instance_id: int = node.get_instance_id()
 	_contexts[instance_id] = context.duplicate(true)
 	if focused != null and is_instance_valid(focused):
 		_focus_restore[instance_id] = weakref(focused)
 	_install_effect_bundle(node)
 	_set_state(node, UIState.ENTERING)
 	_apply_pause_request(node)
+	_publish_ui_stack_active()
 	ui_pushed.emit(node, context.duplicate(true))
 	_refresh_transition_blocker()
 	call_deferred("_play_enter", node)
@@ -114,11 +126,23 @@ func pop_expected(expected: Node, immediate: bool = false) -> Node:
 		return null
 	if top() != expected:
 		return null
+	if not remove_expected(expected, immediate):
+		return null
+	return expected
+
+
+## Removes a specific managed node even when another UI is above it. Returns
+## false for unmanaged, invalid, or already exiting nodes.
+func remove_expected(expected: Node, immediate: bool = false) -> bool:
+	if expected == null or not is_instance_valid(expected):
+		return false
+	if not _stack.has(expected):
+		return false
 	var state: int = ui_state(expected)
 	if state == UIState.EXITING or state == UIState.REMOVED:
-		return null
+		return false
 	_start_exit(expected, true, immediate)
-	return expected
+	return true
 
 
 func replace(scene: PackedScene, context: Dictionary = {}) -> Node:
@@ -160,6 +184,9 @@ func clear(immediate: bool = false) -> void:
 		if not is_instance_valid(node):
 			continue
 		_clear_pending[node.get_instance_id()] = true
+	for node: Node in snapshot:
+		if not is_instance_valid(node):
+			continue
 		_start_exit(node, false, immediate)
 	if _clear_pending.is_empty():
 		_finish_clear()
@@ -287,6 +314,12 @@ func _start_exit(
 	if state == UIState.EXITING or state == UIState.REMOVED:
 		return
 	_set_state(node, UIState.EXITING)
+	var instance_id: int = node.get_instance_id()
+	_exit_restore_pause[instance_id] = restore_pause
+	if completed.is_valid():
+		_exit_completions[instance_id] = completed
+	else:
+		_exit_completions.erase(instance_id)
 	node.set_process_input(false)
 	node.set_process_unhandled_input(false)
 	ui_exit_started.emit(node)
@@ -295,7 +328,7 @@ func _start_exit(
 	var completion: Callable = Callable(
 		self,
 		"_finish_remove"
-	).bind(node, restore_pause, completed)
+	).bind(node, instance_id)
 	var transition: UIPanelTransition = _transition_for(node)
 	if immediate or transition == null:
 		completion.call()
@@ -305,28 +338,48 @@ func _start_exit(
 
 func _finish_remove(
 		node: Node,
-		restore_pause: bool,
-		completed: Callable = Callable()
+		instance_id: int
 	) -> void:
-	if node == null or not is_instance_valid(node):
-		if completed.is_valid():
-			completed.call()
+	if int(_states.get(instance_id, UIState.REMOVED)) == UIState.REMOVED:
 		return
-	var instance_id: int = node.get_instance_id()
-	if ui_state(node) == UIState.REMOVED:
+	_finish_managed_removal(node, instance_id, true)
+
+
+func _on_managed_node_tree_exited(node: Node, instance_id: int) -> void:
+	if int(_states.get(instance_id, UIState.REMOVED)) == UIState.REMOVED:
 		return
+	_finish_managed_removal(node, instance_id, false)
+
+
+func _finish_managed_removal(
+		node: Node,
+		instance_id: int,
+		queue_node: bool
+	) -> void:
+	var restore_pause: bool = bool(
+		_exit_restore_pause.get(instance_id, true)
+	)
+	var completed: Callable = _exit_completions.get(
+		instance_id,
+		Callable()
+	)
 	_set_state(node, UIState.REMOVED)
 	_stack.erase(node)
-	if node.get_parent() == _root:
+	_publish_ui_stack_active()
+	if queue_node and is_instance_valid(node) and node.get_parent() == _root:
 		_root.remove_child(node)
 	if node == _confirmation_modal:
 		_confirmation_modal = null
 		_clear_confirmation_callbacks()
-	ui_removed.emit(node)
-	node.queue_free()
+	if is_instance_valid(node):
+		ui_removed.emit(node)
+		if queue_node:
+			node.queue_free()
 	_transitions.erase(instance_id)
 	_contexts.erase(instance_id)
 	_delayed_enters.erase(instance_id)
+	_exit_completions.erase(instance_id)
+	_exit_restore_pause.erase(instance_id)
 	_states.erase(instance_id)
 	_refresh_transition_blocker()
 	if _clear_pending.has(instance_id):
@@ -344,7 +397,12 @@ func _finish_remove(
 func _finish_clear() -> void:
 	_restore_pause_if_needed()
 	_refresh_transition_blocker()
+	_publish_ui_stack_active()
 	ui_cleared.emit()
+
+
+func _publish_ui_stack_active() -> void:
+	InputService.set_ui_stack_active(not _stack.is_empty())
 
 
 func _start_replacement_enter(

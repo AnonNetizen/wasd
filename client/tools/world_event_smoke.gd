@@ -24,6 +24,11 @@ var _controller: WorldEventController = null
 var _combat: CombatAutoload = null
 var _mod_pool: Array[String] = []
 var _nodes: Dictionary = {}
+var _delivered_reward_count: int = 0
+var _delivery_attempt_count: int = 0
+var _delivery_should_succeed: bool = true
+var _blood_sacrifice_count: int = 0
+var _gold_spend_count: int = 0
 var _reward_count: int = 0
 var _roll_should_succeed: bool = true
 var _wave_count: int = 0
@@ -41,6 +46,7 @@ func _run() -> void:
 	_combat = COMBAT_SCRIPT.new()
 	get_root().add_child(_combat)
 	_controller.configure(data)
+	_controller.set_reward_delivery_handler(_deliver_reward)
 	_mod_pool = _gear_mod_pool("world_event_mod_pool_common")
 	_require(_mod_pool.size() == 5, "common Mod pool exposes five entries")
 	_controller.wave_requested.connect(_on_wave_requested)
@@ -92,6 +98,10 @@ func _run() -> void:
 	_test_snapshot_roundtrip()
 	_require(_wave_count == 10, "all ten configured waves requested exactly once")
 	_require(_reward_count == 8, "completion and shrine rewards requested exactly once")
+	_require(
+		_delivered_reward_count == 8,
+		"all observed rewards were synchronously delivered"
+	)
 	print("WORLD EVENT SMOKE ALL PASS")
 	quit()
 
@@ -149,11 +159,40 @@ func _test_defense(player: Node2D, callbacks: Dictionary) -> void:
 		_damage_info(target, "team_enemy", 10.0)
 	)
 	_require(bool(enemy_result.get("applied", false)), "defense target accepts enemy damage")
+	_delivery_should_succeed = false
+	var observed_before_delivery: int = _reward_count
 	_controller.tick(45.0, player, callbacks)
+	var pending_summary: Dictionary = _instance_summary(
+		"world_event_defense_instance"
+	)
+	_require(
+		String(pending_summary.get("state", ""))
+		== WORLD_EVENT_STATES.WORLD_EVENT_STATE_ACTIVE
+		and not bool(pending_summary.get("reward_committed", true))
+		and _reward_count == observed_before_delivery,
+		"continuous event remains pending without observer notification"
+	)
+	_require(
+		_controller.active_continuous_instance_id()
+		== "world_event_defense_instance"
+		and String(pending_summary.get(
+			"reward_delivery_failure_reason",
+			""
+		)) == "smoke_delivery_blocked",
+		"pending continuous delivery keeps its slot and diagnostic reason"
+	)
+	_delivery_should_succeed = true
+	var attempts_before_backoff: int = _delivery_attempt_count
+	_controller.tick(0.01, player, callbacks)
+	_require(
+		_delivery_attempt_count == attempts_before_backoff,
+		"continuous pending reward should not retry every frame"
+	)
+	_controller.tick(1.0, player, callbacks)
 	_require(
 		interactable.event_state()
 		== WORLD_EVENT_STATES.WORLD_EVENT_STATE_SUCCEEDED,
-		"defense completes after configured duration"
+		"defense completes after the pending reward retry interval"
 	)
 	_controller.release_background_pin("world_event_defense_instance")
 
@@ -281,13 +320,74 @@ func _test_gold_shrine(player: Node2D, callbacks: Dictionary) -> void:
 		and int(first.get("successes", -1)) == 0,
 		"gold shrine failure still spends and increases the next price"
 	)
+	_require(_gold_spend_count == 1, "failed roll charges exactly once")
 	_roll_should_succeed = true
+	_delivery_should_succeed = false
+	var observed_before_pending: int = _reward_count
+	var delivered_before_pending: int = _delivered_reward_count
 	var second: Dictionary = _controller.interact(
 		"world_event_gold_shrine_instance",
 		player,
 		callbacks
 	)
-	_require(bool(second.get("accepted", false)), "gold shrine accepts second use")
+	_require(
+		bool(second.get("accepted", false))
+		and String(second.get("reason", "")) == "reward_pending",
+		"failed reward delivery leaves the charged shrine transaction pending"
+	)
+	var pending_summary: Dictionary = _instance_summary(
+		"world_event_gold_shrine_instance"
+	)
+	_require(
+		int(pending_summary.get("attempts", -1)) == 2
+		and int(pending_summary.get("successes", -1)) == 0
+		and not bool(pending_summary.get("reward_committed", true)),
+		"pending delivery does not commit success counters"
+	)
+	_require(
+		_gold_spend_count == 2
+		and _reward_count == observed_before_pending
+		and _delivered_reward_count == delivered_before_pending,
+		"failed delivery neither recharges nor emits a success observation"
+	)
+	_controller.tick(1.0, player, callbacks)
+	pending_summary = _instance_summary("world_event_gold_shrine_instance")
+	_require(
+		int(pending_summary.get("successes", -1)) == 0
+		and not bool(pending_summary.get("reward_committed", true))
+		and String(pending_summary.get(
+			"reward_delivery_failure_reason",
+			""
+		)) == "smoke_delivery_blocked",
+		"tick leaves shrine delivery pending and exposes its failure reason"
+	)
+	var pending_snapshot: Dictionary = _controller.snapshot()
+	var restore_result: Dictionary = _controller.restore_snapshot(
+		pending_snapshot
+	)
+	_require(
+		int(restore_result.get("restored", 0)) == 5,
+		"pending reward transaction restores from the existing snapshot fields"
+	)
+	_delivery_should_succeed = true
+	var attempts_before_retry: int = _delivery_attempt_count
+	var retry: Dictionary = _controller.interact(
+		"world_event_gold_shrine_instance",
+		player,
+		callbacks
+	)
+	_require(
+		String(retry.get("reason", "")) == "success"
+		and int(retry.get("successes", 0)) == 1,
+		"restored pending reward commits after a successful retry"
+	)
+	_require(
+		_gold_spend_count == 2
+		and _delivery_attempt_count == attempts_before_retry + 1
+		and _reward_count == observed_before_pending + 1
+		and _delivered_reward_count == delivered_before_pending + 1,
+		"retry performs one delivery without duplicate charge or reward"
+	)
 	var third: Dictionary = _controller.interact(
 		"world_event_gold_shrine_instance",
 		player,
@@ -306,7 +406,71 @@ func _test_gold_shrine(player: Node2D, callbacks: Dictionary) -> void:
 
 
 func _test_blood_shrine(player: Node2D, callbacks: Dictionary) -> void:
-	for _use_index: int in range(3):
+	_delivery_should_succeed = false
+	var observed_before_pending: int = _reward_count
+	var delivered_before_pending: int = _delivered_reward_count
+	var first: Dictionary = _controller.interact(
+		"world_event_blood_shrine_instance",
+		player,
+		callbacks
+	)
+	_require(
+		String(first.get("reason", "")) == "reward_pending"
+		and _blood_sacrifice_count == 1,
+		"blood shrine delivery failure keeps one paid sacrifice pending"
+	)
+	var pending_summary: Dictionary = _instance_summary(
+		"world_event_blood_shrine_instance"
+	)
+	_require(
+		int(pending_summary.get("blood_uses", -1)) == 0
+		and not bool(pending_summary.get("reward_committed", true))
+		and _reward_count == observed_before_pending
+		and _delivered_reward_count == delivered_before_pending,
+		"blood shrine pending delivery commits no use or reward observation"
+	)
+	_controller.tick(1.0, player, callbacks)
+	pending_summary = _instance_summary(
+		"world_event_blood_shrine_instance"
+	)
+	_require(
+		int(pending_summary.get("blood_uses", -1)) == 0
+		and not bool(pending_summary.get("reward_committed", true))
+		and String(pending_summary.get(
+			"reward_delivery_failure_reason",
+			""
+		)) == "smoke_delivery_blocked"
+		and _blood_sacrifice_count == 1,
+		"tick leaves blood shrine delivery pending without another sacrifice"
+	)
+	var pending_snapshot: Dictionary = _controller.snapshot()
+	var restore_result: Dictionary = _controller.restore_snapshot(
+		pending_snapshot
+	)
+	_require(
+		int(restore_result.get("restored", 0)) == 5,
+		"blood shrine pending transaction restores from snapshot"
+	)
+	_delivery_should_succeed = true
+	var attempts_before_retry: int = _delivery_attempt_count
+	var retry: Dictionary = _controller.interact(
+		"world_event_blood_shrine_instance",
+		player,
+		callbacks
+	)
+	_require(
+		String(retry.get("reason", "")) == "sacrifice_completed"
+		and int(retry.get("uses", 0)) == 1,
+		"restored blood shrine reward succeeds on retry"
+	)
+	_require(
+		_blood_sacrifice_count == 1
+		and _delivery_attempt_count == attempts_before_retry + 1
+		and _reward_count == observed_before_pending + 1
+		and _delivered_reward_count == delivered_before_pending + 1,
+		"blood shrine retry delivers once without another sacrifice or reward"
+	)
+	for _use_index: int in range(2):
 		var result: Dictionary = _controller.interact(
 			"world_event_blood_shrine_instance",
 			player,
@@ -318,6 +482,13 @@ func _test_blood_shrine(player: Node2D, callbacks: Dictionary) -> void:
 		interactable.event_state()
 		== WORLD_EVENT_STATES.WORLD_EVENT_STATE_EXHAUSTED,
 		"blood shrine exhausts after three uses"
+	)
+	var final_summary: Dictionary = _instance_summary(
+		"world_event_blood_shrine_instance"
+	)
+	_require(
+		int(final_summary.get("blood_uses", -1)) == 3,
+		"blood shrine commits each of its three uses exactly once"
 	)
 
 
@@ -344,6 +515,7 @@ func _prepare_reward(
 
 
 func _try_spend_gold(_instance_id: String, _cost: int) -> bool:
+	_gold_spend_count += 1
 	return true
 
 
@@ -382,6 +554,7 @@ func _gear_mod_pool(pool_id: String) -> Array[String]:
 
 
 func _sacrifice_health(_instance_id: String, ratio: float) -> Dictionary:
+	_blood_sacrifice_count += 1
 	return {
 		"accepted": true,
 		"actual_spent": ratio * 200.0,
@@ -412,8 +585,35 @@ func _on_reward_requested(
 	_reward_count += 1
 
 
+func _deliver_reward(
+	_instance_id: String,
+	_event_id: String,
+	_reward: Dictionary
+) -> Dictionary:
+	_delivery_attempt_count += 1
+	if not _delivery_should_succeed:
+		return {
+			"ok": false,
+			"reason": "smoke_delivery_blocked",
+		}
+	_delivered_reward_count += 1
+	return {
+		"ok": true,
+		"reason": "delivered",
+	}
+
+
 func _instance_summary(instance_id: String) -> Dictionary:
-	var debug: Dictionary = _controller.debug_summary()
+	return _instance_summary_for(_controller, instance_id)
+
+
+func _instance_summary_for(
+	controller: WorldEventController,
+	instance_id: String
+) -> Dictionary:
+	if controller == null or not is_instance_valid(controller):
+		return {}
+	var debug: Dictionary = controller.debug_summary()
 	var instances_raw: Variant = debug.get("instances", [])
 	if not instances_raw is Array:
 		return {}

@@ -10,7 +10,7 @@
 - 使用 Godot `ResourceLoader` 线程接口读取本局角色、敌人和模块 `PackedScene`；不创建或管理自定义 `Thread`。
 - 把对象池预热、初始模块挂载和续局实体恢复留在主线程，并分批让出帧，保证旋转动画持续响应。
 - 保证同时最多有一个玩家加载请求、一个 `LoadingScreen` 和一个 `GameplayRunLoop`。
-- 准备成功后以 `pop_expected()` 启动加载界面退出，并等待对应 `ui_removed` 后再激活 gameplay；失败 / 回标题硬切使用 `clear(true)` 清理半成品与 UI。
+- 准备成功后以 `pop_expected()` 启动加载界面退出，并等待对应 `ui_removed` 后再激活 gameplay；任一 fatal 准备错误都统一经过 `_fail_run_start()`，失败 / 回标题硬切使用 `clear(true)` 清理半成品与 UI。
 - 不负责应用冷启动、进入标题菜单前的数据校验耗时、百分比、阶段信息、取消操作或最低展示时长。
 
 ## 阅读方式
@@ -65,7 +65,7 @@ FormalClientBoot
 | Runtime 准备 | 入树前启用玩家加载模式；线程读取本局 actor / 模块 `PackedScene`，主线程分批预热池、挂载模块和恢复实体 | `configure_player_loading_mode(true)`、`ResourceLoader.load_threaded_request()` |
 | 准备成功 | `GameplayRunLoop` 发出 `run_prepared`，启动层先弹出 `LoadingScreen`，再调用激活入口 | `run_prepared`、`activate_prepared_run()` |
 | 激活 | 切换到 `PLAYING`，恢复 GameClock 与保存的暂停 / 奖励选择 UI 状态；准备期间 gameplay 输入和时间均不推进 | `GameState.change_state(PLAYING)` |
-| 准备失败 | 发出 `run_prepare_failed`；启动层清理半成品 runtime、gameplay 对象池并 immediate clear UI，回标题显示提示；续局失败时删除不可恢复的 run | `run_prepare_failed`、`UIManager.clear(true)` |
+| 准备失败 | 玩家加载模式恰好发出一次 `run_prepare_failed`；缺 `MapManager` / `WorldBackground` / `WeaponSystem` / `GameplayHud` 等场景必需节点也走同一出口。启动层清理半成品 runtime、gameplay 对象池并 immediate clear UI，回标题显示提示；续局失败时删除不可恢复的 run | `_fail_run_start()`、`run_prepare_failed`、`UIManager.clear(true)` |
 
 同步工具路径不启用玩家加载模式：headless、replay、golden 与既有 smoke 仍在 `_ready()` 中完成同步准备并立即激活，保持确定性时序。
 
@@ -83,7 +83,7 @@ FormalClientBoot
 | 名称 | 参数 | 触发时机 |
 |------|------|----------|
 | `GameplayRunLoop.run_prepared` | 无 | 所有资源、对象池、初始模块或续局实体已准备，但尚未进入 `PLAYING` |
-| `GameplayRunLoop.run_prepare_failed` | `reason`, `restoring` | 玩家加载模式准备失败；`restoring` 表示是否来自续局 |
+| `GameplayRunLoop.run_prepare_failed` | `reason`, `restoring` | 玩家加载模式首次 fatal 准备失败；同一 RunLoop 最多发一次，`restoring` 表示是否来自续局 |
 | `GameplayRunLoop.restore_failed` | `reason` | 兼容既有同步续局 / smoke 调用方；玩家入口同时使用 `run_prepare_failed` 统一回退 |
 
 ## 数据与契约
@@ -131,7 +131,7 @@ FormalClientBoot
 ## 测试义务
 
 - 必跑三档项目 lint、正式 headless boot 与 headless editor 加载。
-- 必跑 `python tools/godot_bridge.py --project client loading-smoke`；它覆盖真实开始 / 继续 / 重开、双语文案刷新、旋转跨帧、输入 / 重入阻断、`GameClock` 在 `LOADING` 冻结、坏档隔离和准备失败清理。
+- 必跑 `python tools/godot_bridge.py --project client loading-smoke`；它覆盖真实开始 / 继续 / 重开、双语文案刷新、旋转跨帧、输入 / 重入阻断、`GameClock` 在 `LOADING` 冻结和坏档隔离。缺 `MapManager` / `WorldBackground` / `WeaponSystem` / `GameplayHud` 四类 fixture 除直测 `run_prepare_failed` 各恰好一次外，还分别走完整 FormalClientBoot 玩家加载入口，验证退出 `LOADING`、移除唯一 `LoadingScreen` 与半成品 RunLoop、解除 Mod runtime activity，并清空标准、敌人、Gear Mod pickup 与 VFX 声明池。
 - 改正式玩家加载入口或准备 / 激活边界时追加 `actor-scene-smoke`、`runtime-smoke`、`save-smoke`、完整及技术切片 `module-world-smoke`、`settings-smoke`、`l1-smoke` 和四条 checked-in golden replay runner。
 - locale / UI 变化追加数据校验，并手动切换 `zh_CN` / `en` 检查文字、遮罩和旋转动画。
 - `startup-probe`、`perf-probe` 与 Profiler 仍只在用户当次明确要求性能测试时运行。

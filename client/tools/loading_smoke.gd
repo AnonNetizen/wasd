@@ -2,11 +2,22 @@ extends Node
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const GAMEPLAY_RUN_LOOP_SCENE: PackedScene = preload(
+	"res://scenes/gameplay/gameplay_run_loop.tscn"
+)
 const MAX_WAIT_FRAMES: int = 600
 
 var _failures: Array[String] = []
+var _boot_fixture_dependency_removed: bool = false
+var _boot_fixture_run_loop: Node = null
+var _boot_fixture_target_name: String = ""
 var _had_run_save: bool = false
+var _prepare_failure_count: int = 0
+var _prepare_failure_reason: String = ""
+var _prepare_failure_restoring: bool = false
+var _fixture_weapon_removed: bool = false
 var _run_save_backup: Dictionary = {}
 var _smoke_broken_paths: Array[String] = []
 
@@ -222,7 +233,376 @@ func _run() -> void:
 	_expect(_count_nodes_by_name(get_tree().root, "GameplayRunLoop") == 0, "corrupted run should not mount GameplayRunLoop")
 	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "corrupted run should be isolated from the slot")
 
+	await _expect_fatal_prepare_failure_signals_once()
+	await _expect_boot_fatal_prepare_failures(boot)
+
 	_finish()
+
+
+func _expect_fatal_prepare_failure_signals_once() -> void:
+	for fixture: Dictionary in _fatal_prepare_fixtures():
+		await _expect_one_fatal_prepare_failure(
+			String(fixture.get("target", "")),
+			String(fixture.get("reason", ""))
+		)
+
+
+func _fatal_prepare_fixtures() -> Array[Dictionary]:
+	return [
+		{
+			"target": "MapManager",
+			"reason": "missing MapManager scene node",
+		},
+		{
+			"target": "WorldBackground",
+			"reason": "missing WorldBackground scene node",
+		},
+		{
+			"target": "WeaponSystem",
+			"reason": "missing WeaponSystem scene node",
+		},
+		{
+			"target": "GameplayHud",
+			"reason": "missing GameplayHud scene node",
+		},
+	]
+
+
+func _expect_one_fatal_prepare_failure(
+	target_name: String,
+	expected_reason: String
+) -> void:
+	_prepare_failure_count = 0
+	_prepare_failure_reason = ""
+	_prepare_failure_restoring = true
+	_fixture_weapon_removed = false
+	var run_loop: Node = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
+	if target_name != "WeaponSystem":
+		var target: Node = _fatal_fixture_node(run_loop, target_name)
+		if not _expect_node(
+			target,
+			"fatal prepare fixture should contain %s" % target_name
+		):
+			run_loop.free()
+			return
+		var target_parent: Node = target.get_parent()
+		if target_parent != null:
+			target_parent.remove_child(target)
+		target.free()
+	run_loop.call("configure_player_loading_mode", true)
+	run_loop.connect(
+		"run_prepare_failed",
+		Callable(self, "_on_fixture_run_prepare_failed")
+	)
+	var weapon_remover: Callable = Callable(
+		self,
+		"_on_fatal_fixture_node_added"
+	).bind(run_loop)
+	if target_name == "WeaponSystem":
+		get_tree().node_added.connect(weapon_remover)
+	var print_errors_before_fixture: bool = Engine.print_error_messages
+	Engine.print_error_messages = false
+	add_child(run_loop)
+	for _frame: int in range(MAX_WAIT_FRAMES):
+		if _prepare_failure_count > 0:
+			break
+		await get_tree().process_frame
+	Engine.print_error_messages = print_errors_before_fixture
+	if get_tree().node_added.is_connected(weapon_remover):
+		get_tree().node_added.disconnect(weapon_remover)
+	if target_name == "WeaponSystem":
+		_expect(
+			_fixture_weapon_removed,
+			"fatal prepare fixture should remove WeaponSystem as Player enters"
+		)
+	_expect(
+		_prepare_failure_count == 1,
+		"%s fatal prepare error should emit run_prepare_failed once" % target_name
+	)
+	_expect(
+		_prepare_failure_reason == expected_reason,
+		"%s fatal prepare signal should expose its stable failure reason"
+		% target_name
+	)
+	_expect(
+		not _prepare_failure_restoring,
+		"a fresh-run fatal prepare signal should not report restoring"
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_expect(
+		_prepare_failure_count == 1,
+		"%s stopped failed run should not emit a duplicate prepare failure"
+		% target_name
+	)
+	if is_instance_valid(run_loop):
+		run_loop.queue_free()
+	await get_tree().process_frame
+
+
+func _fatal_fixture_node(run_loop: Node, target_name: String) -> Node:
+	match target_name:
+		"MapManager", "WorldBackground":
+			var active_world: Node = run_loop.get_node_or_null("ActiveWorld")
+			return (
+				active_world.get_node_or_null(target_name)
+				if active_world != null
+				else null
+			)
+		"GameplayHud":
+			return run_loop.get_node_or_null("GameplayHud")
+		_:
+			return null
+
+
+func _on_fatal_fixture_node_added(node: Node, run_loop: Node) -> void:
+	if (
+		node.name != &"Player"
+		or run_loop == null
+		or not is_instance_valid(run_loop)
+		or not run_loop.is_ancestor_of(node)
+	):
+		return
+	var weapon_system: Node = node.get_node_or_null("WeaponSystem")
+	if weapon_system == null:
+		return
+	var weapon_parent: Node = weapon_system.get_parent()
+	if weapon_parent != null:
+		weapon_parent.remove_child(weapon_system)
+	weapon_system.free()
+	_fixture_weapon_removed = true
+	var callback: Callable = Callable(
+		self,
+		"_on_fatal_fixture_node_added"
+	).bind(run_loop)
+	if get_tree().node_added.is_connected(callback):
+		get_tree().node_added.disconnect(callback)
+
+
+func _expect_boot_fatal_prepare_failures(boot: Node) -> void:
+	if not _expect_node(
+		boot,
+		"fatal prepare integration fixtures require FormalClientBoot"
+	):
+		return
+	for fixture: Dictionary in _fatal_prepare_fixtures():
+		await _expect_one_boot_fatal_prepare_failure(
+			boot,
+			String(fixture.get("target", "")),
+			String(fixture.get("reason", ""))
+		)
+
+
+func _expect_one_boot_fatal_prepare_failure(
+	boot: Node,
+	target_name: String,
+	expected_reason: String
+) -> void:
+	var title_menu: Node = await _wait_for_node("TitleMenu")
+	if not _expect_node(
+		title_menu,
+		"%s Boot fixture should begin at TitleMenu" % target_name
+	):
+		return
+	var start_button: Button = title_menu.get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/StartButton"
+	) as Button
+	if not _expect_node(
+		start_button,
+		"%s Boot fixture should expose StartButton" % target_name
+	):
+		return
+	start_button.pressed.emit()
+	var composition_panel: Node = await _wait_for_node("HeroCompositionPanel")
+	if not _expect_node(
+		composition_panel,
+		"%s Boot fixture should open HeroCompositionPanel" % target_name
+	):
+		return
+	var confirm_button: Button = composition_panel.get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/Actions/ConfirmButton"
+	) as Button
+	if not _expect_node(
+		confirm_button,
+		"%s Boot fixture should expose ConfirmButton" % target_name
+	):
+		return
+
+	_prepare_failure_count = 0
+	_prepare_failure_reason = ""
+	_prepare_failure_restoring = true
+	_boot_fixture_target_name = target_name
+	_boot_fixture_run_loop = null
+	_boot_fixture_dependency_removed = false
+	var node_added_callback: Callable = Callable(
+		self,
+		"_on_boot_fatal_fixture_node_added"
+	).bind(boot)
+	get_tree().node_added.connect(node_added_callback)
+	var print_errors_before_fixture: bool = Engine.print_error_messages
+	Engine.print_error_messages = false
+	confirm_button.pressed.emit()
+	await _expect_loading_visible("%s fatal prepare" % target_name)
+	var cleanup_finished: bool = await _wait_for_boot_failure_cleanup()
+	Engine.print_error_messages = print_errors_before_fixture
+	if get_tree().node_added.is_connected(node_added_callback):
+		get_tree().node_added.disconnect(node_added_callback)
+
+	_expect(
+		_boot_fixture_dependency_removed,
+		"%s Boot fixture should remove its dependency" % target_name
+	)
+	_expect(
+		_prepare_failure_count == 1,
+		"%s Boot player loading should emit run_prepare_failed once"
+		% target_name
+	)
+	_expect(
+		_prepare_failure_reason == expected_reason
+		and not _prepare_failure_restoring,
+		(
+			"%s Boot failure should preserve reason and fresh-run context "
+			+ "(actual reason=%s, restoring=%s, count=%d)"
+		)
+		% [
+			target_name,
+			_prepare_failure_reason,
+			str(_prepare_failure_restoring),
+			_prepare_failure_count,
+		]
+	)
+	_expect(
+		cleanup_finished and GameState.is_state(GameState.MAIN_MENU),
+		"%s Boot failure should exit LOADING and restore MAIN_MENU"
+		% target_name
+	)
+	_expect(
+		_count_nodes_by_name(get_tree().root, "LoadingScreen") == 0,
+		"%s Boot failure should remove LoadingScreen" % target_name
+	)
+	_expect(
+		_count_nodes_by_name(get_tree().root, "GameplayRunLoop") == 0,
+		"%s Boot failure should remove the partial GameplayRunLoop"
+		% target_name
+	)
+	_expect(
+		ModLoader.can_reload_packages(),
+		"%s Boot failure should release runtime Mod activity" % target_name
+	)
+	_expect_boot_failure_pools_cleared(target_name)
+	if not cleanup_finished:
+		boot.call("_show_title_menu", "ui_loading_failed")
+		await get_tree().process_frame
+	_boot_fixture_run_loop = null
+	_boot_fixture_target_name = ""
+
+
+func _on_boot_fatal_fixture_node_added(node: Node, boot: Node) -> void:
+	if node.name == &"GameplayRunLoop" and node.get_parent() == boot:
+		_boot_fixture_run_loop = node
+		var failure_callback: Callable = Callable(
+			self,
+			"_on_fixture_run_prepare_failed"
+		)
+		if not node.is_connected("run_prepare_failed", failure_callback):
+			node.connect(
+				"run_prepare_failed",
+				failure_callback,
+				CONNECT_ONE_SHOT
+			)
+		if _boot_fixture_target_name != "WeaponSystem":
+			_boot_fixture_dependency_removed = _remove_fatal_fixture_node(
+				node,
+				_boot_fixture_target_name
+			)
+		return
+	if (
+		_boot_fixture_target_name != "WeaponSystem"
+		or node.name != &"Player"
+		or _boot_fixture_run_loop == null
+		or not is_instance_valid(_boot_fixture_run_loop)
+	):
+		return
+	_boot_fixture_dependency_removed = _remove_child_by_name(
+		node,
+		"WeaponSystem"
+	)
+
+
+func _remove_fatal_fixture_node(run_loop: Node, target_name: String) -> bool:
+	var target: Node = _fatal_fixture_node(run_loop, target_name)
+	if target == null:
+		return false
+	var target_parent: Node = target.get_parent()
+	if target_parent != null:
+		target_parent.remove_child(target)
+	target.free()
+	return true
+
+
+func _remove_child_by_name(parent: Node, child_name: String) -> bool:
+	var child: Node = parent.get_node_or_null(child_name)
+	if child == null:
+		return false
+	parent.remove_child(child)
+	child.free()
+	return true
+
+
+func _wait_for_boot_failure_cleanup() -> bool:
+	for _frame: int in range(MAX_WAIT_FRAMES):
+		await get_tree().process_frame
+		if (
+			GameState.is_state(GameState.MAIN_MENU)
+			and _count_nodes_by_name(get_tree().root, "TitleMenu") == 1
+			and _count_nodes_by_name(get_tree().root, "LoadingScreen") == 0
+			and _count_nodes_by_name(get_tree().root, "GameplayRunLoop") == 0
+		):
+			return true
+	return false
+
+
+func _expect_boot_failure_pools_cleared(source: String) -> void:
+	for pool_id: String in POOL_IDS.VALUES:
+		_expect(
+			PoolManager.active_count(pool_id) == 0,
+			"%s Boot failure should leave pool %s with zero active nodes"
+			% [source, pool_id]
+		)
+	for pool_id: String in _run_owned_pool_ids():
+		_expect(
+			not PoolManager.has_pool(pool_id),
+			"%s Boot failure should clear run-owned pool %s"
+			% [source, pool_id]
+		)
+
+
+func _run_owned_pool_ids() -> Array[String]:
+	var result: Array[String] = [
+		POOL_IDS.BULLET_BASIC,
+		POOL_IDS.HAZARD_SPIKE,
+		POOL_IDS.HIT_SPARK,
+		POOL_IDS.DAMAGE_NUMBER,
+		POOL_IDS.GOLD_ORB,
+		POOL_IDS.ENERGY_ORB,
+		POOL_IDS.GEAR_MOD_PICKUP,
+		POOL_IDS.PROJECTILE_BARRIER,
+		POOL_IDS.VFX_ENEMY_EXPLOSION_TELEGRAPH,
+		POOL_IDS.VFX_ENEMY_MELEE_TELEGRAPH,
+		POOL_IDS.VFX_ENEMY_CHARGE_TELEGRAPH,
+		POOL_IDS.VFX_ENEMY_EXPLOSION_IMPACT,
+	]
+	for enemy_row: Dictionary in DataLoader.load_csv(DataLoader.ENEMIES_PATH):
+		var pool_id: String = String(enemy_row.get("pool_id", ""))
+		if not pool_id.is_empty() and not result.has(pool_id):
+			result.append(pool_id)
+	return result
+
+
+func _on_fixture_run_prepare_failed(reason: String, restoring: bool) -> void:
+	_prepare_failure_count += 1
+	_prepare_failure_reason = reason
+	_prepare_failure_restoring = restoring
 
 
 func _expect_loading_visible(source: String) -> void:

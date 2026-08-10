@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-10",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #196 已落地统一 GameplayEffectRuntime、EffectPrimitiveRegistry 与 EffectExecutionGateway：skills v3 和 Gear Mod v6 共用 programs，Gear Mod 使用可组合 modifier / program / board_rule components；本地 manifest v2 可新增 namespaced Gear Mod、掉落、奖励池贡献、双语文本与受限图片 / 非循环 SFX。Meta v4、Run v19、Replay v9、游戏 v1.18；旧 Run v18 / Replay v8 保留原文件但拒绝继续 / 播放，环境缺包 / 版本 / gameplay hash 不匹配同样保留拒绝。contracts、data/schema、三层 lint、自测、docs health、headless、效果 / ModLoader / Gear / Save / Replay / Module World 等自动门禁与全文件 pre-commit 已通过；图片观感、音效质量、真实本地包安装、主菜单诊断与 1920×1080 中英文布局待用户人工验收，性能 probe 未运行。",
-  "latest_adr": 196,
+  "current_status": "ADR #197 已完成架构治理的 fail-closed 首片：Replay 丢弃输入 / 决策后不可保存或加载；Save preserve 主档短路备份，损坏主档隔离后才尝试 .bak，FormalClientBoot 不删除空加载结果；headless smoke 默认隔离并要求精确成功 / fatal marker；四类 Run 准备失败、世界奖励同步投放与 UIManager→InputService 单向栈事实均已显式化。Meta v4、Run v19、Replay v9、游戏 v1.18 与玩法协议不变；GUT / CI、原语参数、Mod 预算和中央编排层提取继续按独立切片推进。人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / 架构治理 fail-closed 首片：不完整 Replay 拒绝持久化，Save preserve 主 / 备份不被 fallback 或 Boot 删除，全部 smoke 默认隔离并使用精确 marker，四类 Run 准备失败统一回收，世界奖励成功投放后才提交，UIManager 单向推送栈事实给 InputService；版本与协议不变。",
     "ADR #196 / 统一效果框架与本地 Gear Mod：新增每局 GameplayEffectRuntime、Registry 和 Gateway；skills v3 programs 与 gear_mods v6 components 共用内置原语。Manifest v2 限定本地包只能新增 namespaced Gear Mod / 掉落 / 奖励池 / 双语媒体；Run v19 / Replay v9 / 游戏 v1.18 精确保存 mod_environment，旧 v18 / v8 不迁移。",
     "ADR #195 / 路径感知验证提速：pre-commit 只对相关路径运行 schema / lint / Steamworks 工具自测；schema 默认最多 4 路隔离并行且保留 --jobs 1；FormalClientBoot 按需加载 runner；四条 golden 由 replay-regression 单进程隔离串行；Module World technical 跳过 full 已覆盖的确定性组合段。",
     "ADR #194 / 7×7 Gear Mod 空间棋盘：新增 GearModBoard、中心核心与 13 格初始掩码；拾取采用非暂停的预占 / 确认 / 取消事务，effect / map / grid 严格分型并加入刷怪笼 / 石头。Run v18 保存坐标实例与地图计划，Replay v8 记录 gear_mod_placement，Debug Test Arena v4 使用显式坐标；无等级和固定效果边界继续有效。",
@@ -886,6 +887,7 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #197：Replay 丢弃事件、Save preserve 主 / 备份、四类玩家 Run 准备失败和世界事件奖励投放统一 fail closed；UIManager 单向推送栈事实给 InputService。后续架构提取必须保持 Meta v4 / Run v19 / Replay v9 / 游戏 v1.18、公开 API、快照字典与黄金回放等价。",
     "ADR #196 延续 #194 的空间放置事务：带 instance_id 的地面 Mod 必须先原子放到 7×7 合法四邻格，随后 modifier components 进入属性层、program components 注册到 GameplayEffectRuntime、board_rule 只承载棋盘语义。当前 Meta v4、Run v19、Replay v9、游戏 v1.18；旧 Run v18 / Replay v8 保留拒绝且不迁移。",
     "ADR #193：Gear Mod 当前只有可重复的无等级实例；固定 damage ×1.20、recoil / spread cap ×0.80，每次拾取追加一份并逐份相乘。Meta v4、Run v17、Replay v7、游戏 v1.16；旧 Run v16 与 Replay v6 明确拒绝且不迁移 ranks。升级、满阶、溢出、批量授予和测试岛等级 / 数量入口均不得恢复。",
     "ADR #192：AI 不得沿用上一项任务的验证矩阵；简单已有数值字段调整走 L0 快路径与一次 file-scoped pre-commit。昂贵门禁去重，同项目 Godot 默认串行，超时先清理本次子进程；golden 只有在真实覆盖变量且稳定语义或 data fingerprint 改变时才重录。",

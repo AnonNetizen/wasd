@@ -30,6 +30,42 @@ func _run() -> void:
 	)
 	_expect(UIManager.stack_size() == 0, "pop should empty the stack")
 
+	var lower: Node = UIManager.push(
+		PANEL_SCENE,
+		{"source": "ui_manager_smoke_remove_lower"}
+	)
+	var upper: Node = UIManager.push(
+		PANEL_SCENE,
+		{"source": "ui_manager_smoke_remove_upper"}
+	)
+	_expect(
+		await _wait_for_state(upper, UIManager.UIState.ACTIVE),
+		"stacked panels should reach ACTIVE"
+	)
+	_expect(
+		UIManager.remove_expected(lower, true),
+		"remove_expected should accept a managed non-top panel"
+	)
+	_expect(
+		not UIManager.remove_expected(lower, true),
+		"remove_expected should reject a duplicate removal"
+	)
+	_expect(
+		await _wait_for_state(lower, UIManager.UIState.REMOVED),
+		"non-top removal should reach REMOVED"
+	)
+	_expect(
+		UIManager.stack_size() == 1 and UIManager.top() == upper,
+		"non-top removal should preserve the active top panel"
+	)
+	upper.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_expect(
+		UIManager.stack_size() == 0 and UIManager.top() == null,
+		"unexpected tree exit should self-heal the managed stack"
+	)
+
 	var previous: Node = UIManager.push(
 		PANEL_SCENE,
 		{"source": "ui_manager_smoke_replace_old"}

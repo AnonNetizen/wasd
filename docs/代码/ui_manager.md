@@ -45,13 +45,15 @@ UIManager (autoload Node)
 
 所有通过 `push()` 创建的 UI 根节点都会挂到 `UIRoot` 下，并被记录在内部栈中。
 
+受管节点不得由业务层直接 `queue_free()` 或移出树；需要移除指定节点时使用 `remove_expected()`。若遗留调用方或节点自身意外触发 `tree_exited`，`UIManager` 会自愈清理栈、状态、上下文、转场、焦点与暂停记录，避免留下幽灵栈项。
+
 ## 运行流程
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | 启动 | 创建 `CanvasLayer` 根节点并允许暂停时处理 | `_ready()` |
 | 压栈 | 实例化、安装共享 UI effects、进入 `ENTERING`；转场结束后变为 `ACTIVE`，只有 ACTIVE 栈顶接收输入 | `push()` / `ui_pushed` / `ui_entered` |
-| 出栈 | 进入 `EXITING`、去重重复关闭；退出完成后变为 `REMOVED`、释放并恢复焦点 / 暂停 | `pop()` / `pop_expected()` / `ui_exit_started` / `ui_removed` |
+| 出栈 | 进入 `EXITING`、去重重复关闭；可按期望节点安全移除非栈顶受管 UI；退出完成后变为 `REMOVED`、释放并恢复焦点 / 暂停 | `pop()` / `pop_expected()` / `remove_expected()` / `ui_exit_started` / `ui_removed` |
 | 替换 | 旧界面完整退出后再启动新界面进入，避免两个 ACTIVE 栈顶 | `replace()` / `ui_replaced` |
 | 清空 | 默认播放退出；硬切 / 失败路径用 `clear(true)` 立即移除 | `clear(immediate)` / `ui_cleared` |
 | 返回 | `InputService` 的 `ui_back` 边沿只请求栈顶节点执行 `request_close()`；栈顶不声明该方法时不自动出栈 | InputService action signal / query |
@@ -63,6 +65,7 @@ UIManager (autoload Node)
 | `push(scene, context = {})` | `PackedScene`、上下文 | UI 根节点或 `null` | scene 为空会 `push_error` |
 | `pop(immediate = false)` | 是否立即移除 | 被弹出的节点或 `null` | 只接受当前栈顶；退出期间仍在栈内 |
 | `pop_expected(node, immediate = false)` | 期望栈顶、是否立即 | 节点或 `null` | 节点不是栈顶或已退出时拒绝，用于异步回调去重 |
+| `remove_expected(node, immediate = false)` | 期望受管节点、是否立即 | `bool` | 可移除非栈顶节点；未受管、无效或已退出时返回 `false` |
 | `replace(scene, context = {})` | 新场景、上下文 | 新 UI 根节点或 `null` | 会触发一次 pop 和一次 push |
 | `clear(immediate = false)` | 是否立即 | `void` | normal 路径等待所有退出；硬切使用 true |
 | `ui_state(node)` | UI 根节点 | `UIState` | `ENTERING/ACTIVE/EXITING/REMOVED` |
@@ -97,7 +100,7 @@ UI 根节点可用两种方式声明暂停请求：
 
 可聚焦 UI 根节点可选提供 `grab_default_focus()`。如果没有该方法，`UIManager.push()` 会在需要显示导航焦点时延后一帧扫描该 UI 内第一个可见、可聚焦、未禁用的 `Control` 并抓取焦点；如果焦点已经在新 UI 内，则不覆盖。
 
-导航焦点只在 `InputService` 报告最近设备族为手柄时显示；切回键鼠时释放当前焦点，避免按钮常驻高亮。GUIDE 的 `ui_up/down/left/right` 由 `InputService` 窄桥接为 Godot 内置 `ui_*` 事件，让 `Control` 保留原生焦点导航；项目 `ui_confirm` / `ui_back` 语义仍由 `InputService` 裁决，避免同一物理输入被 UIManager 与 Godot Control 双重消费。
+导航焦点只在 `InputService` 报告最近设备族为手柄时显示；切回键鼠时释放当前焦点，避免按钮常驻高亮。GUIDE 的 `ui_up/down/left/right` 由 `InputService` 窄桥接为 Godot 内置 `ui_*` 事件，让 `Control` 保留原生焦点导航；项目 `ui_confirm` / `ui_back` 语义仍由 `InputService` 裁决，避免同一物理输入被 UIManager 与 Godot Control 双重消费。UI 栈是否为空由 `UIManager` 在 push / remove / clear 时单向调用 `InputService.set_ui_stack_active()` 推送；`InputService` 不反向查询或订阅 `UIManager`。
 
 这是当前最小契约。后续可扩展 `modal`、`music_duck`、更细的焦点策略、关闭行为等元数据，但新增字段必须写回本文档和对应 UI 模板。
 
@@ -111,7 +114,7 @@ UI 根节点可用两种方式声明暂停请求：
 
 ## 依赖
 
-- 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动；`InputService` 提供 UI action、context 与最近设备族。
+- 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动；`InputService` 提供 UI action、context 与最近设备族，并接收本模块单向推送的 UI 栈事实。
 - 下游调用方：标题菜单、图鉴、暂停菜单、设置菜单、奖励选择、结算面板、Gear Mod 界面。
 - 禁止依赖：业务代码不得直接 `add_child` UI 弹窗；暂停逻辑不得直接读写 `get_tree().paused`。
 
@@ -154,7 +157,7 @@ UI 根节点可用两种方式声明暂停请求：
 ## 测试义务
 
 - 当前切片必跑 L0 和 L2 headless boot，确认 autoload 和空栈启动无错。
-- `ui-manager-smoke` 覆盖异步 push/pop、重复 pop、串行 replace 与 immediate clear；`runtime-smoke` 覆盖暂停、设置、保存续局和焦点交互链。
+- `ui-manager-smoke` 覆盖异步 push/pop、重复 pop、非栈顶 `remove_expected()`、意外 `tree_exited` 自愈、串行 replace 与 immediate clear；`runtime-smoke` 覆盖暂停、设置、保存续局和焦点交互链。
 - 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；自动覆盖包括标题 / 暂停设置入口、`ui_back` 只关闭栈顶、键鼠不显示常驻焦点、手柄导航焦点、context 隔离和 UI bridge 不双触发。
 - 修改 `LoadingScreen` 或玩家加载 UI 栈行为时，追加 `python tools/godot_bridge.py --project client loading-smoke`，并手动检查 `zh_CN` / `en` 文案和旋转动画。
 - 修改 `CodexPanel`、标题图鉴入口、锁定条目或焦点 / 返回时，追加 `python tools/godot_bridge.py --project client codex-smoke`、`ui-manager-smoke` 与 headless boot；中英文 16:9 布局和真实手柄导航保留待人工验收。

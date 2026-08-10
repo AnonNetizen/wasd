@@ -687,24 +687,32 @@ func _perform_player_gameplay_load(
 				SaveManager.DEFAULT_SLOT,
 				SAVE_KINDS.RUN
 			)
+			if envelope.is_empty():
+				var load_error: String = SaveManager.last_error()
+				push_warning(
+					"[FormalClientBoot] run save unavailable: %s"
+					% load_error
+				)
+				_abort_player_gameplay_load(
+					_run_save_unavailable_notice_key({})
+				)
+				return
 			restore_snapshot = envelope.get("payload", {}) as Dictionary
-			if (
-				restore_snapshot.is_empty()
-				or bool(restore_snapshot.get("legacy_run_incompatible", false))
-			):
+			if bool(restore_snapshot.get("legacy_run_incompatible", false)):
 				var notice_key: String = _run_save_unavailable_notice_key(
 					restore_snapshot
 				)
-				var load_error: String = (
-					"legacy run schema is incompatible"
-					if bool(restore_snapshot.get("legacy_run_incompatible", false))
-					else SaveManager.last_error()
-				)
 				SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-				push_warning(
-					"[FormalClientBoot] run save unavailable: %s" % load_error
-				)
+				push_warning("[FormalClientBoot] run save unavailable: legacy run schema is incompatible")
 				_abort_player_gameplay_load(notice_key)
+				return
+			if restore_snapshot.is_empty():
+				push_warning(
+					"[FormalClientBoot] run save unavailable: empty payload"
+				)
+				_abort_player_gameplay_load(
+					_run_save_unavailable_notice_key(restore_snapshot)
+				)
 				return
 		_:
 			_abort_player_gameplay_load("ui_loading_failed")
@@ -791,7 +799,12 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.GOLD_ORB)
 	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
+	PoolManager.clear_pool(POOL_IDS.GEAR_MOD_PICKUP)
 	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
+	PoolManager.clear_pool(POOL_IDS.VFX_ENEMY_EXPLOSION_TELEGRAPH)
+	PoolManager.clear_pool(POOL_IDS.VFX_ENEMY_MELEE_TELEGRAPH)
+	PoolManager.clear_pool(POOL_IDS.VFX_ENEMY_CHARGE_TELEGRAPH)
+	PoolManager.clear_pool(POOL_IDS.VFX_ENEMY_EXPLOSION_IMPACT)
 
 
 func _on_title_start_requested() -> void:
@@ -840,10 +853,8 @@ func _on_composition_confirmed(main_hero_id: String, sub_hero_id: String) -> voi
 
 
 func _on_composition_cancel_requested() -> void:
-	if UIManager.top() == _hero_composition_panel:
-		UIManager.pop_expected(_hero_composition_panel)
-	elif _hero_composition_panel != null and is_instance_valid(_hero_composition_panel):
-		_hero_composition_panel.queue_free()
+	if _hero_composition_panel != null and is_instance_valid(_hero_composition_panel):
+		UIManager.remove_expected(_hero_composition_panel)
 	_hero_composition_panel = null
 
 

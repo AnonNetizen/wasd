@@ -26,6 +26,9 @@ const WORLD_EVENT_KINDS := preload(
 const WORLD_EVENT_REWARD_TYPES := preload(
 	"res://scripts/contracts/world_event_reward_types.gd"
 )
+const WORLD_EVENT_GOLD_SHRINE_SCENE: PackedScene = preload(
+	"res://scenes/gameplay/world_events/world_event_gold_shrine.tscn"
+)
 
 const BOOT_FRAMES: int = 10
 const CPU_SVG_PATH: String = (
@@ -38,6 +41,8 @@ const TEAM_PLAYER: String = "team_player"
 var _failures: Array[String] = []
 var _last_placement_failure: Dictionary = {}
 var _last_placement_result: Dictionary = {}
+var _world_event_delivery_observation_count: int = 0
+var _world_event_delivery_spend_count: int = 0
 
 
 func _ready() -> void:
@@ -86,6 +91,7 @@ func _run() -> void:
 	_expect_logical_cap_contract(run_loop)
 	await _expect_interaction_contract(run_loop, player, hud)
 	_expect_world_event_spawn_contract(run_loop)
+	await _expect_world_event_delivery_retry_contract(run_loop, player)
 	_expect_snapshot_validation_contract(run_loop)
 	_release_active_pickups(run_loop)
 	await _expect_full_death_replay_contract()
@@ -953,8 +959,8 @@ func _expect_world_event_spawn_contract(run_loop: Node) -> void:
 	]
 	for index: int in range(event_cases.size()):
 		var event_case: Dictionary = event_cases[index]
-		run_loop.call(
-			"_on_world_event_reward_requested",
+		var delivery_ack: Dictionary = run_loop.call(
+			"_deliver_world_event_reward",
 			"pickup_smoke_%d" % index,
 			String(event_case.get("event_id", "")),
 			{
@@ -962,6 +968,10 @@ func _expect_world_event_spawn_contract(run_loop: Node) -> void:
 				"source": String(event_case.get("source", "")),
 				"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER,
 			}
+		)
+		_expect(
+			bool(delivery_ack.get("ok", false)),
+			"world-event pickup delivery should acknowledge each spawn"
 		)
 	_expect(
 		_active_pickup_count(run_loop) == event_cases.size()
@@ -978,6 +988,223 @@ func _expect_world_event_spawn_contract(run_loop: Node) -> void:
 		"two-drop rewards should use the configured left/right spread without RNG"
 	)
 	_release_active_pickups(run_loop)
+
+
+func _expect_world_event_delivery_retry_contract(
+	run_loop: Node,
+	player: Node2D
+) -> void:
+	_release_active_pickups(run_loop)
+	var original_pool_stats: Dictionary = PoolManager.stats(
+		POOL_IDS.GEAR_MOD_PICKUP
+	)
+	var original_max_size: int = int(
+		original_pool_stats.get("max_size", 0)
+	)
+	_expect(
+		original_max_size > 1,
+		"formal Gear Mod pickup pool should expose its production capacity"
+	)
+	PoolManager.clear_pool(POOL_IDS.GEAR_MOD_PICKUP)
+	_expect(
+		PoolManager.register_pool(
+			POOL_IDS.GEAR_MOD_PICKUP,
+			_create_world_event_delivery_pickup,
+			1
+		),
+		"world-event delivery fixture should install a capacity-one pickup pool"
+	)
+	var held_pickup: Node = PoolManager.acquire(
+		POOL_IDS.GEAR_MOD_PICKUP
+	)
+	_expect(
+		held_pickup is GearModPickup,
+		"world-event delivery fixture should occupy its only pickup entry"
+	)
+	if not held_pickup is GearModPickup:
+		PoolManager.clear_pool(POOL_IDS.GEAR_MOD_PICKUP)
+		PoolManager.register_pool(
+			POOL_IDS.GEAR_MOD_PICKUP,
+			_create_world_event_delivery_pickup,
+			maxi(original_max_size, 1)
+		)
+		return
+
+	var controller := WorldEventController.new()
+	add_child(controller)
+	controller.configure(
+		DataLoader.load_json(DataLoader.WORLD_EVENTS_PATH)
+	)
+	controller.set_reward_delivery_handler(
+		Callable(run_loop, "_deliver_world_event_reward")
+	)
+	controller.reward_requested.connect(
+		_on_world_event_delivery_observed
+	)
+	var interactable: WorldEventInteractable = (
+		WORLD_EVENT_GOLD_SHRINE_SCENE.instantiate()
+		as WorldEventInteractable
+	)
+	_expect(
+		interactable != null,
+		"world-event delivery fixture should instantiate a gold shrine"
+	)
+	if interactable == null:
+		controller.queue_free()
+		PoolManager.release(held_pickup)
+		PoolManager.clear_pool(POOL_IDS.GEAR_MOD_PICKUP)
+		PoolManager.register_pool(
+			POOL_IDS.GEAR_MOD_PICKUP,
+			_create_world_event_delivery_pickup,
+			maxi(original_max_size, 1)
+		)
+		return
+	interactable.global_position = player.global_position
+	add_child(interactable)
+	var instance_id: String = "pickup_smoke_pool_failure_gold_shrine"
+	_expect(
+		controller.register_instance(
+			instance_id,
+			WORLD_EVENT_IDS.WORLD_EVENT_GOLD_SHRINE,
+			interactable,
+			"pickup_smoke_pool_failure_slot"
+		),
+		"world-event delivery fixture should register its gold shrine"
+	)
+	var callbacks: Dictionary = {
+		"try_spend_gold": _try_spend_world_event_delivery_gold,
+		"roll_world_event_chance": _roll_world_event_delivery_success,
+		"choose_world_event_mod": _choose_world_event_delivery_mod,
+	}
+	_world_event_delivery_observation_count = 0
+	_world_event_delivery_spend_count = 0
+	var print_errors_before_failure: bool = Engine.print_error_messages
+	Engine.print_error_messages = false
+	var pending_result: Dictionary = controller.interact(
+		instance_id,
+		player,
+		callbacks
+	)
+	Engine.print_error_messages = print_errors_before_failure
+	var pending_summary: Dictionary = _world_event_instance_summary(
+		controller,
+		instance_id
+	)
+	_expect(
+		String(pending_result.get("reason", "")) == "reward_pending"
+		and String(pending_result.get(
+			"delivery_failure_reason",
+			""
+		)) == "gear_mod_pickup_pool_exhausted",
+		"real RunLoop should return a diagnostic pickup-pool delivery failure"
+	)
+	_expect(
+		int(pending_summary.get("attempts", -1)) == 1
+		and int(pending_summary.get("successes", -1)) == 0
+		and not bool(pending_summary.get("reward_committed", true))
+		and String(pending_summary.get(
+			"reward_delivery_failure_reason",
+			""
+		)) == "gear_mod_pickup_pool_exhausted"
+		and _world_event_delivery_observation_count == 0
+		and _world_event_delivery_spend_count == 1,
+		"failed real delivery should remain pending after one charge"
+	)
+
+	_expect(
+		PoolManager.release(held_pickup),
+		"world-event delivery fixture should release pickup capacity"
+	)
+	var retry_result: Dictionary = controller.interact(
+		instance_id,
+		player,
+		callbacks
+	)
+	var committed_summary: Dictionary = _world_event_instance_summary(
+		controller,
+		instance_id
+	)
+	_expect(
+		String(retry_result.get("reason", "")) == "success"
+		and int(committed_summary.get("attempts", -1)) == 1
+		and int(committed_summary.get("successes", -1)) == 1
+		and bool(committed_summary.get("reward_committed", false)),
+		"freeing pool capacity should commit the original pending reward"
+	)
+	_expect(
+		_world_event_delivery_spend_count == 1
+		and _world_event_delivery_observation_count == 1
+		and PoolManager.active_count(POOL_IDS.GEAR_MOD_PICKUP) == 1,
+		"real retry should not recharge or duplicate reward delivery"
+	)
+
+	_release_active_pickups(run_loop)
+	controller.queue_free()
+	interactable.queue_free()
+	await get_tree().process_frame
+	PoolManager.clear_pool(POOL_IDS.GEAR_MOD_PICKUP)
+	_expect(
+		PoolManager.register_pool(
+			POOL_IDS.GEAR_MOD_PICKUP,
+			_create_world_event_delivery_pickup,
+			maxi(original_max_size, 1)
+		),
+		"world-event delivery fixture should restore the production pickup pool"
+	)
+
+
+func _create_world_event_delivery_pickup() -> Node:
+	return PICKUP_SCENE.instantiate()
+
+
+func _try_spend_world_event_delivery_gold(
+	_instance_id: String,
+	_cost: int
+) -> bool:
+	_world_event_delivery_spend_count += 1
+	return true
+
+
+func _roll_world_event_delivery_success(
+	_instance_id: String,
+	_chance: float
+) -> bool:
+	return true
+
+
+func _choose_world_event_delivery_mod(
+	_instance_id: String,
+	_pool_id: String,
+	excluded: Array[String]
+) -> String:
+	if excluded.has(GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER):
+		return ""
+	return GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER
+
+
+func _on_world_event_delivery_observed(
+	_instance_id: String,
+	_event_id: String,
+	_reward: Dictionary
+) -> void:
+	_world_event_delivery_observation_count += 1
+
+
+func _world_event_instance_summary(
+	controller: WorldEventController,
+	instance_id: String
+) -> Dictionary:
+	var debug_summary: Dictionary = controller.debug_summary()
+	var instances_raw: Variant = debug_summary.get("instances", [])
+	if not instances_raw is Array:
+		return {}
+	for item_raw: Variant in instances_raw:
+		if not item_raw is Dictionary:
+			continue
+		var item: Dictionary = item_raw as Dictionary
+		if String(item.get("instance_id", "")) == instance_id:
+			return item
+	return {}
 
 
 func _expect_snapshot_validation_contract(run_loop: Node) -> void:

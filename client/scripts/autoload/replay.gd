@@ -232,6 +232,10 @@ func save_recording(recording: Dictionary = {}, file_name: String = "") -> Strin
 	var recording_payload: Dictionary = recording.duplicate(true)
 	if recording_payload.is_empty():
 		recording_payload = snapshot()
+	var dropped_event_error: String = _dropped_event_validation_error(recording_payload)
+	if not dropped_event_error.is_empty():
+		_set_error(dropped_event_error)
+		return ""
 	if not _is_valid_recording(recording_payload):
 		_set_error("[Replay] cannot save invalid recording")
 		return ""
@@ -486,6 +490,9 @@ func _validate_file_envelope(envelope: Dictionary) -> String:
 	var recording_schema_version: int = int(recording.get("schema_version", 0))
 	if recording_schema_version != REPLAY_SCHEMA_VERSION:
 		return "[Replay] unsupported replay recording schema: %d; expected %d" % [recording_schema_version, REPLAY_SCHEMA_VERSION]
+	var dropped_event_error: String = _dropped_event_validation_error(recording)
+	if not dropped_event_error.is_empty():
+		return dropped_event_error
 	if not _is_valid_recording(recording):
 		return "[Replay] replay recording payload is invalid"
 	var expected_hash: String = _payload_hash(recording)
@@ -496,6 +503,8 @@ func _validate_file_envelope(envelope: Dictionary) -> String:
 
 func _is_valid_recording(recording: Dictionary) -> bool:
 	if int(recording.get("schema_version", 0)) != REPLAY_SCHEMA_VERSION:
+		return false
+	if not _dropped_event_validation_error(recording).is_empty():
 		return false
 	if not recording.has("run_seed") or not recording.has("started_tick") or not recording.has("started_time"):
 		return false
@@ -517,6 +526,31 @@ func _is_valid_recording(recording: Dictionary) -> bool:
 		if not raw_event is Dictionary or not _is_valid_decision_event(raw_event as Dictionary):
 			return false
 	return true
+
+
+func _dropped_event_validation_error(recording: Dictionary) -> String:
+	var dropped_counts: Array[int] = []
+	for field_name: String in [
+		"dropped_input_events",
+		"dropped_decision_events",
+	]:
+		var raw_count: Variant = recording.get(field_name, 0)
+		if not raw_count is int and not raw_count is float:
+			return "[Replay] %s must be a non-negative integer" % field_name
+		var numeric_count: float = float(raw_count)
+		if (
+			not is_finite(numeric_count)
+			or numeric_count < 0.0
+			or numeric_count != floor(numeric_count)
+		):
+			return "[Replay] %s must be a non-negative integer" % field_name
+		dropped_counts.append(int(numeric_count))
+	if dropped_counts[0] > 0 or dropped_counts[1] > 0:
+		return (
+			"[Replay] incomplete recording dropped events: input=%d decision=%d"
+			% dropped_counts
+		)
+	return ""
 
 
 func _is_valid_content_availability(raw_value: Variant) -> bool:

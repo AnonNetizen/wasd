@@ -24,6 +24,108 @@ COMMON_GODOT_PATHS = [
     Path(r"C:\Program Files\Godot\godot.exe"),
 ]
 
+STANDARD_FATAL_MARKERS = (
+    "SCRIPT ERROR:",
+    "Parse Error:",
+    "Failed to load script",
+    "ERROR:",
+)
+HEADLESS_SMOKE_SUCCESS_MARKERS = {
+    "module-bake-smoke": "[module-bake-smoke] ok=true assertions=",
+    "module-json-editor-smoke": "[module-json-editor-smoke] PASS",
+    "data-table-editor-smoke": "[data-table-editor-smoke] ALL PASS",
+    "world-event-smoke": "WORLD EVENT SMOKE ALL PASS",
+    "actor-scene-smoke": "[actor-scene-smoke] PASS",
+    "l1-smoke": "[L1Smoke] passed",
+    "replay-smoke": "[ReplaySmoke] passed",
+    "replay-input-smoke": "[ReplayInputSmoke] passed;",
+    "content-progression-smoke": "[ContentProgressionSmoke] ALL PASS",
+    "codex-smoke": "[codex-smoke] ALL PASS",
+    "input-smoke": "[InputSmoke] passed",
+    "debug-tools-smoke": "[DebugToolsSmoke] passed; release_sim=false",
+    "debug-tools-release-smoke": "[DebugToolsSmoke] passed; release_sim=true",
+    "debug-test-arena-smoke": "DEBUG TEST ARENA ALL PASS",
+    "f9-demo-smoke": "[F9DemoSmoke] passed;",
+    "runtime-smoke": "[RuntimeSmoke] passed;",
+    "f4-smoke": "[RuntimeSmoke] passed;",
+    "loading-smoke": "[loading-smoke] PASS",
+    "module-world-smoke": "[ModuleWorldSmoke] PASS",
+    "module-world-technical-slice-smoke": "[ModuleWorldSmoke] PASS",
+    "save-smoke": "[SaveSmoke] passed;",
+    "gear-mod-smoke": "[GearModSmoke] passed",
+    "mod-loader-smoke": "MOD LOADER V2 SMOKE ALL PASS",
+    "effect-runtime-smoke": "[effect-runtime-smoke] passed",
+    "gear-mod-pickup-smoke": "[GearModPickupSmoke] passed",
+    "settings-smoke": "[SettingsSmoke] passed",
+    "ui-manager-smoke": "[ui-manager-smoke] PASS",
+    "vfx-smoke": "[vfx-smoke] PASS",
+}
+HEADLESS_SMOKE_IGNORED_FAILURE_PATTERNS = {
+    "replay-smoke": (
+        r"(?m)^ERROR: \[Replay\] unsupported replay file schema: "
+        r"(?:[1-8]|10); expected 9\r?$",
+        r"(?m)^ERROR: \[Replay\] unsupported replay recording schema: "
+        r"(?:[1-8]|10); expected 9\r?$",
+        r"(?m)^ERROR: \[Replay\] mod environment mismatch: local mod "
+        r"environment count mismatch: expected 1, found 0\r?$",
+        r"(?m)^ERROR: \[Replay\] mod environment mismatch: local mod "
+        r"environment mismatch at 0\.version: expected 1\.0\.0, found "
+        r"2\.0\.0\r?$",
+        r"(?m)^ERROR: \[Replay\] mod environment mismatch: local mod "
+        r"environment mismatch at 0\.gameplay_hash: expected "
+        r"recorded_hash, found installed_hash\r?$",
+        r"(?m)^ERROR: \[Replay\] incomplete recording dropped events: "
+        r"input=1 decision=0\r?$",
+        r"(?m)^ERROR: \[Replay\] incomplete recording dropped events: "
+        r"input=0 decision=1\r?$",
+    ),
+    "save-smoke": (
+        r"(?m)^ERROR: Parse JSON failed\. Error at line 0: Expected key\r?$",
+        r"(?m)^ERROR: \[SaveManager\] save file is not a JSON object: "
+        r"user://saves/slot_save_smoke/run\.save\r?$",
+        r"(?m)^ERROR: \[SaveManager\] save file is not a JSON object: "
+        r"user://saves/slot_save_smoke/run\.save\.bak\r?$",
+        r"(?m)^ERROR: \[SaveManager\] unsupported run version: 18; "
+        r"expected 19\r?$",
+        r"(?m)^ERROR: \[SaveManager\] run mod environment mismatch: local "
+        r"mod environment count mismatch: expected 1, found 0\r?$",
+        r"(?m)^ERROR: \[SaveManager\] run mod environment mismatch: local "
+        r"mod environment mismatch at 0\.version: expected 1\.0\.0, found "
+        r"2\.0\.0\r?$",
+        r"(?m)^ERROR: \[SaveManager\] run mod environment mismatch: local "
+        r"mod environment mismatch at 0\.gameplay_hash: expected "
+        r"recorded_hash, found installed_hash\r?$",
+        r"(?m)^ERROR: \[SaveManager\] save data_hash mismatch\r?$",
+    ),
+    "settings-smoke": (
+        r"(?m)^ERROR: ConfigFile parse error at user://settings\.cfg:0: "
+        r"Unexpected EOF while parsing simple tag\.\r?$",
+    ),
+    "loading-smoke": (
+        r"(?m)^ERROR: \[GameplayRunLoop\] hero composition contains locked "
+        r"content\r?$",
+        r"(?m)^ERROR: Parse JSON failed\. Error at line 0: Expected key\r?$",
+        r"(?m)^ERROR: \[SaveManager\] save file is not a JSON object: "
+        r"user://saves/slot_0/run\.save\r?$",
+    ),
+}
+# These commands are known to emit Godot 4.7.1 shutdown-only resource reports
+# after their success marker. Keep the exception command-scoped: a newly added
+# smoke must fail on any ERROR line until its exact shutdown behavior is
+# investigated and explicitly registered here.
+HEADLESS_SMOKE_ALLOW_KNOWN_SHUTDOWN_LEAKS = frozenset(
+    {
+        "f9-demo-smoke",
+        "gear-mod-pickup-smoke",
+        "input-smoke",
+        "loading-smoke",
+        "replay-smoke",
+        "save-smoke",
+        "settings-smoke",
+        "ui-manager-smoke",
+    }
+)
+
 NODE_RE = re.compile(r"^\[node\s+(.+)\]$")
 EXT_RESOURCE_RE = re.compile(r"^\[ext_resource\s+(?P<attrs>.+)\]$")
 ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
@@ -222,16 +324,17 @@ def main() -> int:
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--script", "res://tools/module_bake_smoke.gd"],
             cwd=project,
-            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
         )
     if args.command == "module-json-editor-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [
                 str(godot),
                 "--headless",
@@ -241,13 +344,13 @@ def main() -> int:
                 "res://addons/module_authoring/module_json_document_self_test.gd",
             ],
             cwd=project,
-            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
         )
     if args.command == "data-table-editor-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [
                 str(godot),
                 "--headless",
@@ -257,13 +360,13 @@ def main() -> int:
                 "res://addons/data_table_editor/data_table_editor_self_test.gd",
             ],
             cwd=project,
-            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
         )
     if args.command == "world-event-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [
                 str(godot),
                 "--headless",
@@ -273,13 +376,13 @@ def main() -> int:
                 "res://tools/world_event_smoke.gd",
             ],
             cwd=project,
-            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
         )
     if args.command == "actor-scene-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [
                 str(godot),
                 "--headless",
@@ -289,7 +392,6 @@ def main() -> int:
                 "--actor-scene-smoke",
             ],
             cwd=project,
-            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
         )
     if args.command == "startup-probe":
         return _run_startup_probe(godot, project)
@@ -317,7 +419,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing L1 smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--l1-smoke"],
             cwd=project,
         )
@@ -329,7 +432,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing Replay smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--replay-smoke"],
             cwd=project,
         )
@@ -341,7 +445,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing Replay input smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--replay-input-smoke"],
             cwd=project,
         )
@@ -359,7 +464,8 @@ def main() -> int:
             print(f"[godot-bridge] missing smoke script: {_rel(smoke_script)}")
             return 1
         smoke_flag = f"--{args.command}"
-        return _run_isolated_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", smoke_flag],
             cwd=project,
         )
@@ -371,7 +477,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing Input smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--input-smoke"],
             cwd=project,
         )
@@ -477,7 +584,8 @@ def main() -> int:
             )
             if exclusion_result != 0:
                 return exclusion_result
-        return _run_isolated_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", *user_args],
             cwd=project,
         )
@@ -503,7 +611,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing F9 demo smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--f9-demo-smoke"],
             cwd=project,
         )
@@ -516,7 +625,8 @@ def main() -> int:
             print(f"[godot-bridge] missing runtime smoke script: {_rel(smoke_script)}")
             return 1
         smoke_flag = "--runtime-smoke" if args.command == "runtime-smoke" else "--f4-smoke"
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", smoke_flag],
             cwd=project,
         )
@@ -528,7 +638,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing loading smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--loading-smoke"],
             cwd=project,
         )
@@ -543,7 +654,11 @@ def main() -> int:
         flags = ["--module-world-smoke"]
         if args.command == "module-world-technical-slice-smoke":
             flags.append("--module-world-technical-slice")
-        return _run_command([str(godot), "--headless", "--path", str(project), "--", *flags], cwd=project)
+        return _run_smoke_command(
+            args.command,
+            [str(godot), "--headless", "--path", str(project), "--", *flags],
+            cwd=project,
+        )
     if args.command == "save-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
@@ -552,7 +667,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing SaveManager smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--save-smoke"],
             cwd=project,
         )
@@ -564,7 +680,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing GearMod smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--gear-mod-smoke"],
             cwd=project,
         )
@@ -576,7 +693,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing ModLoader smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_isolated_command(
+        return _run_smoke_command(
+            args.command,
             [
                 str(godot),
                 "--headless",
@@ -586,15 +704,14 @@ def main() -> int:
                 "res://tools/mod_loader_v2_smoke.gd",
             ],
             cwd=project,
-            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script", "ERROR:"),
-            success_markers=("MOD LOADER V2 SMOKE ALL PASS",),
         )
     if args.command == "effect-runtime-smoke":
         smoke_script = project / "tools" / "effect_runtime_smoke.gd"
         if not smoke_script.exists():
             print(f"[godot-bridge] missing effect runtime smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--effect-runtime-smoke"],
             cwd=project,
         )
@@ -606,7 +723,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing Gear Mod pickup smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--gear-mod-pickup-smoke"],
             cwd=project,
         )
@@ -635,7 +753,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing Settings smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [str(godot), "--headless", "--path", str(project), "--", "--settings-smoke"],
             cwd=project,
         )
@@ -644,7 +763,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing UIManager smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [
                 str(godot),
                 "--headless",
@@ -660,7 +780,8 @@ def main() -> int:
         if not smoke_script.exists():
             print(f"[godot-bridge] missing VFX smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
+        return _run_smoke_command(
+            args.command,
             [
                 str(godot),
                 "--headless",
@@ -844,6 +965,7 @@ def _run_command(
     env: dict[str, str] | None = None,
     print_output: bool = True,
     allow_known_shutdown_leaks: bool = False,
+    ignored_failure_patterns: tuple[str, ...] = (),
 ) -> int:
     completed = subprocess.run(
         command,
@@ -861,6 +983,8 @@ def _run_command(
         print(completed.stderr, end="", file=sys.stderr)
     combined_output = completed.stdout + completed.stderr
     validation_output = combined_output
+    for pattern in ignored_failure_patterns:
+        validation_output = re.sub(pattern, "", validation_output)
     if allow_known_shutdown_leaks:
         validation_output = re.sub(
             r"(?m)^ERROR: \d+ resources still in use at exit.*$",
@@ -903,12 +1027,42 @@ def _run_command(
     return completed.returncode
 
 
+def _run_smoke_command(
+    smoke_name: str,
+    command: list[str],
+    *,
+    cwd: Path,
+) -> int:
+    success_marker = HEADLESS_SMOKE_SUCCESS_MARKERS.get(smoke_name)
+    if success_marker is None:
+        print(
+            f"[godot-bridge] no success marker policy for smoke command: {smoke_name}",
+            file=sys.stderr,
+        )
+        return 1
+    return _run_isolated_command(
+        command,
+        cwd=cwd,
+        failure_markers=STANDARD_FATAL_MARKERS,
+        success_markers=(success_marker,),
+        allow_known_shutdown_leaks=(
+            smoke_name in HEADLESS_SMOKE_ALLOW_KNOWN_SHUTDOWN_LEAKS
+        ),
+        ignored_failure_patterns=HEADLESS_SMOKE_IGNORED_FAILURE_PATTERNS.get(
+            smoke_name,
+            (),
+        ),
+    )
+
+
 def _run_isolated_command(
     command: list[str],
     *,
     cwd: Path,
     failure_markers: tuple[str, ...] = (),
     success_markers: tuple[str, ...] = (),
+    allow_known_shutdown_leaks: bool = False,
+    ignored_failure_patterns: tuple[str, ...] = (),
 ) -> int:
     with tempfile.TemporaryDirectory(prefix="wasd-godot-user-") as directory:
         root = Path(directory)
@@ -919,6 +1073,8 @@ def _run_isolated_command(
             failure_markers=failure_markers,
             success_markers=success_markers,
             env=isolated_env,
+            allow_known_shutdown_leaks=allow_known_shutdown_leaks,
+            ignored_failure_patterns=ignored_failure_patterns,
         )
 
 
@@ -926,32 +1082,19 @@ def _run_debug_test_arena_smoke(
     godot: Path,
     project: Path,
 ) -> int:
-    with tempfile.TemporaryDirectory(
-        prefix="wasd-debug-test-arena-"
-    ) as directory:
-        isolated_env = _isolated_user_environment(Path(directory))
-        smoke_result = _run_command(
-            [
-                str(godot),
-                "--headless",
-                "--path",
-                str(project),
-                "res://scenes/debug/debug_test_arena.tscn",
-                "--",
-                "--debug-test-arena-smoke",
-            ],
-            cwd=project,
-            env=isolated_env,
-            allow_known_shutdown_leaks=True,
-            failure_markers=(
-                "SCRIPT ERROR:",
-                "Parse Error:",
-                "Failed to load script",
-                "ERROR:",
-            ),
-            success_markers=("DEBUG TEST ARENA ALL PASS",),
-        )
-        return smoke_result
+    return _run_smoke_command(
+        "debug-test-arena-smoke",
+        [
+            str(godot),
+            "--headless",
+            "--path",
+            str(project),
+            "res://scenes/debug/debug_test_arena.tscn",
+            "--",
+            "--debug-test-arena-smoke",
+        ],
+        cwd=project,
+    )
 
 
 def _isolated_user_environment(root: Path) -> dict[str, str]:
@@ -976,6 +1119,7 @@ def _isolated_user_environment(root: Path) -> dict[str, str]:
             "XDG_DATA_HOME": str(xdg_data),
             "XDG_CONFIG_HOME": str(xdg_config),
             "XDG_CACHE_HOME": str(xdg_cache),
+            "HOME": str(root),
             "USERPROFILE": str(root),
         }
     )
@@ -998,6 +1142,7 @@ def _verify_release_debug_resource_exclusion(
         prefix="wasd-release-debug-check-"
     ) as directory:
         check_root = Path(directory)
+        isolated_env = _isolated_user_environment(check_root / "user")
         pack_path = check_root / "wasd-release.pck"
         export_result = _run_command(
             [
@@ -1010,12 +1155,10 @@ def _verify_release_debug_resource_exclusion(
                 str(pack_path),
             ],
             cwd=project,
-            failure_markers=(
-                "SCRIPT ERROR:",
-                "Parse Error:",
-                "Failed to export",
-            ),
+            failure_markers=(*STANDARD_FATAL_MARKERS, "Failed to export"),
+            env=isolated_env,
             print_output=False,
+            allow_known_shutdown_leaks=True,
         )
         if export_result != 0:
             return export_result
@@ -1036,11 +1179,12 @@ def _verify_release_debug_resource_exclusion(
             ],
             cwd=check_root,
             failure_markers=(
-                "SCRIPT ERROR:",
-                "Parse Error:",
+                *STANDARD_FATAL_MARKERS,
                 "exported debug resource:",
             ),
             success_markers=("RELEASE DEBUG RESOURCE CHECK PASS",),
+            env=isolated_env,
+            allow_known_shutdown_leaks=True,
         )
 
 

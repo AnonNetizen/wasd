@@ -6,6 +6,9 @@ const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 
 const REPLAY_FILE_NAME: String = "smoke_basic_run.replay"
 const UNSUPPORTED_REPLAY_FILE_NAME: String = "smoke_unsupported_input.replay"
+const INPUT_OVERFLOW_FILE_NAME: String = "smoke_input_overflow.replay"
+const DECISION_CAPACITY_FILE_NAME: String = "smoke_decision_capacity.replay"
+const DECISION_OVERFLOW_FILE_NAME: String = "smoke_decision_overflow.replay"
 const REPLAY_SEED: int = 20260619
 const RECORD_FRAMES: int = 3
 
@@ -126,6 +129,8 @@ func _run() -> void:
 	_expect_unsupported_schemas_are_rejected(envelope)
 	_expect_mod_environment_mismatches_are_rejected(envelope)
 	_expect_semantic_trigger_capacity_boundary()
+	_expect_decision_capacity_roundtrip()
+	_expect_overflow_recordings_are_rejected()
 
 	_cleanup_smoke_file()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_smoke"})
@@ -139,10 +144,10 @@ func _summaries_match(left: Dictionary, right: Dictionary) -> bool:
 func _expect_semantic_trigger_capacity_boundary() -> void:
 	Replay.clear_recording()
 	_expect(
-		Replay.start_recording({"source": "replay_smoke_capacity"}),
+		Replay.start_recording(_recording_context("replay_smoke_capacity")),
 		"Replay should start the semantic trigger capacity fixture"
 	)
-	for index: int in range(4096):
+	for index: int in range(Replay.MAX_INPUT_EVENTS):
 		Replay.record_input_value(
 			ACTIONS.FIRE,
 			index % 2 == 0,
@@ -164,11 +169,192 @@ func _expect_semantic_trigger_capacity_boundary() -> void:
 	)
 	var snapshot: Dictionary = Replay.snapshot()
 	_expect(
-		(snapshot.get("input_events", []) as Array).size() == 4096
+		(snapshot.get("input_events", []) as Array).size()
+		== Replay.MAX_INPUT_EVENTS
 		and int(snapshot.get("dropped_input_events", -1)) == 0,
 		"semantic replacement at MAX_INPUT_EVENTS should not drop the oldest input"
 	)
 	Replay.stop_recording("capacity_complete")
+
+
+func _expect_overflow_recordings_are_rejected() -> void:
+	Replay.clear_recording()
+	_expect(
+		Replay.start_recording(_recording_context("replay_smoke_input_overflow")),
+		"Replay should start the input overflow fixture"
+	)
+	var recorded_all_inputs: bool = true
+	for index: int in range(Replay.MAX_INPUT_EVENTS + 1):
+		recorded_all_inputs = (
+			Replay.record_input_value(
+				ACTIONS.FIRE,
+				index % 2 == 0,
+				"player_0"
+			)
+			and recorded_all_inputs
+		)
+	_expect(recorded_all_inputs, "Replay should accept every MAX_INPUT_EVENTS + 1 input fixture event")
+	var input_overflow_recording: Dictionary = Replay.stop_recording(
+		"input_overflow"
+	)
+	_expect_incomplete_recording_rejected(
+		input_overflow_recording,
+		INPUT_OVERFLOW_FILE_NAME,
+		1,
+		0
+	)
+
+	Replay.clear_recording()
+	_expect(
+		Replay.start_recording(
+			_recording_context("replay_smoke_decision_overflow")
+		),
+		"Replay should start the decision overflow fixture"
+	)
+	var recorded_all_decisions: bool = true
+	for index: int in range(Replay.MAX_DECISION_EVENTS + 1):
+		recorded_all_decisions = (
+			Replay.record_decision(ANALYTICS_EVENTS.REWARD_CHOICE, {
+				"fixture_index": index,
+			})
+			and recorded_all_decisions
+		)
+	_expect(
+		recorded_all_decisions,
+		"Replay should accept every MAX_DECISION_EVENTS + 1 decision fixture event"
+	)
+	var decision_overflow_recording: Dictionary = Replay.stop_recording(
+		"decision_overflow"
+	)
+	_expect_incomplete_recording_rejected(
+		decision_overflow_recording,
+		DECISION_OVERFLOW_FILE_NAME,
+		0,
+		1
+	)
+	Replay.clear_recording()
+
+
+func _expect_decision_capacity_roundtrip() -> void:
+	Replay.clear_recording()
+	_expect(
+		Replay.start_recording(
+			_recording_context("replay_smoke_decision_capacity")
+		),
+		"Replay should start the decision capacity fixture"
+	)
+	var recorded_all_decisions: bool = true
+	for index: int in range(Replay.MAX_DECISION_EVENTS):
+		recorded_all_decisions = (
+			Replay.record_decision(ANALYTICS_EVENTS.REWARD_CHOICE, {
+				"fixture_index": index,
+			})
+			and recorded_all_decisions
+		)
+	_expect(
+		recorded_all_decisions,
+		"Replay should accept exactly MAX_DECISION_EVENTS fixture events"
+	)
+	var completed: Dictionary = Replay.stop_recording("decision_capacity")
+	_expect(
+		(completed.get("decision_events", []) as Array).size()
+		== Replay.MAX_DECISION_EVENTS,
+		"decision capacity recording should retain exactly MAX_DECISION_EVENTS"
+	)
+	_expect(
+		int(completed.get("dropped_input_events", -1)) == 0
+		and int(completed.get("dropped_decision_events", -1)) == 0,
+		"decision capacity recording should not report dropped events"
+	)
+	var path: String = Replay.save_recording(
+		completed,
+		DECISION_CAPACITY_FILE_NAME
+	)
+	_expect(
+		not path.is_empty() and FileAccess.file_exists(path),
+		"Replay should save a recording at exactly MAX_DECISION_EVENTS"
+	)
+	var loaded: Dictionary = Replay.load_recording(path)
+	_expect(
+		not loaded.is_empty()
+		and (loaded.get("decision_events", []) as Array).size()
+		== Replay.MAX_DECISION_EVENTS
+		and int(loaded.get("dropped_decision_events", -1)) == 0,
+		"Replay should load a recording at exactly MAX_DECISION_EVENTS"
+	)
+	Replay.clear_recording()
+
+
+func _expect_incomplete_recording_rejected(
+	recording: Dictionary,
+	file_name: String,
+	expected_dropped_inputs: int,
+	expected_dropped_decisions: int
+	) -> void:
+	var input_events: Array = recording.get("input_events", []) as Array
+	var decision_events: Array = recording.get("decision_events", []) as Array
+	_expect(
+		input_events.size() == Replay.MAX_INPUT_EVENTS
+		if expected_dropped_inputs > 0
+		else decision_events.size() == Replay.MAX_DECISION_EVENTS,
+		"overflow recording should retain exactly the configured event capacity"
+	)
+	_expect(
+		int(recording.get("dropped_input_events", -1))
+		== expected_dropped_inputs
+		and int(recording.get("dropped_decision_events", -1))
+		== expected_dropped_decisions,
+		"stop_recording should preserve exact dropped-event diagnostics"
+	)
+	var expected_error: String = (
+		"[Replay] incomplete recording dropped events: input=%d decision=%d"
+		% [expected_dropped_inputs, expected_dropped_decisions]
+	)
+	var path: String = Replay.replay_root().path_join(file_name)
+	_expect(
+		Replay.save_recording(recording, file_name).is_empty(),
+		"Replay should refuse to save a recording with dropped events"
+	)
+	_expect(
+		Replay.last_error() == expected_error,
+		"dropped-event save rejection should report exact diagnostics"
+	)
+	_expect(
+		not FileAccess.file_exists(path),
+		"dropped-event save rejection should not create a replay file"
+	)
+
+	var raw_envelope: Variant = Replay.call("_build_file_envelope", recording)
+	if not raw_envelope is Dictionary:
+		_expect(false, "overflow load fixture should build a replay envelope")
+		return
+	var source_text: String = JSON.stringify(raw_envelope, "\t")
+	_expect(
+		_write_replay_text(path, source_text),
+		"smoke should write the dropped-event replay load fixture"
+	)
+	_expect(
+		Replay.load_replay_file(path).is_empty(),
+		"Replay should reject a loaded recording with dropped events"
+	)
+	_expect(
+		Replay.last_error() == expected_error,
+		"dropped-event load rejection should report exact diagnostics"
+	)
+	_expect(
+		_read_replay_text(path) == source_text,
+		"dropped-event load rejection should preserve the source replay"
+	)
+
+
+func _recording_context(source: String) -> Dictionary:
+	return {
+		"source": source,
+		"content_availability": (
+			ContentUnlockSystem.build_run_availability_snapshot()
+		),
+		"mod_environment": ModLoader.mod_environment(),
+	}
 
 
 func _has_typed_event(recording: Dictionary, action_name: String, value_type: String) -> bool:
@@ -388,7 +574,13 @@ func _set_mod_environment(entries: Array) -> void:
 
 
 func _cleanup_smoke_file() -> void:
-	for file_name: String in [REPLAY_FILE_NAME, UNSUPPORTED_REPLAY_FILE_NAME]:
+	for file_name: String in [
+		REPLAY_FILE_NAME,
+		UNSUPPORTED_REPLAY_FILE_NAME,
+		INPUT_OVERFLOW_FILE_NAME,
+		DECISION_CAPACITY_FILE_NAME,
+		DECISION_OVERFLOW_FILE_NAME,
+	]:
 		var path: String = Replay.replay_root().path_join(file_name)
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)

@@ -7,8 +7,8 @@
 
 - `SaveManager` 负责完整项目的游戏内进度存档，统一管理 `meta`、`run` 与 `replay_index` 三类 save kind。
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
-- 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
-- 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
+- 写入必须先落 `*.tmp`，替换前保留 `*.bak`。主文件缺失时允许尝试 `.bak`；普通损坏主文件只有成功隔离到 `user://saves/.broken/` 并广播 / 埋点后才能尝试备份，隔离失败必须保留主 / 备文件并立即失败，避免静默绕过仍在原位的坏档。主文件若是需保留的不兼容 Run（版本或 mod environment 不匹配），同样立即失败并保留主 / 备文件，禁止用兼容备份偷偷覆盖该诊断。已实际尝试的备份若普通损坏则隔离，若需保留则原字节保留；最终失败的 `last_error()` 采用已存在且被尝试的备份错误。
+- 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load_envelope()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
 - 当前 `meta` 为 v4、`run` 为 v19：Meta 保存上次确认的主／副智能碎片和稀疏横向内容进度，不含本地或局内 Gear Mod 实例；Run 保存精确 `mod_environment`、GameplayEffectRuntime 状态、完整 7×7 assignment、Gear Mod placements、带实例 ID 的地面物、冻结内容池、玩家、经济、敌人、世界事件和 RNG 状态。旧 Run v18 保持原文件但不显示继续入口，不迁移。
 - `GameplayRunLoop + GearModBoard` 是空间 Mod 状态权威，`GearModSystem` 不读写 SaveManager；Meta v4 中只允许 `content_progression.unlocked.gear_mod` 保存内容可用资格。Meta v3→v4 保留英雄组合并初始化空进度。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
@@ -28,7 +28,7 @@
 |------|------|
 | `client/scripts/autoload/save_manager.gd` | `SaveManager` autoload 脚本 |
 | `client/scripts/autoload/gear_mod_system.gd` | Gear Mod 无状态规则服务；不得调用 SaveManager |
-| `client/tools/save_manager_smoke.gd` | F5 存档可靠性 headless smoke：run roundtrip、备份回退、坏档隔离、迁移 |
+| `client/tools/save_manager_smoke.gd` | F5 存档可靠性 headless smoke：run roundtrip、主档缺失 / 损坏 / 不兼容 × 备份有效 / 损坏 / 不兼容矩阵、坏档隔离与隔离失败关闭、FormalBoot 失败续局保留与迁移 |
 | `client/tools/gear_mod_smoke.gd` | 局内 Gear Mod headless smoke：空开局、固定效果、重复实例乘算、立即应用、清空与 Run 恢复 |
 | `tools/godot_bridge.py` | `save-smoke` 命令入口 |
 | `client/scripts/contracts/save_kinds.gd` | 自动生成的 save kind 常量 |
@@ -57,9 +57,9 @@ user://saves/
 |------|----------|-------------------|
 | 启动 | 不主动读写任何存档，只暴露 API 和 kind / slot 查询 | `registered_save_kinds()` / `list_slots()` |
 | 写入 | 校验 slot / kind，把 payload JSON 归一化后创建标准 envelope，写 `*.tmp`，备份旧文件到 `.bak`，再原子替换 | `save()` / `save_written` |
-| 读取 | 读取正式文件，校验 envelope 与 `data_hash`，必要时跑迁移；失败则尝试 `.bak` | `load()` / `load_envelope()` / `save_loaded` |
+| 读取 | 读取正式文件，校验 envelope 与 `data_hash`，必要时跑迁移；主文件缺失时尝试 `.bak`，普通损坏时先成功隔离再尝试 `.bak`，隔离失败或需保留的不兼容主文件直接返回错误且不读取备份；已尝试备份失败时返回备份诊断 | `load()` / `load_envelope()` / `save_loaded` |
 | 迁移 | 按版本逐级调用已注册迁移函数，更新 payload、version 与 hash | `register_migration()` / `save_migrated` |
-| 损坏 | 正式文件和备份都失败时，用唯一文件名隔离坏文件到 `.broken` 并发事件 | `save_corrupted` |
+| 损坏 | 普通损坏主文件在回退前用唯一文件名隔离到 `.broken`；已尝试且普通损坏的备份同样隔离。需保留的不兼容文件不隔离 | `save_corrupted` |
 | 删除 | 删除正式、备份、临时文件；若 slot 目录空则清理空目录 | `delete()` / `save_deleted` |
 | F5 续局 | Gameplay runtime 生成 JSON 友好的 run payload，SaveManager 写入 envelope；标题继续时只返回 payload | `save()` / `load()` |
 | 局内 Gear Mod / 效果 | `GameplayRunLoop` 把棋盘、Runtime 程序状态与带 `instance_id` 的未拾取实体写入 Run v19；恢复后只从 modifier components 替换应用 Mod 层，再恢复 Runtime | `save()` / `load()` |
@@ -101,7 +101,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 | kind | 用途 |
 |------|------|
 | `meta` | 局外长期档案，当前 v4：上次确认的 `main_hero_id` / `sub_hero_id` 与稀疏 `content_progression`；不含局内 Gear Mod 实例 |
-| `run` | 当前一局续局档案，当前 v18：完整世界、英雄组合、冻结内容池、未结算进度、Gear Mod 棋盘 / 地图行为 / 地面实例、经济、威胁时间、敌人奖励快照、显式攻击、世界事件和事务游标 |
+| `run` | 当前一局续局档案，当前 v19：完整世界、英雄组合、冻结内容池、未结算进度、Gear Mod 棋盘 / 效果程序 / 地图行为 / 地面实例、经济、威胁时间、敌人奖励快照、显式攻击、世界事件和事务游标 |
 | `replay_index` | 回放索引档案：具体回放文件仍由 `Replay` 管理 |
 
 存档 envelope：
@@ -178,7 +178,7 @@ Run v19 payload 延续模块、事件和敌人奖励确定性字段，并保存�
 |------|----------|
 | `save()` 返回 `false` | slot 是否为空或含路径字符；kind 是否登记；`last_error()` |
 | `load()` 返回空字典 | 文件是否存在；hash 是否匹配；版本是否高于当前支持 |
-| `.bak` 没有被使用 | 正式文件是否仍可通过 envelope 校验 |
+| `.bak` 没有被使用 | 正式文件是否仍可通过 envelope 校验，或是否属于必须保留且阻止备份回退的版本 / mod environment 不兼容 Run |
 | `.broken` 增长异常 | 是否有外部代码直接改存档；payload 是否含不稳定 / 不可 JSON 化数据 |
 | 高精度浮点保存后 hash mismatch | `save()` 是否仍先调用 JSON 归一化；payload 是否含非 JSON 友好的 Godot 对象或 Variant |
 | 双坏档隔离后 `.bak` 残留 | `_unique_broken_path()` 是否仍为同一秒内的多个坏文件生成不撞名路径；跑 `save-smoke` |
@@ -188,7 +188,7 @@ Run v19 payload 延续模块、事件和敌人奖励确定性字段，并保存�
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，并跑 `python tools/godot_bridge.py --project client save-smoke`。
 - 改 Meta v4 英雄组合 / 内容进度或 Run v19 Gear Mod 棋盘 / Runtime / 地面实例 / 冻结池 / mod environment / 7×7 assignment 字段时追加 `content-progression-smoke`、`save-smoke`、`effect-runtime-smoke`、`mod-loader-v2-smoke`、`gear-mod-smoke`、`gear-mod-pickup-smoke`、`module-world-smoke` 与 `runtime-smoke`；Meta 必须断言不存在局内或本地 `gear_mods`。
-- 后续引入 GUT 后，`SaveManager` 必须覆盖 envelope 字段、hash mismatch、原子写入 / `.bak`、迁移链、坏档隔离、`meta` / `run` roundtrip、slot 校验和删除行为。
+- 后续引入 GUT 后，`SaveManager` 必须覆盖 envelope 字段、hash mismatch、原子写入 / `.bak`、迁移链、坏档隔离、`meta` / `run` roundtrip、slot 校验和删除行为；当前 smoke 的主 / 备 3×3 矩阵固定覆盖主文件缺失 / 普通损坏 / 需保留不兼容 × 备份有效 / 普通损坏 / 需保留不兼容，并逐项断言返回值、`last_error()`、原字节保留与 `.broken` 隔离状态；另以 `.broken` 路径碰撞覆盖“损坏主档隔离失败时不读取有效备份”。还须从 FormalBoot 继续按钮路径验证“损坏主档 + 不兼容备份”失败后退出 `LOADING`、显示不可用提示且备份字节不变。
 - 改存档 schema 必须注册 migration 并补迁移测试；改 `run` 续局字段还要跑适用的自动 roundtrip，L5 存档 checklist 保持待人工验收并由用户执行。影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
 
 ## 迁移 / 兼容

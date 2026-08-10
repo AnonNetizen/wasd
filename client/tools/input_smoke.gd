@@ -2,6 +2,7 @@ extends Node
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const PANEL_SCENE: PackedScene = preload("res://scenes/ui/settings_panel.tscn")
 
 const WAIT_FRAMES: int = 3
 const DETECTION_COUNTDOWN_SECONDS: float = 0.6
@@ -78,6 +79,31 @@ func _expect_context_isolation_and_vector_input() -> void:
 	_expect(InputService.vector(ACTIONS.MOVE).is_equal_approx(Vector2.UP), "W should produce native Vector2.UP movement intent")
 	await _inject_key(KEY_W, false)
 	_expect(InputService.vector(ACTIONS.MOVE).is_zero_approx(), "releasing W should clear movement intent")
+	var managed_panel: Node = UIManager.push(
+		PANEL_SCENE,
+		{
+			"source": "input_smoke_ui_stack_fact",
+			"immediate": true,
+		}
+	)
+	_expect(managed_panel != null, "UIManager should push a managed panel")
+	await _inject_key(KEY_W, true)
+	_expect(
+		InputService.vector(ACTIONS.MOVE).is_zero_approx(),
+		"a managed UI stack should synchronously disable gameplay context"
+	)
+	await _inject_key(KEY_W, false)
+	_expect(
+		UIManager.remove_expected(managed_panel, true),
+		"UIManager should remove the context test panel"
+	)
+	await _wait_process_frames(WAIT_FRAMES)
+	await _inject_key(KEY_W, true)
+	_expect(
+		InputService.vector(ACTIONS.MOVE).is_equal_approx(Vector2.UP),
+		"removing the last managed UI should restore gameplay context"
+	)
+	await _inject_key(KEY_W, false)
 	await _inject_key(KEY_W, true)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "input_smoke_context_clear"})
 	await _wait_process_frames(WAIT_FRAMES)

@@ -95,6 +95,13 @@ const CONTINUOUS_KINDS: Array[String] = [
 	KIND_CAPTURE,
 ]
 const MAX_SAFE_COST: int = 9_007_199_254_740_991
+const REWARD_DELIVERY_PENDING_KEY: String = "_delivery_pending"
+const REWARD_DELIVERY_CONTEXT_KEY: String = "_delivery_context"
+const REWARD_RETRY_REMAINING_KEY: String = "retry_remaining"
+const CONTINUOUS_REWARD_RETRY_INTERVAL: float = 1.0
+const REWARD_TRANSACTION_CONTINUOUS: String = "continuous"
+const REWARD_TRANSACTION_GOLD_SHRINE: String = "gold_shrine"
+const REWARD_TRANSACTION_BLOOD_SHRINE: String = "blood_shrine"
 
 
 class EventRuntime:
@@ -122,6 +129,7 @@ class EventRuntime:
 var _active_continuous_instance_id: String = ""
 var _definitions: Dictionary = {}
 var _instances: Dictionary = {}
+var _reward_delivery_handler: Callable = Callable()
 
 
 func configure(world_event_data: Dictionary) -> void:
@@ -148,6 +156,12 @@ func configure(world_event_data: Dictionary) -> void:
 			)
 			continue
 		_definitions[event_id] = definition
+
+
+## Registers the synchronous reward delivery boundary. The handler returns an
+## {ok, reason} acknowledgement; a failed acknowledgement stays pending.
+func set_reward_delivery_handler(handler: Callable) -> void:
+	_reward_delivery_handler = handler
 
 
 func register_instance(
@@ -220,6 +234,13 @@ func tick(delta: float, player: Node, context: Dictionary = {}) -> void:
 		var runtime: EventRuntime = _runtime(instance_id)
 		if runtime == null:
 			continue
+		if (
+			CONTINUOUS_KINDS.has(runtime.kind)
+			and _has_pending_reward(runtime)
+		):
+			if _advance_pending_reward_retry(runtime, scaled_delta):
+				_succeed_event(runtime)
+			continue
 		var definition: Dictionary = _definition(runtime.event_id)
 		match runtime.kind:
 			KIND_DEFENSE:
@@ -259,7 +280,11 @@ func interact(
 
 func set_prepared_reward(instance_id: String, reward: Dictionary) -> bool:
 	var runtime: EventRuntime = _runtime(instance_id)
-	if runtime == null or runtime.reward_committed:
+	if (
+		runtime == null
+		or runtime.reward_committed
+		or _has_pending_reward(runtime)
+	):
 		return false
 	runtime.prepared_reward = reward.duplicate(true)
 	return not runtime.prepared_reward.is_empty()
@@ -410,6 +435,9 @@ func debug_summary() -> Dictionary:
 			"blood_uses": runtime.blood_uses,
 			"pinned": runtime.pinned,
 			"reward_committed": runtime.reward_committed,
+			"reward_delivery_failure_reason": (
+				_reward_delivery_failure_reason(runtime)
+			),
 		}
 		if (
 			runtime.defense_target != null
@@ -465,6 +493,8 @@ func _interact_gold_shrine(
 	definition: Dictionary,
 	context: Dictionary
 ) -> Dictionary:
+	if _has_pending_reward(runtime):
+		return _retry_gold_shrine_reward(runtime, definition)
 	if runtime.state == STATE_EXHAUSTED:
 		_request_prompt(runtime, "exhausted", {})
 		return _interaction_result(false, "exhausted")
@@ -503,6 +533,8 @@ func _interact_gold_shrine(
 		current_cost,
 		float(_definition_value(definition, "cost_multiplier", 0.0))
 	)
+	runtime.reward_committed = false
+	runtime.prepared_reward.clear()
 	var success_chance: float = clampf(
 		float(_definition_value(definition, "success_chance", 0.0)),
 		0.0,
@@ -521,11 +553,8 @@ func _interact_gold_shrine(
 			succeeded = false
 			_request_prompt(runtime, "invalid_mod_selection", {})
 		else:
-			runtime.successes += 1
-			runtime.successful_mod_ids.append(mod_id)
-			reward_requested.emit(
-				runtime.instance_id,
-				runtime.event_id,
+			_stage_reward(
+				runtime,
 				{
 					"kind": (
 						WORLD_EVENT_REWARD_TYPES
@@ -535,8 +564,21 @@ func _interact_gold_shrine(
 					"pending": false,
 					"source": KIND_GOLD_SHRINE,
 					"attempt": runtime.attempts,
+					"success_index": runtime.successes + 1,
+				},
+				{
+					"transaction": REWARD_TRANSACTION_GOLD_SHRINE,
+					"cost": current_cost,
 				}
 			)
+			if not _commit_prepared_reward(runtime):
+				_apply_runtime_visuals(runtime, definition)
+				return _gold_shrine_result(
+					runtime,
+					"reward_pending",
+					current_cost
+				)
+			return _finalize_gold_shrine_reward(runtime, definition)
 
 	var maximum_successes: int = _required_positive_int(
 		definition,
@@ -560,14 +602,77 @@ func _interact_gold_shrine(
 			}
 		)
 	_apply_runtime_visuals(runtime, definition)
-	return {
+	return _gold_shrine_result(runtime, "failed_roll", current_cost)
+
+
+func _retry_gold_shrine_reward(
+	runtime: EventRuntime,
+	definition: Dictionary
+) -> Dictionary:
+	var delivery_context: Dictionary = _reward_delivery_context(runtime)
+	var current_cost: int = int(delivery_context.get("cost", 0))
+	if not _commit_prepared_reward(runtime):
+		return _gold_shrine_result(runtime, "reward_pending", current_cost)
+	return _finalize_gold_shrine_reward(runtime, definition)
+
+
+func _finalize_gold_shrine_reward(
+	runtime: EventRuntime,
+	definition: Dictionary
+) -> Dictionary:
+	var delivery_context: Dictionary = _reward_delivery_context(runtime)
+	var current_cost: int = int(delivery_context.get("cost", 0))
+	var mod_id: String = String(runtime.prepared_reward.get("mod_id", ""))
+	runtime.successes += 1
+	runtime.successful_mod_ids.append(mod_id)
+	_clear_reward_delivery_metadata(runtime)
+	var maximum_successes: int = _required_positive_int(
+		definition,
+		"max_successes"
+	)
+	var terminal_reason: String = ""
+	if runtime.successes >= maximum_successes:
+		runtime.state = STATE_EXHAUSTED
+		terminal_reason = "exhausted"
+	elif runtime.next_cost >= MAX_SAFE_COST:
+		runtime.state = STATE_EXHAUSTED
+		terminal_reason = "cost_overflow_guard"
+	_apply_runtime_visuals(runtime, definition)
+	_emit_committed_reward(runtime)
+	if not terminal_reason.is_empty():
+		_emit_state_changed(runtime, terminal_reason, {})
+	else:
+		_request_prompt(
+			runtime,
+			"shrine_success",
+			{
+				"cost": current_cost,
+				"next_cost": runtime.next_cost,
+				"attempt": runtime.attempts,
+				"successes": runtime.successes,
+			}
+		)
+	return _gold_shrine_result(runtime, "success", current_cost)
+
+
+func _gold_shrine_result(
+	runtime: EventRuntime,
+	reason: String,
+	current_cost: int
+) -> Dictionary:
+	var result: Dictionary = {
 		"accepted": true,
-		"reason": "success" if succeeded else "failed_roll",
+		"reason": reason,
 		"cost": current_cost,
 		"next_cost": runtime.next_cost,
 		"successes": runtime.successes,
 		"attempts": runtime.attempts,
 	}
+	if reason == "reward_pending":
+		result["delivery_failure_reason"] = (
+			_reward_delivery_failure_reason(runtime)
+		)
+	return result
 
 
 func _interact_blood_shrine(
@@ -575,6 +680,8 @@ func _interact_blood_shrine(
 	definition: Dictionary,
 	context: Dictionary
 ) -> Dictionary:
+	if _has_pending_reward(runtime):
+		return _retry_blood_shrine_reward(runtime, definition)
 	if runtime.state == STATE_EXHAUSTED:
 		_request_prompt(runtime, "exhausted", {})
 		return _interaction_result(false, "exhausted")
@@ -616,25 +723,80 @@ func _interact_blood_shrine(
 	if actual_spent <= 0.0:
 		return _interaction_result(false, "invalid_spent_amount")
 
-	runtime.blood_uses += 1
 	var gold_ratio: float = maxf(
 		float(_definition_value(definition, "gold_ratio", 0.0)),
 		0.0
 	)
 	var gold_amount: int = maxi(int(floor(actual_spent * gold_ratio)), 0)
-	reward_requested.emit(
-		runtime.instance_id,
-		runtime.event_id,
+	_stage_reward(
+		runtime,
 		{
 			"kind": WORLD_EVENT_REWARD_TYPES.WORLD_EVENT_REWARD_GOLD,
 			"amount": gold_amount,
 			"pending": false,
 			"source": KIND_BLOOD_SHRINE,
-			"use_index": runtime.blood_uses,
+			"use_index": runtime.blood_uses + 1,
+		},
+		{
+			"transaction": REWARD_TRANSACTION_BLOOD_SHRINE,
+			"ratio": ratio,
+			"actual_spent": actual_spent,
 		}
 	)
-	if runtime.blood_uses >= ratios.size():
+	if not _commit_prepared_reward(runtime):
+		_apply_runtime_visuals(runtime, definition)
+		return _blood_shrine_result(
+			runtime,
+			"reward_pending",
+			ratio,
+			actual_spent,
+			gold_amount
+		)
+	return _finalize_blood_shrine_reward(runtime, definition)
+
+
+func _retry_blood_shrine_reward(
+	runtime: EventRuntime,
+	definition: Dictionary
+) -> Dictionary:
+	var delivery_context: Dictionary = _reward_delivery_context(runtime)
+	var ratio: float = float(delivery_context.get("ratio", 0.0))
+	var actual_spent: float = float(
+		delivery_context.get("actual_spent", 0.0)
+	)
+	var gold_amount: int = int(runtime.prepared_reward.get("amount", 0))
+	if not _commit_prepared_reward(runtime):
+		return _blood_shrine_result(
+			runtime,
+			"reward_pending",
+			ratio,
+			actual_spent,
+			gold_amount
+		)
+	return _finalize_blood_shrine_reward(runtime, definition)
+
+
+func _finalize_blood_shrine_reward(
+	runtime: EventRuntime,
+	definition: Dictionary
+) -> Dictionary:
+	var delivery_context: Dictionary = _reward_delivery_context(runtime)
+	var ratio: float = float(delivery_context.get("ratio", 0.0))
+	var actual_spent: float = float(
+		delivery_context.get("actual_spent", 0.0)
+	)
+	var gold_amount: int = int(runtime.prepared_reward.get("amount", 0))
+	runtime.blood_uses += 1
+	_clear_reward_delivery_metadata(runtime)
+	var ratios: Array[float] = _float_array(
+		_definition_value(definition, "sacrifice_ratios", [])
+	)
+	var exhausted: bool = runtime.blood_uses >= ratios.size()
+	if exhausted:
 		runtime.state = STATE_EXHAUSTED
+	_apply_runtime_visuals(runtime, definition)
+	_emit_committed_reward(runtime)
+	if exhausted:
 		_emit_state_changed(runtime, "exhausted", {})
 	else:
 		_request_prompt(
@@ -646,15 +808,35 @@ func _interact_blood_shrine(
 				"gold_amount": gold_amount,
 			}
 		)
-	_apply_runtime_visuals(runtime, definition)
-	return {
+	return _blood_shrine_result(
+		runtime,
+		"sacrifice_completed",
+		ratio,
+		actual_spent,
+		gold_amount
+	)
+
+
+func _blood_shrine_result(
+	runtime: EventRuntime,
+	reason: String,
+	ratio: float,
+	actual_spent: float,
+	gold_amount: int
+) -> Dictionary:
+	var result: Dictionary = {
 		"accepted": true,
-		"reason": "sacrifice_completed",
+		"reason": reason,
 		"ratio": ratio,
 		"actual_spent": actual_spent,
 		"gold_amount": gold_amount,
 		"uses": runtime.blood_uses,
 	}
+	if reason == "reward_pending":
+		result["delivery_failure_reason"] = (
+			_reward_delivery_failure_reason(runtime)
+		)
+	return result
 
 
 func _tick_defense(
@@ -784,12 +966,21 @@ func _prepare_reward(
 func _succeed_event(runtime: EventRuntime) -> void:
 	if runtime.state != STATE_ACTIVE:
 		return
-	runtime.state = STATE_SUCCEEDED
+	if not _has_pending_reward(runtime):
+		_stage_reward(
+			runtime,
+			runtime.prepared_reward,
+			{"transaction": REWARD_TRANSACTION_CONTINUOUS}
+		)
 	if runtime.defense_target != null:
 		runtime.defense_target.deactivate()
+	if not _commit_prepared_reward(runtime):
+		return
+	runtime.state = STATE_SUCCEEDED
 	_release_continuous_slot(runtime)
-	_commit_prepared_reward(runtime)
+	_clear_reward_delivery_metadata(runtime)
 	_apply_runtime_visuals(runtime, _definition(runtime.event_id))
+	_emit_committed_reward(runtime)
 	_emit_state_changed(runtime, "completed", {})
 	terminal_cleanup_requested.emit(
 		runtime.instance_id,
@@ -799,7 +990,7 @@ func _succeed_event(runtime: EventRuntime) -> void:
 
 
 func _fail_event(runtime: EventRuntime, reason: String) -> void:
-	if runtime.state != STATE_ACTIVE:
+	if runtime.state != STATE_ACTIVE or _has_pending_reward(runtime):
 		return
 	runtime.state = STATE_FAILED
 	if runtime.defense_target != null:
@@ -822,14 +1013,134 @@ func _release_continuous_slot(runtime: EventRuntime) -> void:
 		_active_continuous_instance_id = ""
 
 
-func _commit_prepared_reward(runtime: EventRuntime) -> void:
-	if runtime.reward_committed:
-		return
-	runtime.reward_committed = true
+func _stage_reward(
+	runtime: EventRuntime,
+	reward: Dictionary,
+	delivery_context: Dictionary
+) -> void:
+	runtime.prepared_reward = reward.duplicate(true)
+	runtime.prepared_reward[REWARD_DELIVERY_PENDING_KEY] = true
+	runtime.prepared_reward[REWARD_DELIVERY_CONTEXT_KEY] = (
+		delivery_context.duplicate(true)
+	)
+	runtime.reward_committed = false
+
+
+func _has_pending_reward(runtime: EventRuntime) -> bool:
+	return (
+		not runtime.reward_committed
+		and bool(runtime.prepared_reward.get(
+			REWARD_DELIVERY_PENDING_KEY,
+			false
+		))
+	)
+
+
+func _reward_delivery_context(runtime: EventRuntime) -> Dictionary:
+	var context_raw: Variant = runtime.prepared_reward.get(
+		REWARD_DELIVERY_CONTEXT_KEY,
+		{}
+	)
+	return context_raw as Dictionary if context_raw is Dictionary else {}
+
+
+func _public_reward(runtime: EventRuntime) -> Dictionary:
 	var reward: Dictionary = runtime.prepared_reward.duplicate(true)
+	reward.erase(REWARD_DELIVERY_PENDING_KEY)
+	reward.erase(REWARD_DELIVERY_CONTEXT_KEY)
 	reward["source"] = runtime.kind
 	reward["event_id"] = runtime.event_id
-	reward_requested.emit(runtime.instance_id, runtime.event_id, reward)
+	return reward
+
+
+func _commit_prepared_reward(runtime: EventRuntime) -> bool:
+	if runtime.reward_committed:
+		return true
+	if not _has_pending_reward(runtime):
+		return false
+	if not _reward_delivery_handler.is_valid():
+		_set_reward_delivery_failure(
+			runtime,
+			"missing_reward_delivery_handler"
+		)
+		return false
+	var reward: Dictionary = _public_reward(runtime)
+	var delivery_ack_raw: Variant = _reward_delivery_handler.call(
+		runtime.instance_id,
+		runtime.event_id,
+		reward.duplicate(true)
+	)
+	if not delivery_ack_raw is Dictionary:
+		_set_reward_delivery_failure(runtime, "invalid_reward_delivery_ack")
+		return false
+	var delivery_ack: Dictionary = delivery_ack_raw as Dictionary
+	if not bool(delivery_ack.get("ok", false)):
+		_set_reward_delivery_failure(
+			runtime,
+			String(delivery_ack.get(
+				"reason",
+				"reward_delivery_rejected"
+			))
+		)
+		return false
+	runtime.reward_committed = true
+	runtime.prepared_reward[REWARD_DELIVERY_PENDING_KEY] = false
+	return true
+
+
+func _set_reward_delivery_failure(
+	runtime: EventRuntime,
+	reason: String
+) -> void:
+	var delivery_context: Dictionary = _reward_delivery_context(runtime)
+	delivery_context["failure_reason"] = (
+		reason if not reason.is_empty() else "reward_delivery_rejected"
+	)
+	if CONTINUOUS_KINDS.has(runtime.kind):
+		delivery_context[REWARD_RETRY_REMAINING_KEY] = (
+			CONTINUOUS_REWARD_RETRY_INTERVAL
+		)
+	runtime.prepared_reward[REWARD_DELIVERY_CONTEXT_KEY] = delivery_context
+
+
+func _advance_pending_reward_retry(
+	runtime: EventRuntime,
+	delta: float
+	) -> bool:
+	var delivery_context: Dictionary = _reward_delivery_context(runtime)
+	var retry_remaining: float = maxf(
+		float(delivery_context.get(REWARD_RETRY_REMAINING_KEY, 0.0)),
+		0.0
+	)
+	retry_remaining = maxf(retry_remaining - maxf(delta, 0.0), 0.0)
+	if retry_remaining > 0.0:
+		delivery_context[REWARD_RETRY_REMAINING_KEY] = retry_remaining
+		runtime.prepared_reward[REWARD_DELIVERY_CONTEXT_KEY] = delivery_context
+		return false
+	delivery_context.erase(REWARD_RETRY_REMAINING_KEY)
+	runtime.prepared_reward[REWARD_DELIVERY_CONTEXT_KEY] = delivery_context
+	return true
+
+
+func _reward_delivery_failure_reason(runtime: EventRuntime) -> String:
+	return String(
+		_reward_delivery_context(runtime).get("failure_reason", "")
+	)
+
+
+func _clear_reward_delivery_metadata(runtime: EventRuntime) -> void:
+	runtime.prepared_reward.erase(REWARD_DELIVERY_PENDING_KEY)
+	runtime.prepared_reward.erase(REWARD_DELIVERY_CONTEXT_KEY)
+
+
+func _emit_committed_reward(runtime: EventRuntime) -> void:
+	if not runtime.reward_committed:
+		return
+	reward_requested.emit(
+		runtime.instance_id,
+		runtime.event_id,
+		_public_reward(runtime)
+	)
 
 
 func _emit_due_waves(
@@ -991,6 +1302,7 @@ func _restore_runtime(runtime: EventRuntime, item: Dictionary) -> void:
 		if (
 			runtime.state == STATE_ACTIVE
 			and runtime.defense_target.is_alive()
+			and not _has_pending_reward(runtime)
 		):
 			runtime.defense_target.activate()
 		else:

@@ -8,6 +8,18 @@ const SMOKE_SLOT: String = "slot_save_smoke"
 const RUN_KIND: String = SAVE_KINDS.RUN
 const META_KIND: String = SAVE_KINDS.META
 
+enum PrimaryFixtureState {
+	MISSING,
+	CORRUPT,
+	INCOMPATIBLE,
+}
+
+enum BackupFixtureState {
+	VALID,
+	CORRUPT,
+	INCOMPATIBLE,
+}
+
 var _corrupted_count: int = 0
 var _failures: Array[String] = []
 var _loaded_versions: Array[int] = []
@@ -27,14 +39,18 @@ func _run() -> void:
 		await get_tree().process_frame
 
 	_expect_basic_roundtrip()
-	_expect_backup_fallback_and_broken_isolation()
+	_expect_primary_backup_matrix()
+	_expect_isolation_failure_blocks_backup()
+	_expect_environment_mismatch_primary_blocks_valid_backup()
 	_expect_meta_migration_chain()
 	_expect_run_v18_is_preserved_and_rejected()
 	_expect_mod_environment_mismatches_are_preserved()
 	_expect_hash_damage_wins_over_environment_mismatch()
+	await _expect_formal_boot_preserves_incompatible_backup()
 
 	_set_mod_environment([])
 	_cleanup_smoke_files()
+	_cleanup_default_run_files()
 	_finish()
 
 
@@ -63,27 +79,273 @@ func _expect_basic_roundtrip() -> void:
 	_expect(_loaded_versions.has(19), "run load should emit save_loaded v19")
 
 
-func _expect_backup_fallback_and_broken_isolation() -> void:
+func _expect_primary_backup_matrix() -> void:
+	for primary_state: int in [
+		PrimaryFixtureState.MISSING,
+		PrimaryFixtureState.CORRUPT,
+		PrimaryFixtureState.INCOMPATIBLE,
+	]:
+		for backup_state: int in [
+			BackupFixtureState.VALID,
+			BackupFixtureState.CORRUPT,
+			BackupFixtureState.INCOMPATIBLE,
+		]:
+			_expect_primary_backup_matrix_case(primary_state, backup_state)
+
+
+func _expect_isolation_failure_blocks_backup() -> void:
 	_cleanup_smoke_files()
-	var backup_payload: Dictionary = _run_payload("backup", 4)
-	var primary_payload: Dictionary = _run_payload("primary", 5)
-	_expect(SaveManager.save(SMOKE_SLOT, RUN_KIND, backup_payload), "first run save should create primary file")
-	_expect(SaveManager.save(SMOKE_SLOT, RUN_KIND, primary_payload), "second run save should create backup")
-	_expect(FileAccess.file_exists(_save_path()), "primary run save should exist")
-	_expect(FileAccess.file_exists(_backup_path()), "backup run save should exist")
+	_set_mod_environment([])
+	var broken_dir: String = SaveManager.save_root().path_join(".broken")
+	if DirAccess.dir_exists_absolute(broken_dir):
+		var remove_error: Error = DirAccess.remove_absolute(broken_dir)
+		_expect(
+			remove_error == OK,
+			"isolation-failure fixture should remove the empty broken directory"
+		)
+		if remove_error != OK:
+			return
+	_write_text(broken_dir, "broken-directory-blocker")
+	var primary_source: String = "{isolation_failure_primary"
+	var backup_source: String = _backup_fixture_source(
+		BackupFixtureState.VALID
+	)
+	_write_text(_save_path(), primary_source)
+	_write_text(_backup_path(), backup_source)
+	var corrupted_before: int = _corrupted_count
 
-	_write_text(_save_path(), "{broken")
-	var recovered_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	_expect(String(recovered_payload.get("marker", "")) == "backup", "bad primary should fall back to backup payload")
+	var print_errors_before_load: bool = Engine.print_error_messages
+	Engine.print_error_messages = false
+	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
+	Engine.print_error_messages = print_errors_before_load
+	_expect(
+		loaded.is_empty()
+		and SaveManager.last_error()
+		== "[SaveManager] failed to isolate corrupt save file: %s"
+		% _save_path(),
+		"failed primary isolation should fail closed before backup fallback"
+	)
+	_expect(
+		_read_text(_save_path()) == primary_source
+		and _read_text(_backup_path()) == backup_source,
+		"failed primary isolation should preserve primary and backup bytes"
+	)
+	_expect(
+		_corrupted_count == corrupted_before,
+		"failed isolation should not claim a corrupt file was quarantined"
+	)
 
+	_remove_if_exists(broken_dir)
+	_cleanup_smoke_files()
+
+
+func _expect_primary_backup_matrix_case(
+	primary_state: int,
+	backup_state: int
+	) -> void:
+	_cleanup_smoke_files()
+	_set_mod_environment([])
+	var label: String = "%s primary + %s backup" % [
+		_primary_state_label(primary_state),
+		_backup_state_label(backup_state),
+	]
+	var primary_source: String = _primary_fixture_source(primary_state)
+	var backup_source: String = _backup_fixture_source(backup_state)
+	if not primary_source.is_empty():
+		_write_text(_save_path(), primary_source)
+	_write_text(_backup_path(), backup_source)
 	var before_corrupted_count: int = _corrupted_count
-	_write_text(_backup_path(), "{also_broken")
-	var failed_payload: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
-	_expect(failed_payload.is_empty(), "bad primary and bad backup should fail closed")
-	_expect(_corrupted_count >= before_corrupted_count + 2, "bad primary and backup should emit two corruption signals")
-	_expect(not FileAccess.file_exists(_save_path()), "bad primary should be moved out of slot")
-	_expect(not FileAccess.file_exists(_backup_path()), "bad backup should be moved out of slot")
-	_expect(_broken_file_count() >= 2, "bad primary and backup should both be isolated with unique broken names")
+
+	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, RUN_KIND)
+	var backup_was_attempted: bool = (
+		primary_state != PrimaryFixtureState.INCOMPATIBLE
+	)
+	if backup_state == BackupFixtureState.VALID and backup_was_attempted:
+		_expect(
+			String(loaded.get("marker", "")) == "matrix_backup_valid",
+			"%s should load the valid backup" % label
+		)
+		_expect(
+			SaveManager.last_error().is_empty(),
+			"%s should clear last_error after successful fallback" % label
+		)
+	else:
+		_expect(loaded.is_empty(), "%s should fail closed" % label)
+		_expect(
+			SaveManager.last_error() == _matrix_expected_error(
+				primary_state,
+				backup_state
+			),
+			"%s should report the final attempted source error" % label
+		)
+
+	var broken_contents: Array[String] = _broken_file_contents()
+	var expected_corrupted_delta: int = 0
+	match primary_state:
+		PrimaryFixtureState.MISSING:
+			_expect(
+				not FileAccess.file_exists(_save_path()),
+				"%s should keep the primary missing" % label
+			)
+		PrimaryFixtureState.CORRUPT:
+			expected_corrupted_delta += 1
+			_expect(
+				not FileAccess.file_exists(_save_path())
+				and broken_contents.has(primary_source),
+				"%s should isolate the corrupt primary before fallback" % label
+			)
+		PrimaryFixtureState.INCOMPATIBLE:
+			_expect(
+				_read_text(_save_path()) == primary_source,
+				"%s should preserve the incompatible primary byte-for-byte"
+				% label
+			)
+
+	if not backup_was_attempted:
+		_expect(
+			_read_text(_backup_path()) == backup_source,
+			"%s should leave the unattempted backup byte-for-byte unchanged"
+			% label
+		)
+	elif backup_state == BackupFixtureState.CORRUPT:
+		expected_corrupted_delta += 1
+		_expect(
+			not FileAccess.file_exists(_backup_path())
+			and broken_contents.has(backup_source),
+			"%s should isolate the corrupt backup" % label
+		)
+	else:
+		_expect(
+			_read_text(_backup_path()) == backup_source,
+			"%s should preserve the valid or incompatible backup byte-for-byte"
+			% label
+		)
+	_expect(
+		_corrupted_count == before_corrupted_count + expected_corrupted_delta
+		and broken_contents.size() == expected_corrupted_delta,
+		"%s should isolate exactly the expected source files" % label
+	)
+
+
+func _primary_fixture_source(state: int) -> String:
+	match state:
+		PrimaryFixtureState.MISSING:
+			return ""
+		PrimaryFixtureState.CORRUPT:
+			return "{matrix_primary_corrupt"
+		PrimaryFixtureState.INCOMPATIBLE:
+			return _incompatible_run_source(
+				SMOKE_SLOT,
+				"matrix_primary_incompatible"
+			)
+	return ""
+
+
+func _backup_fixture_source(state: int) -> String:
+	match state:
+		BackupFixtureState.VALID:
+			var payload: Dictionary = _run_payload("matrix_backup_valid", 14)
+			payload["mod_environment"] = []
+			return JSON.stringify(
+				_run_envelope(19, "v1.18", payload),
+				"\t"
+			)
+		BackupFixtureState.CORRUPT:
+			return "{matrix_backup_corrupt"
+		BackupFixtureState.INCOMPATIBLE:
+			return _incompatible_run_source(
+				SMOKE_SLOT,
+				"matrix_backup_incompatible"
+			)
+	return ""
+
+
+func _incompatible_run_source(slot: String, marker: String) -> String:
+	var payload: Dictionary = _run_payload(marker, 15)
+	payload["schema_version"] = 18
+	payload["mod_environment"] = []
+	return JSON.stringify(
+		_run_envelope(18, "v1.17", payload, slot),
+		"\t"
+	)
+
+
+func _matrix_expected_error(primary_state: int, backup_state: int) -> String:
+	if primary_state == PrimaryFixtureState.INCOMPATIBLE:
+		return "[SaveManager] unsupported run version: 18; expected 19"
+	if backup_state == BackupFixtureState.CORRUPT:
+		return (
+			"[SaveManager] save file is not a JSON object: %s"
+			% _backup_path()
+		)
+	if backup_state == BackupFixtureState.INCOMPATIBLE:
+		return "[SaveManager] unsupported run version: 18; expected 19"
+	return ""
+
+
+func _primary_state_label(state: int) -> String:
+	match state:
+		PrimaryFixtureState.MISSING:
+			return "missing"
+		PrimaryFixtureState.CORRUPT:
+			return "corrupt"
+		PrimaryFixtureState.INCOMPATIBLE:
+			return "incompatible"
+	return "unknown"
+
+
+func _backup_state_label(state: int) -> String:
+	match state:
+		BackupFixtureState.VALID:
+			return "valid"
+		BackupFixtureState.CORRUPT:
+			return "corrupt"
+		BackupFixtureState.INCOMPATIBLE:
+			return "incompatible"
+	return "unknown"
+
+
+func _expect_environment_mismatch_primary_blocks_valid_backup() -> void:
+	_cleanup_smoke_files()
+	_set_mod_environment([])
+	var backup_source: String = _backup_fixture_source(
+		BackupFixtureState.VALID
+	)
+	var payload: Dictionary = _run_payload(
+		"environment_mismatch_primary",
+		16
+	)
+	payload["mod_environment"] = [{
+		"id": "fixture",
+		"version": "1.0.0",
+		"gameplay_hash": "recorded_hash",
+	}]
+	var primary_source: String = JSON.stringify(
+		_run_envelope(19, "v1.18", payload),
+		"\t"
+	)
+	_write_text(_save_path(), primary_source)
+	_write_text(_backup_path(), backup_source)
+	var before_corrupted_count: int = _corrupted_count
+
+	_expect(
+		SaveManager.load(SMOKE_SLOT, RUN_KIND).is_empty(),
+		"mod-environment-incompatible primary should block a valid backup"
+	)
+	_expect(
+		SaveManager.last_error().contains("run mod environment mismatch"),
+		"environment-incompatible primary should keep its mismatch diagnostic"
+	)
+	_expect(
+		_read_text(_save_path()) == primary_source
+		and _read_text(_backup_path()) == backup_source,
+		"environment-incompatible primary should preserve both files byte-for-byte"
+	)
+	_expect(
+		_corrupted_count == before_corrupted_count
+		and _broken_file_count() == 0,
+		"environment-incompatible primary and valid backup should not be isolated"
+	)
 
 
 func _expect_meta_migration_chain() -> void:
@@ -225,11 +487,107 @@ func _expect_hash_damage_wins_over_environment_mismatch() -> void:
 	_expect(_corrupted_count == before_corrupted_count + 1, "hash-damaged Run should emit one corruption signal")
 
 
-func _run_envelope(version: int, game_version: String, payload: Dictionary) -> Dictionary:
+func _expect_formal_boot_preserves_incompatible_backup() -> void:
+	_cleanup_default_run_files()
+	_set_mod_environment([])
+	var primary_path: String = _save_path(SaveManager.DEFAULT_SLOT)
+	var backup_path: String = _backup_path(SaveManager.DEFAULT_SLOT)
+	var primary_source: String = "{formal_boot_primary_corrupt"
+	var backup_source: String = _incompatible_run_source(
+		SaveManager.DEFAULT_SLOT,
+		"formal_boot_backup_incompatible"
+	)
+	_write_text(primary_path, primary_source)
+	_write_text(backup_path, backup_source)
+
+	var boot: Node = get_parent()
+	_expect(
+		boot != null
+		and boot.has_method("_show_title_menu"),
+		"save smoke should run under FormalClientBoot"
+	)
+	if boot == null or not boot.has_method("_show_title_menu"):
+		_cleanup_default_run_files()
+		return
+
+	boot.call("_show_title_menu")
+	await get_tree().process_frame
+	var initial_title_value: Variant = boot.get("_title_menu")
+	var continue_button_value: Variant = (
+		(initial_title_value as Node).get("_continue_button")
+		if initial_title_value is Node
+		else null
+	)
+	_expect(
+		initial_title_value is Node
+		and is_instance_valid(initial_title_value as Node)
+		and continue_button_value is Button
+		and (continue_button_value as Button).visible
+		and not (continue_button_value as Button).disabled,
+		"FormalBoot should expose an enabled title continue button"
+	)
+	if (
+		not initial_title_value is Node
+		or not is_instance_valid(initial_title_value as Node)
+		or not continue_button_value is Button
+		or not (continue_button_value as Button).visible
+		or (continue_button_value as Button).disabled
+	):
+		_cleanup_default_run_files()
+		return
+	(continue_button_value as Button).emit_signal("pressed")
+	_expect(
+		GameState.current() == GameState.LOADING,
+		"clicking FormalBoot continue should enter LOADING before reading the run"
+	)
+	var returned_to_title: bool = false
+	for _frame: int in range(30):
+		await get_tree().process_frame
+		if (
+			GameState.current() == GameState.MAIN_MENU
+			and not bool(boot.get("_player_load_in_progress"))
+		):
+			returned_to_title = true
+			break
+	_expect(
+		returned_to_title,
+		"FormalBoot continue failure should exit LOADING and return to title"
+	)
+	_expect(
+		not FileAccess.file_exists(primary_path)
+		and _broken_file_contents(SaveManager.DEFAULT_SLOT).has(primary_source),
+		"FormalBoot continue should leave SaveManager's corrupt-primary isolation intact"
+	)
+	_expect(
+		_read_text(backup_path) == backup_source,
+		"FormalBoot continue should preserve an incompatible backup byte-for-byte"
+	)
+	_expect(
+		SaveManager.last_error()
+		== "[SaveManager] unsupported run version: 18; expected 19",
+		"FormalBoot continue should preserve the incompatible-backup diagnostic"
+	)
+	var title_menu_value: Variant = boot.get("_title_menu")
+	_expect(
+		title_menu_value is Node
+		and is_instance_valid(title_menu_value as Node)
+		and String((title_menu_value as Node).get("_notice_key"))
+		== "ui_run_save_unavailable",
+		"FormalBoot continue should show the unavailable-save notice"
+	)
+	_cleanup_default_run_files()
+
+
+func _run_envelope(
+	version: int,
+	game_version: String,
+	payload: Dictionary,
+	slot: String = SMOKE_SLOT
+	) -> Dictionary:
 	return {
 		"version": version,
 		"kind": RUN_KIND,
-		"slot": SMOKE_SLOT,
+		"slot": slot,
 		"created_at": "2026-08-10T00:00:00",
 		"updated_at": "2026-08-10T00:00:00",
 		"game_version": game_version,
@@ -331,10 +689,18 @@ func _cleanup_smoke_files() -> void:
 	_remove_if_exists(_save_path())
 	_remove_if_exists(_backup_path())
 	_remove_if_exists(_tmp_path())
-	_remove_broken_smoke_files()
+	_remove_broken_files(SMOKE_SLOT)
 
 
-func _remove_broken_smoke_files() -> void:
+func _cleanup_default_run_files() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, RUN_KIND)
+	_remove_if_exists(_save_path(SaveManager.DEFAULT_SLOT))
+	_remove_if_exists(_backup_path(SaveManager.DEFAULT_SLOT))
+	_remove_if_exists(_tmp_path(SaveManager.DEFAULT_SLOT))
+	_remove_broken_files(SaveManager.DEFAULT_SLOT)
+
+
+func _remove_broken_files(slot: String) -> void:
 	var broken_dir: String = SaveManager.save_root().path_join(".broken")
 	var dir: DirAccess = DirAccess.open(broken_dir)
 	if dir == null:
@@ -342,26 +708,36 @@ func _remove_broken_smoke_files() -> void:
 	dir.list_dir_begin()
 	var entry_name: String = dir.get_next()
 	while not entry_name.is_empty():
-		if not dir.current_is_dir() and entry_name.begins_with("%s_%s_" % [SMOKE_SLOT, RUN_KIND]):
+		if (
+			not dir.current_is_dir()
+			and entry_name.begins_with("%s_%s_" % [slot, RUN_KIND])
+		):
 			DirAccess.remove_absolute(broken_dir.path_join(entry_name))
 		entry_name = dir.get_next()
 	dir.list_dir_end()
 
 
-func _broken_file_count() -> int:
+func _broken_file_count(slot: String = SMOKE_SLOT) -> int:
+	return _broken_file_contents(slot).size()
+
+
+func _broken_file_contents(slot: String = SMOKE_SLOT) -> Array[String]:
 	var broken_dir: String = SaveManager.save_root().path_join(".broken")
+	var contents: Array[String] = []
 	var dir: DirAccess = DirAccess.open(broken_dir)
 	if dir == null:
-		return 0
-	var count: int = 0
+		return contents
 	dir.list_dir_begin()
 	var entry_name: String = dir.get_next()
 	while not entry_name.is_empty():
-		if not dir.current_is_dir() and entry_name.begins_with("%s_%s_" % [SMOKE_SLOT, RUN_KIND]):
-			count += 1
+		if (
+			not dir.current_is_dir()
+			and entry_name.begins_with("%s_%s_" % [slot, RUN_KIND])
+		):
+			contents.append(_read_text(broken_dir.path_join(entry_name)))
 		entry_name = dir.get_next()
 	dir.list_dir_end()
-	return count
+	return contents
 
 
 func _write_text(path: String, content: String) -> void:
@@ -391,20 +767,20 @@ func _remove_if_exists(path: String) -> void:
 		DirAccess.remove_absolute(path)
 
 
-func _save_path() -> String:
-	return SaveManager.save_root().path_join(SMOKE_SLOT).path_join("%s.save" % RUN_KIND)
+func _save_path(slot: String = SMOKE_SLOT) -> String:
+	return SaveManager.save_root().path_join(slot).path_join("%s.save" % RUN_KIND)
 
 
 func _meta_save_path() -> String:
 	return SaveManager.save_root().path_join(SMOKE_SLOT).path_join("%s.save" % META_KIND)
 
 
-func _backup_path() -> String:
-	return "%s.bak" % _save_path()
+func _backup_path(slot: String = SMOKE_SLOT) -> String:
+	return "%s.bak" % _save_path(slot)
 
 
-func _tmp_path() -> String:
-	return "%s.tmp" % _save_path()
+func _tmp_path(slot: String = SMOKE_SLOT) -> String:
+	return "%s.tmp" % _save_path(slot)
 
 
 func _expect(condition: bool, message: String) -> void:

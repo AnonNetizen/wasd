@@ -155,6 +155,7 @@ var _remapper: GUIDERemapper = null
 var _remapping_config: GUIDERemappingConfig = null
 var _pending_remap: Dictionary = {}
 var _resolved_aim: Vector2 = Vector2.ZERO
+var _ui_stack_active: bool = false
 
 
 func _ready() -> void:
@@ -182,7 +183,6 @@ func _ready() -> void:
 		GameState.state_changed.connect(_on_game_state_changed)
 	if not Input.joy_connection_changed.is_connected(_on_joy_connection_changed):
 		Input.joy_connection_changed.connect(_on_joy_connection_changed)
-	call_deferred("_connect_ui_manager")
 	call_deferred("_apply_contexts")
 
 
@@ -462,6 +462,15 @@ func set_playback_active(enabled: bool) -> void:
 		_last_aim_source = AIM_SOURCE_DIRECTION
 
 
+## Receives the managed UI stack fact from UIManager. InputService deliberately
+## does not query or subscribe back to UIManager, keeping the dependency one-way.
+func set_ui_stack_active(active: bool) -> void:
+	if _ui_stack_active == active:
+		return
+	_ui_stack_active = active
+	_apply_contexts()
+
+
 func playback_active() -> bool:
 	return _playback_active
 
@@ -711,29 +720,7 @@ func _emit_ui_action(action_id: StringName) -> void:
 	Input.parse_input_event(released_event)
 
 
-func _connect_ui_manager() -> void:
-	if UIManager == null:
-		return
-	if not UIManager.ui_pushed.is_connected(_on_ui_stack_changed):
-		UIManager.ui_pushed.connect(_on_ui_stack_changed)
-	if not UIManager.ui_popped.is_connected(_on_ui_stack_changed):
-		UIManager.ui_popped.connect(_on_ui_stack_changed)
-	if not UIManager.ui_cleared.is_connected(_on_ui_stack_cleared):
-		UIManager.ui_cleared.connect(_on_ui_stack_cleared)
-	if not UIManager.ui_replaced.is_connected(_on_ui_stack_changed):
-		UIManager.ui_replaced.connect(_on_ui_stack_changed)
-	_apply_contexts()
-
-
 func _on_game_state_changed(_old_state: StringName, _new_state: StringName, _context: Dictionary) -> void:
-	call_deferred("_apply_contexts")
-
-
-func _on_ui_stack_changed(_node: Node, _context: Dictionary = {}) -> void:
-	call_deferred("_apply_contexts")
-
-
-func _on_ui_stack_cleared() -> void:
 	call_deferred("_apply_contexts")
 
 
@@ -747,9 +734,11 @@ func _apply_contexts() -> void:
 		GameState.is_state(GameState.PLAYING)
 		and non_pausing_ui_capture_active()
 	)
-	var ui_active: bool = not GameState.is_state(GameState.PLAYING) or _debug_capture_active
-	if UIManager != null:
-		ui_active = ui_active or UIManager.stack_size() > 0
+	var ui_active: bool = (
+		not GameState.is_state(GameState.PLAYING)
+		or _debug_capture_active
+		or _ui_stack_active
+	)
 	var debug_inputs_enabled: bool = _debug_inputs_enabled()
 	var signature: String = "%s|%s|%s|%s" % [
 		str(ui_active),

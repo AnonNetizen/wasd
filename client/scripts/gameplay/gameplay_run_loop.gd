@@ -815,7 +815,10 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	_map_manager = _active_world.get_node_or_null("MapManager") as Node2D
 	if _map_manager == null:
-		push_error("[GameplayRunLoop] missing MapManager scene node")
+		_fail_run_start(
+			"missing MapManager scene node",
+			not restore_snapshot.is_empty()
+		)
 		return
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
@@ -1006,13 +1009,19 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	var background: Node2D = _active_world.get_node_or_null("WorldBackground") as Node2D
 	if background == null:
-		push_error("[GameplayRunLoop] missing WorldBackground scene node")
+		_fail_run_start(
+			"missing WorldBackground scene node",
+			not restore_snapshot.is_empty()
+		)
 		return
 	background.call("configure", _player, _map_grid_cell_size())
 
 	_weapon_system = _player.get_node_or_null("WeaponSystem")
 	if _weapon_system == null:
-		push_error("[GameplayRunLoop] missing WeaponSystem scene node")
+		_fail_run_start(
+			"missing WeaponSystem scene node",
+			not restore_snapshot.is_empty()
+		)
 		return
 	_weapon_system.call(
 		"configure",
@@ -1033,7 +1042,10 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	_hud = get_node_or_null("GameplayHud") as CanvasLayer
 	if _hud == null:
-		push_error("[GameplayRunLoop] missing GameplayHud scene node")
+		_fail_run_start(
+			"missing GameplayHud scene node",
+			not restore_snapshot.is_empty()
+		)
 		return
 	_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 	_hud.call(
@@ -2342,11 +2354,11 @@ func _configure_world_event_controller() -> bool:
 			DataLoader.load_json(DataLoader.WORLD_EVENTS_PATH)
 		)
 	)
+	_world_event_controller.set_reward_delivery_handler(
+		_deliver_world_event_reward
+	)
 	_world_event_controller.wave_requested.connect(
 		_on_world_event_wave_requested
-	)
-	_world_event_controller.reward_requested.connect(
-		_on_world_event_reward_requested
 	)
 	_world_event_controller.prompt_requested.connect(
 		_on_world_event_prompt_requested
@@ -2841,11 +2853,11 @@ func request_gear_mod_relocation(
 	return result
 
 
-func _on_world_event_reward_requested(
+func _deliver_world_event_reward(
 	instance_id: String,
 	event_id: String,
 	reward: Dictionary
-) -> void:
+) -> Dictionary:
 	var reward_kind: String = String(reward.get("kind", ""))
 	var source_kind: String = String(reward.get("source", ""))
 	var feedback_key: String = ""
@@ -2861,11 +2873,22 @@ func _on_world_event_reward_requested(
 			0
 		)
 		if amount <= 0:
-			return
-		add_gold(
+			return {
+				"ok": false,
+				"reason": "invalid_gold_amount",
+			}
+		var gold_result: Dictionary = add_gold(
 			amount,
 			GOLD_TRANSACTION_REASONS.EVENT_REWARD
 		)
+		if not bool(gold_result.get("ok", false)):
+			return {
+				"ok": false,
+				"reason": String(gold_result.get(
+					"reason",
+					"gold_delivery_failed"
+				)),
+			}
 		feedback_context["amount"] = amount
 		feedback_key = (
 			"ui_world_event_blood_shrine_success"
@@ -2881,12 +2904,16 @@ func _on_world_event_reward_requested(
 	):
 		var mod_id: String = String(reward.get("mod_id", ""))
 		if mod_id.is_empty():
-			return
+			return {
+				"ok": false,
+				"reason": "missing_gear_mod_id",
+			}
 		var spawn_result: Dictionary = _spawn_gear_mod_pickup(
 			mod_id,
 			_world_event_gear_mod_drop_position(
 				instance_id,
-				source_kind
+				source_kind,
+				int(reward.get("success_index", 0))
 			)
 		)
 		if not bool(spawn_result.get("ok", false)):
@@ -2894,7 +2921,13 @@ func _on_world_event_reward_requested(
 				"[GameplayRunLoop] world-event Gear Mod pickup spawn failed: %s"
 				% String(spawn_result.get("reason", "unknown"))
 			)
-			return
+			return {
+				"ok": false,
+				"reason": String(spawn_result.get(
+					"reason",
+					"gear_mod_pickup_spawn_failed"
+				)),
+			}
 		feedback_key = (
 			"ui_world_event_gold_shrine_success"
 			if source_kind
@@ -2902,6 +2935,11 @@ func _on_world_event_reward_requested(
 			.WORLD_EVENT_KIND_GOLD_SHRINE
 			else "ui_world_event_completed_mod"
 		)
+	else:
+		return {
+			"ok": false,
+			"reason": "unsupported_reward_kind:%s" % reward_kind,
+		}
 	if (
 		not feedback_key.is_empty()
 		and _hud != null
@@ -2912,11 +2950,16 @@ func _on_world_event_reward_requested(
 			feedback_key,
 			feedback_context
 		)
+	return {
+		"ok": true,
+		"reason": "delivered",
+	}
 
 
 func _world_event_gear_mod_drop_position(
 	instance_id: String,
-	source_kind: String
+	source_kind: String,
+	success_index: int = 0
 ) -> Vector2:
 	var event_node: Node2D = _world_event_nodes.get(
 		instance_id,
@@ -2936,9 +2979,11 @@ func _world_event_gear_mod_drop_position(
 		source_position,
 		2
 	)
-	var successes: int = int(
-		_world_event_runtime_summary(instance_id).get("successes", 1)
-	)
+	var successes: int = success_index
+	if successes <= 0:
+		successes = int(
+			_world_event_runtime_summary(instance_id).get("successes", 0)
+		) + 1
 	return positions[clampi(successes - 1, 0, positions.size() - 1)]
 
 

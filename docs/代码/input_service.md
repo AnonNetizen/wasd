@@ -71,6 +71,7 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 | `resolve_pending_remap(replace_conflicts) -> bool` | 冲突弹窗选择替换或取消 |
 | `reset_bindings_to_defaults() -> bool` | 清空 remapping config、恢复发布默认并原子保存 |
 | `set_playback_active(enabled)` / `playback_active()` | 开关 Replay 输入覆盖；切换时清空残留值 |
+| `set_ui_stack_active(active)` | 由 `UIManager` 单向推送受管 UI 栈是否非空；立即重算 GUIDE context。其他业务调用方不得自行伪造该事实 |
 | `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v9 注入 bool / Vector2 intent；仅 playback 模式接受 |
 | `begin_non_pausing_ui_capture(owner) -> bool` | 以弱引用 owner 开始非暂停 UI 捕获；可嵌套不同 owner，首个 owner 进入时把轮询 intent 归零；持续开火记录 release，技能 / 冲刺 / 交互 / 暂停等 one-shot 不合成边沿 |
 | `end_non_pausing_ui_capture(owner) -> bool` | 移除 owner；最后一个 owner 离开时按真实物理状态恢复移动 / 瞄准 / 持续开火；仍按住的 one-shot 不合成第二次 press，必须先释放再重新按下 |
@@ -111,6 +112,8 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 | `ui` | 非 PLAYING、存在 UI 栈或 debug console 捕获文本 | 0 | UI 导航 / 返回 / 确认；调试控制台打开时阻断 gameplay |
 
 GUIDE 用单调启用序号解决同优先级 context 的确定性顺序；禁止改回系统时间戳。捕获重绑定时全部 context 暂停，捕获完成、取消或异常清理后由 `InputService` 按上表重新计算，不能由设置页自行逐个恢复。
+
+`InputService` 只拥有 `_ui_stack_active` 这一输入事实缓存，不读取 `UIManager.stack_size()`、不订阅 UI 栈 signal，也不使用 deferred 连接补丁。`UIManager` 在栈变更时同步调用 `set_ui_stack_active()`，依赖方向固定为 `UIManager → InputService`；因此 UI 压栈后同一调用栈内就会关闭 gameplay context，最后一个 UI 移除后同样立即恢复既有输入语义。
 
 `GearModBoardPanel` 这类不暂停世界的 gameplay overlay 同时保留 gameplay 与 UI context：真实 `show_stats_panel` 按住状态必须持续可见，以便 Tab 松开关闭；移动、瞄准、开火、技能 1–4、冲刺和交互的业务值则在 capture 期间归零。进入 capture 要发布一次 release / 零向量，离开时从 GUIDE 当前真实值恢复，不能把 context 重算造成的伪释放当成物理松键。
 
@@ -193,7 +196,7 @@ Replay v9 记录最终 intent；四技能、冲刺和组合选择都纳入录制
 
 ## 12. 验证义务
 
-- `input-smoke`：键鼠 / 手柄移动瞄准、按钮边沿、context 隔离、失焦、设备切换、提示刷新、捕获取消、负轴轴组、冲突替换 / 取消、防锁死键，以及非暂停 UI capture 的角色 intent / pointer aim 屏蔽、Tab 真实按住、持续 intent 恢复和 one-shot 不重复触发。
+- `input-smoke`：键鼠 / 手柄移动瞄准、按钮边沿、context 隔离、UIManager 单向栈事实的同步 gameplay 阻断 / 恢复、失焦、设备切换、提示刷新、捕获取消、负轴轴组、冲突替换 / 取消、防锁死键，以及非暂停 UI capture 的角色 intent / pointer aim 屏蔽、Tab 真实按住、持续 intent 恢复和 one-shot 不重复触发。
 - `settings-smoke`：v1 普通偏好保留、旧输入 key 忽略、binding roundtrip、重启保持、恢复默认、损坏与未来版本回退。
 - `replay-smoke` / `replay-input-smoke`：v4 bool / Vector2、四技能、冲刺、组合决策、鼠标最终 aim、`reload` 拒绝、不支持 schema 拒绝及物理输入隔离。
 - 修改输入消费方后运行相应 runtime、module-world、technical-slice、L1 与 debug tools smoke。

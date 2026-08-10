@@ -141,6 +141,7 @@ func load_envelope(slot: String, kind: String) -> Dictionary:
 
 	var path: String = _save_path(slot, kind)
 	var bak_path: String = "%s.bak" % path
+	var primary_exists: bool = FileAccess.file_exists(path)
 	var primary_result: Dictionary = _read_save_file(path, slot, kind)
 	if bool(primary_result.get("ok", false)):
 		var primary_envelope: Dictionary = primary_result["envelope"]
@@ -152,7 +153,22 @@ func load_envelope(slot: String, kind: String) -> Dictionary:
 			"migrated": bool(primary_result.get("migrated", false)),
 		})
 		return primary_envelope.duplicate(true)
+	if (
+		primary_exists
+		and bool(primary_result.get("preserve", false))
+	):
+		_set_error(String(primary_result.get("error", "save is incompatible")))
+		return {}
+	if primary_exists:
+		if not _isolate_broken_file(
+			path,
+			slot,
+			kind,
+			String(primary_result.get("error", "save file is invalid"))
+		):
+			return {}
 
+	var backup_exists: bool = FileAccess.file_exists(bak_path)
 	var backup_result: Dictionary = _read_save_file(bak_path, slot, kind)
 	if bool(backup_result.get("ok", false)):
 		var backup_envelope: Dictionary = backup_result["envelope"]
@@ -166,11 +182,19 @@ func load_envelope(slot: String, kind: String) -> Dictionary:
 		})
 		return backup_envelope.duplicate(true)
 
-	var error: String = String(primary_result.get("error", "save file not found"))
-	if FileAccess.file_exists(path) and not bool(primary_result.get("preserve", false)):
-		_isolate_broken_file(path, slot, kind, error)
-	if FileAccess.file_exists(bak_path) and not bool(backup_result.get("preserve", false)):
-		_isolate_broken_file(bak_path, slot, kind, String(backup_result.get("error", "backup save is invalid")))
+	var error: String = (
+		String(backup_result.get("error", "backup save is invalid"))
+		if backup_exists
+		else String(primary_result.get("error", "save file not found"))
+	)
+	if backup_exists and not bool(backup_result.get("preserve", false)):
+		if not _isolate_broken_file(
+			bak_path,
+			slot,
+			kind,
+			String(backup_result.get("error", "backup save is invalid"))
+		):
+			return {}
 	_set_error(error)
 	return {}
 
@@ -796,15 +820,26 @@ func _remove_slot_dir_if_empty(slot: String) -> void:
 	DirAccess.remove_absolute(slot_dir)
 
 
-func _isolate_broken_file(path: String, slot: String, kind: String, error: String) -> void:
+func _isolate_broken_file(
+	path: String,
+	slot: String,
+	kind: String,
+	error: String
+	) -> bool:
 	var broken_dir: String = SAVE_ROOT.path_join(BROKEN_DIR_NAME)
 	if not _ensure_dir(broken_dir):
-		return
+		_set_error(
+			"[SaveManager] failed to isolate corrupt save file: %s" % path
+		)
+		return false
 
 	var broken_path: String = _unique_broken_path(broken_dir, slot, kind)
 	var move_error: Error = DirAccess.rename_absolute(path, broken_path)
 	if move_error != OK:
-		broken_path = path
+		_set_error(
+			"[SaveManager] failed to isolate corrupt save file: %s" % path
+		)
+		return false
 
 	save_corrupted.emit(slot, kind, broken_path, error)
 	Analytics.track_event(ANALYTICS_EVENTS.SAVE_CORRUPTED, {
@@ -813,6 +848,7 @@ func _isolate_broken_file(path: String, slot: String, kind: String, error: Strin
 		"path": broken_path,
 		"error": error,
 	})
+	return true
 
 
 func _unique_broken_path(broken_dir: String, slot: String, kind: String) -> String:
