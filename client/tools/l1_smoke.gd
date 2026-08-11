@@ -663,7 +663,13 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 	)
 	player.call("debug_set_life", 200.0)
 	player.global_position = Vector2(32.0, 0.0)
-	enemy.call("_fire_ranged_projectile", Vector2.RIGHT)
+	_expect(
+		bool(enemy.call(
+			"debug_materialize_ranged_projectile_for_test",
+			Vector2.RIGHT
+		)),
+		"ranged projectile debug seam should materialize the shared bullet"
+	)
 	var enemy_bullet: Node2D = null
 	for raw_bullet: Node in get_tree().get_nodes_in_group("active_bullets"):
 		if raw_bullet.get("_source") == enemy:

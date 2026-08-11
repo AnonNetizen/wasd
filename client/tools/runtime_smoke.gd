@@ -3145,7 +3145,13 @@ func _expect_world_event_defense_targeting(
 		)
 		var target_before: float = target.current_health()
 		var player_before: float = _player_total_defense(player)
-		gunner.call("_fire_ranged_projectile", Vector2.RIGHT)
+		_expect(
+			bool(gunner.call(
+				"debug_materialize_ranged_projectile_for_test",
+				Vector2.RIGHT
+			)),
+			"event projectile debug seam should materialize the shared bullet"
+		)
 		for _frame_index: int in range(40):
 			await get_tree().physics_frame
 		_expect(
@@ -3176,11 +3182,20 @@ func _expect_world_event_defense_targeting(
 			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
 		)
-		committed_gunner.call(
-			"_start_ranged_burst",
-			Vector2.RIGHT
+		_expect(
+			bool(committed_gunner.call(
+				"debug_start_ranged_burst_for_test",
+				Vector2.RIGHT
+			)),
+			"event cleanup fixture should start a committed ranged burst"
 		)
-		committed_gunner.call("_update_attack_state", 0.32)
+		_expect(
+			bool(committed_gunner.call(
+				"debug_advance_ranged_attack_for_test",
+				0.32
+			)),
+			"event cleanup fixture should advance the ranged windup"
+		)
 		var burst_before: Dictionary = (
 			committed_gunner.call("ai_debug_summary") as Dictionary
 		)
@@ -3547,8 +3562,20 @@ func _expect_ranged_snapshot_restore(spitter: Node2D) -> void:
 		"Run v8 enemy snapshot should restore mid-burst timing and shots"
 	)
 	var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
-	spitter.call("_update_attack_state", 0.07)
-	spitter.call("_update_attack_state", 0.12)
+	_expect(
+		bool(spitter.call(
+			"debug_advance_ranged_attack_for_test",
+			0.07
+		)),
+		"restored ranged burst should accept its first deterministic advance"
+	)
+	_expect(
+		bool(spitter.call(
+			"debug_advance_ranged_attack_for_test",
+			0.12
+		)),
+		"restored ranged burst should accept its second deterministic advance"
+	)
 	_expect(
 		_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") - bullets_before == 2,
 		"restored mid-burst state should neither duplicate nor omit shots"

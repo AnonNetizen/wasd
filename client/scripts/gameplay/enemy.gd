@@ -23,6 +23,12 @@ const ENEMY_ACTION_RUNTIME_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_action_runtime.gd"
 )
 const ENEMY_BRAIN_SCRIPT := preload("res://scripts/gameplay/enemy_brain.gd")
+const ENEMY_PROJECTILE_MATERIALIZER_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_projectile_materializer.gd"
+)
+const ENEMY_RANGED_ATTACK_HANDLER_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_ranged_attack_handler.gd"
+)
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ENEMY_DEFEAT_CAUSES := preload(
 	"res://scripts/contracts/enemy_defeat_causes.gd"
@@ -41,12 +47,6 @@ const ACTION_STATE_CHARGE_WINDUP: String = (
 )
 const ACTION_STATE_MELEE_WINDUP: String = (
 	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_MELEE_WINDUP
-)
-const ACTION_STATE_RANGED_BURST: String = (
-	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_RANGED_BURST
-)
-const ACTION_STATE_RANGED_WINDUP: String = (
-	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_RANGED_WINDUP
 )
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
@@ -99,6 +99,8 @@ var _navigation_provider: Node = null
 var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
 var _primary_target: Node2D = null
+var _projectile_materializer_ports: ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Ports = null
+var _ranged_attack_ports: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports = null
 var _damage_target_groups: Array[String] = []
 var _runtime_spawn_serial: int = 0
 var _separation_radius: float = 0.0
@@ -413,6 +415,43 @@ func debug_force_action_for_test(action_id: String) -> bool:
 		return false
 	_action_runtime.set_current_action(action_id)
 	return true
+
+
+## Debug-build-only seam for the real ranged projectile adapter.
+func debug_materialize_ranged_projectile_for_test(
+	target_direction: Vector2
+) -> bool:
+	if not _can_debug_drive_ranged_attack():
+		return false
+	var result: ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Result = (
+		_materialize_ranged_projectile(
+			_ranged_attack_config(_current_attack()).projectile,
+			target_direction
+		)
+	)
+	return result.ok
+
+
+## Debug-build-only seam for deterministic ranged burst startup.
+func debug_start_ranged_burst_for_test(
+	target_direction: Vector2
+) -> bool:
+	if not _can_debug_drive_ranged_attack():
+		return false
+	var result: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Result = (
+		_start_ranged_burst(target_direction)
+	)
+	return result.started
+
+
+## Debug-build-only seam for deterministic ranged phase advancement.
+func debug_advance_ranged_attack_for_test(delta: float) -> bool:
+	if not _can_debug_drive_ranged_attack():
+		return false
+	var result: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Result = (
+		_advance_ranged_attack(delta)
+	)
+	return result.handled
 
 
 func add_owned_tag(tag_id: String) -> bool:
@@ -939,114 +978,159 @@ func _apply_ranged_attack(delta: float) -> void:
 		_start_ranged_burst(target_direction)
 
 
-func _start_ranged_burst(target_direction: Vector2) -> void:
-	if target_direction.length_squared() <= 0.0:
-		return
-	var attack: Dictionary = _current_attack()
-	_action_runtime.set_locked_direction(target_direction.normalized())
-	_action_runtime.set_burst_shots_remaining(
-		int(attack.get("burst_count", 0))
+func _start_ranged_burst(
+	target_direction: Vector2
+) -> ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Result:
+	return ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.start_burst(
+		_action_runtime,
+		_ranged_attack_config(_current_attack()),
+		target_direction,
+		_ranged_attack_ports_value()
 	)
-	if _action_runtime.burst_shots_remaining() <= 0:
-		_finish_ranged_burst(attack)
-		return
+
+
+func _advance_ranged_attack(
+	delta: float
+) -> ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Result:
+	return ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.advance(
+		_action_runtime,
+		_ranged_attack_config(_current_attack()),
+		delta,
+		_ranged_attack_ports_value()
+	)
+
+
+func _ranged_attack_config(
+	attack: Dictionary
+) -> ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Config:
+	var config: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Config = (
+		ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Config.new()
+	)
+	config.windup = float(attack.get("windup", 0.0))
+	config.burst_count = int(attack.get("burst_count", 0))
+	config.shot_interval = float(attack.get("shot_interval", 0.0))
+	config.cooldown = float(attack.get("cooldown", 0.0))
+	var projectile: Dictionary = _dictionary_or_empty(
+		attack.get("projectile", {})
+	)
+	config.projectile.pool_id = String(
+		projectile.get("pool_id", POOL_IDS.BULLET_BASIC)
+	)
+	config.projectile.muzzle_distance = float(
+		projectile.get("muzzle_distance", 0.0)
+	)
+	config.projectile.damage = (
+		float(attack.get("damage", 0.0))
+		* _spawn_damage_multiplier
+	)
+	config.projectile.speed = float(projectile.get("speed", 0.0))
+	config.projectile.max_range = float(projectile.get("range", 0.0))
+	config.projectile.element_id = String(attack.get("element_id", ""))
+	config.projectile.damage_target_groups = (
+		_damage_target_groups.duplicate()
+	)
+	config.projectile.hit_radius = float(
+		projectile.get("hit_radius", 0.0)
+	)
+	config.projectile.lifetime = float(
+		projectile.get("lifetime", 0.0)
+	)
+	config.projectile.source_team = TEAM_ENEMY
+	config.projectile.target_team = TEAM_PLAYER
+	return config
+
+
+func _ranged_attack_ports_value(
+) -> ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports:
+	if _ranged_attack_ports == null:
+		_ranged_attack_ports = (
+			ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports.new(
+				Callable(self, "_stop_ranged_attack_and_face"),
+				Callable(self, "_emit_attack_windup"),
+				Callable(self, "_materialize_ranged_projectile"),
+				Callable(self, "_emit_ranged_attack_committed"),
+				Callable(self, "_finish_ranged_attack")
+			)
+		)
+	return _ranged_attack_ports
+
+
+func _projectile_materializer_ports_value(
+) -> ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Ports:
+	if _projectile_materializer_ports == null:
+		_projectile_materializer_ports = (
+			ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Ports.new(
+				Callable(PoolManager, "acquire"),
+				Callable(self, "_configure_ranged_projectile")
+			)
+		)
+	return _projectile_materializer_ports
+
+
+func _stop_ranged_attack_and_face(direction: Vector2) -> void:
 	velocity = Vector2.ZERO
-	_update_facing(_action_runtime.locked_direction())
-	var windup: float = float(attack.get("windup", 0.0))
-	_action_runtime.set_action_state(ACTION_STATE_RANGED_WINDUP)
-	_action_runtime.set_action_timer(windup)
-	_emit_attack_windup(windup)
-	if windup <= 0.0:
-		_begin_ranged_burst()
+	_update_facing(direction)
 
 
-func _begin_ranged_burst() -> void:
-	_action_runtime.set_action_state(ACTION_STATE_RANGED_BURST)
-	_action_runtime.set_action_timer(0.0)
-	_fire_ranged_burst_shot()
+func _materialize_ranged_projectile(
+	projectile: ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Spec,
+	target_direction: Vector2
+) -> ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Result:
+	var request: ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Request = (
+		ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Request.new()
+	)
+	request.spec = projectile
+	request.source = self
+	request.active_parent = get_parent()
+	request.source_position = global_position
+	request.target_direction = target_direction
+	return ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.materialize(
+		request,
+		_projectile_materializer_ports_value()
+	)
 
 
-func _fire_ranged_burst_shot() -> void:
+func _configure_ranged_projectile(
+	projectile: Node2D,
+	stats: Dictionary,
+	projectile_data: Dictionary,
+	direction: Vector2,
+	source: Node
+) -> bool:
+	projectile.call(
+		"configure",
+		stats,
+		projectile_data,
+		direction,
+		source
+	)
+	return true
+
+
+func _emit_ranged_attack_committed() -> void:
 	var attack: Dictionary = _current_attack()
-	if (
-		_action_runtime.burst_shots_remaining() <= 0
-		or _action_runtime.locked_direction().length_squared() <= 0.0
-	):
-		_finish_ranged_burst(attack)
-		return
-	_fire_ranged_projectile(_action_runtime.locked_direction())
 	attack_committed.emit(
 		self,
 		_action_runtime.current_action(),
 		_attack_feedback_context(attack, 0.0, false)
 	)
-	_action_runtime.set_burst_shots_remaining(
-		_action_runtime.burst_shots_remaining() - 1
-	)
-	if _action_runtime.burst_shots_remaining() <= 0:
-		_finish_ranged_burst(attack)
-		return
-	_action_runtime.set_action_timer(
-		float(attack.get("shot_interval", 0.0))
-	)
 
 
-func _finish_ranged_burst(attack: Dictionary) -> void:
-	_action_runtime.set_burst_shots_remaining(0)
-	_action_runtime.set_attack_cooldown_remaining(
-		float(attack.get("cooldown", 0.0))
-	)
-	_action_runtime.set_action_state("")
-	_action_runtime.set_action_timer(0.0)
-	_action_runtime.set_current_action("")
+func _finish_ranged_attack() -> void:
 	_focus_target = _primary_target
 
 
-func _fire_ranged_projectile(target_direction: Vector2) -> void:
-	if target_direction.length_squared() <= 0.0:
-		return
-	var attack: Dictionary = _current_attack()
-	var projectile: Dictionary = _dictionary_or_empty(
-		attack.get("projectile", {})
+func _can_debug_drive_ranged_attack() -> bool:
+	return (
+		OS.is_debug_build()
+		and _brain.has_action(
+			ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+		)
+		and (
+			_action_runtime.current_action()
+			== ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+		)
 	)
-	var raw_node: Node = PoolManager.acquire(
-		String(projectile.get("pool_id", POOL_IDS.BULLET_BASIC))
-	)
-	if not raw_node is Node2D or not raw_node.has_method("configure"):
-		return
-	var direction: Vector2 = target_direction.normalized()
-	var muzzle_distance: float = float(projectile.get("muzzle_distance", 0.0))
-	var bullet: Node2D = raw_node as Node2D
-	bullet.global_position = global_position + direction * muzzle_distance
-	_reparent_to_parent(bullet)
-	bullet.call("configure", {
-		STATS.DAMAGE: (
-			float(attack.get("damage", 0.0))
-			* _spawn_damage_multiplier
-		),
-		STATS.BULLET_SPEED: float(projectile.get("speed", 0.0)),
-		STATS.BULLET_RANGE: float(projectile.get("range", 0.0)),
-		STATS.PIERCE_COUNT: 0,
-	}, {
-		"element_id": String(attack.get("element_id", "")),
-		"damage_target_groups": _damage_target_groups.duplicate(),
-		"hit_radius": float(projectile.get("hit_radius", 0.0)),
-		"lifetime": float(projectile.get("lifetime", 0.0)),
-		"source_team": TEAM_ENEMY,
-		"target_team": TEAM_PLAYER,
-	}, direction, self)
-
-
-func _reparent_to_parent(node: Node) -> void:
-	var active_parent: Node = get_parent()
-	if active_parent == null:
-		return
-	var old_parent: Node = node.get_parent()
-	if old_parent == active_parent:
-		return
-	if old_parent != null:
-		old_parent.remove_child(node)
-	active_parent.add_child(node)
 
 
 func _start_charge() -> void:
@@ -1069,15 +1153,12 @@ func _start_charge() -> void:
 
 
 func _update_attack_state(delta: float) -> void:
+	var ranged_result: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Result = (
+		_advance_ranged_attack(delta)
+	)
+	if ranged_result.handled:
+		return
 	_action_runtime.advance_action_timer(delta)
-	if _action_runtime.action_state() == ACTION_STATE_RANGED_WINDUP:
-		if _action_runtime.action_timer() <= 0.0:
-			_begin_ranged_burst()
-		return
-	if _action_runtime.action_state() == ACTION_STATE_RANGED_BURST:
-		if _action_runtime.action_timer() <= 0.0:
-			_fire_ranged_burst_shot()
-		return
 	if _action_runtime.action_state() == ACTION_STATE_MELEE_WINDUP:
 		if _action_runtime.action_timer() <= 0.0:
 			_commit_melee_attack()
