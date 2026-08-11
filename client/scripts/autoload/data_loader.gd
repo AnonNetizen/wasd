@@ -81,6 +81,9 @@ const REWARD_CHOICE_POOL_VALIDATOR := preload(
 const SPAWN_WAVE_CATALOG_VALIDATOR := preload(
 	"res://scripts/data/spawn_wave_catalog_validator.gd"
 )
+const WEAPON_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/weapon_catalog_validator.gd"
+)
 const DIFFICULTY_PROFILE_VALIDATOR := preload(
 	"res://scripts/data/difficulty_profile_validator.gd"
 )
@@ -130,9 +133,6 @@ const CONTENT_UNLOCK_SUBJECT_COUNTER_IDS: Array[String] = [
 ]
 
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
-const WEAPON_RECOIL_MAXIMUM: float = 100.0
-const WEAPON_BASE_SPREAD_CAP_MAXIMUM: float = 60.0
-const WEAPON_RUNTIME_SPREAD_CAP_MAXIMUM: float = 180.0
 const NON_NEGATIVE_STATS: Array[String] = [
 	"damage",
 	"health_regen",
@@ -161,7 +161,6 @@ const POSITIVE_STATS: Array[String] = [
 ]
 const RATIO_STATS: Array[String] = ["crit_chance", "lifesteal_ratio"]
 const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "recoil", "spread_angle_max", "crit_chance", "crit_mult"]
-const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "recoil", "spread_angle_max"]
 const HERO_GEAR_STATS: Array[String] = [
 	"max_hp",
 	"max_shield",
@@ -1503,149 +1502,81 @@ func _validate_character_skill_resources(field: String, data: Variant) -> bool:
 
 func _validate_weapons_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(WEAPONS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(WEAPONS_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(
-		WEAPONS_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		5,
-		5
-	) and is_valid
-	var recoil_model: Dictionary = {}
-	var raw_recoil_model: Variant = payload.get("recoil_model", {})
-	if raw_recoil_model is Dictionary:
-		recoil_model = (raw_recoil_model as Dictionary).duplicate(true)
-	is_valid = _validate_recoil_model(recoil_model) and is_valid
-	var weapons: Array = _require_array(WEAPONS_PATH, "weapons", payload.get("weapons"))
-	if weapons.is_empty():
-		is_valid = _schema_fail(WEAPONS_PATH, "weapons", "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	_last_schema_counts["weapons"] = weapons.size()
-	for index: int in range(weapons.size()):
-		var field: String = "weapons[%d]" % index
-		var weapon: Variant = weapons[index]
-		if not weapon is Dictionary:
-			is_valid = _schema_fail(WEAPONS_PATH, field, "Dictionary") and is_valid
-			continue
-		var weapon_dict: Dictionary = weapon as Dictionary
-		is_valid = _validate_exact_dictionary_keys(
-			WEAPONS_PATH,
-			field,
-			weapon_dict,
-			[
-				"id",
-				"name_key",
-				"desc_key",
-				"default_unlocked",
-				"fire_mode",
-				"fire_audio_id",
-				"presentation_profile_id",
-				"base_stats",
-				"projectile",
-			]
-		) and is_valid
-		is_valid = _require_non_empty_string(WEAPONS_PATH, "%s.id" % field, weapon_dict.get("id")) and is_valid
-		var weapon_id: String = String(weapon_dict.get("id", ""))
-		if not weapon_id.is_empty():
-			if seen.has(weapon_id):
-				is_valid = _schema_fail(WEAPONS_PATH, "%s.id" % field, "unique weapon id") and is_valid
-			seen[weapon_id] = true
-		is_valid = _require_locale_key(WEAPONS_PATH, "%s.name_key" % field, weapon_dict.get("name_key"), locale_keys) and is_valid
-		is_valid = _require_locale_key(WEAPONS_PATH, "%s.desc_key" % field, weapon_dict.get("desc_key"), locale_keys) and is_valid
-		is_valid = _require_bool(WEAPONS_PATH, "%s.default_unlocked" % field, weapon_dict.get("default_unlocked")) and is_valid
-		is_valid = _require_non_empty_string(WEAPONS_PATH, "%s.fire_mode" % field, weapon_dict.get("fire_mode")) and is_valid
-		if weapon_dict.has("fire_audio_id"):
-			is_valid = _require_audio_id(WEAPONS_PATH, "%s.fire_audio_id" % field, weapon_dict.get("fire_audio_id")) and is_valid
-		is_valid = _validate_weapon_stats(
-			"%s.base_stats" % field,
-			weapon_dict.get("base_stats"),
-			recoil_model
-		) and is_valid
-		is_valid = _validate_weapon_projectile("%s.projectile" % field, weapon_dict.get("projectile")) and is_valid
-	return is_valid
+	var result: WEAPON_CATALOG_VALIDATOR.ValidationResult = (
+		WEAPON_CATALOG_VALIDATOR.validate(
+			data,
+			WEAPON_STATS,
+			Callable(self, "_require_weapon_locale_key").bind(locale_keys),
+			Callable(self, "_require_weapon_audio_id"),
+			Callable(self, "_validate_weapon_stat_value"),
+			Callable(self, "_require_weapon_contract_value"),
+			Callable(self, "_report_weapon_catalog_failure")
+		)
+	)
+	if data is Dictionary:
+		_last_schema_counts["weapons"] = result.weapon_count
+	return result.is_valid
 
 
-func _validate_recoil_model(model: Dictionary) -> bool:
-	if model.is_empty():
-		return _schema_fail(WEAPONS_PATH, "recoil_model", "non-empty Dictionary")
-	var is_valid: bool = true
-	is_valid = _require_number(WEAPONS_PATH, "recoil_model.recoil_max", model.get("recoil_max"), 0.0, WEAPON_RECOIL_MAXIMUM, true) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "recoil_model.spread_exponent", model.get("spread_exponent"), 0.0, null, true) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "recoil_model.kickback_max_distance", model.get("kickback_max_distance"), 0.0) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "recoil_model.kickback_duration", model.get("kickback_duration"), 0.0, null, true) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "recoil_model.kickback_velocity_cap", model.get("kickback_velocity_cap"), 0.0, null, true) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "recoil_model.base_spread_cap", model.get("base_spread_cap"), 0.0, WEAPON_BASE_SPREAD_CAP_MAXIMUM) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "recoil_model.runtime_spread_cap", model.get("runtime_spread_cap"), 0.0, WEAPON_RUNTIME_SPREAD_CAP_MAXIMUM) and is_valid
-	if (
-		model.get("base_spread_cap") is float
-		or model.get("base_spread_cap") is int
-	) and (
-		model.get("runtime_spread_cap") is float
-		or model.get("runtime_spread_cap") is int
-	) and float(model.get("runtime_spread_cap")) < float(model.get("base_spread_cap")):
-		is_valid = _schema_fail(
-			WEAPONS_PATH,
-			"recoil_model.runtime_spread_cap",
-			"value greater than or equal to base_spread_cap"
-		) and is_valid
-	return is_valid
-
-
-func _validate_weapon_stats(
-	field: String,
-	data: Variant,
-	recoil_model: Dictionary
+func _require_weapon_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
 ) -> bool:
-	if not data is Dictionary or (data as Dictionary).is_empty():
-		return _schema_fail(WEAPONS_PATH, field, "non-empty Dictionary")
-	var stats: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	for required_stat: String in REQUIRED_WEAPON_STATS:
-		if not stats.has(required_stat):
-			is_valid = _schema_fail(WEAPONS_PATH, "%s.%s" % [field, required_stat], "required weapon stat") and is_valid
-	for stat_key: Variant in stats.keys():
-		var stat: String = String(stat_key)
-		if not WEAPON_STATS.has(stat):
-			is_valid = _schema_fail(WEAPONS_PATH, "%s.%s" % [field, stat], "supported weapon stat") and is_valid
-			continue
-		if stat == "pierce_count":
-			is_valid = _require_int(WEAPONS_PATH, "%s.%s" % [field, stat], stats[stat_key], 0) and is_valid
-		elif stat == "recoil":
-			is_valid = _require_number(
-				WEAPONS_PATH,
-				"%s.%s" % [field, stat],
-				stats[stat_key],
-				0.0,
-				float(recoil_model.get("recoil_max", 0.0))
-			) and is_valid
-		elif stat == "spread_angle_max":
-			is_valid = _require_number(
-				WEAPONS_PATH,
-				"%s.%s" % [field, stat],
-				stats[stat_key],
-				0.0,
-				float(recoil_model.get("base_spread_cap", 0.0))
-			) and is_valid
-		else:
-			is_valid = _validate_stat_value(WEAPONS_PATH, "%s.%s" % [field, stat], stat, stats[stat_key]) and is_valid
-	return is_valid
+	return _require_locale_key(
+		WEAPONS_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
 
 
-func _validate_weapon_projectile(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(WEAPONS_PATH, field, "Dictionary")
-	var projectile: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_registered(WEAPONS_PATH, "%s.pool_id" % field, projectile.get("pool_id"), "pool_ids") != "" and is_valid
-	is_valid = _require_registered(WEAPONS_PATH, "%s.element_id" % field, projectile.get("element_id"), "elements") != "" and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "%s.hit_radius" % field, projectile.get("hit_radius"), 0.0, null, true) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "%s.muzzle_distance" % field, projectile.get("muzzle_distance"), 0.0, null, true) and is_valid
-	is_valid = _require_number(WEAPONS_PATH, "%s.lifetime" % field, projectile.get("lifetime"), 0.0, null, true) and is_valid
-	return is_valid
+func _require_weapon_audio_id(
+	field_path: String,
+	value: Variant
+) -> bool:
+	return _require_audio_id(
+		WEAPONS_PATH,
+		field_path,
+		value
+	)
+
+
+func _validate_weapon_stat_value(
+	field_path: String,
+	stat_id: String,
+	value: Variant
+) -> bool:
+	return _validate_stat_value(
+		WEAPONS_PATH,
+		field_path,
+		stat_id,
+		value
+	)
+
+
+func _require_weapon_contract_value(
+	field_path: String,
+	value: Variant,
+	contract_id: String
+) -> String:
+	return _require_registered(
+		WEAPONS_PATH,
+		field_path,
+		value,
+		contract_id
+	)
+
+
+func _report_weapon_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(
+		WEAPONS_PATH,
+		field_path,
+		expected
+	)
 
 
 func _validate_enemy_ai_profiles_json() -> bool:
