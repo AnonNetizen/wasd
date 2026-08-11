@@ -76,6 +76,9 @@ const PLAYER_DATA_VALIDATOR := preload(
 const REWARD_CHOICE_POOL_VALIDATOR := preload(
 	"res://scripts/data/reward_choice_pool_validator.gd"
 )
+const SPAWN_WAVE_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/spawn_wave_catalog_validator.gd"
+)
 const DIFFICULTY_PROFILE_VALIDATOR := preload(
 	"res://scripts/data/difficulty_profile_validator.gd"
 )
@@ -2182,55 +2185,43 @@ func _report_hazard_catalog_failure(
 	return _schema_fail(HAZARDS_PATH, field_path, expected)
 
 
-func _validate_spawn_waves_csv(enemy_ids: Dictionary, hazard_ids: Dictionary, game_mode_ids: Dictionary) -> bool:
+func _validate_spawn_waves_csv(
+	enemy_ids: Dictionary,
+	hazard_ids: Dictionary,
+	game_mode_ids: Dictionary
+) -> bool:
 	var rows: Array[Dictionary] = load_csv(SPAWN_WAVES_PATH)
-	var is_valid: bool = true
-	var seen_ids: Dictionary = {}
-	var seen_mode_waves: Dictionary = {}
-	if rows.is_empty():
-		is_valid = _schema_fail(SPAWN_WAVES_PATH, "rows", "non-empty CSV") and is_valid
-	_last_schema_counts["spawn_waves"] = rows.size()
-	for index: int in range(rows.size()):
-		var row: Dictionary = rows[index]
-		var field: String = "line %d" % (index + 2)
-		var wave_id: String = String(row.get("id", ""))
-		is_valid = _require_non_empty_string(SPAWN_WAVES_PATH, "%s.id" % field, row.get("id")) and is_valid
-		if not wave_id.is_empty():
-			if seen_ids.has(wave_id):
-				is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.id" % field, "unique wave id") and is_valid
-			seen_ids[wave_id] = true
-		var mode_id: String = _require_registered(SPAWN_WAVES_PATH, "%s.mode_id" % field, row.get("mode_id"), "game_modes")
-		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
-			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.mode_id" % field, "mode defined in game_modes.json") and is_valid
-		var wave_index: Variant = _parse_int(row.get("wave_index"))
-		is_valid = _require_int(SPAWN_WAVES_PATH, "%s.wave_index" % field, wave_index, 1) and is_valid
-		if not mode_id.is_empty() and _is_int_like(wave_index):
-			var mode_wave_key: String = "%s:%d" % [mode_id, _variant_to_int(wave_index)]
-			if seen_mode_waves.has(mode_wave_key):
-				is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.wave_index" % field, "unique per mode") and is_valid
-			seen_mode_waves[mode_wave_key] = true
-		var start_time: Variant = _parse_float(row.get("start_time"))
-		var end_time: Variant = _parse_float(row.get("end_time"))
-		is_valid = _require_number(SPAWN_WAVES_PATH, "%s.start_time" % field, start_time, 0.0) and is_valid
-		is_valid = _require_number(SPAWN_WAVES_PATH, "%s.end_time" % field, end_time, 0.0, null, true) and is_valid
-		if (start_time is int or start_time is float) and (end_time is int or end_time is float) and float(end_time) <= float(start_time):
-			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.end_time" % field, "greater than start_time") and is_valid
-		var enemy_id: String = String(row.get("enemy_id", ""))
-		is_valid = _require_non_empty_string(SPAWN_WAVES_PATH, "%s.enemy_id" % field, row.get("enemy_id")) and is_valid
-		if not enemy_id.is_empty() and not enemy_ids.has(enemy_id):
-			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.enemy_id" % field, "enemy defined in enemies.csv") and is_valid
-		is_valid = _require_csv_int(SPAWN_WAVES_PATH, "%s.enemy_weight" % field, row.get("enemy_weight"), 1) and is_valid
-		is_valid = _require_csv_number(SPAWN_WAVES_PATH, "%s.spawn_interval" % field, row.get("spawn_interval"), 0.0, null, true) and is_valid
-		is_valid = _require_csv_int(SPAWN_WAVES_PATH, "%s.max_alive" % field, row.get("max_alive"), 1) and is_valid
-		is_valid = _require_csv_int(SPAWN_WAVES_PATH, "%s.spawn_budget" % field, row.get("spawn_budget"), 0) and is_valid
-		var hazard_id: String = String(row.get("hazard_id", ""))
-		var hazard_weight: Variant = _parse_int(row.get("hazard_weight"))
-		is_valid = _require_int(SPAWN_WAVES_PATH, "%s.hazard_weight" % field, hazard_weight, 0) and is_valid
-		if not hazard_id.is_empty() and not hazard_ids.has(hazard_id):
-			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.hazard_id" % field, "hazard defined in hazards.csv") and is_valid
-		if hazard_id.is_empty() and _is_int_like(hazard_weight) and _variant_to_int(hazard_weight) > 0:
-			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.hazard_id" % field, "non-empty when hazard_weight > 0") and is_valid
-	return is_valid
+	var result: SPAWN_WAVE_CATALOG_VALIDATOR.ValidationResult = (
+		SPAWN_WAVE_CATALOG_VALIDATOR.validate(
+			rows,
+			enemy_ids,
+			hazard_ids,
+			game_mode_ids,
+			Callable(self, "_require_spawn_wave_mode_id"),
+			Callable(self, "_report_spawn_wave_catalog_failure")
+		)
+	)
+	_last_schema_counts["spawn_waves"] = result.row_count
+	return result.is_valid
+
+
+func _require_spawn_wave_mode_id(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		SPAWN_WAVES_PATH,
+		field_path,
+		value,
+		"game_modes"
+	)
+
+
+func _report_spawn_wave_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(SPAWN_WAVES_PATH, field_path, expected)
 
 
 func _validate_active_items_json(locale_keys: Dictionary) -> bool:

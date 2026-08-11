@@ -12,6 +12,7 @@
 - 将已加载的玩家配置交给纯 `PlayerDataValidator` 校验；`DataLoader` 继续持有文件读取、stat / pool 契约 callback、资源路径错误包装、调用位置和 schema 计数。
 - 将已加载的相机反馈配置交给纯 `CameraFeedbackValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、调用位置、二次索引读取和 schema 计数。
 - 将已加载的元素目录交给纯 `ElementCatalogValidator` 校验；`DataLoader` 继续持有单次 Mod-aware 读取、locale / element contract callback、资源路径错误包装、调用位置和两项 schema 计数。
+- 将已加载的刷怪波次行交给纯 `SpawnWaveCatalogValidator` 校验；`DataLoader` 继续持有两次独立 Mod-aware 读取、game mode 契约 callback、三类引用索引、资源路径错误包装、调用位置和 raw row count。
 - 将已加载的英雄被动目录交给纯 `HeroPassiveCatalogValidator` 校验；`DataLoader` 继续持有两次独立读取、Mod-aware locale / passive id / effect / element callback、资源路径错误包装、调用位置和 schema 计数。
 - 将已加载的致谢配置交给纯 `CreditsValidator` 校验；`DataLoader` 继续持有文件读取、Mod-aware locale key 校验、资源路径错误包装、调用位置和 schema 计数。
 - 将包内与最终合并的 Gear Mod 掉落行交给纯 `GearModDropTableValidator` 校验；`DataLoader` 继续持有读取、错误输出、坏包禁用 / 重读和 schema 计数。
@@ -47,6 +48,7 @@
 | `client/scripts/data/player_data_validator.gd` | 纯、静态的玩家 schema 校验；只接收已加载 root、stat / pool callback 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/camera_feedback_validator.gd` | 纯、静态的相机反馈 schema 校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数或引用索引 |
 | `client/scripts/data/element_catalog_validator.gd` | 纯、静态的元素 JSON schema 校验；只接收已加载 root、locale / element id / 已登记元素列表 callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数或构建引用索引 |
+| `client/scripts/data/spawn_wave_catalog_validator.gd` | 纯、静态的刷怪波次 CSV schema 校验；只接收已加载 typed rows、enemy / hazard / game mode 索引、mode 契约 callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数或构建引用索引 |
 | `client/scripts/data/hero_passive_catalog_validator.gd` | 纯、静态的英雄被动 JSON schema 校验；只接收已加载 root、locale / passive id / effect / element callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数或构建引用索引 |
 | `client/scripts/data/credits_validator.gd` | 纯、静态的致谢 schema 校验；只接收已加载 root、locale key callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/gear_mod_drop_table_validator.gd` | 纯、静态的包内 / 合并掉落行校验；只接收现成 rows / ID 索引与错误 sink，不读文件 / Mod、不持有 Node / cache、不排序 |
@@ -64,6 +66,7 @@
 | `client/tests/unit/test_player_data_validator.gd` | 锁定玩家 root / base stats 硬返回、schema / body 诊断顺序、stat callback 与源顺序 / raw count、金币池双诊断、energy 兼容缺口、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_camera_feedback_validator.gd` | 锁定相机反馈 schema、aim / 两组 shake / 武器振幅指数的诊断顺序、嵌套 Dictionary 短路、int-like / finite / 数值边界、额外 key、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_element_catalog_validator.gd` | 锁定元素 root 硬返回、exact int-like schema、两个规范化计数、字段 / callback / contract-list 时序、elements / components / combinations 历史 bool 缺口、定义覆盖、合法重复 / 无序组合与跨调用无状态 |
+| `client/tests/unit/test_spawn_wave_catalog_validator.gd` | 锁定波次 raw row count、行号 / id / mode-wave 去重、mode 契约历史 bool 缺口、三类引用、CSV String 解析、数值 / 时间 / 可选机关边界、诊断 source-order 与跨调用无状态 |
 | `client/tests/unit/test_hero_passive_catalog_validator.gd` | 锁定英雄被动 root 硬返回、exact int-like schema、规范化计数、passives Array / id 历史 bool 缺口、字段与 callback 顺序、params 局部短路、element / multiplier 边界、额外字段忽略和跨调用无状态 |
 | `client/tests/unit/test_credits_validator.gd` | 锁定致谢 schema、section / entry source order 与计数、String 化重复 id、external 分支、locale callback、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_gear_mod_drop_table_validator.gd` | 锁定掉落表边界、空表、多错误顺序、未知引用、等级范围 / 重复、包输入形状、旧静默诊断与跨调用无状态 |
@@ -132,6 +135,7 @@
 | 等级曲线 | 角色校验完成后读取 `level_progression.json`，由纯 validator 按旧顺序收集字段错误；DataLoader 补资源路径并仅为 Dictionary root 写入 profile count，再继续奖励池校验 | `LevelProgressionValidator.validate()` |
 | 通用奖励选择池 | 等级曲线后读取 `reward_choice_pools.json` 并交给纯 validator；DataLoader 通过既有 locale helper 与 `_validate_modifiers(..., false)` 保留 Mod-aware 文案、stat 契约和 stat 数值边界，仅为 Dictionary root 写入规范化 pool count，再继续难度 profile 校验 | `RewardChoicePoolValidator.validate()`、`_require_reward_choice_locale_key()`、`_validate_reward_choice_modifiers()` |
 | 难度 profiles | 奖励池校验后读取 `difficulty_profiles.json` 并交给纯 validator；DataLoader 通过现有 locale helper 保留契约扩展、Mod CSV patch 与导出版 translation fallback，仅为 Dictionary root 写入 validator 返回的规范化 profile count，随后再次读取同一文件构建引用索引 | `DifficultyProfileValidator.validate()`、`_require_difficulty_profile_locale_key()`、`DataReferenceIndexBuilder.collect_difficulty_profile_ids()` |
+| 刷怪波次 | game modes 校验→内容解锁→第二次 game mode ID 读取→map layouts 校验后，第一次读取 `spawn_waves.csv` 并交给纯 validator；DataLoader 保留 mode 契约 adapter、三类引用索引和 raw row count，然后第二次独立读取建 wave index，再二读 map layout IDs 并校验 warzone director；两次 wave 读取都经 Mod overlay，不缓存 / 复用 | `SpawnWaveCatalogValidator.validate()`、`_require_spawn_wave_mode_id()`、`DataReferenceIndexBuilder.collect_spawn_wave_ids_by_mode()` |
 | 指纹构建 | `DataLoader` 先应用官方数据与有效 Mod patch，再把结果交给 builder 排除展示字段、归一化标量并深拷贝嵌套玩法字段 | `gear_mod_gameplay_fingerprint_payload()`、`effect_gameplay_fingerprint_payload()` |
 | 契约查询 | 调用方查询白名单；允许的 mod 动态扩展 id 会并入返回值 | `contract_values()`、`has_contract_value()` |
 | 重新加载 | 覆盖 `_contracts` 并通知订阅方 | `data_reloaded` |
@@ -310,6 +314,16 @@
 - schema version 继续接受整数值浮点；难度系数与阶段间隔必须是有限正数，间隔上限 `3600.0`，三个增长字段必须是有限 `0.0..10.0`，阶段文案必须恰好 9 项且逐项通过 DataLoader 持有的 locale 校验。
 - `DataLoader` 保留首次 `load_json()`、资源路径包装、locale adapter、仅 Dictionary root 写 count，以及 validator 返回后第二次 `load_json()` 再交给引用 builder 的旧调用位置；校验失败不改变后续引用索引和 game mode 校验的既有执行顺序。
 
+### 内部纯刷怪波次目录校验 API
+
+`SpawnWaveCatalogValidator.validate(rows, enemy_ids, hazard_ids, game_mode_ids, require_mode_id, report_failure)` 每次返回新的 typed `ValidationResult { is_valid, row_count }`。Mode callback 接收 `(field_path, value)` 并返回已登记 id 或空字符串，错误 sink 接收 `(field_path, expected)`；正式接线由 `DataLoader` 补 `SPAWN_WAVES_PATH`，复用 `_require_registered(..., "game_modes")` 与 `_schema_fail()`。Validator 不访问 autoload、文件、`user://`、Mod、缓存或引用 builder。
+
+- `row_count` 始终等于输入 typed rows 的原始长度；空表报告 `rows / non-empty CSV` 且返回 `0`。每行按 CSV 源顺序使用 `line <index + 2>`，额外列继续忽略。
+- 每行严格按 id 非空→id 重复→mode 契约→mode 真实定义→wave index / mode 内重复→start→end→时间关系→enemy 非空 / 引用→enemy weight→spawn interval→max alive→budget→hazard weight→hazard 引用→空 hazard / 正权重关系的旧诊断顺序继续执行，中间错误不短路后续字段。
+- id 和所有 CSV 数值继续使用原 `String(value).is_valid_int()` / `is_valid_float()` 解析；因此整数列的 `"1.0"` 继续非法。Start 非负，end 为正数且必须大于 start；整数和浮点边界 / finite 错误文本保持。
+- 为机械保留旧 `_require_registered()` 接线缺口，空 / 未登记 mode id 会诊断并返回空值，但不单独拉低 aggregate bool；只有 callback 返回合法契约 id 后又不在当前 `game_mode_ids` 索引时才失败。该缺口不是新数据依赖面，收紧须独立 correctness 决策。
+- `DataLoader` 保留 game mode 校验→content unlock→game mode IDs 二读→map layouts→wave validator→wave rows 二读建索引→map layout IDs 二读→warzone director 的调用顺序。两次 `load_csv(SPAWN_WAVES_PATH)` 都独立经 Mod overlay，不缓存、不复用首次 rows；schema count 使用 validator 返回的 raw row count。
+
 ## Signal / Event
 
 | 名称 | 参数 | 触发时机 |
@@ -358,7 +372,7 @@
 ## 依赖
 
 - 上游依赖：生成契约文件、`ModLoader`，以及仅由 `DataSourceReader` / CSV header 校验边界直接使用的 Godot `FileAccess` / `JSON`。
-- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`PlayerDataValidator`、`CameraFeedbackValidator`、`ElementCatalogValidator`、`HeroPassiveCatalogValidator`、`CreditsValidator`、`GearModDropTableValidator`、`HazardCatalogValidator`、`ActiveItemCatalogValidator`、`ConsumableCatalogValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator`、`RewardChoicePoolValidator`、`DifficultyProfileValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。`PlayerDataValidator` 只额外静态引用生成的 `PoolIds.GOLD_ORB`，不查询契约运行时状态。
+- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`PlayerDataValidator`、`CameraFeedbackValidator`、`ElementCatalogValidator`、`SpawnWaveCatalogValidator`、`HeroPassiveCatalogValidator`、`CreditsValidator`、`GearModDropTableValidator`、`HazardCatalogValidator`、`ActiveItemCatalogValidator`、`ConsumableCatalogValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator`、`RewardChoicePoolValidator`、`DifficultyProfileValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。`PlayerDataValidator` 只额外静态引用生成的 `PoolIds.GOLD_ORB`，不查询契约运行时状态。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -378,6 +392,7 @@
 - 新主动道具字段或 JSON 规则应在 `ActiveItemCatalogValidator` 中保持纯静态校验，由 `DataLoader` 继续控制三次独立读取、Mod-aware locale / tag / effect callback、资源路径、机关索引后 / consumables 前的位置与 count；不得在 validator 中加载 JSON、查询 Mod / autoload、构建引用索引、校验表现 profile 或写 `_last_schema_counts`。未登记 tag 只诊断不改 bool 的旧缺口不得在无独立 correctness 决策时顺手收紧。
 - 新消耗品字段或 JSON 规则应在 `ConsumableCatalogValidator` 中保持纯静态校验，由 `DataLoader` 继续控制三次独立读取、Mod-aware locale / tag / effect callback、资源路径、主动道具索引后 / skills 前的位置与 count；不得在 validator 中加载 JSON、查询 Mod / autoload、构建引用索引、校验表现 profile 或写 `_last_schema_counts`。未登记 tag 只诊断不改 bool 的旧缺口不得在无独立 correctness 决策时顺手收紧。
 - 新元素字段、组件或组合规则应在 `ElementCatalogValidator` 中保持纯静态校验，由 `DataLoader` 继续控制单次 Mod-aware 读取、locale / element contract / 登记列表 callback、资源路径、表现引用后 / hero passives 前的位置与两个 count；不得在 validator 中加载 JSON、查询 Mod / autoload、缓存登记列表、构建引用索引或写 `_last_schema_counts`。elements / components / combinations Array helper 与空 / 未登记 id 只诊断不改 aggregate bool 的旧缺口不得在无独立 correctness 决策时顺手收紧。
+- 新刷怪波次字段或 CSV 规则应在 `SpawnWaveCatalogValidator` 中保持纯静态校验，由 `DataLoader` 继续控制两次独立 Mod-aware 读取、mode 契约 callback、enemy / hazard / game mode 索引、资源路径、map layouts 后 / warzone director 前的位置与 raw count；不得在 validator 中加载 CSV、查询 Mod / autoload、构建 wave index 或写 `_last_schema_counts`。未登记 mode 只诊断不改 aggregate bool 的旧缺口不得在无独立 correctness 决策时顺手收紧。
 - 新英雄被动字段或 JSON 规则应在 `HeroPassiveCatalogValidator` 中保持纯静态校验，由 `DataLoader` 继续控制两次独立读取、Mod-aware locale / passive id / effect / element callback、资源路径、elements 后 / weapons 前的位置与 count；不得在 validator 中加载 JSON、查询 Mod / autoload、构建引用索引或写 `_last_schema_counts`。passives 非 Array 与空 / 未登记 passive id 只诊断不改 aggregate bool 的旧缺口不得在无独立 correctness 决策时顺手收紧。
 - 新敌人金币模型字段或关系规则应在 `EnemyRewardModelValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
 - 新等级曲线字段或关系规则应在 `LevelProgressionValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
@@ -405,6 +420,7 @@
 | 改主动道具目录校验 / DataLoader 接线 | `active_item_catalog_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + contracts + `validate_data` + schema test + `mod-loader-smoke` + headless boot + Replay regression |
 | 改消耗品目录校验 / DataLoader 接线 | `consumable_catalog_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + contracts + `validate_data` + schema test + `mod-loader-smoke` + headless boot + Replay regression |
 | 改元素目录校验 / DataLoader 接线 | `element_catalog_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / SkillSystem 文档 | 目标 / full GUT + contracts + `validate_data` + schema test + `mod-loader-smoke` + L1/loading/codex/runtime/replay + headless boot + Replay regression |
+| 改刷怪波次目录校验 / DataLoader 接线 | `spawn_wave_catalog_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / Spawner 文档 | 目标 / full GUT + contracts + `validate_data` + schema test + `mod-loader-smoke` + L1/replay + headless boot + Replay regression |
 | 改英雄被动目录校验 / DataLoader 接线 | `hero_passive_catalog_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + contracts + `validate_data` + schema test + headless boot + Replay regression |
 | 改敌人金币模型校验 / DataLoader 接线 | `enemy_reward_model_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / EnemyRewardResolver 文档 | 目标 GUT + `validate_data` + schema test + L1 + `mod-loader-smoke` + headless boot + Replay regression |
 | 改等级曲线校验 / DataLoader 接线 | `level_progression_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + `validate_data` + schema test + headless boot |
@@ -446,6 +462,7 @@
 - 主动道具目录 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 规范化 count、root 硬返回、schema int-like、active items 双诊断、item shape / id 重复与不 trim、locale / bool / tag 顺序、未登记 tag bool 缺口、charge 局部短路 / mode / finite / int-like / 下限后关系、use effects 双诊断 / entry / effect / params、callback 非短路、额外 / 表现字段忽略与跨调用无状态；再跑 contracts、Python data / schema、`mod-loader-smoke`、headless boot 与 Replay regression，确认机关索引后 / consumables 前的调用位置、表现引用→schema→引用 builder 的三次独立读取、官方 active item count、data hash 与 Replay 摘要不变。
 - 消耗品目录 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 规范化 count、root 硬返回、schema int-like、consumables 双诊断、item shape / id 重复与不 trim、locale / bool / tag 顺序、未登记 tag bool 缺口、stack 局部短路 / int-like / 下限后关系、use effects 双诊断 / entry / effect / params、callback 非短路、额外 / 表现字段忽略与跨调用无状态；再跑 contracts、Python data / schema、`mod-loader-smoke`、headless boot 与 Replay regression，确认主动道具索引后 / skills 前的调用位置、表现引用→schema→引用 builder 的三次独立读取、官方 consumable count、data hash 与 Replay 摘要不变。
 - 元素目录 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 两个规范化 count、root 硬返回、schema exact int-like、neutral / unmatched source order、elements / components / combinations 非 Array 诊断但 aggregate bool 不变、item shape、空 / 未登记 element id 只诊断且不进 seen、合法 element / component 重复、locale / kind、契约定义列表的遍历后调用时点、left / right callback bool 缺口、result 失败、无序 pair 重复、额外字段忽略、错误 sink 参数与跨调用无状态；再跑 full GUT、contracts、Python data / schema、`mod-loader-smoke`、L1 / loading / codex / runtime / replay smoke、headless boot 与四条 checked-in Replay v9 golden，确认表现引用后 / hero passives 前的调用位置、单次 Mod-aware 读取、Dictionary root 的 `elements` / `element_combinations` count、data hash 与 Replay 摘要不变。
+- 刷怪波次 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / raw count、空表、行号 / id / mode-wave 去重、mode 契约 callback 的历史 aggregate-bool 缺口、已登记 mode 的真实定义、enemy / hazard 引用、CSV String int / float 解析、finite / 数值 / 时间关系边界、空 hazard / 正权重关系、错误 source-order、后续检查不短路、额外列忽略与跨调用无状态；再跑 full GUT、contracts、Python data / schema、`mod-loader-smoke`、L1 / replay smoke、headless boot 与四条 checked-in Replay v9 golden，确认 game modes 校验→content unlock→game mode IDs 二读→map layouts→wave validator→wave index 二读→map layout IDs 二读→warzone director 顺序、两次独立 Mod-aware wave 读取、raw `spawn_waves` count、data hash 与 Replay 摘要不变。
 - 英雄被动目录 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 规范化 count、root 硬返回、schema exact int-like、passives 非 Array 诊断但 aggregate bool 不变、空 Array、item shape / source order、空 / 未登记 id 只诊断且不进 seen、合法 id 重复、locale / effect callback 非短路、params 局部短路、element 失败后 multiplier 继续、number / finite / `0.0..1.0` 边界、额外字段忽略、错误 sink 参数与跨调用无状态；再跑 contracts、Python data / schema、headless boot 与四条 checked-in Replay v9 golden，确认 elements 后 / weapons 前的调用位置、两次独立 Mod-aware 读取、Dictionary root 的规范化 `hero_passives` count、data hash 与 Replay 摘要不变。
 - 敌人金币模型 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 最小边界、root 类型、required / extra 与字段错误顺序、int-like schema、number / finite / 正数 / 非负边界、非法上下界仍执行关系比较、错误 sink 参数及跨调用无状态；再跑 Python schema、L1、`mod-loader-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、敌人 AI 后 / `enemies.csv` 前调用位置、Dictionary root 的 `enemy_reward_models = 1`、data hash 与 Replay v9 摘要不变。
 - 等级曲线 validator 或接线变更需跑目标 GUT unit，覆盖有效 / 最小边界、root 类型、逐字段错误和顺序、integral float、下限失败后的关系检查、非整数跳过关系、额外 root key、错误 sink 参数及跨调用无状态；再跑 Python schema 负例与 headless boot，确认原路径 / expected 文本、角色后 / 奖励池前的调用位置和 schema count 不变。
