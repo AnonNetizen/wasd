@@ -14,7 +14,6 @@ signal defeated(
 signal attack_windup_started(enemy: Node, action_id: String, context: Dictionary)
 signal attack_committed(enemy: Node, action_id: String, context: Dictionary)
 
-const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TARGET_GROUPS := preload(
 	"res://scripts/contracts/damage_target_groups.gd"
@@ -37,6 +36,9 @@ const ENEMY_MELEE_ATTACK_HANDLER_SCRIPT := preload(
 )
 const ENEMY_NAVIGATION_RUNTIME_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_navigation_runtime.gd"
+)
+const ENEMY_STATUS_HOST_RUNTIME_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_status_host_runtime.gd"
 )
 const ENEMY_PROJECTILE_MATERIALIZER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_projectile_materializer.gd"
@@ -68,6 +70,9 @@ var _brain: EnemyBrain = ENEMY_BRAIN_SCRIPT.new()
 var _navigation_runtime: ENEMY_NAVIGATION_RUNTIME_SCRIPT = (
 	ENEMY_NAVIGATION_RUNTIME_SCRIPT.new()
 )
+var _status_host_runtime: ENEMY_STATUS_HOST_RUNTIME_SCRIPT = (
+	ENEMY_STATUS_HOST_RUNTIME_SCRIPT.new()
+)
 var _collision_shape: CollisionShape2D = null
 var _base_max_life: float = 1.0
 var _debug_ai_enabled: bool = true
@@ -84,7 +89,6 @@ var _max_life: float = 1.0
 var _has_movement_bounds: bool = false
 var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
-var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
 var _primary_target: Node2D = null
 var _charge_attack_ports: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Ports = null
@@ -95,7 +99,6 @@ var _ranged_attack_ports: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports = null
 var _damage_target_groups: Array[String] = []
 var _runtime_spawn_serial: int = 0
 var _separation_radius: float = 0.0
-var _status_effect_component: Node = null
 var _presentation: ActorPresentationController = null
 var _spawn_damage_multiplier: float = 1.0
 var _spawn_health_multiplier: float = 1.0
@@ -504,104 +507,52 @@ func debug_advance_ranged_attack_for_test(delta: float) -> bool:
 
 
 func add_owned_tag(tag_id: String) -> bool:
-	return _add_owned_tag_count(tag_id)
+	return _status_host_runtime.add_owned_tag(tag_id)
 
 
 func remove_owned_tag(tag_id: String) -> bool:
-	return _remove_owned_tag_count(tag_id)
+	return _status_host_runtime.remove_owned_tag(tag_id)
 
 
 func has_owned_tag(tag_id: String) -> bool:
-	return int(_owned_tag_counts.get(tag_id, 0)) > 0
+	return _status_host_runtime.has_owned_tag(tag_id)
 
 
 func owned_tags() -> Array[String]:
-	return _sorted_string_keys(_owned_tag_counts)
+	return _status_host_runtime.owned_tags()
 
 
 func apply_status_effect(status_effect: Variant) -> Dictionary:
 	_ensure_status_effect_component()
-	if _status_effect_component == null:
-		return {
-			"applied": false,
-			"reason": "status_component_unavailable",
-		}
-	return _status_effect_component.call("apply", status_effect) as Dictionary
+	return _status_host_runtime.apply_status_effect(status_effect)
 
 
 func active_statuses() -> Array[String]:
 	_ensure_status_effect_component()
-	if _status_effect_component == null:
-		return []
-	return _status_effect_component.call("active_statuses") as Array[String]
+	return _status_host_runtime.active_statuses()
 
 
 func status_summary() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	var raw_effects: Variant = _status_effect_snapshot().get("effects", [])
-	if not raw_effects is Array:
-		return result
-	for raw_effect: Variant in raw_effects as Array:
-		if not raw_effect is Dictionary:
-			continue
-		var effect: Dictionary = raw_effect as Dictionary
-		var status_id: String = String(effect.get("status", ""))
-		if status_id.is_empty():
-			continue
-		result.append({
-			"id": status_id,
-			"name_key": "status_%s_name" % status_id,
-			"stacks": maxi(int(effect.get("stack_count", 1)), 1),
-			"remaining": maxf(float(effect.get("remaining", 0.0)), 0.0),
-		})
-	return result
+	_ensure_status_effect_component()
+	return _status_host_runtime.status_summary()
 
 
 func status_stat_multiplier(stat_id: String) -> float:
 	_ensure_status_effect_component()
-	if (
-		_status_effect_component == null
-		or not _status_effect_component.has_method("stat_multiplier")
-	):
-		return 1.0
-	return maxf(
-		float(
-			_status_effect_component.call(
-				"stat_multiplier",
-				stat_id
-			)
-		),
-		0.0
-	)
+	return _status_host_runtime.status_stat_multiplier(stat_id)
 
 
 func status_stack_count(status_id: String) -> int:
 	_ensure_status_effect_component()
-	if (
-		_status_effect_component == null
-		or not _status_effect_component.has_method("stack_count")
-	):
-		return 0
-	return int(_status_effect_component.call("stack_count", status_id))
+	return _status_host_runtime.status_stack_count(status_id)
 
 
 func incoming_damage_multiplier(info: RefCounted) -> float:
 	_ensure_status_effect_component()
-	if (
-		_status_effect_component == null
-		or not _status_effect_component.has_method(
-			"incoming_damage_multiplier"
-		)
-	):
+	if not _status_host_runtime.can_query_incoming_damage_multiplier():
 		return 1.0
-	return maxf(
-		float(
-			_status_effect_component.call(
-				"incoming_damage_multiplier",
-				String(info.get("source_team"))
-			)
-		),
-		0.0
+	return _status_host_runtime.incoming_damage_multiplier(
+		String(info.get("source_team"))
 	)
 
 
@@ -718,15 +669,14 @@ func snapshot() -> Dictionary:
 		"runtime_spawn_serial": _runtime_spawn_serial,
 		"event_instance_id": _event_instance_id,
 		"target_mode": _target_mode(),
-		"owned_tag_counts": _owned_tag_counts.duplicate(true),
+		"owned_tag_counts": _status_host_runtime.owned_tag_counts_snapshot(),
 		"status_effects": _status_effect_snapshot(),
 	}
 
 
 func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_ensure_status_effect_component()
-	if _status_effect_component != null:
-		_status_effect_component.call("clear", false)
+	_status_host_runtime.clear_effects_before_restore()
 	_spawn_health_multiplier = maxf(
 		float(snapshot_data.get("spawn_health_multiplier", 1.0)),
 		0.0
@@ -2387,80 +2337,25 @@ func _collision_shape_node() -> CollisionShape2D:
 
 
 func _ensure_status_effect_component() -> void:
-	if _status_effect_component != null and is_instance_valid(_status_effect_component):
-		_status_effect_component.call("configure_ability_tag_owner", self)
+	if _status_host_runtime.refresh(self):
 		return
-	_status_effect_component = get_node_or_null("StatusEffectComponent")
-	if _status_effect_component == null:
+	var status_effect_component: Node = get_node_or_null(
+		"StatusEffectComponent"
+	)
+	if status_effect_component == null:
 		push_error("[Enemy] missing scene-authored StatusEffectComponent")
 		return
-	_status_effect_component.call("configure_ability_tag_owner", self)
+	_status_host_runtime.bind(status_effect_component, self)
 
 
 func _status_effect_snapshot() -> Dictionary:
 	_ensure_status_effect_component()
-	if _status_effect_component == null:
-		return {}
-	return _status_effect_component.call("snapshot") as Dictionary
+	return _status_host_runtime.status_effect_snapshot()
 
 
 func _restore_status_snapshot(snapshot_data: Dictionary) -> void:
-	_owned_tag_counts.clear()
-	var raw_tag_counts: Variant = snapshot_data.get("owned_tag_counts", {})
-	var has_owned_tag_snapshot: bool = snapshot_data.has("owned_tag_counts") and raw_tag_counts is Dictionary
-	if has_owned_tag_snapshot:
-		for tag_id: Variant in (raw_tag_counts as Dictionary).keys():
-			var count: int = maxi(int((raw_tag_counts as Dictionary)[tag_id]), 0)
-			if count <= 0:
-				continue
-			var tag: String = String(tag_id)
-			if _is_valid_ability_tag(tag):
-				_owned_tag_counts[tag] = count
-	else:
-		var raw_owned_tags: Variant = snapshot_data.get("owned_tags", [])
-		has_owned_tag_snapshot = raw_owned_tags is Array
-		if raw_owned_tags is Array:
-			for tag_id: Variant in raw_owned_tags as Array:
-				_add_owned_tag_count(String(tag_id))
-
-	var raw_status_effects: Variant = snapshot_data.get("status_effects", {})
-	if _status_effect_component != null and raw_status_effects is Dictionary:
-		_status_effect_component.call("restore_snapshot", raw_status_effects, not has_owned_tag_snapshot)
+	_status_host_runtime.restore_from_actor_snapshot(snapshot_data)
 
 
 func _clear_status_effects_for_reuse() -> void:
-	if _status_effect_component != null and is_instance_valid(_status_effect_component):
-		_status_effect_component.call("clear", false)
-	_owned_tag_counts.clear()
-
-
-func _add_owned_tag_count(tag_id: String) -> bool:
-	if not _is_valid_ability_tag(tag_id):
-		return false
-	_owned_tag_counts[tag_id] = int(_owned_tag_counts.get(tag_id, 0)) + 1
-	return true
-
-
-func _remove_owned_tag_count(tag_id: String) -> bool:
-	if not _owned_tag_counts.has(tag_id):
-		return false
-	var next_count: int = int(_owned_tag_counts[tag_id]) - 1
-	if next_count <= 0:
-		_owned_tag_counts.erase(tag_id)
-	else:
-		_owned_tag_counts[tag_id] = next_count
-	return true
-
-
-func _is_valid_ability_tag(tag_id: String) -> bool:
-	if tag_id.is_empty():
-		return false
-	return ABILITY_TAGS.VALUES.has(tag_id)
-
-
-func _sorted_string_keys(source: Dictionary) -> Array[String]:
-	var result: Array[String] = []
-	for key: Variant in source.keys():
-		result.append(String(key))
-	result.sort()
-	return result
+	_status_host_runtime.clear_for_reuse()

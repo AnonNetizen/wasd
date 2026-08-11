@@ -7,7 +7,7 @@
 
 - `StatusEffect` 是运行时状态效果的轻量 `Resource`，承载状态 id、持续时间、剩余时间、叠加规则、来源、强度、DoT 伤害类型 / tick 计时和授予的 ability tags。
 - `StatusEffectComponent` 是挂在可受状态影响实体上的 `Node`，负责按 `GameClock` 推进剩余时间、按叠加规则合并状态、通过 `Combat.apply_damage()` 结算 DoT、过期清理和释放由状态授予的 ability tags。
-- 当前首片服务项目版轻量 GAS、`GameplayEffectRuntime` 与真实实体状态：`SkillSystem`、`Player` 和 `Enemy` 都可挂载 `StatusEffectComponent`，统一 `apply_status` action 可对真实目标施加 `silence` 或 DoT 状态；`silence` 授予 `ability_tag_silenced`，DoT 状态用登记过的元素按 tick 造成伤害。
+- 当前首片服务项目版轻量 GAS、`GameplayEffectRuntime` 与真实实体状态：`SkillSystem`、`Player` 和 `Enemy` 都可挂载 `StatusEffectComponent`，统一 `apply_status` action 可对真实目标施加 `silence` 或 DoT 状态；`silence` 授予 `ability_tag_silenced`，DoT 状态用登记过的元素按 tick 造成伤害。Enemy 侧由纯 `EnemyStatusHostRuntime` 单一持有借用组件引用与 owned tag counts，Enemy Actor 只负责场景发现 / 缺失诊断和 public facade。
 - 本模块暂不实现视觉表现、抗性、免疫、驱散或 `ModifierEngine` 属性修正；这些后续应复用同一个状态生命周期，不在各效果原语里各自实现。
 
 ## 阅读方式
@@ -17,7 +17,7 @@
 | 加新状态 id | `docs/词表与契约.md` §9-A，再跑契约同步 |
 | 加新叠加规则 | `docs/词表与契约.md` §9-B、`status_effect_component.gd` 的 `_merge_effect()` |
 | 让技能或 Gear Mod 施加状态 | `docs/代码/gameplay_effect_runtime.md` 的 `apply_status` action |
-| 让新实体受状态影响 | 对应实体脚本的 `apply_status_effect()` / owned tag API，参考 `player.gd` 与 `enemy.gd` |
+| 让新实体受状态影响 | 对应实体脚本的 `apply_status_effect()` / owned tag API；普通宿主参考 `player.gd`，池化 Actor 的职责分层参考 `enemy.gd` + `enemy_status_host_runtime.gd` |
 | 调查沉默没有移除 | `StatusEffectComponent._tick_effects()`、`_expire_effect()` 与 tag owner 的 `remove_owned_tag()` |
 | 调查 DoT 不掉血 | `StatusEffect.element_id` / `magnitude` / `tick_interval`、`StatusEffectComponent._tick_damage()` 与 `Combat.damage_applied` |
 | 改状态快照 | `snapshot()` / `restore_snapshot()`，同时看 `SkillSystem.snapshot()`、`Player.snapshot()` 与 `Enemy.snapshot()` |
@@ -32,14 +32,16 @@
 | `client/scripts/gameplay/effects/effect_execution_gateway.gd` | `apply_status` action 的统一受控出口 |
 | `client/scripts/gameplay/player.gd` | 玩家实体状态宿主；保存 / 恢复状态效果与状态授予 tags，新开局 `configure()` 清空状态 |
 | `client/scripts/gameplay/enemy.gd` | 敌人实体状态宿主；保存 / 恢复状态效果与状态授予 tags，对象池复用时清空状态 |
+| `client/scripts/gameplay/enemy_status_host_runtime.gd` | Enemy 的纯 `RefCounted` 状态宿主边界；借用 scene-authored 组件，拥有 tag counts，并转发状态 API / payload 恢复，不读 tree / autoload |
 | `client/scripts/contracts/status_effects.gd` / `status_stack_rules.gd` / `ability_tags.gd` | 由词表生成的状态、叠加规则和 ability tag 常量 |
 | `client/tools/l1_smoke.gd` | 覆盖自我沉默、真实 Enemy 目标施加状态、测试用 DoT、Player / Enemy 快照恢复、过期清理和复用清空 |
+| `client/tests/unit/test_enemy_status_host_runtime.gd` / `client/tests/integration/test_enemy_status_host_actor.gd` | 锁定 Enemy 缺组件 fallback、绑定 / 重绑、tag / summary / restore 兼容，以及真实 scene / public PoolManager 生命周期与 23-key roundtrip |
 
 ## 场景 / 节点结构
 
-当前没有独立 `.tscn`。`SkillSystem`、`Player` 与 `Enemy` 都在运行时通过 `_ensure_status_effect_component()` 动态添加子节点 `StatusEffectComponent`，并把自身注册为 ability tag owner。
+当前没有独立 `.tscn`。`SkillSystem` 与 `Player` 在运行时通过 `_ensure_status_effect_component()` 动态添加子节点并注册自身为 ability tag owner；Enemy 的 `enemy_base.tscn` 固定提供 scene-authored `StatusEffectComponent`，Enemy Actor 负责按需发现和缺失诊断，再把引用与自身 owner 借给 `EnemyStatusHostRuntime`。Runtime 自身不调用 `get_node()`，也不读取 SceneTree / autoload。
 
-`Enemy` 是对象池实体，`configure()`、`_pool_release()` 与 `_pool_reset()` 都会清空状态效果和 owned tag 计数；不要让池化节点在非活跃期保留状态。后续召唤物、机关或其他可受状态实体应复用同一个组件，并实现或转发 `apply_status_effect(status_effect)`；不要为每个实体重写一套状态计时。
+`Enemy` 是对象池实体，`configure()`、PoolManager release 与 acquire/reset 都通过 StatusHost 的 `clear_for_reuse()` 执行 `component.clear(false)` 后清空 owned tag 计数；首次 `configure()` 不会为了清理而提前发现组件。不要让池化节点在非活跃期保留状态。后续召唤物、机关或其他可受状态实体应复用同一个组件，并实现或转发 `apply_status_effect(status_effect)`；不要为每个实体重写一套状态计时。
 
 ## 运行流程
 
@@ -53,7 +55,7 @@
 | 属性修饰 | `stat_multiplier(stat_id)` 将减速与加速按来源规则合成；最强减速刷新、同来源加速覆盖，最终倍率相乘 | `stat_multiplier()` |
 | 易伤 | `incoming_damage_multiplier(source_team)` 只对匹配来源队伍放大；初始易伤限定 `team_player`，每层 10%、最多 5 层 | `incoming_damage_multiplier()` |
 | 过期清理 | 剩余时间归零后释放该状态授予的 tags，删除状态，并发出 `effect_expired` | `_expire_effect()` |
-| 快照恢复 | 保存状态数组、key、剩余时间、tick 计时、DoT 伤害类型、队伍归因和授予 tags；恢复时可选择是否重新授予 tags，避免和实体 `owned_tag_counts` 双计数 | `snapshot()`、`restore_snapshot()` |
+| 快照恢复 | 保存状态数组、key、剩余时间、tick 计时、DoT 伤害类型、队伍归因和授予 tags；Enemy restore 先按需发现组件并 `clear(false)`，提交倍率 / 奖励 / 位置 / 生命 / ActionRuntime / serial / event 后，再由 StatusHost 恢复 tag counts 与状态。恢复时可选择是否重新授予 tags，避免和实体 `owned_tag_counts` 双计数 | `snapshot()`、`restore_snapshot()` |
 
 ## 公共 API
 
@@ -89,7 +91,7 @@
 ## 依赖
 
 - 上游依赖：生成常量、`GameState`、`GameClock`、`Combat`、ability tag owner。
-- 当前下游调用方：`GameplayEffectRuntime` / `EffectExecutionGateway`、`SkillSystem`、`Player`、`Enemy`；后续主动道具、机关和 `Combat` on-hit 注入都应复用该组件。
+- 当前下游调用方：`GameplayEffectRuntime` / `EffectExecutionGateway`、`SkillSystem`、`Player`、`Enemy` 与 `EnemyStatusHostRuntime`；后续主动道具、机关和 `Combat` on-hit 注入都应复用该组件。
 - 禁止依赖：不得用裸 `Time` 或自建 `Timer` 推进 gameplay 状态；不得绕过实体的 owned ability tag API 直接改 tag 字典；不得在单个 effect primitive 内私自实现一套 DoT / debuff 生命周期。
 
 ## 扩展点
@@ -98,7 +100,7 @@
 - 加减速 / 增伤标记：状态组件后续应接 `ModifierEngine` 或统一 modifier 注入层，不直接改实体属性字段。
 - 加免疫 / 抵抗：优先新增可复用查询接口或 tag / capability，不在某个状态 id 上写特判。
 - 加视觉表现：通过状态 id 映射到特效池、颜色叠加或 cue，不让业务状态逻辑直接管理长生命周期视觉节点。
-- 加新实体受状态：参考 `Player` / `Enemy`，给实体挂组件并暴露 `apply_status_effect()`、`has_owned_tag()`、`owned_tags()` 与快照字段，不要复制 `StatusEffectComponent` 的 merge / tick 逻辑。
+- 加新实体受状态：普通实体参考 `Player`；池化 Actor 参考 `Enemy` + `EnemyStatusHostRuntime`，给实体挂组件并暴露 `apply_status_effect()`、`has_owned_tag()`、`owned_tags()` 与快照字段，不要复制 `StatusEffectComponent` 的 merge / tick 逻辑。
 
 ## 常见改动入口
 
@@ -119,20 +121,21 @@
 | 技能命中敌人但状态没生效 | 目标是否在 `active_enemies`、是否位于 `active_parent` 下，目标是否实现 `apply_status_effect()`；`l1-smoke` 的真实 Enemy 状态用例是否通过 |
 | DoT 已施加但不掉血 | `params.element_id` 是否登记且非空、`magnitude` / `tick_interval` 是否为正、目标是否实现 `receive_damage(info)`，`Combat.damage_applied` 是否出现 `is_dot` flag |
 | 状态过期但 tag 还在 | `_release_effect_tags()` 是否被调用；是否存在多个来源同时持有同一 tag 计数 |
-| Enemy 复用后仍带旧状态 | `Enemy.configure()`、`_pool_release()` 与 `_pool_reset()` 是否调用状态清理；是否绕过 `PoolManager.acquire()` / `release()` |
-| 续局后 tag 双倍计数 | 对应实体 `restore_snapshot()` 是否在已有 `owned_tag_counts` 时用 `grant_existing_tags=false` 恢复状态 |
+| Enemy 复用后仍带旧状态 | `Enemy.configure()` 与 PoolManager public acquire / release 是否调用 StatusHost `clear_for_reuse()`；是否仍为 `component.clear(false)` 后 counts clear，且没有绕过 PoolManager |
+| 续局后 tag 双倍计数 | StatusHost 是否优先恢复正数且已登记的 `owned_tag_counts`，并以 `grant_existing_tags=false` 恢复状态；legacy `owned_tags` 也应累计 counts 后传 false |
 | 暂停时状态还在掉时间 | `GameState` 是否仍是 `PLAYING`；是否绕过 `GameClock.delta_scaled()` |
 
 ## 测试义务
 
 - 状态 / 叠加规则 / ability tag 契约改动必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`。
 - 状态组件、SkillSystem 状态注入或实体状态宿主改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client l1-smoke`、`python tools/godot_bridge.py --project client runtime-smoke`。
+- 改 Enemy 状态宿主边界追加 `test_enemy_status_host_runtime.gd` 与 `test_enemy_status_host_actor.gd`，覆盖 fallback、bind / rebind、tag count / sort / deep copy、summary source order、current / legacy / malformed restore、缺 `owned_tags` 默认空数组的 grant flag、`clear(false)` 复用、真实场景公共 facade、PoolManager lifecycle 与精确 23-key wire。
 - 改 run 快照或恢复路径追加：`python tools/godot_bridge.py --project client save-smoke`。
 - 改整局数值、DoT 伤害、控制时长或确定性语义时，按 `docs/测试策略.md` 判断是否重录 / 重跑 golden replay。
 
 ## 迁移 / 兼容
 
-当前 `StatusEffectComponent` 的快照挂在 `SkillSystem.snapshot().status_effects`、`Player.snapshot().status_effects` 与 `Enemy.snapshot().status_effects` 下；旧 run payload 没有 `status_effects` 时按空状态处理。`SkillSystem`、`Player` 与 `Enemy` 都保存 `owned_tag_counts`；恢复新计数格式时状态组件不重复授予 tags，只负责未来过期时释放对应计数。早期只含 `owned_tags` 数组的快照仍按 legacy tag 列表兼容恢复。
+当前 `StatusEffectComponent` 的快照挂在 `SkillSystem.snapshot().status_effects`、`Player.snapshot().status_effects` 与 `Enemy.snapshot().status_effects` 下；旧 run payload 没有 `status_effects` 时按空状态处理。`SkillSystem`、`Player` 与 `Enemy` 都保存 `owned_tag_counts`；Enemy 的 counts 与借用组件由 StatusHost 单一持有。恢复新计数格式时状态组件不重复授予 tags，只负责未来过期时释放对应计数。早期只含 `owned_tags` 数组的快照仍按 legacy tag 列表兼容恢复；Enemy 缺该字段时默认 `[]` 仍按“已有 tag snapshot”处理，保持不重新授予的历史兼容细节。
 
 `Player` / `Enemy` 状态字段是 runtime payload schema version 2 下的向后兼容可选字段；旧档缺失时默认为无状态，不需要 SaveManager kind 迁移。后续若状态效果进入机关、召唤物或更复杂的 modifier 注入，应明确旧档缺失时的默认空状态行为，并按风险决定是否提升 runtime payload schema 或 SaveManager kind version。
 
