@@ -9,7 +9,6 @@ const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_dir
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
-const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const EFFECT_ACTIONS := preload("res://scripts/contracts/effect_actions.gd")
 const EFFECT_CONDITIONS := preload("res://scripts/contracts/effect_conditions.gd")
 const EFFECT_TRIGGERS := preload("res://scripts/contracts/effect_triggers.gd")
@@ -54,6 +53,9 @@ const CREDITS_VALIDATOR := preload(
 )
 const ELEMENT_CATALOG_VALIDATOR := preload(
 	"res://scripts/data/element_catalog_validator.gd"
+)
+const ENEMY_AI_PROFILE_VALIDATOR := preload(
+	"res://scripts/data/enemy_ai_profile_validator.gd"
 )
 const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 	"res://scripts/data/gear_mod_drop_table_validator.gd"
@@ -1648,364 +1650,40 @@ func _validate_weapon_projectile(field: String, data: Variant) -> bool:
 
 func _validate_enemy_ai_profiles_json() -> bool:
 	var data: Variant = load_json(ENEMY_AI_PROFILES_PATH)
-	if not data is Dictionary:
-		return _schema_fail(ENEMY_AI_PROFILES_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 5, 5) and is_valid
-	var profiles: Array = _require_array(ENEMY_AI_PROFILES_PATH, "profiles", payload.get("profiles"))
-	if profiles.is_empty():
-		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "profiles", "non-empty Array") and is_valid
-	_last_schema_counts["enemy_ai_profiles"] = profiles.size()
-	var seen: Dictionary = {}
-	for index: int in range(profiles.size()):
-		var field: String = "profiles[%d]" % index
-		var profile: Variant = profiles[index]
-		if not profile is Dictionary:
-			is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary") and is_valid
-			continue
-		var profile_dict: Dictionary = profile as Dictionary
-		is_valid = _require_non_empty_string(ENEMY_AI_PROFILES_PATH, "%s.id" % field, profile_dict.get("id")) and is_valid
-		var profile_id: String = String(profile_dict.get("id", ""))
-		if not profile_id.is_empty():
-			if seen.has(profile_id):
-				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.id" % field, "unique profile id") and is_valid
-			seen[profile_id] = true
-		is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, profile_dict, "contact_interval", 2) and is_valid
-		is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, profile_dict, "sense_radius", 3) and is_valid
-		is_valid = _validate_enemy_ai_perception("%s.perception" % field, profile_dict.get("perception")) and is_valid
-		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.decision_interval" % field, profile_dict.get("decision_interval"), 0.0, null, true) and is_valid
-		is_valid = _validate_enemy_ai_targeting("%s.targeting" % field, profile_dict.get("targeting")) and is_valid
-		is_valid = _validate_enemy_ai_movement("%s.movement" % field, profile_dict.get("movement")) and is_valid
-		is_valid = _validate_enemy_ai_actions("%s.actions" % field, profile_dict.get("actions")) and is_valid
-	return is_valid
-
-
-func _validate_enemy_ai_perception(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.sight_radius" % field, payload.get("sight_radius"), 0.0, null, true) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.path_awareness_radius" % field, payload.get("path_awareness_radius"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.memory_duration" % field, payload.get("memory_duration"), 0.0) and is_valid
-	var sight_radius: Variant = payload.get("sight_radius")
-	var path_awareness_radius: Variant = payload.get("path_awareness_radius")
-	if (
-		(sight_radius is int or sight_radius is float)
-		and (path_awareness_radius is int or path_awareness_radius is float)
-		and float(path_awareness_radius) > float(sight_radius)
-	):
-		is_valid = _schema_fail(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.path_awareness_radius" % field,
-			"number <= sight_radius"
-		) and is_valid
-	return is_valid
-
-
-func _validate_enemy_ai_targeting(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, payload, "hunt_tags", 2) and is_valid
-	is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, payload, "flee_tags", 2) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.player_weight" % field, payload.get("player_weight"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.territory_radius" % field, payload.get("territory_radius"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.territory_weight" % field, payload.get("territory_weight"), 0.0) and is_valid
-	return is_valid
-
-
-func _validate_enemy_ai_movement(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, payload, "flee_distance", 2) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.orbit_radius" % field, payload.get("orbit_radius"), 0.0) and is_valid
-	for raw_key: Variant in payload.keys():
-		var key: String = String(raw_key)
-		if key != "orbit_radius":
-			is_valid = _schema_fail(
-				ENEMY_AI_PROFILES_PATH,
-				"%s.%s" % [field, key],
-				"removed from movement in schema v4; use actions[].attack"
-			) and is_valid
-	return is_valid
-
-
-func _validate_enemy_ai_actions(field: String, data: Variant) -> bool:
-	var entries: Array = _require_array(ENEMY_AI_PROFILES_PATH, field, data)
-	var is_valid: bool = true
-	if entries.is_empty():
-		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, field, "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	for index: int in range(entries.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var entry: Variant = entries[index]
-		if not entry is Dictionary:
-			is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var entry_dict: Dictionary = entry as Dictionary
-		var action_id: String = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.id" % item_field, entry_dict.get("id"), "enemy_ai_actions")
-		if not action_id.is_empty():
-			if seen.has(action_id):
-				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.id" % item_field, "unique action id") and is_valid
-			seen[action_id] = true
-		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.base_score" % item_field, entry_dict.get("base_score"), 0.0) and is_valid
-		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.speed_scale" % item_field, entry_dict.get("speed_scale"), 0.0, null, true) and is_valid
-		is_valid = _validate_enemy_ai_attack(item_field, action_id, entry_dict) and is_valid
-	return is_valid
-
-
-func _validate_enemy_ai_attack(
-	item_field: String,
-	action_id: String,
-	action: Dictionary
-) -> bool:
-	var attack_actions: Array[String] = [
-		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET,
-		ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK,
-		ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET,
-		ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK,
-	]
-	if not attack_actions.has(action_id):
-		if action.has("attack"):
-			return _schema_fail(
-				ENEMY_AI_PROFILES_PATH,
-				"%s.attack" % item_field,
-				"forbidden for non-attack action"
-			)
-		return true
-	var raw_attack: Variant = action.get("attack")
-	if not raw_attack is Dictionary:
-		return _schema_fail(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.attack" % item_field,
-			"Dictionary"
+	var result: ENEMY_AI_PROFILE_VALIDATOR.ValidationResult = (
+		ENEMY_AI_PROFILE_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_enemy_ai_profile_contract_value"),
+			Callable(self, "_report_enemy_ai_profile_failure")
 		)
-	var attack: Dictionary = raw_attack as Dictionary
-	var field: String = "%s.attack" % item_field
-	var is_valid: bool = true
-	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
-		is_valid = _validate_exact_dictionary_keys(
-			ENEMY_AI_PROFILES_PATH,
-			field,
-			attack,
-			["trigger_range", "windup", "damage", "element_id", "radius"]
-		) and is_valid
-		for key: String in ["trigger_range", "windup", "damage", "radius"]:
-			is_valid = _require_number(
-				ENEMY_AI_PROFILES_PATH,
-				"%s.%s" % [field, key],
-				attack.get(key),
-				0.0,
-				null,
-				true
-			) and is_valid
-		is_valid = _require_registered(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.element_id" % field,
-			attack.get("element_id"),
-			"elements"
-		) != "" and is_valid
-		return is_valid
-	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
-		is_valid = _validate_exact_dictionary_keys(
-			ENEMY_AI_PROFILES_PATH,
-			field,
-			attack,
-			[
-				"trigger_range",
-				"windup",
-				"cooldown",
-				"damage",
-				"element_id",
-				"range",
-				"arc_degrees",
-			]
-		) and is_valid
-		for key: String in ["trigger_range", "windup", "cooldown", "damage", "range"]:
-			is_valid = _require_number(
-				ENEMY_AI_PROFILES_PATH,
-				"%s.%s" % [field, key],
-				attack.get(key),
-				0.0,
-				null,
-				true
-			) and is_valid
-		is_valid = _require_number(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.arc_degrees" % field,
-			attack.get("arc_degrees"),
-			0.0,
-			360.0,
-			true
-		) and is_valid
-		is_valid = _require_registered(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.element_id" % field,
-			attack.get("element_id"),
-			"elements"
-		) != "" and is_valid
-		return is_valid
-	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
-		is_valid = _validate_exact_dictionary_keys(
-			ENEMY_AI_PROFILES_PATH,
-			field,
-			attack,
-			[
-				"trigger_range",
-				"windup",
-				"release_duration",
-				"cooldown",
-				"damage",
-				"element_id",
-				"speed_multiplier",
-				"stop_on_hit",
-				"knockback_distance",
-				"knockback_duration",
-			]
-		) and is_valid
-		for key: String in [
-			"trigger_range",
-			"windup",
-			"release_duration",
-			"cooldown",
-			"damage",
-			"speed_multiplier",
-		]:
-			is_valid = _require_number(
-				ENEMY_AI_PROFILES_PATH,
-				"%s.%s" % [field, key],
-				attack.get(key),
-				0.0,
-				null,
-				true
-			) and is_valid
-		is_valid = _require_number(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.knockback_distance" % field,
-			attack.get("knockback_distance"),
-			0.0
-		) and is_valid
-		is_valid = _require_number(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.knockback_duration" % field,
-			attack.get("knockback_duration"),
-			0.0
-		) and is_valid
-		var knockback_distance: float = float(attack.get("knockback_distance", 0.0))
-		var knockback_duration: float = float(attack.get("knockback_duration", 0.0))
-		if (knockback_distance > 0.0) != (knockback_duration > 0.0):
-			is_valid = _schema_fail(
-				ENEMY_AI_PROFILES_PATH,
-				"%s.knockback_duration" % field,
-				"positive exactly when knockback_distance is positive"
-			) and is_valid
-		is_valid = _require_bool(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.stop_on_hit" % field,
-			attack.get("stop_on_hit")
-		) and is_valid
-		is_valid = _require_registered(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.element_id" % field,
-			attack.get("element_id"),
-			"elements"
-		) != "" and is_valid
-		return is_valid
+	)
+	if data is Dictionary:
+		_last_schema_counts["enemy_ai_profiles"] = result.profile_count
+	return result.is_valid
 
-	is_valid = _validate_exact_dictionary_keys(
+
+func _require_enemy_ai_profile_contract_value(
+	field_path: String,
+	value: Variant,
+	contract_id: String
+) -> String:
+	return _require_registered(
 		ENEMY_AI_PROFILES_PATH,
-		field,
-		attack,
-		[
-			"attack_range",
-			"keep_distance",
-			"windup",
-			"burst_count",
-			"shot_interval",
-			"cooldown",
-			"initial_cooldown",
-			"damage",
-			"element_id",
-			"projectile",
-		]
-	) and is_valid
-	for key: String in [
-		"attack_range",
-		"windup",
-		"shot_interval",
-		"cooldown",
-		"damage",
-	]:
-		is_valid = _require_number(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.%s" % [field, key],
-			attack.get(key),
-			0.0,
-			null,
-			true
-		) and is_valid
-	is_valid = _require_int(
+		field_path,
+		value,
+		contract_id
+	)
+
+
+func _report_enemy_ai_profile_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(
 		ENEMY_AI_PROFILES_PATH,
-		"%s.burst_count" % field,
-		attack.get("burst_count"),
-		1
-	) and is_valid
-	for key: String in ["keep_distance", "initial_cooldown"]:
-		is_valid = _require_number(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.%s" % [field, key],
-			attack.get(key),
-			0.0
-		) and is_valid
-	is_valid = _require_registered(
-		ENEMY_AI_PROFILES_PATH,
-		"%s.element_id" % field,
-		attack.get("element_id"),
-		"elements"
-	) != "" and is_valid
-	var raw_projectile: Variant = attack.get("projectile")
-	if not raw_projectile is Dictionary:
-		return _schema_fail(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.projectile" % field,
-			"Dictionary"
-		) and is_valid
-	var projectile: Dictionary = raw_projectile as Dictionary
-	var projectile_field: String = "%s.projectile" % field
-	is_valid = _validate_exact_dictionary_keys(
-		ENEMY_AI_PROFILES_PATH,
-		projectile_field,
-		projectile,
-		["pool_id", "speed", "range", "hit_radius", "lifetime", "muzzle_distance"]
-	) and is_valid
-	is_valid = _require_registered(
-		ENEMY_AI_PROFILES_PATH,
-		"%s.pool_id" % projectile_field,
-		projectile.get("pool_id"),
-		"pool_ids"
-	) != "" and is_valid
-	for key: String in ["speed", "range", "hit_radius", "lifetime"]:
-		is_valid = _require_number(
-			ENEMY_AI_PROFILES_PATH,
-			"%s.%s" % [projectile_field, key],
-			projectile.get(key),
-			0.0,
-			null,
-			true
-		) and is_valid
-	is_valid = _require_number(
-		ENEMY_AI_PROFILES_PATH,
-		"%s.muzzle_distance" % projectile_field,
-		projectile.get("muzzle_distance"),
-		0.0
-	) and is_valid
-	return is_valid
+		field_path,
+		expected
+	)
 
 
 func _validate_exact_dictionary_keys(
