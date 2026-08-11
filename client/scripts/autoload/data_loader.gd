@@ -40,6 +40,9 @@ const DATA_REFERENCE_INDEX_BUILDER := preload(
 const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 	"res://scripts/data/gear_mod_drop_table_validator.gd"
 )
+const LEVEL_PROGRESSION_VALIDATOR := preload(
+	"res://scripts/data/level_progression_validator.gd"
+)
 const DATA_FINGERPRINT_BUILDER := preload(
 	"res://scripts/data/data_fingerprint_builder.gd"
 )
@@ -4233,51 +4236,20 @@ func _validate_credit_entry(field: String, data: Variant, locale_keys: Dictionar
 
 func _validate_level_progression_json() -> bool:
 	var data: Variant = load_json(LEVEL_PROGRESSION_PATH)
-	if not data is Dictionary:
-		return _schema_fail(
-			LEVEL_PROGRESSION_PATH,
-			"root",
-			"Dictionary"
-		)
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = _require_exact_int(
-		LEVEL_PROGRESSION_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		1
+	var is_valid: bool = LEVEL_PROGRESSION_VALIDATOR.validate(
+		data,
+		Callable(self, "_report_level_progression_failure")
 	)
-	is_valid = _require_int(
-		LEVEL_PROGRESSION_PATH,
-		"first_level_cost",
-		payload.get("first_level_cost"),
-		1
-	) and is_valid
-	is_valid = _require_int(
-		LEVEL_PROGRESSION_PATH,
-		"multiplier_numerator",
-		payload.get("multiplier_numerator"),
-		1
-	) and is_valid
-	is_valid = _require_int(
-		LEVEL_PROGRESSION_PATH,
-		"multiplier_denominator",
-		payload.get("multiplier_denominator"),
-		1
-	) and is_valid
-	if (
-		_is_int_like(payload.get("multiplier_numerator"))
-		and _is_int_like(payload.get("multiplier_denominator"))
-		and int(payload.get("multiplier_numerator")) <= int(
-			payload.get("multiplier_denominator")
-		)
-	):
-		is_valid = _schema_fail(
-			LEVEL_PROGRESSION_PATH,
-			"multiplier_numerator",
-			"int greater than multiplier_denominator"
-		) and is_valid
-	_last_schema_counts["level_progression_profiles"] = 1
+	if data is Dictionary:
+		_last_schema_counts["level_progression_profiles"] = 1
 	return is_valid
+
+
+func _report_level_progression_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(LEVEL_PROGRESSION_PATH, field_path, expected)
 
 
 func _validate_reward_choice_pools(locale_keys: Dictionary) -> bool:
