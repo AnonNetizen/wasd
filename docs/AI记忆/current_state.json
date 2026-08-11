@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-11",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、GearModDropTableValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade 与 EnemyBrain 十二个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步收口 ModuleWorld layout，再把 Enemy action runtime / handlers 按独立提交推进；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前两阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、GearModDropTableValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain 与 ModuleWorldLayout 十三个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步继续 DataLoader 按域 validator 与 Enemy action runtime / handlers 的独立切片；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / ModuleWorldLayout：新增纯 RefCounted 静态布局边界，集中 assignment、坐标 / 旋转 / footprint / 邻接、terrain / mask / flood-fill、空地查询、map hash 与 restore candidate；Manager 保留 typed RNG port、Node2D、场景候选 / 导航 / 流式和 Run v19 九字段 facade。",
     "ADR #197 / EnemyBrain：新增纯 RefCounted 决策边界，集中 profile / action source order、四级感知与记忆、Utility 分数、决策计时和移动意图；Enemy Actor 继续持有 Node 目标、导航查询、当前 action / 攻击 FSM、Combat / Pool / clock / RNG 与 Run v19 23-key 快照。",
     "ADR #197 / GameplayDebugFacade：新增无状态标准对局 debug 门面，RunLoop 保留 13 个原 public wrapper 并每次即时借用当前 typed context；spawn 时序 / 成功计数、active-world 过滤、DamageInfo source、summary key 与深拷贝保持。测试和 DebugTools teardown 只使用公开 API / 生命周期。",
     "ADR #197 / DataLoader 掉落校验切片：新增纯 GearModDropTableValidator，统一包内与最终合并 Gear Mod 掉落行验证；DataLoader 保持先隔离坏包、再重读 Gear Mod / 世界事件 / 掉落 CSV、再记录最终 count 与输出错误的时序。",
@@ -201,7 +202,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "继续 ADR #197 的协议不变渐进拆分：EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataReferenceIndexBuilder、GearModDropTableValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade 与 EnemyBrain 已完成；下一独立切片收口 ModuleWorld layout，Enemy action runtime / handlers 继续按独立可回滚提交推进。",
+    "继续 ADR #197 的协议不变渐进拆分：十三个渐进提取点已完成；下一独立切片提取 LevelProgressionValidator，并把 Enemy action runtime / handlers 按 ranged→melee→charge→explosion 的独立可回滚提交继续推进。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",
@@ -249,6 +250,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-11",
+      "command": "targeted GDScript and semantic lint; full GUT including ModuleWorldLayout; module-world full and technical smokes; runtime and save smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and diff checks; factual code review",
+      "result": "passed for ADR #197 ModuleWorldLayout extraction. The pure RefCounted layout preserves fixed and pool prechecks before RNG, snapshot/configure then objective, limited and ordinary assignment consumption, final RNG restore, stable assignment and snapshot ordering, fallback diagnostics, coordinate/rotation/footprint/terrain semantics, content-sensitive map hash, and transactional restore. Manager retains the public Node2D facade, navigation/streaming composition and exact nine-field Run v19 module wire. Full and technical module-world gates, runtime/save, headless boot and all four Replay v9 goldens pass without rewrite at the unchanged module map hash. Meta v4, Run v19, Replay v9 and game v1.18 remain unchanged. No performance probe or manual acceptance ran; visual, audio and feel checks remain pending user acceptance."
+    },
     {
       "date": "2026-08-11",
       "command": "targeted GDScript and semantic lint; EnemyBrain unit and Actor integration GUT; actor-scene and runtime smokes; Godot 4.7.1 formal headless boot; save/loading/module-world integration gates; four checked-in Replay v9 golden regression; docs health and diff checks; independent factual code review",

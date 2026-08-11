@@ -2,7 +2,7 @@
 class_name ModuleWorldState
 extends RefCounted
 ## Pure dynamic-state owner for the module world.
-## Layout, assignment, hashing, navigation and streaming stay with ModuleWorldManager.
+## Static layout, assignment and hashing stay with ModuleWorldLayout; navigation and streaming stay with ModuleWorldManager.
 
 enum PinMutationResult {
 	REJECTED,

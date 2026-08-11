@@ -5,7 +5,7 @@
 
 ## 1. 职责
 
-`ModuleWorldManager` 是 F13 默认 7×7 无缝模块世界的局内协调点，以正式场景预置在 `GameplayRunLoop/ActiveWorld` 下，不是 autoload。它负责：
+`ModuleWorldManager` 是 F13 默认 7×7 无缝模块世界的局内 `Node2D` facade，以正式场景预置在 `GameplayRunLoop/ActiveWorld` 下，不是 autoload。它负责组合纯 layout / state、场景流式和导航边界，并保留既有公开 API、错误文本与 Run v19 九字段 wire：
 
 - 按 run seed 和 `RNG.world` 从已批准模板池组合 49 个世界槽位，失败时回退到已校验安全布局。固定起点为 `(0,6)` 的 `module_start_corner`；意识核等概率选择 `(0,0)`、`(6,0)` 或 `(6,6)`，选定后才分配限量事件与普通平地。
 - 保持模块坐标 `0..6`、局部格 `0..10`、全局格 `0..76` 与世界坐标转换一致；`(38,38)` 映射世界原点。
@@ -15,9 +15,11 @@
 - 从旋转 / 封边后的完整 49 槽地形构建 77×77 walkability mask；玩家跨格时只更新感知范围驱动的局部共享流场，并提供全图 AStar、视线和敌人半径走廊查询。导航不依赖当前激活 chunk。
 - 按世界槽位返回稳定行列顺序的有效空 floor 格心：使用旋转、邻接与外圈封边后的真实地形，并排除全部 gameplay placement footprint；只提供几何查询，不消耗 RNG、不读取动态实体、不生成敌人。
 
-`ModuleWorldState` 是 Manager 内部组合的纯 `RefCounted` 动态状态边界：它拥有 current / revealed / visited、最多三个 pins 与按槽 payload，并组合 `ModuleSlotStateCodec` 处理 7×7 合法坐标、`"x" / "y"` wire、`"x,y"` slot key、row-major 序列化、strict pins 校验和深拷贝。进入模块先原子提交 visit 状态再刷新流式；离开世界仍由 Manager 先按旧 pins 刷新，再把 current 置为无效。恢复先生成不污染 live state 的 `RestoreCandidate`：pins 重复 / 越界 / 超限会拒绝，revealed / visited / slot payload 继续 fail-soft；只有 assignment、场景候选与 map hash 全部通过后才整体提交。
+`ModuleWorldLayout` 是 Manager 内部组合的纯 `RefCounted` 静态布局边界：它拥有 world / registry / template 的只读副本、run seed、assignment 与已提交 map hash，并集中坐标转换、旋转 / footprint、邻接 socket、全图 floor flood-fill、外圈 / sealed mask、placement / 空地查询、seeded / fallback / technical assignment 及稳定 hash。它不读取 Node、autoload、文件或 `user://`；Manager 通过显式 typed `RandomPort` 注入 `RNG.world` 的 snapshot / configure / randi / randf_range / restore 调用，保持 fixed / pool precheck 后才碰 RNG、objective → limited → ordinary 的逐次消费顺序及最终 snapshot restore。Run 恢复先生成不污染 live assignment / seed / hash 的 layout `RestoreCandidate`，场景候选与 hash 均通过后才提交。
 
-`ModuleChunkStreamingController` 是另一条纯 `RefCounted` 边界：它只持有规范生成场景路径 / 已提交缓存、12 个 scene-authored `ModuleChunk` 的池和当前挂载映射，负责候选场景预加载、提交及 3×3 + pins 的卸载 / 挂载。Manager 仍独占配置、assignment、run seed、map hash、导航、pin 的 configured / assignment 资格检查和 Run v19 模块子快照顶层显式组装；`ModuleWorldState`、`ModuleSlotStateCodec` 与 `ModuleChunkStreamingController` 都不是 Node、autoload 或新的 gameplay facade。
+`ModuleWorldState` 是 Manager 内部组合的纯 `RefCounted` 动态状态边界：它拥有 current / revealed / visited、最多三个 pins 与按槽 payload，并组合 `ModuleSlotStateCodec` 处理 7×7 合法坐标、`"x" / "y"` wire、`"x,y"` slot key、row-major 序列化、strict pins 校验和深拷贝。进入模块先原子提交 visit 状态再刷新流式；离开世界仍由 Manager 先按旧 pins 刷新，再把 current 置为无效。恢复先生成不污染 live state 的 `RestoreCandidate`：pins 重复 / 越界 / 超限会拒绝，revealed / visited / slot payload 继续 fail-soft；只有 layout assignment、场景候选与 map hash 全部通过后才整体提交。
+
+`ModuleChunkStreamingController` 是另一条纯 `RefCounted` 边界：它只持有规范生成场景路径 / 已提交缓存、12 个 scene-authored `ModuleChunk` 的池和当前挂载映射，负责候选场景预加载、提交及 3×3 + pins 的卸载 / 挂载。Manager 仍独占场景候选提交、导航、pin 的 configured / assignment 资格检查和 Run v19 模块子快照顶层显式组装；`ModuleWorldLayout`、`ModuleWorldState`、`ModuleSlotStateCodec` 与 `ModuleChunkStreamingController` 都不是 Node、autoload 或新的 gameplay facade。
 
 `GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 局内 Gear Mod / `completes_run` 目标 / 世界事件 primitive 的实体生成、首次进入遭遇计划、效果 Runtime、预警、内容可用池过滤、`DifficultyProgression`、敌人生成时金币锁定、`Combat`、`PoolManager` 和 Run v19 总快照。`ModuleWorldManager` 不直接生成玩法实体，只提供严格同向 7×7 坐标 / 空地查询、组合事件模块并维护 pin。玩家实际位于 `module_role_start` 时，RunLoop 暂停威胁时间并锁定武器 / 四技能；Manager 只提供当前位置 / role 数据，不冻结底层 `GameClock`。
 
@@ -25,11 +27,13 @@
 
 | 代码位置 | 责任 |
 |----------|------|
-| `client/scripts/gameplay/module_world_manager.gd` | `Node2D` 公共 facade、assignment / 地形 / 导航 / 流式和 Run v19 模块快照编排 |
+| `client/scripts/gameplay/module_world_manager.gd` | `Node2D` 公共 facade、RNG port、场景候选提交、导航 / 流式和 Run v19 模块快照编排 |
+| `client/scripts/gameplay/module_world_layout.gd` | 纯 assignment / 坐标 / 旋转 / footprint / 邻接 / 地形 / mask / flood-fill / map hash 与事务式 restore candidate |
 | `client/scripts/gameplay/module_world_state.gd` | current / revealed / visited / pins / slot payload、进入 / 离开语义与事务式恢复候选 |
 | `client/scripts/gameplay/module_slot_state_codec.gd` | 坐标 wire、row-major 集合、pins 验证及 typed `SlotState` 深拷贝 store |
 | `client/scripts/gameplay/module_chunk_streaming_controller.gd` | 生成场景候选缓存、12 chunk 池与 active mapping；按 row-major 计算 3×3 + pins 的挂载变化 |
 | `client/tests/unit/test_module_world_state.gd` | 进入 / 离开、pin 三态、row-major、恢复候选、深拷贝与 Run v19 key order 的纯 GUT 覆盖 |
+| `client/tests/unit/test_module_world_layout.gd` | RNG 调用与 assignment 插入顺序、precheck、fallback、restore / hash、坐标 / 旋转 / footprint / terrain 的纯 GUT 覆盖 |
 | `client/tests/unit/test_module_slot_state_codec.gd` | Codec 未知字段、顺序、引用隔离和拒绝矩阵的纯 GUT 覆盖 |
 | `client/tests/unit/test_module_chunk_streaming_controller.gd` | 候选 cache 事务、池容量、pin-only、卸载 / 复用顺序、部分失败及 Manager rebuild / restore 回滚的 GUT 覆盖 |
 
@@ -42,7 +46,7 @@
 
 当前 `module_worlds.json` schema v5 用 `objective_spawn` 声明 `module_objective_core` 与三个等概率候选角落；`RNG.world` 在限量事件和普通模板之前选择一次，并把结果固化进 assignment。世界事件组继续从五个 `module_role_world_event` approved 模板中等权无放回选三种，每种 `count_per_floor=1`，再用 `module_flat_ground` 填满其他非固定槽。schema 不含撤离字段；模块 JSON 为 schema v4。fallback 完整覆盖 49 格后覆盖所选意识核角落，技术切片固定使用防御、生存、占点各一次。
 
-运行时用 JSON 计算 assignment、导航、placement 和 map hash，并直接实例化预加载的生成 TSCN；不会从 JSON 构建 TileMap 或碰撞，也不连接 LLM。场景预加载使用候选 cache：只有 assignment、生成根 metadata 与 restore map hash 全部通过后才替换已提交 cache；显式 `build_*()` 重建会先清 active 与旧 cache，失败不得留下“空 / 半成品世界 + 旧场景缓存”。restore 失败则必须保留原 assignment、hash、active coords 与 cache。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
+运行时由纯 Layout 用 JSON 计算 assignment、placement、terrain 与 map hash，Manager 再据其结果构建导航并直接实例化预加载的生成 TSCN；不会从 JSON 构建 TileMap 或碰撞，也不连接 LLM。场景预加载使用候选 cache：只有 assignment、生成根 metadata 与 restore map hash 全部通过后才替换已提交 cache；显式 `build_*()` 重建会先清 active 与旧 cache，失败不得留下“空 / 半成品世界 + 旧场景缓存”。restore 失败则必须保留原 assignment、seed、hash、active coords、scene cache 与动态 state。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
 
 ## 3. 公共 API
 
@@ -65,9 +69,9 @@
 | `snapshot()` / `restore_state()` | Run v19 中的 assignment（含目标角落）、内容敏感 map hash、迷雾、固定模块和槽位状态（含带 instance_id 的未拾取 Mod）roundtrip；恢复时事务式重建场景缓存，hash / assignment / 生成场景不一致时返回失败，不继续恢复旧实体 |
 | `debug_summary()` | 输出几何、assignment/hash、访问 / 活跃数、预加载场景数及导航目标格、局部半径 / 边界 / 本次访问格数、流场重建次数和可达格数 |
 
-Manager 的 `set_slot_state()` / `slot_state()` / `snapshot()` / `restore_state()` 字典 API 与 Run v19 wire 保持不变：Manager 继续以固定顺序显式写出 `world_id`、`run_seed`、`assignment`、`map_hash`、`current_module`、`revealed`、`visited`、`pinned_slots`、`slot_states`，不得把 `ModuleWorldState.snapshot_fields()` 直接 merge 到顶层。`slot_states` 按 `y → x` 的 row-major 顺序输出。Typed `SlotState` 保存完整原 payload；`initialized` / encounter / snapshot 等已知 getter 只读取已知语义，不会过滤未知 key 或未知嵌套字段。写入、读取、restore candidate、commit 与 snapshot 边界均深拷贝，调用方不能通过持有的 `Dictionary` / `Array` 反向篡改 store。
+Manager 的 `set_slot_state()` / `slot_state()` / `snapshot()` / `restore_state()` 字典 API 与 Run v19 wire 保持不变：Manager 继续以固定顺序显式写出 `world_id`、`run_seed`、`assignment`、`map_hash`、`current_module`、`revealed`、`visited`、`pinned_slots`、`slot_states`，不得把 Layout / State 的内部字段直接 merge 到顶层。assignment 与 `slot_states` 都按 `y → x` 的 row-major 顺序输出；Layout 内部 Dictionary 继续保留 seeded fixed source → objective → limited selection → ordinary row-major、fallback / technical source order。Typed `SlotState` 保存完整原 payload；`initialized` / encounter / snapshot 等已知 getter 只读取已知语义，不会过滤未知 key 或未知嵌套字段。写入、读取、restore candidate、commit 与 snapshot 边界均深拷贝，调用方不能通过持有的 `Dictionary` / `Array` 反向篡改 store。
 
-Pins 仍最多三个：公共 `set_slot_pinned()` 保留 configured / assignment 资格检查和 chunk 刷新，`ModuleWorldState.mutate_pin()` 只返回 `REJECTED`、`ACCEPTED_NO_REFRESH` 或 `ACCEPTED_REFRESH`，从而保持重复 pin 不刷新、unpin 即使原本不存在也刷新这一旧语义。Run 恢复顺序固定为：校验 configured / world → 准备动态状态候选 → 临时 assignment / seed → 准备生成场景 → 校验 hash → 提交场景 cache → 清 active → 提交 hash / 导航 → 原子提交动态状态 → 按 current 或 pins-only 刷新。场景 cache 提交前任一步失败，都必须保留原 assignment、seed、hash、active/cache 与全部动态状态；显式 `build_*()` 仍是破坏式 rebuild，不在本切片事务化。
+Pins 仍最多三个：公共 `set_slot_pinned()` 保留 configured / assignment 资格检查和 chunk 刷新，`ModuleWorldState.mutate_pin()` 只返回 `REJECTED`、`ACCEPTED_NO_REFRESH` 或 `ACCEPTED_REFRESH`，从而保持重复 pin 不刷新、unpin 即使原本不存在也刷新这一旧语义。Run 恢复顺序固定为：校验 configured / world → 准备动态状态候选 → 准备 layout assignment / seed 候选 → 准备生成场景 → 校验候选 hash → 提交场景 cache → 清 active → 原子提交 layout assignment / seed / hash → 重建导航 → 原子提交动态状态 → 按 current 或 pins-only 刷新。场景 cache 提交前任一步失败，都必须保留原 assignment、seed、hash、active/cache 与全部动态状态；显式 `build_*()` 仍是破坏式 rebuild，不在本切片事务化。
 
 ## 4. ModuleNavigationField
 
@@ -108,8 +112,10 @@ python tools/godot_bridge.py --project client save-smoke
 
 `test_module_world_state.gd` 专项 unit 必须覆盖：首次 / 重复 / 跨槽进入与 outside leave、current / revealed / visited 的稳定语义、row-major state wire、pin 三态与上限、strict pins 候选拒绝不污染 live state、revealed / visited / slot 的 fail-soft 恢复、未知 payload 与候选深拷贝，以及 Manager 显式 Run v19 模块 key 顺序。
 
+`test_module_world_layout.gd` 专项 unit 必须覆盖：fixed / pool precheck 前不碰 RNG；seeded 的 objective → limited weighted pick →随机坐标 / rotation-start → ordinary template-start / rotation-start 逐次调用与最终 restore；assignment Dictionary / snapshot 的稳定顺序；fallback 显式 assignment 后才选择 objective；restore candidate 不污染 live assignment / seed / hash；坐标、旋转、footprint、masked terrain、空地与内容敏感 map hash。
+
 `test_module_chunk_streaming_controller.gd` 必须覆盖：候选 preload 失败不污染已提交 cache、metadata 拒绝、12 chunk 精确池、3×3 + pins / pins-only desired set、全局 row-major 挂载、先卸载后复用、池满与 mount 失败的部分成功语义、reconfigure 清 active，以及 Manager 显式 rebuild 失败清 active/cache/map、篡改 hash restore 保留原 assignment/hash/active/cache。测试中的预期拒绝不得向 Bridge GUT fatal-log 门禁泄漏 `push_error`。
 
-修改 WorldState、Codec、StreamingController 或 Manager 委托时，三组专项 unit、`module-world-smoke` 和 `module-world-technical-slice-smoke` 均为必跑；technical 仍必须在同轮 full PASS 之后执行。
+修改 Layout、WorldState、Codec、StreamingController 或 Manager 委托时，四组专项 unit、`module-world-smoke` 和 `module-world-technical-slice-smoke` 均为必跑；technical 仍必须在同轮 full PASS 之后执行。
 
 `module_resource_cache` 与 `module_crossroads` 因奖励从旧 dust 改为局内金币后 gameplay hash 变化，烘焙器已自动降为 `module_review_candidate`。AI 不得重新批准；在人工玩法复核前，它们不会进入正式 approved 池，技术切片临时使用 `module_flat_ground`。
