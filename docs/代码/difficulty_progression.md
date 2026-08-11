@@ -76,7 +76,7 @@ difficulty_level = tier + 1
 
 - Run v19 保存顶层 `difficulty` 的 profile / name / difficulty coefficient / elapsed，并在每个敌人快照保存 `spawn_health_multiplier` / `spawn_damage_multiplier` 与完整奖励明细；同时保存显式攻击阶段、事件敌人上下文、冻结内容池、效果程序状态、Gear Mod 棋盘与带 ID 未拾取物，恢复时不得重复提交伤害、波次、奖励随机、掉落实体或 Gear Mod 放置。
 - 旧 Run v18 文件保持原样但不显示继续入口，不迁移为 v19。
-- Replay 文件和 recording 均为 v8，并明确拒绝 v7。数据 schema count 会让 profile 变化进入 data fingerprint；四条 golden 的 `run_summary` 保留难度时间、等级和两倍率。
+- Replay 文件和 recording 均为 v9，并明确拒绝 v8。数据 schema count 会让 profile 变化进入 data fingerprint；四条 golden 的 `run_summary` 保留难度时间、等级和两倍率。
 
 ## 扩展点
 

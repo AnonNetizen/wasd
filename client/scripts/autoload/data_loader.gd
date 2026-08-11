@@ -55,6 +55,9 @@ const ENEMY_REWARD_MODEL_VALIDATOR := preload(
 const LEVEL_PROGRESSION_VALIDATOR := preload(
 	"res://scripts/data/level_progression_validator.gd"
 )
+const DIFFICULTY_PROFILE_VALIDATOR := preload(
+	"res://scripts/data/difficulty_profile_validator.gd"
+)
 const DATA_FINGERPRINT_BUILDER := preload(
 	"res://scripts/data/data_fingerprint_builder.gd"
 )
@@ -4224,140 +4227,40 @@ func _report_enemy_reward_model_failure(
 
 func _validate_difficulty_profiles(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(DIFFICULTY_PROFILES_PATH)
-	if not data is Dictionary:
-		return _schema_fail(DIFFICULTY_PROFILES_PATH, "root", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = _validate_exact_dictionary_keys(
-		DIFFICULTY_PROFILES_PATH,
-		"root",
-		payload,
-		["schema_version", "profiles"]
-	)
-	is_valid = _require_exact_int(
-		DIFFICULTY_PROFILES_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		2
-	) and is_valid
-	var profiles: Array = _require_array(
-		DIFFICULTY_PROFILES_PATH,
-		"profiles",
-		payload.get("profiles")
-	)
-	if profiles.is_empty():
-		is_valid = _schema_fail(
-			DIFFICULTY_PROFILES_PATH,
-			"profiles",
-			"non-empty Array"
-		) and is_valid
-	var seen_ids: Dictionary = {}
-	_last_schema_counts["difficulty_profiles"] = profiles.size()
-	for profile_index: int in range(profiles.size()):
-		var profile_field: String = "profiles[%d]" % profile_index
-		var profile: Variant = profiles[profile_index]
-		if not profile is Dictionary:
-			is_valid = _schema_fail(
-				DIFFICULTY_PROFILES_PATH,
-				profile_field,
-				"Dictionary"
-			) and is_valid
-			continue
-		var profile_dict: Dictionary = profile as Dictionary
-		is_valid = _validate_exact_dictionary_keys(
-			DIFFICULTY_PROFILES_PATH,
-			profile_field,
-			profile_dict,
-			[
-				"id",
-				"name_key",
-				"difficulty_coefficient",
-				"tier_interval_seconds",
-				"continuous_growth_per_interval",
-				"tier_step_growth",
-				"damage_growth_ratio",
-				"stage_name_keys",
-			]
-		) and is_valid
-		var profile_id: String = String(profile_dict.get("id", ""))
-		is_valid = _require_non_empty_string(
-			DIFFICULTY_PROFILES_PATH,
-			"%s.id" % profile_field,
-			profile_dict.get("id")
-		) and is_valid
-		if not profile_id.is_empty():
-			if seen_ids.has(profile_id):
-				is_valid = _schema_fail(
-					DIFFICULTY_PROFILES_PATH,
-					"%s.id" % profile_field,
-					"unique difficulty profile id"
-				) and is_valid
-			seen_ids[profile_id] = true
-		is_valid = _require_locale_key(
-			DIFFICULTY_PROFILES_PATH,
-			"%s.name_key" % profile_field,
-			profile_dict.get("name_key"),
-			locale_keys
-		) and is_valid
-		is_valid = _require_number(
-			DIFFICULTY_PROFILES_PATH,
-			"%s.difficulty_coefficient" % profile_field,
-			profile_dict.get("difficulty_coefficient"),
-			0.0,
-			null,
-			true
-		) and is_valid
-		is_valid = _require_number(
-			DIFFICULTY_PROFILES_PATH,
-			"%s.tier_interval_seconds" % profile_field,
-			profile_dict.get("tier_interval_seconds"),
-			0.0,
-			3600.0,
-			true
-		) and is_valid
-		for field_name: String in [
-			"continuous_growth_per_interval",
-			"tier_step_growth",
-			"damage_growth_ratio",
-		]:
-			is_valid = _require_number(
-				DIFFICULTY_PROFILES_PATH,
-				"%s.%s" % [profile_field, field_name],
-				profile_dict.get(field_name),
-				0.0,
-				10.0
-			) and is_valid
-		var stage_name_keys: Array = _require_array(
-			DIFFICULTY_PROFILES_PATH,
-			"%s.stage_name_keys" % profile_field,
-			profile_dict.get("stage_name_keys")
-		)
-		if stage_name_keys.size() != 9:
-			is_valid = _schema_fail(
-				DIFFICULTY_PROFILES_PATH,
-				"%s.stage_name_keys" % profile_field,
-				"Array with exactly 9 entries"
-			) and is_valid
-		var seen_name_keys: Dictionary = {}
-		for key_index: int in range(stage_name_keys.size()):
-			is_valid = _require_locale_key(
-				DIFFICULTY_PROFILES_PATH,
-				"%s.stage_name_keys[%d]" % [profile_field, key_index],
-				stage_name_keys[key_index],
+	var validation_result: DIFFICULTY_PROFILE_VALIDATOR.ValidationResult = (
+		DIFFICULTY_PROFILE_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_difficulty_profile_locale_key").bind(
 				locale_keys
-			) and is_valid
-			var stage_name_key: String = String(stage_name_keys[key_index])
-			if not stage_name_key.is_empty():
-				if seen_name_keys.has(stage_name_key):
-					is_valid = _schema_fail(
-						DIFFICULTY_PROFILES_PATH,
-						"%s.stage_name_keys[%d]" % [
-							profile_field,
-							key_index,
-						],
-						"unique stage name key"
-					) and is_valid
-				seen_name_keys[stage_name_key] = true
-	return is_valid
+			),
+			Callable(self, "_report_difficulty_profile_failure")
+		)
+	)
+	if data is Dictionary:
+		_last_schema_counts["difficulty_profiles"] = (
+			validation_result.profile_count
+		)
+	return validation_result.is_valid
+
+
+func _require_difficulty_profile_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		DIFFICULTY_PROFILES_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
+
+
+func _report_difficulty_profile_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(DIFFICULTY_PROFILES_PATH, field_path, expected)
 
 
 func _validate_content_unlock_data(

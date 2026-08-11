@@ -14,6 +14,7 @@
 - 将包内与最终合并的 Gear Mod 掉落行交给纯 `GearModDropTableValidator` 校验；`DataLoader` 继续持有读取、错误输出、坏包禁用 / 重读和 schema 计数。
 - 将已加载的敌人金币模型交给纯 `EnemyRewardModelValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、调用位置和 schema 计数。
 - 将已加载的等级曲线交给纯 `LevelProgressionValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、校验顺序和 schema 计数。
+- 将已加载的难度 profiles 交给纯 `DifficultyProfileValidator` 校验；`DataLoader` 继续持有文件读取、Mod-aware locale key 校验、资源路径错误包装、调用位置、二次引用索引读取和 schema 计数。
 - 将合并后的技能、Gear Mod 与掉落表交给纯 `DataFingerprintBuilder` 归一化；`DataLoader` 只负责数据源与 Mod 环境，Replay 继续负责最终 SHA-256。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
 - 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`camera_feedback.json`、`characters.json`、`weapons.json`、`skills.json` v3、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json` v6、`gear_mod_drop_tables.csv`、`content_unlock_rules.json`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
@@ -41,6 +42,7 @@
 | `client/scripts/data/gear_mod_drop_table_validator.gd` | 纯、静态的包内 / 合并掉落行校验；只接收现成 rows / ID 索引与错误 sink，不读文件 / Mod、不持有 Node / cache、不排序 |
 | `client/scripts/data/enemy_reward_model_validator.gd` | 纯、静态的敌人金币模型校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/level_progression_validator.gd` | 纯、静态的等级曲线校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
+| `client/scripts/data/difficulty_profile_validator.gd` | 纯、静态的难度 profile schema 校验；只接收已加载 root、locale key callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数或引用索引 |
 | `client/scripts/data/data_fingerprint_builder.gd` | 纯、类型化的玩法指纹 payload 归一化；不读取文件、不访问 autoload、不改变数组顺序 |
 | `client/tests/unit/test_data_reference_index_builder.gd` | 锁定引用索引的坏 root / 类型、真实 loader String 产物、strict JSON 对 `StringName` / 数字 ID 的拒绝、空 ID、插入顺序、重复折叠、别名隔离、机关半径与嵌套波次行为 |
 | `client/tests/unit/test_data_source_reader.gd` | 锁定 JSON 对象 / 数组 / 标量、`null` 旧失败语义、CSV 有无表头、短行补空、长行截断、空行、空文件、失败元数据与每次重读无缓存 |
@@ -50,6 +52,7 @@
 | `client/tests/unit/test_gear_mod_drop_table_validator.gd` | 锁定掉落表边界、空表、多错误顺序、未知引用、等级范围 / 重复、包输入形状、旧静默诊断与跨调用无状态 |
 | `client/tests/unit/test_enemy_reward_model_validator.gd` | 锁定敌人金币模型的 exact-key / 字段错误顺序、int-like schema、数值 / 有限 / 范围边界、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_level_progression_validator.gd` | 锁定等级曲线有效 / 边界 root、字段错误文本与顺序、int-like 浮点、跨字段关系、额外 root key、错误 sink 参数和跨调用无状态 |
+| `client/tests/unit/test_difficulty_profile_validator.gd` | 锁定难度 profile 的 root / profile exact-key 顺序、合法 String ID 与九段文案重复、五个数值边界、Mod-aware locale callback、源数组计数、错误 sink 和跨调用无状态 |
 | `client/scripts/autoload/mod_loader.gd` | 本地 mod manifest 扫描与数据 patch 合并入口 |
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
 | `client/data/player.json` | schema v4 玩家统一身体半径、基础属性、防御、冲刺与掉落规则 |
@@ -98,6 +101,7 @@
 | 敌人金币模型 | 敌人 AI profile 校验完成后、`enemies.csv` 与 Mod 隔离前读取 `enemy_rewards.json`；纯 validator 按旧顺序收集错误，DataLoader 补资源路径并仅为 Dictionary root 写 profile count | `EnemyRewardModelValidator.validate()` |
 | Gear Mod 掉落 | 敌人索引建好后先校验每包 rows 并隔离坏包，再重读合并 Gear Mod / 世界事件 / 掉落 CSV；合并 rows 数量仍由 DataLoader 记录，错误仍经 `_schema_fail()` 输出 | `GearModDropTableValidator.validate_package_rows()`、`validate_merged_rows()` |
 | 等级曲线 | 角色校验完成后读取 `level_progression.json`，由纯 validator 按旧顺序收集字段错误；DataLoader 补资源路径并仅为 Dictionary root 写入 profile count，再继续奖励池校验 | `LevelProgressionValidator.validate()` |
+| 难度 profiles | 奖励池校验后读取 `difficulty_profiles.json` 并交给纯 validator；DataLoader 通过现有 locale helper 保留契约扩展、Mod CSV patch 与导出版 translation fallback，仅为 Dictionary root 写入 validator 返回的规范化 profile count，随后再次读取同一文件构建引用索引 | `DifficultyProfileValidator.validate()`、`_require_difficulty_profile_locale_key()`、`DataReferenceIndexBuilder.collect_difficulty_profile_ids()` |
 | 指纹构建 | `DataLoader` 先应用官方数据与有效 Mod patch，再把结果交给 builder 排除展示字段、归一化标量并深拷贝嵌套玩法字段 | `gear_mod_gameplay_fingerprint_payload()`、`effect_gameplay_fingerprint_payload()` |
 | 契约查询 | 调用方查询白名单；允许的 mod 动态扩展 id 会并入返回值 | `contract_values()`、`has_contract_value()` |
 | 重新加载 | 覆盖 `_contracts` 并通知订阅方 | `data_reloaded` |
@@ -190,6 +194,16 @@
 - 整数值浮点继续视为 int-like。只要分子 / 分母都是 int-like，即使正数下限校验失败也继续检查大小关系；任一操作数非 int-like 时跳过关系错误。
 - `DataLoader` 保留 `load_json(LEVEL_PROGRESSION_PATH)` 和 profile count：root 非 Dictionary 不写计数；Dictionary root 在 validator 返回后仍写 `level_progression_profiles = 1`，不以字段是否合法为条件。
 
+### 内部纯难度 Profile 校验 API
+
+`DifficultyProfileValidator.validate(raw_data, require_locale_key, report_failure)` 返回 typed `ValidationResult { is_valid, profile_count }`。Locale callback 和错误 sink 都只接收不带资源路径的字段参数；正式接线由 `DataLoader` 复用 Mod-aware `_require_locale_key()`，并补 `DIFFICULTY_PROFILES_PATH` 后转发到 `_schema_fail()`。Validator 不访问 autoload、文件、`user://`、Mod、缓存或引用索引。
+
+- root 非 `Dictionary` 时只报告 `root / Dictionary` 并立即返回，`profile_count` 保持 `0`；Dictionary root 按 required keys → extra keys → schema → profiles shape / non-empty 的旧 source-order 收集错误，计数始终取 `_require_array()` 规范化后的数组长度。
+- 每个 profile 先按固定 8 字段的 required keys 和原 Dictionary 插入序 extra keys 校验，再按 `id` → 重复 id → `name_key` → `difficulty_coefficient` → `tier_interval_seconds` → 三个增长字段 → `stage_name_keys` 长度 → 各 locale key / 重复的顺序继续收集错误；非 Dictionary profile 只报 shape 并继续下一项。
+- profile id 与 stage locale key 的重复索引保留既有 `String(...)` 取值路径；单测只对 loader 可达的合法 String 输入锁定重复诊断与顺序，不把测试字面量的跨类型转换声明为公开兼容契约。
+- schema version 继续接受整数值浮点；难度系数与阶段间隔必须是有限正数，间隔上限 `3600.0`，三个增长字段必须是有限 `0.0..10.0`，阶段文案必须恰好 9 项且逐项通过 DataLoader 持有的 locale 校验。
+- `DataLoader` 保留首次 `load_json()`、资源路径包装、locale adapter、仅 Dictionary root 写 count，以及 validator 返回后第二次 `load_json()` 再交给引用 builder 的旧调用位置；校验失败不改变后续引用索引和 game mode 校验的既有执行顺序。
+
 ## Signal / Event
 
 | 名称 | 参数 | 触发时机 |
@@ -236,7 +250,7 @@
 ## 依赖
 
 - 上游依赖：生成契约文件、`ModLoader`，以及仅由 `DataSourceReader` / CSV header 校验边界直接使用的 Godot `FileAccess` / `JSON`。
-- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。
+- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator`、`DifficultyProfileValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -253,6 +267,7 @@
 - 新 Gear Mod 掉落字段或规则应在 `GearModDropTableValidator` 的包内与合并入口分别落地，并由 `DataLoader` 保持“先隔离、再重读、再计数 / 校验”；不得在 validator 中读文件、禁用包或缓存合并 rows。
 - 新敌人金币模型字段或关系规则应在 `EnemyRewardModelValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
 - 新等级曲线字段或关系规则应在 `LevelProgressionValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
+- 新难度 profile 字段或规则应在 `DifficultyProfileValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件读取、Mod-aware locale callback、资源路径、调用位置、第二次引用索引读取与计数；不得在 validator 中加载 JSON、查询 Mod / locale、构建引用索引或写 `_last_schema_counts`。
 - 新增玩法指纹字段时在 `DataFingerprintBuilder` 明确加入归一化规则；不得直接哈希整份展示数据，也不得在 builder 内自行重新加载文件或扫描 Mod。
 
 ## 常见改动入口
@@ -272,6 +287,7 @@
 | 改 Gear Mod 掉落校验 / 坏包隔离接线 | `gear_mod_drop_table_validator.gd`、`data_loader.gd`、schema tests、`mod_loader_v2_smoke.gd` | 本文档、必要时数据手册 / ModLoader 文档 | 目标 GUT + `validate_data` + schema test + `mod-loader-smoke` + headless boot |
 | 改敌人金币模型校验 / DataLoader 接线 | `enemy_reward_model_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / EnemyRewardResolver 文档 | 目标 GUT + `validate_data` + schema test + L1 + `mod-loader-smoke` + headless boot + Replay regression |
 | 改等级曲线校验 / DataLoader 接线 | `level_progression_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + `validate_data` + schema test + headless boot |
+| 改难度 profile 校验 / DataLoader 接线 | `difficulty_profile_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / Difficulty 文档 | 目标 GUT + `validate_data` + schema test + headless boot + Replay regression |
 | 改地图 layout schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改模块世界 / 模板 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/module_world_manager.md`、F13 工作包 | `sync_contracts --check` + `validate_data` + schema test + `module-world-smoke` + `save-smoke` |
 | 改战区导演 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/warzone_director.md`、F10 工作包 | `validate_data` + schema test + `runtime-smoke` + `f9-demo-smoke` |
@@ -305,6 +321,7 @@
 - Gear Mod 掉落 validator 或接线变更需跑目标 GUT unit，覆盖数值边界、空合并表、多错误顺序、未知 id、等级解析 / 下限 / 倒置、重复 key、包 root / row 形状、exact-key 顺序、旧静默诊断、包内重复合法和跨调用无状态；再跑 Python schema 负例与 `mod-loader-smoke`，确认坏包的合法掉落行会随包隔离、最终 count / 有效包顺序不变。
 - 敌人金币模型 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 最小边界、root 类型、required / extra 与字段错误顺序、int-like schema、number / finite / 正数 / 非负边界、非法上下界仍执行关系比较、错误 sink 参数及跨调用无状态；再跑 Python schema、L1、`mod-loader-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、敌人 AI 后 / `enemies.csv` 前调用位置、Dictionary root 的 `enemy_reward_models = 1`、data hash 与 Replay v9 摘要不变。
 - 等级曲线 validator 或接线变更需跑目标 GUT unit，覆盖有效 / 最小边界、root 类型、逐字段错误和顺序、integral float、下限失败后的关系检查、非整数跳过关系、额外 root key、错误 sink 参数及跨调用无状态；再跑 Python schema 负例与 headless boot，确认原路径 / expected 文本、角色后 / 奖励池前的调用位置和 schema count 不变。
+- 难度 profile validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 数值边界、root / profiles shape、root / profile exact-key required 与 extra source-order、非 Dictionary profile 继续、合法 String ID / stage key 重复、九段 locale 顺序、Mod-aware callback、typed count、错误 sink 参数及跨调用无状态；再跑 Python schema、headless boot 与四条 checked-in Replay v9 golden，确认原路径 / expected 文本、奖励池后 / game mode 前调用位置、Dictionary root 的规范化 `difficulty_profiles` count、第二次读取的引用索引输入、data hash 与 Replay 摘要不变。
 - 指纹 builder 或两条公开 payload API 变更需跑 `l1-smoke` 的固定归一化样例与公开转发等价断言，并跑 `replay-smoke` / checked-in golden 确认当前数据指纹不变；仅当玩法数据有意改变时才更新 fingerprint 基线。
 - 内容解锁 schema 变更还必须覆盖默认开放、缺规则 / 闲置规则、非法 subject、锁定条件对象、技能锁定、初始英雄 / 敌池 / Mod 池枯竭，并跑 `content-progression-smoke`。
 
