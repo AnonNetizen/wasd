@@ -22,6 +22,9 @@ const DAMAGE_TARGET_GROUPS := preload(
 const ENEMY_ACTION_RUNTIME_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_action_runtime.gd"
 )
+const ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_charge_attack_handler.gd"
+)
 const ENEMY_BRAIN_SCRIPT := preload("res://scripts/gameplay/enemy_brain.gd")
 const ENEMY_MELEE_ATTACK_HANDLER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_melee_attack_handler.gd"
@@ -41,12 +44,6 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 
 const ACTION_STATE_ARMED_WINDUP: String = (
 	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_ARMED_WINDUP
-)
-const ACTION_STATE_CHARGE_RELEASE: String = (
-	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_CHARGE_RELEASE
-)
-const ACTION_STATE_CHARGE_WINDUP: String = (
-	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_CHARGE_WINDUP
 )
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
@@ -99,6 +96,7 @@ var _navigation_provider: Node = null
 var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
 var _primary_target: Node2D = null
+var _charge_attack_ports: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Ports = null
 var _melee_attack_ports: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Ports = null
 var _projectile_materializer_ports: ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Ports = null
 var _ranged_attack_ports: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports = null
@@ -434,6 +432,26 @@ func debug_advance_melee_attack_for_test(delta: float) -> bool:
 		return false
 	var result: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Result = (
 		_advance_melee_attack(delta)
+	)
+	return result.handled
+
+
+## Debug-build-only seam for deterministic charge windup startup.
+func debug_start_charge_for_test() -> bool:
+	if not _can_debug_drive_charge_attack():
+		return false
+	var result: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Result = (
+		_start_charge()
+	)
+	return result.started
+
+
+## Debug-build-only seam for deterministic charge phase advancement.
+func debug_advance_charge_for_test(delta: float) -> bool:
+	if not _can_debug_drive_charge_attack():
+		return false
+	var result: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Result = (
+		_advance_charge_attack(delta)
 	)
 	return result.handled
 
@@ -1154,25 +1172,6 @@ func _can_debug_drive_ranged_attack() -> bool:
 	)
 
 
-func _start_charge() -> void:
-	if _focus_target == null or not is_instance_valid(_focus_target):
-		return
-	_action_runtime.set_locked_direction((
-		_focus_target.global_position - global_position
-	).normalized())
-	if _action_runtime.locked_direction().length_squared() <= 0.0:
-		return
-	_action_runtime.set_attack_hit_committed(false)
-	_action_runtime.set_collateral_player_hit_committed(false)
-	var windup: float = float(_current_attack().get("windup", 0.0))
-	if windup > 0.0:
-		_action_runtime.set_action_state(ACTION_STATE_CHARGE_WINDUP)
-		_action_runtime.set_action_timer(windup)
-		_emit_attack_windup(windup)
-	else:
-		_begin_charge_release()
-
-
 func _update_attack_state(delta: float) -> void:
 	var ranged_result: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Result = (
 		_advance_ranged_attack(delta)
@@ -1184,13 +1183,12 @@ func _update_attack_state(delta: float) -> void:
 	)
 	if melee_result.handled:
 		return
-	_action_runtime.advance_action_timer(delta)
-	if _action_runtime.action_state() == ACTION_STATE_CHARGE_WINDUP:
-		if _action_runtime.action_timer() <= 0.0:
-			_begin_charge_release()
+	var charge_result: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Result = (
+		_advance_charge_attack(delta)
+	)
+	if charge_result.handled:
 		return
-	if _action_runtime.action_state() == ACTION_STATE_CHARGE_RELEASE:
-		_update_charge_release(delta)
+	_action_runtime.advance_action_timer(delta)
 
 
 func _start_melee_attack(
@@ -1334,12 +1332,83 @@ func _can_debug_drive_melee_attack() -> bool:
 	)
 
 
-func _begin_charge_release() -> void:
-	var attack: Dictionary = _current_attack()
-	_action_runtime.set_action_state(ACTION_STATE_CHARGE_RELEASE)
-	_action_runtime.set_action_timer(
-		float(attack.get("release_duration", 0.0))
+func _start_charge() -> ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Result:
+	var request: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.StartRequest = (
+		ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.StartRequest.new()
 	)
+	request.focus_target_available = (
+		_focus_target != null and is_instance_valid(_focus_target)
+	)
+	if request.focus_target_available:
+		request.target_direction = (
+			_focus_target.global_position - global_position
+		)
+	return ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.start(
+		_action_runtime,
+		_charge_attack_config(_current_attack()),
+		request,
+		_charge_attack_ports_value()
+	)
+
+
+func _advance_charge_attack(
+	delta: float
+) -> ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Result:
+	var request: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.StepRequest = (
+		ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.StepRequest.new()
+	)
+	request.delta = delta
+	request.move_speed = _move_speed
+	request.move_speed_multiplier = _status_move_speed_multiplier()
+	return ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.advance(
+		_action_runtime,
+		_charge_attack_config(_current_attack()),
+		request,
+		_charge_attack_ports_value()
+	)
+
+
+func _charge_attack_config(
+	attack: Dictionary
+) -> ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Config:
+	var config: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Config = (
+		ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Config.new()
+	)
+	config.windup = float(attack.get("windup", 0.0))
+	config.cooldown = float(attack.get("cooldown", 0.0))
+	config.release_duration = float(
+		attack.get("release_duration", 0.0)
+	)
+	config.speed_multiplier = float(
+		attack.get("speed_multiplier", 0.0)
+	)
+	config.base_damage = float(attack.get("damage", 0.0))
+	config.element_id = String(attack.get("element_id", ""))
+	config.stop_on_hit = bool(attack.get("stop_on_hit", false))
+	config.knockback_distance = float(
+		attack.get("knockback_distance", 0.0)
+	)
+	config.knockback_duration = float(
+		attack.get("knockback_duration", 0.0)
+	)
+	return config
+
+
+func _charge_attack_ports_value(
+) -> ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Ports:
+	if _charge_attack_ports == null:
+		_charge_attack_ports = ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Ports.new(
+			Callable(self, "_emit_attack_windup"),
+			Callable(self, "_emit_charge_attack_committed"),
+			Callable(self, "_move_charge_step"),
+			Callable(self, "_charge_target_ports"),
+			Callable(self, "_finish_charge_attack")
+		)
+	return _charge_attack_ports
+
+
+func _emit_charge_attack_committed() -> void:
+	var attack: Dictionary = _current_attack()
 	attack_committed.emit(
 		self,
 		_action_runtime.current_action(),
@@ -1347,63 +1416,61 @@ func _begin_charge_release() -> void:
 	)
 
 
-func _update_charge_release(delta: float) -> void:
-	var attack: Dictionary = _current_attack()
-	var previous_position: Vector2 = global_position
-	var motion: Vector2 = (
-		_action_runtime.locked_direction()
-		* _move_speed
-		* _status_move_speed_multiplier()
-		* float(attack.get("speed_multiplier", 0.0))
-		* delta
+func _move_charge_step(
+	motion: Vector2,
+	locked_direction: Vector2
+) -> ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.MovementResult:
+	var result: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.MovementResult = (
+		ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.MovementResult.new()
 	)
-	_update_facing(_action_runtime.locked_direction())
-	var collided: bool = _move_with_collision(motion, false)
+	result.previous_position = global_position
+	_update_facing(locked_direction)
+	result.collided = _move_with_collision(motion, false)
 	var before_bounds: Vector2 = global_position
 	_apply_movement_bounds()
 	if not global_position.is_equal_approx(before_bounds):
-		collided = true
-
-	var hit_during_step: bool = false
-	if (
-		not _action_runtime.attack_hit_committed()
-		and _charge_sweep_hits_target(
-			_primary_target,
-			previous_position,
-			global_position
-		)
-	):
-		_action_runtime.set_attack_hit_committed(true)
-		hit_during_step = true
-		_commit_charge_hit(_primary_target, attack)
-	if (
-		_player_target != _primary_target
-		and not _action_runtime.collateral_player_hit_committed()
-		and _charge_sweep_hits_target(
-			_player_target,
-			previous_position,
-			global_position
-		)
-	):
-		_action_runtime.set_collateral_player_hit_committed(true)
-		hit_during_step = true
-		_commit_charge_hit(_player_target, attack)
-	if hit_during_step and bool(attack.get("stop_on_hit", false)):
-		_finish_charge_release(attack)
-		return
-
-	if collided or _action_runtime.action_timer() <= 0.0:
-		_finish_charge_release(attack)
+		result.collided = true
+	result.current_position = global_position
+	return result
 
 
-func _finish_charge_release(attack: Dictionary) -> void:
-	_action_runtime.set_action_state("")
-	_action_runtime.set_action_timer(0.0)
-	_action_runtime.set_current_action("")
-	_action_runtime.set_attack_cooldown_remaining(
-		float(attack.get("cooldown", 0.0))
+func _charge_target_ports(
+) -> Array[ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.TargetPort]:
+	var ports: Array[ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.TargetPort] = [
+		_charge_target_port(_primary_target, false),
+	]
+	if _player_target != _primary_target:
+		ports.append(_charge_target_port(_player_target, true))
+	return ports
+
+
+func _charge_target_port(
+	target: Node2D,
+	uses_collateral_flag: bool
+) -> ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.TargetPort:
+	return ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.TargetPort.new(
+		uses_collateral_flag,
+		target == _player_target,
+		Callable(self, "_charge_sweep_hits_target").bind(target),
+		Callable(self, "_apply_charge_damage").bind(target),
+		Callable(self, "_charge_target_can_knockback").bind(target),
+		Callable(self, "_apply_charge_knockback").bind(target)
 	)
+
+
+func _finish_charge_attack() -> void:
 	_focus_target = _primary_target
+
+
+func _can_debug_drive_charge_attack() -> bool:
+	return (
+		OS.is_debug_build()
+		and _brain.has_action(ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET)
+		and (
+			_action_runtime.current_action()
+			== ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+		)
+	)
 
 
 func _attack_targets() -> Array[Node2D]:
@@ -1420,9 +1487,9 @@ func _attack_targets() -> Array[Node2D]:
 
 
 func _charge_sweep_hits_target(
-	target: Node2D,
 	from_position: Vector2,
-	to_position: Vector2
+	to_position: Vector2,
+	target: Node2D
 ) -> bool:
 	if target == null or not is_instance_valid(target):
 		return false
@@ -1447,31 +1514,48 @@ func _charge_sweep_hits_target(
 	)
 
 
-func _commit_charge_hit(target: Node2D, attack: Dictionary) -> void:
-	var result: Dictionary = _apply_attack_damage_to_target(target, attack)
-	if (
-		target != _player_target
-		or not bool(result.get("applied", false))
-		or float(result.get("amount", 0.0)) <= 0.0
-	):
-		return
-	var knockback_distance: float = float(
-		attack.get("knockback_distance", 0.0)
+func _apply_charge_damage(
+	base_damage: float,
+	element_id: String,
+	target: Node2D
+) -> ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.DamageResult:
+	var damage: Dictionary = _apply_attack_damage_values_to_target(
+		target,
+		base_damage,
+		element_id
 	)
-	var knockback_duration: float = float(
-		attack.get("knockback_duration", 0.0)
+	var result: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.DamageResult = (
+		ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.DamageResult.new()
 	)
-	if (
-		knockback_distance > 0.0
-		and knockback_duration > 0.0
+	result.applied = bool(damage.get("applied", false))
+	result.amount = float(damage.get("amount", 0.0))
+	result.defeated = bool(damage.get("defeated", false))
+	result.reason = String(damage.get("reason", ""))
+	return result
+
+
+func _charge_target_can_knockback(target: Node2D) -> bool:
+	return (
+		target != null
+		and is_instance_valid(target)
 		and target.has_method("apply_external_knockback")
-	):
-		target.call(
-			"apply_external_knockback",
-			_action_runtime.locked_direction(),
-			knockback_distance,
-			knockback_duration
-		)
+	)
+
+
+func _apply_charge_knockback(
+	direction: Vector2,
+	distance: float,
+	duration: float,
+	target: Node2D
+) -> void:
+	if not _charge_target_can_knockback(target):
+		return
+	target.call(
+		"apply_external_knockback",
+		direction,
+		distance,
+		duration
+	)
 
 
 func _apply_attack_damage_to_target(

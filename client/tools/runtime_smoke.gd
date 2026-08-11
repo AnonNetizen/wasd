@@ -2666,10 +2666,25 @@ func _expect_explicit_enemy_attacks(
 			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
 		)
-		blocked_stalker.call("_start_charge")
-		blocked_stalker.call("_update_attack_state", 0.34)
+		_expect(
+			bool(blocked_stalker.call("debug_start_charge_for_test")),
+			"blocked stalker charge should start through the typed debug seam"
+		)
+		_expect(
+			bool(blocked_stalker.call(
+				"debug_advance_charge_for_test",
+				0.34
+			)),
+			"blocked stalker windup should advance through the typed debug seam"
+		)
 		var blocked_defense_before: float = _player_total_defense(player)
-		blocked_stalker.call("_update_attack_state", 0.42)
+		_expect(
+			bool(blocked_stalker.call(
+				"debug_advance_charge_for_test",
+				0.42
+			)),
+			"blocked stalker release should advance through the typed debug seam"
+		)
 		var blocked_summary: Dictionary = blocked_stalker.call(
 			"ai_debug_summary"
 		) as Dictionary
@@ -2701,13 +2716,34 @@ func _expect_explicit_enemy_attacks(
 			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
 		)
-		stalker.call("_start_charge")
-		stalker.call("_update_attack_state", 0.34)
+		_expect(
+			bool(stalker.call("debug_start_charge_for_test")),
+			"stalker charge should start through the typed debug seam"
+		)
+		_expect(
+			bool(stalker.call(
+				"debug_advance_charge_for_test",
+				0.34
+			)),
+			"stalker windup should advance through the typed debug seam"
+		)
 		var stalker_defense_before: float = _player_total_defense(player)
-		stalker.call("_update_attack_state", 0.4)
+		_expect(
+			bool(stalker.call(
+				"debug_advance_charge_for_test",
+				0.4
+			)),
+			"stalker release should advance through the typed debug seam"
+		)
 		var stalker_defense_after: float = _player_total_defense(player)
 		var stalker_position_after_hit: Vector2 = stalker.global_position
-		stalker.call("_update_attack_state", 0.01)
+		_expect(
+			bool(stalker.call(
+				"debug_advance_charge_for_test",
+				0.01
+			)),
+			"stalker follow-up release should use the typed debug seam"
+		)
 		_expect(
 			stalker_defense_after < stalker_defense_before,
 			"stalker release sweep should hit a crossed player"
@@ -2740,9 +2776,24 @@ func _expect_explicit_enemy_attacks(
 			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
 		)
-		avoided_bulwark.call("_start_charge")
-		avoided_bulwark.call("_update_attack_state", 0.48)
-		avoided_bulwark.call("_update_attack_state", 0.45)
+		_expect(
+			bool(avoided_bulwark.call("debug_start_charge_for_test")),
+			"blocked bulwark charge should start through the typed debug seam"
+		)
+		_expect(
+			bool(avoided_bulwark.call(
+				"debug_advance_charge_for_test",
+				0.48
+			)),
+			"blocked bulwark windup should use the typed debug seam"
+		)
+		_expect(
+			bool(avoided_bulwark.call(
+				"debug_advance_charge_for_test",
+				0.45
+			)),
+			"blocked bulwark release should use the typed debug seam"
+		)
 		_expect(
 			is_zero_approx(
 				float(player.call("external_knockback_remaining"))
@@ -2764,9 +2815,24 @@ func _expect_explicit_enemy_attacks(
 			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
 		)
-		bulwark.call("_start_charge")
-		bulwark.call("_update_attack_state", 0.48)
-		bulwark.call("_update_attack_state", 0.45)
+		_expect(
+			bool(bulwark.call("debug_start_charge_for_test")),
+			"bulwark charge should start through the typed debug seam"
+		)
+		_expect(
+			bool(bulwark.call(
+				"debug_advance_charge_for_test",
+				0.48
+			)),
+			"bulwark windup should advance through the typed debug seam"
+		)
+		_expect(
+			bool(bulwark.call(
+				"debug_advance_charge_for_test",
+				0.45
+			)),
+			"bulwark release should advance through the typed debug seam"
+		)
 		var bulwark_summary: Dictionary = bulwark.call("ai_debug_summary")
 		_expect(
 			String(bulwark_summary.get("action_state", "")).is_empty(),
@@ -3056,9 +3122,24 @@ func _expect_world_event_defense_targeting(
 		)
 		var target_before: float = target.current_health()
 		var player_before: float = _player_total_defense(player)
-		charge.call("_start_charge")
-		charge.call("_update_attack_state", 0.34)
-		charge.call("_update_attack_state", 0.5)
+		_expect(
+			bool(charge.call("debug_start_charge_for_test")),
+			"event charge should start through the typed debug seam"
+		)
+		_expect(
+			bool(charge.call(
+				"debug_advance_charge_for_test",
+				0.34
+			)),
+			"event charge windup should advance through the typed debug seam"
+		)
+		_expect(
+			bool(charge.call(
+				"debug_advance_charge_for_test",
+				0.5
+			)),
+			"event charge release should advance through the typed debug seam"
+		)
 		_expect(
 			target.current_health() < target_before,
 			"event charge enemy should damage the defense target"
