@@ -40,6 +40,9 @@ const DATA_REFERENCE_INDEX_BUILDER := preload(
 const CAMERA_FEEDBACK_VALIDATOR := preload(
 	"res://scripts/data/camera_feedback_validator.gd"
 )
+const CREDITS_VALIDATOR := preload(
+	"res://scripts/data/credits_validator.gd"
+)
 const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 	"res://scripts/data/gear_mod_drop_table_validator.gd"
 )
@@ -4100,61 +4103,41 @@ func _validate_consumable_use_effects(field: String, data: Variant) -> bool:
 
 func _validate_credits_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(CREDITS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(CREDITS_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(CREDITS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var sections: Array = _require_array(CREDITS_PATH, "sections", payload.get("sections"))
-	if sections.is_empty():
-		is_valid = _schema_fail(CREDITS_PATH, "sections", "non-empty Array") and is_valid
-	var seen_sections: Dictionary = {}
-	var entry_count: int = 0
-	_last_schema_counts["credit_sections"] = sections.size()
-	for section_index: int in range(sections.size()):
-		var section_field: String = "sections[%d]" % section_index
-		var section: Variant = sections[section_index]
-		if not section is Dictionary:
-			is_valid = _schema_fail(CREDITS_PATH, section_field, "Dictionary") and is_valid
-			continue
-		var section_dict: Dictionary = section as Dictionary
-		var section_id: String = String(section_dict.get("id", ""))
-		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.id" % section_field, section_dict.get("id")) and is_valid
-		if not section_id.is_empty():
-			if seen_sections.has(section_id):
-				is_valid = _schema_fail(CREDITS_PATH, "%s.id" % section_field, "unique section id") and is_valid
-			seen_sections[section_id] = true
-		is_valid = _require_locale_key(CREDITS_PATH, "%s.title_key" % section_field, section_dict.get("title_key"), locale_keys) and is_valid
-		var entries: Array = _require_array(CREDITS_PATH, "%s.entries" % section_field, section_dict.get("entries"))
-		if entries.is_empty():
-			is_valid = _schema_fail(CREDITS_PATH, "%s.entries" % section_field, "non-empty Array") and is_valid
-		entry_count += entries.size()
-		for entry_index: int in range(entries.size()):
-			is_valid = _validate_credit_entry("%s.entries[%d]" % [section_field, entry_index], entries[entry_index], locale_keys) and is_valid
-	_last_schema_counts["credit_entries"] = entry_count
-	return is_valid
+	var validation_result: CREDITS_VALIDATOR.ValidationResult = (
+		CREDITS_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_credits_locale_key").bind(locale_keys),
+			Callable(self, "_report_credits_failure")
+		)
+	)
+	if data is Dictionary:
+		_last_schema_counts["credit_sections"] = (
+			validation_result.section_count
+		)
+		_last_schema_counts["credit_entries"] = (
+			validation_result.entry_count
+		)
+	return validation_result.is_valid
 
 
-func _validate_credit_entry(field: String, data: Variant, locale_keys: Dictionary) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(CREDITS_PATH, field, "Dictionary")
-	var entry: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	var kind: String = String(entry.get("kind", ""))
-	if not ["staff", "external_resource", "external_library", "external_tool"].has(kind):
-		is_valid = _schema_fail(CREDITS_PATH, "%s.kind" % field, "staff, external_resource, external_library, or external_tool") and is_valid
-	is_valid = _require_non_empty_string(CREDITS_PATH, "%s.name" % field, entry.get("name")) and is_valid
-	is_valid = _require_locale_key(CREDITS_PATH, "%s.role_key" % field, entry.get("role_key"), locale_keys) and is_valid
-	if kind.begins_with("external_"):
-		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.url" % field, entry.get("url")) and is_valid
-		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.license" % field, entry.get("license")) and is_valid
-		is_valid = _require_bool(CREDITS_PATH, "%s.included_in_build" % field, entry.get("included_in_build")) and is_valid
-		is_valid = _require_bool(CREDITS_PATH, "%s.requires_notice" % field, entry.get("requires_notice")) and is_valid
-		is_valid = _require_bool(CREDITS_PATH, "%s.review_required" % field, entry.get("review_required")) and is_valid
-	if entry.has("copyright"):
-		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.copyright" % field, entry.get("copyright")) and is_valid
-	return is_valid
+func _require_credits_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		CREDITS_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
+
+
+func _report_credits_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(CREDITS_PATH, field_path, expected)
 
 
 func _validate_level_progression_json() -> bool:
