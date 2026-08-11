@@ -40,6 +40,9 @@ const DATA_SOURCE_READER := preload(
 const DATA_REFERENCE_INDEX_BUILDER := preload(
 	"res://scripts/data/data_reference_index_builder.gd"
 )
+const ACTIVE_ITEM_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/active_item_catalog_validator.gd"
+)
 const CAMERA_FEEDBACK_VALIDATOR := preload(
 	"res://scripts/data/camera_feedback_validator.gd"
 )
@@ -2302,77 +2305,64 @@ func _validate_spawn_waves_csv(enemy_ids: Dictionary, hazard_ids: Dictionary, ga
 
 func _validate_active_items_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(ACTIVE_ITEMS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(ACTIVE_ITEMS_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(ACTIVE_ITEMS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var active_items: Array = _require_array(ACTIVE_ITEMS_PATH, "active_items", payload.get("active_items"))
-	if active_items.is_empty():
-		is_valid = _schema_fail(ACTIVE_ITEMS_PATH, "active_items", "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	_last_schema_counts["active_items"] = active_items.size()
-	for index: int in range(active_items.size()):
-		var field: String = "active_items[%d]" % index
-		var active_item: Variant = active_items[index]
-		if not active_item is Dictionary:
-			is_valid = _schema_fail(ACTIVE_ITEMS_PATH, field, "Dictionary") and is_valid
-			continue
-		var item_dict: Dictionary = active_item as Dictionary
-		is_valid = _require_non_empty_string(ACTIVE_ITEMS_PATH, "%s.id" % field, item_dict.get("id")) and is_valid
-		var item_id: String = String(item_dict.get("id", ""))
-		if not item_id.is_empty():
-			if seen.has(item_id):
-				is_valid = _schema_fail(ACTIVE_ITEMS_PATH, "%s.id" % field, "unique active item id") and is_valid
-			seen[item_id] = true
-		is_valid = _require_locale_key(ACTIVE_ITEMS_PATH, "%s.name_key" % field, item_dict.get("name_key"), locale_keys) and is_valid
-		is_valid = _require_locale_key(ACTIVE_ITEMS_PATH, "%s.desc_key" % field, item_dict.get("desc_key"), locale_keys) and is_valid
-		is_valid = _require_bool(ACTIVE_ITEMS_PATH, "%s.default_unlocked" % field, item_dict.get("default_unlocked")) and is_valid
-		var tags: Array = _require_array(ACTIVE_ITEMS_PATH, "%s.tags" % field, item_dict.get("tags"))
-		is_valid = _validate_registered_string_array(ACTIVE_ITEMS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
-		if not tags.has("tag_active_item"):
-			is_valid = _schema_fail(ACTIVE_ITEMS_PATH, "%s.tags" % field, "tag_active_item") and is_valid
-		is_valid = _validate_active_item_charge("%s.charge" % field, item_dict.get("charge")) and is_valid
-		is_valid = _validate_active_item_use_effects("%s.use_effects" % field, item_dict.get("use_effects")) and is_valid
-	return is_valid
+	var result: ACTIVE_ITEM_CATALOG_VALIDATOR.ValidationResult = (
+		ACTIVE_ITEM_CATALOG_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_active_item_locale_key").bind(
+				locale_keys
+			),
+			Callable(self, "_require_active_item_content_tag"),
+			Callable(self, "_require_active_item_effect"),
+			Callable(self, "_report_active_item_catalog_failure")
+		)
+	)
+	if data is Dictionary:
+		_last_schema_counts["active_items"] = result.item_count
+	return result.is_valid
 
 
-func _validate_active_item_charge(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(ACTIVE_ITEMS_PATH, field, "Dictionary")
-	var charge: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	var mode: String = String(charge.get("mode", ""))
-	is_valid = _require_non_empty_string(ACTIVE_ITEMS_PATH, "%s.mode" % field, charge.get("mode")) and is_valid
-	if not mode.is_empty() and mode != "cooldown":
-		is_valid = _schema_fail(ACTIVE_ITEMS_PATH, "%s.mode" % field, "cooldown") and is_valid
-	is_valid = _require_number(ACTIVE_ITEMS_PATH, "%s.cooldown" % field, charge.get("cooldown"), 0.0, null, true) and is_valid
-	is_valid = _require_int(ACTIVE_ITEMS_PATH, "%s.max_charges" % field, charge.get("max_charges"), 1) and is_valid
-	is_valid = _require_int(ACTIVE_ITEMS_PATH, "%s.start_charges" % field, charge.get("start_charges"), 0) and is_valid
-	var max_charges: Variant = charge.get("max_charges")
-	var start_charges: Variant = charge.get("start_charges")
-	if _is_int_like(max_charges) and _is_int_like(start_charges) and _variant_to_int(start_charges) > _variant_to_int(max_charges):
-		is_valid = _schema_fail(ACTIVE_ITEMS_PATH, "%s.start_charges" % field, "<= max_charges") and is_valid
-	return is_valid
+func _require_active_item_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		ACTIVE_ITEMS_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
 
 
-func _validate_active_item_use_effects(field: String, data: Variant) -> bool:
-	var effects: Array = _require_array(ACTIVE_ITEMS_PATH, field, data)
-	var is_valid: bool = true
-	if effects.is_empty():
-		is_valid = _schema_fail(ACTIVE_ITEMS_PATH, field, "non-empty Array") and is_valid
-	for index: int in range(effects.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var effect: Variant = effects[index]
-		if not effect is Dictionary:
-			is_valid = _schema_fail(ACTIVE_ITEMS_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var effect_dict: Dictionary = effect as Dictionary
-		is_valid = _require_registered(ACTIVE_ITEMS_PATH, "%s.effect" % item_field, effect_dict.get("effect"), "effects") != "" and is_valid
-		if not effect_dict.get("params") is Dictionary:
-			is_valid = _schema_fail(ACTIVE_ITEMS_PATH, "%s.params" % item_field, "Dictionary") and is_valid
-	return is_valid
+func _require_active_item_content_tag(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		ACTIVE_ITEMS_PATH,
+		field_path,
+		value,
+		"content_tags"
+	)
+
+
+func _require_active_item_effect(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		ACTIVE_ITEMS_PATH,
+		field_path,
+		value,
+		"effects"
+	)
+
+
+func _report_active_item_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(ACTIVE_ITEMS_PATH, field_path, expected)
 
 
 func _validate_skills_json(locale_keys: Dictionary) -> bool:

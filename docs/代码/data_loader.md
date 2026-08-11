@@ -14,6 +14,7 @@
 - 将已加载的致谢配置交给纯 `CreditsValidator` 校验；`DataLoader` 继续持有文件读取、Mod-aware locale key 校验、资源路径错误包装、调用位置和 schema 计数。
 - 将包内与最终合并的 Gear Mod 掉落行交给纯 `GearModDropTableValidator` 校验；`DataLoader` 继续持有读取、错误输出、坏包禁用 / 重读和 schema 计数。
 - 将已加载的机关 CSV 行交给纯 `HazardCatalogValidator` 校验；`DataLoader` 继续持有每次独立读取、Mod-aware locale / 契约 callback、资源路径错误包装、调用位置和 schema 计数。
+- 将已加载的主动道具配置交给纯 `ActiveItemCatalogValidator` 校验；`DataLoader` 继续持有每次独立读取、Mod-aware locale / tag / effect callback、资源路径错误包装、调用位置和 schema 计数。
 - 将已加载的敌人金币模型交给纯 `EnemyRewardModelValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、调用位置和 schema 计数。
 - 将已加载的等级曲线交给纯 `LevelProgressionValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、校验顺序和 schema 计数。
 - 将已加载的通用奖励选择池交给纯 `RewardChoicePoolValidator` 校验；`DataLoader` 继续持有文件读取、Mod-aware locale / stat modifier 校验、资源路径错误包装、调用位置和 schema 计数。
@@ -45,6 +46,7 @@
 | `client/scripts/data/credits_validator.gd` | 纯、静态的致谢 schema 校验；只接收已加载 root、locale key callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/gear_mod_drop_table_validator.gd` | 纯、静态的包内 / 合并掉落行校验；只接收现成 rows / ID 索引与错误 sink，不读文件 / Mod、不持有 Node / cache、不排序 |
 | `client/scripts/data/hazard_catalog_validator.gd` | 纯、静态的机关 CSV schema 校验；只接收已加载的 typed rows、locale / 契约 callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数或构建引用索引 |
+| `client/scripts/data/active_item_catalog_validator.gd` | 纯、静态的主动道具 JSON schema 校验；只接收已加载 root、locale / tag / effect callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数或构建引用索引 |
 | `client/scripts/data/enemy_reward_model_validator.gd` | 纯、静态的敌人金币模型校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/level_progression_validator.gd` | 纯、静态的等级曲线校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/reward_choice_pool_validator.gd` | 纯、静态的通用奖励选择池结构校验；只接收已加载 root、locale callback、modifier callback 与错误 sink，不读文件 / Mod / 契约、不持有 Node / cache，也不写 schema 计数 |
@@ -58,6 +60,7 @@
 | `client/tests/unit/test_credits_validator.gd` | 锁定致谢 schema、section / entry source order 与计数、String 化重复 id、external 分支、locale callback、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_gear_mod_drop_table_validator.gd` | 锁定掉落表边界、空表、多错误顺序、未知引用、等级范围 / 重复、包输入形状、旧静默诊断与跨调用无状态 |
 | `client/tests/unit/test_hazard_catalog_validator.gd` | 锁定机关源行计数、空表、行号 / id 重复、tag trim / 去空 / 契约 / 重复 / 必需顺序、pool / element 契约、CSV 解析 / finite / 数值边界、callback 非短路、额外列忽略与跨调用无状态 |
+| `client/tests/unit/test_active_item_catalog_validator.gd` | 锁定主动道具 root / schema / 规范化计数、item 字段顺序、id 重复与不 trim、tag 历史 bool 缺口、charge 局部短路 / 数值关系、use effects 双诊断 / callback、额外字段忽略与跨调用无状态 |
 | `client/tests/unit/test_enemy_reward_model_validator.gd` | 锁定敌人金币模型的 exact-key / 字段错误顺序、int-like schema、数值 / 有限 / 范围边界、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_level_progression_validator.gd` | 锁定等级曲线有效 / 边界 root、字段错误文本与顺序、int-like 浮点、跨字段关系、额外 root key、错误 sink 参数和跨调用无状态 |
 | `client/tests/unit/test_reward_choice_pool_validator.gd` | 锁定奖励池 source count、pool / entry shape 与重复顺序、locale / modifier callback、schema int-like、历史非 Array / 未登记 stat 诊断但 bool 可能仍成功的兼容缺口、错误 sink 和跨调用无状态 |
@@ -111,6 +114,7 @@
 | 敌人金币模型 | 敌人 AI profile 校验完成后、`enemies.csv` 与 Mod 隔离前读取 `enemy_rewards.json`；纯 validator 按旧顺序收集错误，DataLoader 补资源路径并仅为 Dictionary root 写 profile count | `EnemyRewardModelValidator.validate()` |
 | Gear Mod 掉落 | 敌人索引建好后先校验每包 rows 并隔离坏包，再重读合并 Gear Mod / 世界事件 / 掉落 CSV；合并 rows 数量仍由 DataLoader 记录，错误仍经 `_schema_fail()` 输出 | `GearModDropTableValidator.validate_package_rows()`、`validate_merged_rows()` |
 | 机关目录 | Gear Mod 掉落校验后独立读取 `hazards.csv` 并交给纯 validator，写入原始行数后再独立读取一次供引用 builder 使用，然后继续 active items；更早的表现 profile 引用校验也保持自己的读取，三次不缓存、不复用 | `HazardCatalogValidator.validate()`、`DataReferenceIndexBuilder.collect_hazard_ids()` |
+| 主动道具目录 | 机关 schema 与第二次机关索引读取后独立读取 `active_items.json` 并交给纯 validator；Dictionary root 写入规范化 item 数量，随后再次独立读取供引用 builder 使用，再继续 consumables。更早的表现 profile 引用校验仍独立读取同一文件，三次不缓存、不复用 | `ActiveItemCatalogValidator.validate()`、`DataReferenceIndexBuilder.collect_active_item_ids()` |
 | 等级曲线 | 角色校验完成后读取 `level_progression.json`，由纯 validator 按旧顺序收集字段错误；DataLoader 补资源路径并仅为 Dictionary root 写入 profile count，再继续奖励池校验 | `LevelProgressionValidator.validate()` |
 | 通用奖励选择池 | 等级曲线后读取 `reward_choice_pools.json` 并交给纯 validator；DataLoader 通过既有 locale helper 与 `_validate_modifiers(..., false)` 保留 Mod-aware 文案、stat 契约和 stat 数值边界，仅为 Dictionary root 写入规范化 pool count，再继续难度 profile 校验 | `RewardChoicePoolValidator.validate()`、`_require_reward_choice_locale_key()`、`_validate_reward_choice_modifiers()` |
 | 难度 profiles | 奖励池校验后读取 `difficulty_profiles.json` 并交给纯 validator；DataLoader 通过现有 locale helper 保留契约扩展、Mod CSV patch 与导出版 translation fallback，仅为 Dictionary root 写入 validator 返回的规范化 profile count，随后再次读取同一文件构建引用索引 | `DifficultyProfileValidator.validate()`、`_require_difficulty_profile_locale_key()`、`DataReferenceIndexBuilder.collect_difficulty_profile_ids()` |
@@ -208,6 +212,17 @@
 - pool / element 必须是对应契约中的非空 String。CSV 数值继续用 `String(value).is_valid_int()` / `is_valid_float()` 解析并检查 finite；damage 可为 `0`，trigger interval 必须大于 `0.0`，radius 最小为 `1`，duration 可为 `0.0`。
 - 额外列、header 和 `presentation_profile_id` 不属于本 validator 边界；表现引用、引用索引的 last-write 与 radius clamp 继续由原边界处理。`DataLoader` 在 Gear Mod 掉落后 / active items 前保持 schema 校验调用，无条件写入 validator 返回的 hazards count；当前官方表计数为 `2`，指纹仍只通过 schema counts 间接观察。
 
+### 内部纯主动道具目录校验 API
+
+`ActiveItemCatalogValidator.validate(raw_data, require_locale_key, require_content_tag, require_effect, report_failure)` 每次返回新的 typed `ValidationResult { is_valid, item_count }`。四类 callback 分别接收 locale `(field_path, value)`、tag `(field_path, value)`、effect `(field_path, value)` 与错误 `(field_path, expected)`；tag / effect callback 返回已登记 id 或空字符串。正式接线由 `DataLoader` 补 `ACTIVE_ITEMS_PATH` 和 `locale_keys`，复用 `_require_locale_key()`、`_require_registered(..., "content_tags" / "effects")` 与 `_schema_fail()`。Validator 不访问 autoload、文件、`user://`、Mod、缓存、表现引用或引用索引。
+
+- root 非 `Dictionary` 时只报告 `root / Dictionary` 并硬返回；DataLoader 不写 count。Dictionary root 先校验 int-like 且 `>= 1` 的 schema，再把 `active_items` 非 Array 归一为空数组，因此继续报告 `Array` 与 `non-empty Array`，并把规范化数组长度写入 result。
+- 每个 item 按 shape → id 非空 / 重复 → name locale → description locale → default bool → tags → charge → use effects 的旧顺序累计。非 Dictionary item 只局部跳过；id 不 trim、也不查契约，非空重复 id 报错后仍写入 seen。额外 root / item / charge / effect / params key 与 `presentation_profile_id` 继续忽略。
+- tags 必须是非空 Array，只有 callback 返回的契约合法 tag 参与 duplicate seen，合法重复使 bool 失败；原数组还必须包含 `tag_active_item`。为机械保留旧 helper 缺口，未登记 tag 会诊断且不进 seen，但本身不拉低 validator bool；若仍含合法 `tag_active_item` 且其余字段合法，结果可能为 true。收紧须另立 correctness 决策。
+- charge 非 Dictionary 只使本段失败，随后 use effects 仍执行。Dictionary 内依次要求 mode 非空、非空 mode 必须为 `cooldown`、cooldown 为有限正数、max charges 为 int-like 且至少 `1`、start charges 为 int-like 且非负；只要 max / start 都是 int-like，即使各自下限失败仍继续比较 `start_charges <= max_charges`。
+- use effects 非 Array 时先报告 `Array`，归一为空后再报告 `non-empty Array`。entry 非 Dictionary 只报告并继续；Dictionary entry 先要求 effect callback 返回已登记 id，再只检查 `params` 是 Dictionary，不检查 params 内容。
+- `DataLoader` 保持机关 validator → 第二次机关索引读取 → 主动道具 validator → 第二次主动道具 ID 索引读取 → consumables 的原调用顺序；更早的表现引用校验提供第三次独立读取。三次 `load_json(ACTIVE_ITEMS_PATH)` 不缓存、不复用，Dictionary root 即使字段非法仍写规范化 item count。
+
 ### 内部纯敌人金币模型校验 API
 
 `EnemyRewardModelValidator.validate(raw_data, report_failure)` 的错误 sink 只接收 `(field_path, expected)`。正式接线由 `DataLoader` 补 `ENEMY_REWARDS_PATH` 并转发到 `_schema_fail()`；validator 不访问 autoload、文件、`user://` 或缓存。
@@ -293,7 +308,7 @@
 ## 依赖
 
 - 上游依赖：生成契约文件、`ModLoader`，以及仅由 `DataSourceReader` / CSV header 校验边界直接使用的 Godot `FileAccess` / `JSON`。
-- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`PlayerDataValidator`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`HazardCatalogValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator`、`RewardChoicePoolValidator`、`DifficultyProfileValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。`PlayerDataValidator` 只额外静态引用生成的 `PoolIds.GOLD_ORB`，不查询契约运行时状态。
+- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`PlayerDataValidator`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`HazardCatalogValidator`、`ActiveItemCatalogValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator`、`RewardChoicePoolValidator`、`DifficultyProfileValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。`PlayerDataValidator` 只额外静态引用生成的 `PoolIds.GOLD_ORB`，不查询契约运行时状态。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -310,6 +325,7 @@
 - 新致谢字段或规则应在 `CreditsValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件读取、Mod-aware locale callback、资源路径、调用位置与计数；不得在 validator 中加载 JSON、查询 Mod / locale 或写 `_last_schema_counts`。
 - 新 Gear Mod 掉落字段或规则应在 `GearModDropTableValidator` 的包内与合并入口分别落地，并由 `DataLoader` 保持“先隔离、再重读、再计数 / 校验”；不得在 validator 中读文件、禁用包或缓存合并 rows。
 - 新机关字段或 CSV 规则应在 `HazardCatalogValidator` 中保持纯静态校验，由 `DataLoader` 继续控制三次独立读取、Mod-aware locale / 契约 callback、资源路径、Gear Mod 掉落后 / active items 前的位置与 count；不得在 validator 中加载 CSV、查询 Mod / autoload、构建引用索引、校验表现 profile 或写 `_last_schema_counts`。未登记 tag 只诊断不改 bool 的旧缺口不得在无独立 correctness 决策时顺手收紧。
+- 新主动道具字段或 JSON 规则应在 `ActiveItemCatalogValidator` 中保持纯静态校验，由 `DataLoader` 继续控制三次独立读取、Mod-aware locale / tag / effect callback、资源路径、机关索引后 / consumables 前的位置与 count；不得在 validator 中加载 JSON、查询 Mod / autoload、构建引用索引、校验表现 profile 或写 `_last_schema_counts`。未登记 tag 只诊断不改 bool 的旧缺口不得在无独立 correctness 决策时顺手收紧。
 - 新敌人金币模型字段或关系规则应在 `EnemyRewardModelValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
 - 新等级曲线字段或关系规则应在 `LevelProgressionValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
 - 新通用奖励选择池结构规则应在 `RewardChoicePoolValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件读取、Mod-aware locale / modifier callback、资源路径、调用位置与计数；不得在 validator 中加载 JSON、查询 Mod / locale / stat 契约或写 `_last_schema_counts`。历史 bool 缺口不得在无独立迁移决策时顺手收紧。
@@ -333,6 +349,7 @@
 | 改内容解锁 schema / 可选字段 | `data_loader.gd`、`validate_data.py`、schema tests、三类内容数据与 `content_unlock_rules.json` | 数据手册、词表、ContentUnlockSystem / Runtime / Save / Replay 文档 | contracts + data/schema + content-progression/codex/runtime/save/replay |
 | 改 Gear Mod 掉落校验 / 坏包隔离接线 | `gear_mod_drop_table_validator.gd`、`data_loader.gd`、schema tests、`mod_loader_v2_smoke.gd` | 本文档、必要时数据手册 / ModLoader 文档 | 目标 GUT + `validate_data` + schema test + `mod-loader-smoke` + headless boot |
 | 改机关目录校验 / DataLoader 接线 | `hazard_catalog_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / Hazard 文档 | 目标 GUT + contracts + `validate_data` + schema test + `mod-loader-smoke` + headless boot + Replay regression |
+| 改主动道具目录校验 / DataLoader 接线 | `active_item_catalog_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + contracts + `validate_data` + schema test + `mod-loader-smoke` + headless boot + Replay regression |
 | 改敌人金币模型校验 / DataLoader 接线 | `enemy_reward_model_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / EnemyRewardResolver 文档 | 目标 GUT + `validate_data` + schema test + L1 + `mod-loader-smoke` + headless boot + Replay regression |
 | 改等级曲线校验 / DataLoader 接线 | `level_progression_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + `validate_data` + schema test + headless boot |
 | 改通用奖励选择池校验 / DataLoader 接线 | `reward_choice_pool_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / RewardChoice 文档 | 目标 GUT + `validate_data` + schema test + headless boot + Replay regression |
@@ -370,6 +387,7 @@
 - 致谢 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / integral-float schema、root / sections shape、section / entry source order 与计数、String 化重复 id、external 前缀分支、可选 copyright、locale callback、错误 sink 参数及跨调用无状态；再跑 Python schema、`mod-loader-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、Mod-aware locale 诊断、Dictionary root 的两个 count、data hash 与 Replay v9 摘要不变。
 - Gear Mod 掉落 validator 或接线变更需跑目标 GUT unit，覆盖数值边界、空合并表、多错误顺序、未知 id、等级解析 / 下限 / 倒置、重复 key、包 root / row 形状、exact-key 顺序、旧静默诊断、包内重复合法和跨调用无状态；再跑 Python schema 负例与 `mod-loader-smoke`，确认坏包的合法掉落行会随包隔离、最终 count / 有效包顺序不变。
 - 机关目录 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / raw count、空表、行号 / id 重复与 id 不 trim、tags trim / 去空 / 未登记 bool 缺口 / 有效重复 / `tag_hazard`、pool / element 契约、CSV parse / finite / 下限、callback 非短路、额外列 / 表现列忽略与跨调用无状态；再跑 contracts、Python data / schema、`mod-loader-smoke`、headless boot 与 Replay regression，确认 Gear Mod 掉落后 / active items 前的调用位置、表现引用→schema→引用 builder 的三次独立读取、`hazards = 2`、data hash 与 Replay 摘要不变。
+- 主动道具目录 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 规范化 count、root 硬返回、schema int-like、active items 双诊断、item shape / id 重复与不 trim、locale / bool / tag 顺序、未登记 tag bool 缺口、charge 局部短路 / mode / finite / int-like / 下限后关系、use effects 双诊断 / entry / effect / params、callback 非短路、额外 / 表现字段忽略与跨调用无状态；再跑 contracts、Python data / schema、`mod-loader-smoke`、headless boot 与 Replay regression，确认机关索引后 / consumables 前的调用位置、表现引用→schema→引用 builder 的三次独立读取、官方 active item count、data hash 与 Replay 摘要不变。
 - 敌人金币模型 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 最小边界、root 类型、required / extra 与字段错误顺序、int-like schema、number / finite / 正数 / 非负边界、非法上下界仍执行关系比较、错误 sink 参数及跨调用无状态；再跑 Python schema、L1、`mod-loader-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、敌人 AI 后 / `enemies.csv` 前调用位置、Dictionary root 的 `enemy_reward_models = 1`、data hash 与 Replay v9 摘要不变。
 - 等级曲线 validator 或接线变更需跑目标 GUT unit，覆盖有效 / 最小边界、root 类型、逐字段错误和顺序、integral float、下限失败后的关系检查、非整数跳过关系、额外 root key、错误 sink 参数及跨调用无状态；再跑 Python schema 负例与 headless boot，确认原路径 / expected 文本、角色后 / 奖励池前的调用位置和 schema count 不变。
 - 通用奖励选择池 validator 或接线变更需跑目标 GUT unit，覆盖 canonical、root / pool / entry shape、schema exact int-like、source count、pool / entry String 重复、locale / modifier callback 顺序、空 pools / entries、非 Array pools / entries / modifiers 与缺失 / 未登记 stat 的历史“有诊断但 bool 仍可能成功”、modifier false 传播、错误 sink 参数及跨调用无状态；再跑 Python schema、headless boot 与四条 checked-in Replay v9 golden，确认原路径 / expected 文本、等级曲线后 / 难度 profile 前调用位置、Dictionary root 的规范化 `reward_choice_pools` count、data hash 与 Replay 摘要不变。
