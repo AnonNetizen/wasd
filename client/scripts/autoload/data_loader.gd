@@ -43,6 +43,9 @@ const DATA_REFERENCE_INDEX_BUILDER := preload(
 const ACTIVE_ITEM_CATALOG_VALIDATOR := preload(
 	"res://scripts/data/active_item_catalog_validator.gd"
 )
+const CONSUMABLE_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/consumable_catalog_validator.gd"
+)
 const CAMERA_FEEDBACK_VALIDATOR := preload(
 	"res://scripts/data/camera_feedback_validator.gd"
 )
@@ -3959,76 +3962,64 @@ func _status_params_has_damage_tick(status_params: Dictionary) -> bool:
 
 func _validate_consumables_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(CONSUMABLES_PATH)
-	if not data is Dictionary:
-		return _schema_fail(CONSUMABLES_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(CONSUMABLES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var consumables: Array = _require_array(CONSUMABLES_PATH, "consumables", payload.get("consumables"))
-	if consumables.is_empty():
-		is_valid = _schema_fail(CONSUMABLES_PATH, "consumables", "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	_last_schema_counts["consumables"] = consumables.size()
-	for index: int in range(consumables.size()):
-		var field: String = "consumables[%d]" % index
-		var consumable: Variant = consumables[index]
-		if not consumable is Dictionary:
-			is_valid = _schema_fail(CONSUMABLES_PATH, field, "Dictionary") and is_valid
-			continue
-		var consumable_dict: Dictionary = consumable as Dictionary
-		is_valid = _require_non_empty_string(CONSUMABLES_PATH, "%s.id" % field, consumable_dict.get("id")) and is_valid
-		var consumable_id: String = String(consumable_dict.get("id", ""))
-		if not consumable_id.is_empty():
-			if seen.has(consumable_id):
-				is_valid = _schema_fail(CONSUMABLES_PATH, "%s.id" % field, "unique consumable id") and is_valid
-			seen[consumable_id] = true
-		is_valid = _require_locale_key(CONSUMABLES_PATH, "%s.name_key" % field, consumable_dict.get("name_key"), locale_keys) and is_valid
-		is_valid = _require_locale_key(CONSUMABLES_PATH, "%s.desc_key" % field, consumable_dict.get("desc_key"), locale_keys) and is_valid
-		is_valid = _require_bool(CONSUMABLES_PATH, "%s.default_unlocked" % field, consumable_dict.get("default_unlocked")) and is_valid
-		var tags: Array = _require_array(CONSUMABLES_PATH, "%s.tags" % field, consumable_dict.get("tags"))
-		is_valid = _validate_registered_string_array(CONSUMABLES_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
-		if not tags.has("tag_consumable"):
-			is_valid = _schema_fail(CONSUMABLES_PATH, "%s.tags" % field, "tag_consumable") and is_valid
-		is_valid = _validate_consumable_stack("%s.stack" % field, consumable_dict.get("stack")) and is_valid
-		is_valid = _validate_consumable_use_effects("%s.use_effects" % field, consumable_dict.get("use_effects")) and is_valid
-	return is_valid
+	var result: CONSUMABLE_CATALOG_VALIDATOR.ValidationResult = (
+		CONSUMABLE_CATALOG_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_consumable_locale_key").bind(
+				locale_keys
+			),
+			Callable(self, "_require_consumable_content_tag"),
+			Callable(self, "_require_consumable_effect"),
+			Callable(self, "_report_consumable_catalog_failure")
+		)
+	)
+	if result.has_consumable_count:
+		_last_schema_counts["consumables"] = result.consumable_count
+	return result.is_valid
 
 
-func _validate_consumable_stack(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(CONSUMABLES_PATH, field, "Dictionary")
-	var stack: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(CONSUMABLES_PATH, "%s.max_stack" % field, stack.get("max_stack"), 1) and is_valid
-	is_valid = _require_int(CONSUMABLES_PATH, "%s.start_count" % field, stack.get("start_count"), 0) and is_valid
-	is_valid = _require_int(CONSUMABLES_PATH, "%s.pickup_count" % field, stack.get("pickup_count"), 1) and is_valid
-	var max_stack: Variant = stack.get("max_stack")
-	var start_count: Variant = stack.get("start_count")
-	var pickup_count: Variant = stack.get("pickup_count")
-	if _is_int_like(max_stack) and _is_int_like(start_count) and _variant_to_int(start_count) > _variant_to_int(max_stack):
-		is_valid = _schema_fail(CONSUMABLES_PATH, "%s.start_count" % field, "<= max_stack") and is_valid
-	if _is_int_like(max_stack) and _is_int_like(pickup_count) and _variant_to_int(pickup_count) > _variant_to_int(max_stack):
-		is_valid = _schema_fail(CONSUMABLES_PATH, "%s.pickup_count" % field, "<= max_stack") and is_valid
-	return is_valid
+func _require_consumable_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		CONSUMABLES_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
 
 
-func _validate_consumable_use_effects(field: String, data: Variant) -> bool:
-	var effects: Array = _require_array(CONSUMABLES_PATH, field, data)
-	var is_valid: bool = true
-	if effects.is_empty():
-		is_valid = _schema_fail(CONSUMABLES_PATH, field, "non-empty Array") and is_valid
-	for index: int in range(effects.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var effect: Variant = effects[index]
-		if not effect is Dictionary:
-			is_valid = _schema_fail(CONSUMABLES_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var effect_dict: Dictionary = effect as Dictionary
-		is_valid = _require_registered(CONSUMABLES_PATH, "%s.effect" % item_field, effect_dict.get("effect"), "effects") != "" and is_valid
-		if not effect_dict.get("params") is Dictionary:
-			is_valid = _schema_fail(CONSUMABLES_PATH, "%s.params" % item_field, "Dictionary") and is_valid
-	return is_valid
+func _require_consumable_content_tag(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		CONSUMABLES_PATH,
+		field_path,
+		value,
+		"content_tags"
+	)
+
+
+func _require_consumable_effect(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		CONSUMABLES_PATH,
+		field_path,
+		value,
+		"effects"
+	)
+
+
+func _report_consumable_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(CONSUMABLES_PATH, field_path, expected)
 
 
 func _validate_credits_json(locale_keys: Dictionary) -> bool:
