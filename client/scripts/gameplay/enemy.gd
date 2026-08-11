@@ -23,6 +23,9 @@ const ENEMY_ACTION_RUNTIME_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_action_runtime.gd"
 )
 const ENEMY_BRAIN_SCRIPT := preload("res://scripts/gameplay/enemy_brain.gd")
+const ENEMY_MELEE_ATTACK_HANDLER_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_melee_attack_handler.gd"
+)
 const ENEMY_PROJECTILE_MATERIALIZER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_projectile_materializer.gd"
 )
@@ -44,9 +47,6 @@ const ACTION_STATE_CHARGE_RELEASE: String = (
 )
 const ACTION_STATE_CHARGE_WINDUP: String = (
 	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_CHARGE_WINDUP
-)
-const ACTION_STATE_MELEE_WINDUP: String = (
-	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_MELEE_WINDUP
 )
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
@@ -99,6 +99,7 @@ var _navigation_provider: Node = null
 var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
 var _primary_target: Node2D = null
+var _melee_attack_ports: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Ports = null
 var _projectile_materializer_ports: ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Ports = null
 var _ranged_attack_ports: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports = null
 var _damage_target_groups: Array[String] = []
@@ -415,6 +416,26 @@ func debug_force_action_for_test(action_id: String) -> bool:
 		return false
 	_action_runtime.set_current_action(action_id)
 	return true
+
+
+## Debug-build-only seam for deterministic melee windup startup.
+func debug_start_melee_attack_for_test() -> bool:
+	if not _can_debug_drive_melee_attack():
+		return false
+	var result: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Result = (
+		_start_melee_attack()
+	)
+	return result.started
+
+
+## Debug-build-only seam for deterministic melee phase advancement.
+func debug_advance_melee_attack_for_test(delta: float) -> bool:
+	if not _can_debug_drive_melee_attack():
+		return false
+	var result: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Result = (
+		_advance_melee_attack(delta)
+	)
+	return result.handled
 
 
 ## Debug-build-only seam for the real ranged projectile adapter.
@@ -1158,11 +1179,12 @@ func _update_attack_state(delta: float) -> void:
 	)
 	if ranged_result.handled:
 		return
-	_action_runtime.advance_action_timer(delta)
-	if _action_runtime.action_state() == ACTION_STATE_MELEE_WINDUP:
-		if _action_runtime.action_timer() <= 0.0:
-			_commit_melee_attack()
+	var melee_result: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Result = (
+		_advance_melee_attack(delta)
+	)
+	if melee_result.handled:
 		return
+	_action_runtime.advance_action_timer(delta)
 	if _action_runtime.action_state() == ACTION_STATE_CHARGE_WINDUP:
 		if _action_runtime.action_timer() <= 0.0:
 			_begin_charge_release()
@@ -1171,47 +1193,145 @@ func _update_attack_state(delta: float) -> void:
 		_update_charge_release(delta)
 
 
-func _start_melee_attack() -> void:
-	if _focus_target == null or not is_instance_valid(_focus_target):
-		return
-	_action_runtime.set_locked_direction((
-		_focus_target.global_position - global_position
-	).normalized())
-	if _action_runtime.locked_direction().length_squared() <= 0.0:
-		return
-	_action_runtime.set_attack_hit_committed(false)
-	_action_runtime.set_collateral_player_hit_committed(false)
-	var windup: float = float(_current_attack().get("windup", 0.0))
-	_action_runtime.set_action_state(ACTION_STATE_MELEE_WINDUP)
-	_action_runtime.set_action_timer(windup)
-	_emit_attack_windup(windup)
-	if windup <= 0.0:
-		_commit_melee_attack()
-
-
-func _commit_melee_attack() -> void:
-	var attack: Dictionary = _current_attack()
-	for target: Node2D in _attack_targets():
-		if not _melee_target_in_arc(target, attack):
-			continue
-		var result: Dictionary = _apply_attack_damage_to_target(
-			target,
-			attack
+func _start_melee_attack(
+) -> ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Result:
+	var request: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.StartRequest = (
+		ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.StartRequest.new()
+	)
+	request.focus_target_available = (
+		_focus_target != null and is_instance_valid(_focus_target)
+	)
+	if request.focus_target_available:
+		request.target_direction = (
+			_focus_target.global_position - global_position
 		)
-		if bool(result.get("applied", false)):
-			_action_runtime.set_attack_hit_committed(true)
+	return ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.start(
+		_action_runtime,
+		_melee_attack_config(_current_attack()),
+		request,
+		_melee_attack_ports_value()
+	)
+
+
+func _advance_melee_attack(
+	delta: float
+) -> ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Result:
+	return ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.advance(
+		_action_runtime,
+		_melee_attack_config(_current_attack()),
+		delta,
+		_melee_attack_ports_value()
+	)
+
+
+func _melee_attack_config(
+	attack: Dictionary
+) -> ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Config:
+	var config: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Config = (
+		ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Config.new()
+	)
+	config.windup = float(attack.get("windup", 0.0))
+	config.cooldown = float(attack.get("cooldown", 0.0))
+	config.attack_range = float(attack.get("range", 0.0))
+	config.arc_degrees = float(attack.get("arc_degrees", 0.0))
+	config.base_damage = float(attack.get("damage", 0.0))
+	config.element_id = String(attack.get("element_id", ""))
+	return config
+
+
+func _melee_attack_ports_value(
+) -> ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Ports:
+	if _melee_attack_ports == null:
+		_melee_attack_ports = ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Ports.new(
+			Callable(self, "_emit_attack_windup"),
+			Callable(self, "_melee_target_ports"),
+			Callable(self, "_emit_melee_attack_committed"),
+			Callable(self, "_finish_melee_attack")
+		)
+	return _melee_attack_ports
+
+
+func _melee_target_ports(
+) -> Array[ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.TargetPort]:
+	var ports: Array[ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.TargetPort] = []
+	for target: Node2D in _attack_targets():
+		ports.append(ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.TargetPort.new(
+			Callable(self, "_melee_target_available").bind(target),
+			Callable(self, "_melee_target_relative_position").bind(target),
+			Callable(self, "_melee_target_has_terrain_los").bind(target),
+			Callable(self, "_apply_melee_damage").bind(target)
+		))
+	return ports
+
+
+func _melee_target_available(target: Node2D) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	return not target.has_method("is_alive") or bool(target.call("is_alive"))
+
+
+func _melee_target_relative_position(target: Node2D) -> Vector2:
+	if target == null or not is_instance_valid(target):
+		return Vector2.ZERO
+	return target.global_position - global_position
+
+
+func _melee_target_has_terrain_los(target: Node2D) -> bool:
+	return (
+		target != null
+		and is_instance_valid(target)
+		and _has_terrain_line_of_sight(
+			global_position,
+			target.global_position
+		)
+	)
+
+
+func _apply_melee_damage(
+	base_damage: float,
+	element_id: String,
+	target: Node2D
+) -> ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.DamageResult:
+	var damage: Dictionary = _apply_attack_damage_values_to_target(
+		target,
+		base_damage,
+		element_id
+	)
+	var result: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.DamageResult = (
+		ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.DamageResult.new()
+	)
+	result.applied = bool(damage.get("applied", false))
+	result.amount = float(damage.get("amount", 0.0))
+	result.defeated = bool(damage.get("defeated", false))
+	result.reason = String(damage.get("reason", ""))
+	return result
+
+
+func _emit_melee_attack_committed(attack_range: float) -> void:
 	attack_committed.emit(
 		self,
 		_action_runtime.current_action(),
-		_attack_feedback_context(attack, 0.0, false)
+		_attack_feedback_context(
+			{"range": attack_range},
+			0.0,
+			false
+		)
 	)
-	_action_runtime.set_attack_cooldown_remaining(
-		float(attack.get("cooldown", 0.0))
-	)
-	_action_runtime.set_action_state("")
-	_action_runtime.set_action_timer(0.0)
-	_action_runtime.set_current_action("")
+
+
+func _finish_melee_attack() -> void:
 	_focus_target = _primary_target
+
+
+func _can_debug_drive_melee_attack() -> bool:
+	return (
+		OS.is_debug_build()
+		and _brain.has_action(ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK)
+		and (
+			_action_runtime.current_action()
+			== ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
+		)
+	)
 
 
 func _begin_charge_release() -> void:
@@ -1299,34 +1419,6 @@ func _attack_targets() -> Array[Node2D]:
 	return targets
 
 
-func _melee_target_in_arc(
-	target: Node2D,
-	attack: Dictionary
-) -> bool:
-	if target == null or not is_instance_valid(target):
-		return false
-	if target.has_method("is_alive") and not bool(target.call("is_alive")):
-		return false
-	var to_target: Vector2 = target.global_position - global_position
-	if to_target.length_squared() <= 0.0:
-		return true
-	var attack_range: float = float(attack.get("range", 0.0))
-	var half_arc: float = deg_to_rad(
-		float(attack.get("arc_degrees", 0.0)) * 0.5
-	)
-	var angle: float = _action_runtime.locked_direction().angle_to(
-		to_target.normalized()
-	)
-	return (
-		to_target.length() <= attack_range
-		and absf(angle) <= half_arc
-		and _has_terrain_line_of_sight(
-			global_position,
-			target.global_position
-		)
-	)
-
-
 func _charge_sweep_hits_target(
 	target: Node2D,
 	from_position: Vector2,
@@ -1386,6 +1478,18 @@ func _apply_attack_damage_to_target(
 	target: Node2D,
 	attack: Dictionary
 ) -> Dictionary:
+	return _apply_attack_damage_values_to_target(
+		target,
+		float(attack.get("damage", 0.0)),
+		String(attack.get("element_id", ""))
+	)
+
+
+func _apply_attack_damage_values_to_target(
+	target: Node2D,
+	base_damage: float,
+	element_id: String
+) -> Dictionary:
 	if target == null or not is_instance_valid(target):
 		return {
 			"applied": false,
@@ -1397,8 +1501,8 @@ func _apply_attack_damage_to_target(
 	if target.has_method("combat_team_id"):
 		target_team = String(target.call("combat_team_id"))
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-		_scaled_attack_damage(attack),
-		String(attack.get("element_id", "")),
+		maxf(base_damage, 0.0) * _spawn_damage_multiplier,
+		element_id,
 		self,
 		target,
 		TEAM_ENEMY,

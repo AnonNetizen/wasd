@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-11",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前三阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataSourceReader、DataReferenceIndexBuilder、GearModDropTableValidator、LevelProgressionValidator、EnemyRewardModelValidator、CameraFeedbackValidator、CreditsValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain、EnemyActionRuntime、EnemyRangedAttackHandler / EnemyProjectileMaterializer 与 ModuleWorldLayout 二十个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步优先提取 DifficultyProfileValidator，并按 melee→charge→explosion 推进 Enemy handlers 的独立切片；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前三阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataSourceReader、DataReferenceIndexBuilder、GearModDropTableValidator、LevelProgressionValidator、EnemyRewardModelValidator、CameraFeedbackValidator、CreditsValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain、EnemyActionRuntime、EnemyRangedAttackHandler / EnemyProjectileMaterializer、EnemyMeleeAttackHandler 与 ModuleWorldLayout 二十一个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步优先提取 DifficultyProfileValidator，并按 charge→explosion 推进 Enemy handlers 的独立切片；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / Enemy 近战 handler：新增无状态 EnemyMeleeAttackHandler，借用 EnemyActionRuntime 与 typed ports，保持缺 focus / 零方向边界、primary→player 目标顺序，以及全部 damage→committed signal→cooldown / clear→focus restore；Enemy 保留 Combat、LOS、signal/context 与 Run v19 23-key façade。",
     "ADR #197 / DataLoader 物理读取边界：新增无缓存 DataSourceReader，以 typed JsonReadResult / CsvReadResult 承接官方 JSON / CSV 单次打开与解析；DataLoader 保留公开 load_json / load_csv、路径诊断、成功后 Mod overlay、_contracts.json 禁止覆盖与每次调用重读。",
     "ADR #197 / DataLoader Credits 校验切片：新增纯 CreditsValidator 与 typed ValidationResult，按旧 source order 校验 schema、sections / entries、条件 external 字段与 locale key；DataLoader 保留 credits.json 读取、Mod-aware locale adapter，以及 Dictionary root 的 section / entry count。",
     "ADR #197 / Enemy 远程 handler：新增无状态 EnemyRangedAttackHandler 与 EnemyProjectileMaterializer，分别承接 borrowed ActionRuntime 点射 schedule 和 typed pool→position→reparent→configure 材化；Enemy 保留导航 / 起手门禁、signals/context 与 service ports，失败仍按旧语义提交并消耗 scheduled shot。",
@@ -209,7 +210,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "继续 ADR #197 的协议不变渐进拆分：二十个渐进提取点已完成；下一独立切片优先提取 DifficultyProfileValidator，并把 Enemy handlers 按 melee→charge→explosion 的独立可回滚提交推进。",
+    "继续 ADR #197 的协议不变渐进拆分：二十一个渐进提取点已完成；下一独立切片优先提取 DifficultyProfileValidator，并把 Enemy handlers 按 charge→explosion 的独立可回滚提交推进。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",
@@ -257,6 +258,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-11",
+      "command": "targeted GDScript, project and semantic lint; EnemyMeleeAttackHandler unit plus Actor integration; full GUT; isolated L1, actor-scene, runtime, save and loading smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and diff checks; independent factual code review",
+      "result": "passed for ADR #197 Enemy melee-handler extraction. The stateless handler borrows EnemyActionRuntime and preserves missing-focus and zero-direction boundaries, windup and synchronous zero-windup commit, commit-time primary then distinct player targets, available/alive then zero-distance or range/arc/terrain-LOS checks, all damage before the committed signal, signal-time pre-clear runtime state, and subsequent cooldown/clear then primary-focus restore. Enemy retains Combat, target, LOS, signal/context and the exact 23-key Run v19 snapshot facade. Full GUT passes 180/180 with 1515 assertions; L1, actor-scene, runtime, save, loading and headless gates pass; all four Replay v9 goldens retain data fingerprint ae289a23d12e2a6aae462df13a047830f6e4ef860ef77a9dd551ce198e8b72d5 and map hash 2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a without rewrite. Meta v4, Run v19, Replay v9 and game v1.18 remain unchanged. No performance probe or manual acceptance ran; visual, audio and feel checks remain pending user acceptance."
+    },
     {
       "date": "2026-08-11",
       "command": "targeted GDScript and semantic lint; DataSourceReader unit plus DataLoader adapter integration; full GUT; validate_data; test_data_loader_schema --jobs 1; contract and project lint; isolated ModLoader, L1, runtime and replay smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and diff checks; independent factual code review",

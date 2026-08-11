@@ -2589,10 +2589,19 @@ func _expect_explicit_enemy_attacks(
 			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
 		)
-		melee.call("_start_melee_attack")
+		_expect(
+			bool(melee.call("debug_start_melee_attack_for_test")),
+			"melee miss fixture should start through the typed debug seam"
+		)
 		player.global_position = origin + Vector2(-40.0, 0.0)
 		var defense_before_miss: float = _player_total_defense(player)
-		melee.call("_update_attack_state", 0.24)
+		_expect(
+			bool(melee.call(
+				"debug_advance_melee_attack_for_test",
+				0.24
+			)),
+			"melee miss fixture should advance through the typed debug seam"
+		)
 		_expect(
 			is_equal_approx(
 				_player_total_defense(player),
@@ -2618,8 +2627,17 @@ func _expect_explicit_enemy_attacks(
 			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
 		)
-		melee.call("_start_melee_attack")
-		melee.call("_update_attack_state", 0.24)
+		_expect(
+			bool(melee.call("debug_start_melee_attack_for_test")),
+			"melee hit fixture should start through the typed debug seam"
+		)
+		_expect(
+			bool(melee.call(
+				"debug_advance_melee_attack_for_test",
+				0.24
+			)),
+			"melee hit fixture should advance through the typed debug seam"
+		)
 		_expect(
 			_player_total_defense(player) < defense_before_hit,
 			"directional melee should damage a player who remains in its front arc"
@@ -2991,8 +3009,17 @@ func _expect_world_event_defense_targeting(
 			ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
 		)
 		var health_before: float = target.current_health()
-		melee.call("_start_melee_attack")
-		melee.call("_update_attack_state", 0.24)
+		_expect(
+			bool(melee.call("debug_start_melee_attack_for_test")),
+			"event melee fixture should start through the typed debug seam"
+		)
+		_expect(
+			bool(melee.call(
+				"debug_advance_melee_attack_for_test",
+				0.24
+			)),
+			"event melee fixture should advance through the typed debug seam"
+		)
 		_expect(
 			target.current_health() < health_before,
 			"event melee enemy should damage the defense target"
