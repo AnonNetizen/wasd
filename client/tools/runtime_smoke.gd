@@ -2585,7 +2585,10 @@ func _expect_explicit_enemy_attacks(
 	)
 	if melee != null:
 		melee.set_physics_process(false)
-		melee.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK)
+		melee.call(
+			"debug_force_action_for_test",
+			ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
+		)
 		melee.call("_start_melee_attack")
 		player.global_position = origin + Vector2(-40.0, 0.0)
 		var defense_before_miss: float = _player_total_defense(player)
@@ -2611,7 +2614,10 @@ func _expect_explicit_enemy_attacks(
 			origin + Vector2(40.0, 0.0)
 		)
 		var defense_before_hit: float = _player_total_defense(player)
-		melee.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK)
+		melee.call(
+			"debug_force_action_for_test",
+			ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
+		)
 		melee.call("_start_melee_attack")
 		melee.call("_update_attack_state", 0.24)
 		_expect(
@@ -2638,8 +2644,8 @@ func _expect_explicit_enemy_attacks(
 	)
 	if blocked_stalker != null:
 		blocked_stalker.set_physics_process(false)
-		blocked_stalker.set(
-			"_current_action",
+		blocked_stalker.call(
+			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
 		)
 		blocked_stalker.call("_start_charge")
@@ -2673,7 +2679,10 @@ func _expect_explicit_enemy_attacks(
 	)
 	if stalker != null:
 		stalker.set_physics_process(false)
-		stalker.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET)
+		stalker.call(
+			"debug_force_action_for_test",
+			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+		)
 		stalker.call("_start_charge")
 		stalker.call("_update_attack_state", 0.34)
 		var stalker_defense_before: float = _player_total_defense(player)
@@ -2709,8 +2718,8 @@ func _expect_explicit_enemy_attacks(
 	)
 	if avoided_bulwark != null:
 		avoided_bulwark.set_physics_process(false)
-		avoided_bulwark.set(
-			"_current_action",
+		avoided_bulwark.call(
+			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
 		)
 		avoided_bulwark.call("_start_charge")
@@ -2733,7 +2742,10 @@ func _expect_explicit_enemy_attacks(
 	)
 	if bulwark != null:
 		bulwark.set_physics_process(false)
-		bulwark.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET)
+		bulwark.call(
+			"debug_force_action_for_test",
+			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+		)
 		bulwark.call("_start_charge")
 		bulwark.call("_update_attack_state", 0.48)
 		bulwark.call("_update_attack_state", 0.45)
@@ -2974,8 +2986,8 @@ func _expect_world_event_defense_targeting(
 	)
 	if melee != null:
 		melee.set_physics_process(false)
-		melee.set(
-			"_current_action",
+		melee.call(
+			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
 		)
 		var health_before: float = target.current_health()
@@ -3011,8 +3023,8 @@ func _expect_world_event_defense_targeting(
 	)
 	if charge != null:
 		charge.set_physics_process(false)
-		charge.set(
-			"_current_action",
+		charge.call(
+			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
 		)
 		var target_before: float = target.current_health()
@@ -3127,8 +3139,8 @@ func _expect_world_event_defense_targeting(
 	)
 	if gunner != null:
 		gunner.set_physics_process(false)
-		gunner.set(
-			"_current_action",
+		gunner.call(
+			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
 		)
 		var target_before: float = target.current_health()
@@ -3160,8 +3172,8 @@ func _expect_world_event_defense_targeting(
 	)
 	if committed_gunner != null:
 		committed_gunner.set_physics_process(false)
-		committed_gunner.set(
-			"_current_action",
+		committed_gunner.call(
+			"debug_force_action_for_test",
 			ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
 		)
 		committed_gunner.call(

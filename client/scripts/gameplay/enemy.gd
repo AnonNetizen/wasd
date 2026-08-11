@@ -19,6 +19,9 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TARGET_GROUPS := preload(
 	"res://scripts/contracts/damage_target_groups.gd"
 )
+const ENEMY_ACTION_RUNTIME_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_action_runtime.gd"
+)
 const ENEMY_BRAIN_SCRIPT := preload("res://scripts/gameplay/enemy_brain.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ENEMY_DEFEAT_CAUSES := preload(
@@ -27,12 +30,24 @@ const ENEMY_DEFEAT_CAUSES := preload(
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
-const ACTION_STATE_ARMED_WINDUP: String = "armed_windup"
-const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
-const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
-const ACTION_STATE_MELEE_WINDUP: String = "melee_windup"
-const ACTION_STATE_RANGED_BURST: String = "ranged_burst"
-const ACTION_STATE_RANGED_WINDUP: String = "ranged_windup"
+const ACTION_STATE_ARMED_WINDUP: String = (
+	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_ARMED_WINDUP
+)
+const ACTION_STATE_CHARGE_RELEASE: String = (
+	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_CHARGE_RELEASE
+)
+const ACTION_STATE_CHARGE_WINDUP: String = (
+	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_CHARGE_WINDUP
+)
+const ACTION_STATE_MELEE_WINDUP: String = (
+	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_MELEE_WINDUP
+)
+const ACTION_STATE_RANGED_BURST: String = (
+	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_RANGED_BURST
+)
+const ACTION_STATE_RANGED_WINDUP: String = (
+	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_RANGED_WINDUP
+)
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
 const NAVIGATION_MODE_LOCAL_ASTAR: String = "local_astar"
@@ -59,18 +74,12 @@ const TARGET_MODE_PLAYER: String = "player"
 @export var defeat_feedback_color: Color = Color(1.0, 0.62, 0.22)
 @export var hit_flash_color: Color = Color(1.0, 0.96, 0.74)
 
-var _action_state: String = ""
-var _action_timer: float = 0.0
-var _armed: bool = false
-var _armed_from_chain: bool = false
-var _attack_cooldown_remaining: float = 0.0
-var _attack_hit_committed: bool = false
-var _collateral_player_hit_committed: bool = false
-var _burst_shots_remaining: int = 0
+var _action_runtime: ENEMY_ACTION_RUNTIME_SCRIPT = (
+	ENEMY_ACTION_RUNTIME_SCRIPT.new()
+)
 var _brain: EnemyBrain = ENEMY_BRAIN_SCRIPT.new()
 var _collision_shape: CollisionShape2D = null
 var _base_max_life: float = 1.0
-var _current_action: String = ""
 var _debug_ai_enabled: bool = true
 var _enemy_id: String = ""
 var _event_instance_id: String = ""
@@ -80,8 +89,6 @@ var _facing_sign: float = 1.0
 var _focus_target: Node2D = null
 var _hit_radius: float = 0.0
 var _home_position: Vector2 = Vector2.ZERO
-var _has_exploded: bool = false
-var _locked_direction: Vector2 = Vector2.ZERO
 var _life_points: float = 1.0
 var _max_life: float = 1.0
 var _has_movement_bounds: bool = false
@@ -111,7 +118,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if scaled_delta <= 0.0:
 		return
-	if _armed:
+	if _action_runtime.is_armed():
 		_update_armed_state(scaled_delta)
 		return
 	if _primary_target == null or not is_instance_valid(_primary_target):
@@ -126,7 +133,10 @@ func _physics_process(delta: float) -> void:
 		_update_attack_state(scaled_delta)
 	else:
 		_brain.advance_decision(scaled_delta)
-		if _current_action.is_empty() or _brain.is_decision_due():
+		if (
+			_action_runtime.current_action().is_empty()
+			or _brain.is_decision_due()
+		):
 			_choose_action()
 		_apply_current_action(scaled_delta)
 
@@ -174,18 +184,8 @@ func configure(
 		String(enemy_data.get("ai_profile_id", "")),
 		_dictionary_or_empty(enemy_data.get("ai_profile", {}))
 	)
-	_current_action = ""
-	_action_state = ""
-	_action_timer = 0.0
-	_armed = false
-	_armed_from_chain = false
-	_attack_cooldown_remaining = _brain.initial_attack_cooldown()
-	_attack_hit_committed = false
-	_collateral_player_hit_committed = false
-	_burst_shots_remaining = 0
+	_action_runtime.configure(_brain.initial_attack_cooldown())
 	_debug_ai_enabled = true
-	_has_exploded = false
-	_locked_direction = Vector2.ZERO
 	_navigation_mode = NAVIGATION_MODE_NONE
 	_has_cached_navigation_waypoint = false
 	_cached_navigation_waypoint = Vector2.ZERO
@@ -233,10 +233,13 @@ func visual_color() -> Color:
 
 
 func ai_debug_summary() -> Dictionary:
+	var action_values: ENEMY_ACTION_RUNTIME_SCRIPT.SnapshotValues = (
+		_action_runtime.snapshot_values()
+	)
 	return {
 		"profile_id": _brain.profile_id(),
-		"action": _current_action,
-		"action_state": _action_state,
+		"action": action_values.current_action,
+		"action_state": action_values.action_state,
 		"focus_target": _focus_target.name if _focus_target != null and is_instance_valid(_focus_target) else "",
 		"primary_target": _primary_target.name if _primary_target != null and is_instance_valid(_primary_target) else "",
 		"event_instance_id": _event_instance_id,
@@ -251,14 +254,18 @@ func ai_debug_summary() -> Dictionary:
 		),
 		"memory_remaining": _brain.memory_remaining(),
 		"navigation_mode": _navigation_mode,
-		"attack_time_remaining": _action_timer,
-		"attack_cooldown_remaining": _attack_cooldown_remaining,
-		"burst_shots_remaining": _burst_shots_remaining,
-		"armed": _armed,
-		"locked_direction": _vector_to_dict(_locked_direction),
+		"attack_time_remaining": action_values.action_timer,
+		"attack_cooldown_remaining": (
+			action_values.attack_cooldown_remaining
+		),
+		"burst_shots_remaining": action_values.burst_shots_remaining,
+		"armed": action_values.armed,
+		"locked_direction": _vector_to_dict(
+			action_values.locked_direction
+		),
 		"scaled_damage": _scaled_attack_damage(_current_attack()),
 		"attack_range": _attack_display_range(_current_attack()),
-		"release_hit": _attack_hit_committed,
+		"release_hit": action_values.attack_hit_committed,
 		"runtime_spawn_serial": _runtime_spawn_serial,
 		"reward_snapshot": _reward_snapshot.duplicate(true),
 		"scores": _brain.last_scores(),
@@ -271,7 +278,7 @@ func event_instance_id() -> String:
 
 func convert_to_player_target(target: Node2D) -> void:
 	var preserve_committed_attack: bool = (
-		_armed
+		_action_runtime.is_armed()
 		or _is_attack_state_active()
 	)
 	_player_target = target
@@ -283,20 +290,20 @@ func convert_to_player_target(target: Node2D) -> void:
 	]
 	if preserve_committed_attack:
 		return
-	_current_action = ""
-	_action_state = ""
-	_action_timer = 0.0
-	_burst_shots_remaining = 0
-	_locked_direction = Vector2.ZERO
-	_attack_hit_committed = false
-	_collateral_player_hit_committed = false
+	_action_runtime.set_current_action("")
+	_action_runtime.set_action_state("")
+	_action_runtime.set_action_timer(0.0)
+	_action_runtime.set_burst_shots_remaining(0)
+	_action_runtime.set_locked_direction(Vector2.ZERO)
+	_action_runtime.set_attack_hit_committed(false)
+	_action_runtime.set_collateral_player_hit_committed(false)
 	_brain.request_decision_now()
 
 
 func is_alive() -> bool:
 	return (
 		_life_points > 0.0
-		and not _armed
+		and not _action_runtime.is_armed()
 		and not is_defeat_feedback_active()
 	)
 
@@ -341,13 +348,13 @@ func runtime_spawn_serial() -> int:
 
 
 func is_armed() -> bool:
-	return _armed
+	return _action_runtime.is_armed()
 
 
 func is_committed_exploder() -> bool:
 	return (
-		_armed
-		and _has_exploded
+		_action_runtime.is_armed()
+		and _action_runtime.has_exploded()
 		and _has_action(ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET)
 	)
 
@@ -367,8 +374,8 @@ func debug_configure_training_target(max_life: float, home_position: Vector2) ->
 	_base_max_life = maxf(max_life, 1.0)
 	_max_life = _base_max_life
 	_life_points = _max_life
-	_armed = false
-	_has_exploded = false
+	_action_runtime.set_armed(false)
+	_action_runtime.set_has_exploded(false)
 	_set_collision_enabled(true)
 	_home_position = home_position
 	global_position = home_position
@@ -398,6 +405,14 @@ func debug_reset_training_target() -> void:
 
 func debug_ai_enabled() -> bool:
 	return _debug_ai_enabled
+
+
+## Debug-build-only seam for deterministic attack handler smoke coverage.
+func debug_force_action_for_test(action_id: String) -> bool:
+	if not OS.is_debug_build() or not _brain.has_action(action_id):
+		return false
+	_action_runtime.set_current_action(action_id)
+	return true
 
 
 func add_owned_tag(tag_id: String) -> bool:
@@ -515,7 +530,7 @@ func clear_movement_bounds() -> void:
 
 
 func receive_damage(info: RefCounted) -> Dictionary:
-	if _armed:
+	if _action_runtime.is_armed():
 		return {
 			"applied": false,
 			"amount": 0.0,
@@ -584,6 +599,9 @@ func receive_damage(info: RefCounted) -> Dictionary:
 
 
 func snapshot() -> Dictionary:
+	var action_values: ENEMY_ACTION_RUNTIME_SCRIPT.SnapshotValues = (
+		_action_runtime.snapshot_values()
+	)
 	return {
 		"enemy_id": _enemy_id,
 		"position": _vector_to_dict(global_position),
@@ -592,19 +610,23 @@ func snapshot() -> Dictionary:
 		"spawn_damage_multiplier": _spawn_damage_multiplier,
 		"reward_snapshot": _reward_snapshot.duplicate(true),
 		"home_position": _vector_to_dict(_home_position),
-		"current_action": _current_action,
-		"action_state": _action_state,
-		"action_timer": _action_timer,
-		"attack_cooldown_remaining": _attack_cooldown_remaining,
-		"attack_hit_committed": _attack_hit_committed,
-		"collateral_player_hit_committed": (
-			_collateral_player_hit_committed
+		"current_action": action_values.current_action,
+		"action_state": action_values.action_state,
+		"action_timer": action_values.action_timer,
+		"attack_cooldown_remaining": (
+			action_values.attack_cooldown_remaining
 		),
-		"burst_shots_remaining": _burst_shots_remaining,
-		"locked_direction": _vector_to_dict(_locked_direction),
-		"armed": _armed,
-		"armed_from_chain": _armed_from_chain,
-		"has_exploded": _has_exploded,
+		"attack_hit_committed": action_values.attack_hit_committed,
+		"collateral_player_hit_committed": (
+			action_values.collateral_player_hit_committed
+		),
+		"burst_shots_remaining": action_values.burst_shots_remaining,
+		"locked_direction": _vector_to_dict(
+			action_values.locked_direction
+		),
+		"armed": action_values.armed,
+		"armed_from_chain": action_values.armed_from_chain,
+		"has_exploded": action_values.has_exploded,
 		"runtime_spawn_serial": _runtime_spawn_serial,
 		"event_instance_id": _event_instance_id,
 		"target_mode": _target_mode(),
@@ -639,40 +661,15 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_home_position = _clamp_to_movement_bounds(_home_position)
 	_apply_movement_bounds()
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
-	_current_action = _validated_restored_action(String(snapshot_data.get("current_action", "")))
-	var saved_action_timer: float = float(
-		snapshot_data.get("action_timer", 0.0)
+	var action_input: ENEMY_ACTION_RUNTIME_SCRIPT.RestoreInput = (
+		_action_restore_input(snapshot_data)
 	)
-	if _current_action.is_empty():
-		_action_state = ""
-		_action_timer = 0.0
-	else:
-		_action_state = String(snapshot_data.get("action_state", ""))
-		_action_timer = maxf(saved_action_timer, 0.0)
-	_attack_cooldown_remaining = maxf(
-		float(snapshot_data.get("attack_cooldown_remaining", 0.0)),
-		0.0
-	)
-	_attack_hit_committed = bool(
-		snapshot_data.get("attack_hit_committed", false)
-	)
-	_collateral_player_hit_committed = bool(
-		snapshot_data.get(
-			"collateral_player_hit_committed",
-			false
+	var action_result: ENEMY_ACTION_RUNTIME_SCRIPT.RestoreResult = (
+		_action_runtime.restore(
+			action_input,
+			_action_restore_rules(action_input.current_action)
 		)
 	)
-	_burst_shots_remaining = maxi(
-		int(snapshot_data.get("burst_shots_remaining", 0)),
-		0
-	)
-	_locked_direction = _dict_to_vector(
-		snapshot_data.get("locked_direction", {}),
-		Vector2.ZERO
-	)
-	_armed = bool(snapshot_data.get("armed", false))
-	_armed_from_chain = bool(snapshot_data.get("armed_from_chain", false))
-	_has_exploded = bool(snapshot_data.get("has_exploded", false))
 	_runtime_spawn_serial = maxi(
 		int(snapshot_data.get("runtime_spawn_serial", _runtime_spawn_serial)),
 		0
@@ -681,37 +678,91 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		snapshot_data.get("event_instance_id", _event_instance_id)
 	)
 	_restore_status_snapshot(snapshot_data)
-	_restore_ranged_burst_state(
-		snapshot_data.has("burst_shots_remaining"),
-		saved_action_timer >= 0.0
-	)
-	if _armed:
-		_current_action = ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
-		_action_state = ACTION_STATE_ARMED_WINDUP
+	if action_result.restored_ranged_state:
+		velocity = Vector2.ZERO
+		_update_facing(_action_runtime.locked_direction())
+		if action_result.resume_ranged_windup:
+			_emit_attack_windup(_action_runtime.action_timer())
+	if _action_runtime.is_armed():
+		_action_runtime.force_armed_restore(
+			ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+		)
 		_set_collision_enabled(false)
-		_emit_attack_windup(_action_timer)
+		_emit_attack_windup(_action_runtime.action_timer())
 	elif _life_points <= 0.0:
 		remove_from_group("active_enemies")
 	_refresh_visuals()
 
 
-func _validated_restored_action(action_id: String) -> String:
-	return action_id if _brain.has_action(action_id) else ""
+func _action_restore_input(
+	snapshot_data: Dictionary
+) -> ENEMY_ACTION_RUNTIME_SCRIPT.RestoreInput:
+	var input: ENEMY_ACTION_RUNTIME_SCRIPT.RestoreInput = (
+		ENEMY_ACTION_RUNTIME_SCRIPT.RestoreInput.new()
+	)
+	input.current_action = String(
+		snapshot_data.get("current_action", "")
+	)
+	input.action_state = String(snapshot_data.get("action_state", ""))
+	input.action_timer = float(snapshot_data.get("action_timer", 0.0))
+	input.attack_cooldown_remaining = float(
+		snapshot_data.get("attack_cooldown_remaining", 0.0)
+	)
+	input.attack_hit_committed = bool(
+		snapshot_data.get("attack_hit_committed", false)
+	)
+	input.collateral_player_hit_committed = bool(
+		snapshot_data.get(
+			"collateral_player_hit_committed",
+			false
+		)
+	)
+	input.burst_shots_remaining = int(
+		snapshot_data.get("burst_shots_remaining", 0)
+	)
+	input.locked_direction = _dict_to_vector(
+		snapshot_data.get("locked_direction", {}),
+		Vector2.ZERO
+	)
+	input.armed = bool(snapshot_data.get("armed", false))
+	input.armed_from_chain = bool(
+		snapshot_data.get("armed_from_chain", false)
+	)
+	input.has_exploded = bool(
+		snapshot_data.get("has_exploded", false)
+	)
+	input.has_saved_burst_state = snapshot_data.has(
+		"burst_shots_remaining"
+	)
+	input.has_valid_saved_action_timer = input.action_timer >= 0.0
+	return input
+
+
+func _action_restore_rules(
+	requested_action_id: String
+) -> ENEMY_ACTION_RUNTIME_SCRIPT.RestoreRules:
+	var rules: ENEMY_ACTION_RUNTIME_SCRIPT.RestoreRules = (
+		ENEMY_ACTION_RUNTIME_SCRIPT.RestoreRules.new()
+	)
+	if _brain.has_action(requested_action_id):
+		rules.valid_action_ids.append(requested_action_id)
+	rules.explode_action_id = ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	rules.ranged_action_id = ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+	var ranged_attack: Dictionary = _ranged_attack()
+	rules.ranged_burst_count = int(ranged_attack.get("burst_count", 0))
+	rules.ranged_windup = float(ranged_attack.get("windup", 0.0))
+	rules.ranged_shot_interval = float(
+		ranged_attack.get("shot_interval", 0.0)
+	)
+	rules.ranged_cooldown = float(ranged_attack.get("cooldown", 0.0))
+	return rules
 
 
 func _pool_reset() -> void:
 	velocity = Vector2.ZERO
 	_brain.reset()
-	_action_state = ""
-	_action_timer = 0.0
-	_armed = false
-	_armed_from_chain = false
-	_attack_cooldown_remaining = 0.0
-	_attack_hit_committed = false
-	_collateral_player_hit_committed = false
-	_burst_shots_remaining = 0
+	_action_runtime.reset()
 	_base_max_life = 1.0
-	_current_action = ""
 	_debug_ai_enabled = true
 	_enemy_id = ""
 	_event_instance_id = ""
@@ -719,10 +770,8 @@ func _pool_reset() -> void:
 	_reward_snapshot.clear()
 	_facing_sign = 1.0
 	_focus_target = null
-	_has_exploded = false
 	_hit_radius = 0.0
 	_home_position = Vector2.ZERO
-	_locked_direction = Vector2.ZERO
 	_life_points = 1.0
 	_max_life = 1.0
 	clear_movement_bounds()
@@ -753,6 +802,7 @@ func _pool_reset() -> void:
 
 func _pool_release() -> void:
 	velocity = Vector2.ZERO
+	_action_runtime.reset()
 	remove_from_group("active_enemies")
 	_clear_status_effects_for_reuse()
 	clear_movement_bounds()
@@ -779,9 +829,9 @@ func _pool_release() -> void:
 func _choose_action() -> void:
 	var decision: EnemyBrain.Decision = _brain.decide(
 		_brain_sense_input(),
-		_attack_cooldown_remaining
+		_action_runtime.attack_cooldown_remaining()
 	)
-	_current_action = decision.action_id
+	_action_runtime.set_current_action(decision.action_id)
 	_focus_target = _primary_target if decision.focus_primary_target else null
 	_refresh_cached_navigation_waypoint()
 
@@ -817,25 +867,38 @@ func _brain_sense_input() -> EnemyBrain.SenseInput:
 
 
 func _apply_current_action(delta: float) -> void:
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
-		_move_in_direction(_path_band_direction(_movement_value("orbit_radius")), _action_speed_scale(_current_action), delta)
+	var current_action: String = _action_runtime.current_action()
+	if current_action == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
+		_move_in_direction(
+			_path_band_direction(_movement_value("orbit_radius")),
+			_action_speed_scale(current_action),
+			delta
+		)
 		return
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
+	if current_action == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
 		_arm_explosion(false)
 		return
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
+	if current_action == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
 		_start_melee_attack()
 		return
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
+	if current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
 		_start_charge()
 		return
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+	if current_action == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
 		_apply_ranged_attack(delta)
 		return
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
-		_move_in_direction(_direction_to_cached_target(_home_position), _action_speed_scale(_current_action), delta)
+	if current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
+		_move_in_direction(
+			_direction_to_cached_target(_home_position),
+			_action_speed_scale(current_action),
+			delta
+		)
 		return
-	_move_in_direction(_movement_target_direction(), _action_speed_scale(_current_action), delta)
+	_move_in_direction(
+		_movement_target_direction(),
+		_action_speed_scale(current_action),
+		delta
+	)
 
 
 func _apply_ranged_attack(delta: float) -> void:
@@ -851,14 +914,26 @@ func _apply_ranged_attack(delta: float) -> void:
 	var route_query: Dictionary = _active_navigation_query()
 	var route_distance: float = float(route_query.get("distance", distance)) if bool(route_query.get("reachable", false)) else distance
 	if keep_distance > 0.0 and route_distance < keep_distance:
-		_move_in_direction(_path_band_direction(keep_distance), _action_speed_scale(_current_action), delta)
+		_move_in_direction(
+			_path_band_direction(keep_distance),
+			_action_speed_scale(_action_runtime.current_action()),
+			delta
+		)
 	elif attack_range > 0.0 and route_distance > attack_range * 0.82:
-		_move_in_direction(_movement_direction_to(_focus_target.global_position, true), _action_speed_scale(_current_action), delta)
+		_move_in_direction(
+			_movement_direction_to(_focus_target.global_position, true),
+			_action_speed_scale(_action_runtime.current_action()),
+			delta
+		)
 	else:
-		_move_in_direction(_path_band_direction(maxf(keep_distance, 1.0)), _action_speed_scale(_current_action), delta)
+		_move_in_direction(
+			_path_band_direction(maxf(keep_distance, 1.0)),
+			_action_speed_scale(_action_runtime.current_action()),
+			delta
+		)
 	if (
 		distance <= attack_range
-		and _attack_cooldown_remaining <= 0.0
+		and _action_runtime.attack_cooldown_remaining() <= 0.0
 		and _has_terrain_line_of_sight(global_position, _focus_target.global_position)
 	):
 		_start_ranged_burst(target_direction)
@@ -868,54 +943,62 @@ func _start_ranged_burst(target_direction: Vector2) -> void:
 	if target_direction.length_squared() <= 0.0:
 		return
 	var attack: Dictionary = _current_attack()
-	_locked_direction = target_direction.normalized()
-	_burst_shots_remaining = int(attack.get("burst_count", 0))
-	if _burst_shots_remaining <= 0:
+	_action_runtime.set_locked_direction(target_direction.normalized())
+	_action_runtime.set_burst_shots_remaining(
+		int(attack.get("burst_count", 0))
+	)
+	if _action_runtime.burst_shots_remaining() <= 0:
 		_finish_ranged_burst(attack)
 		return
 	velocity = Vector2.ZERO
-	_update_facing(_locked_direction)
+	_update_facing(_action_runtime.locked_direction())
 	var windup: float = float(attack.get("windup", 0.0))
-	_action_state = ACTION_STATE_RANGED_WINDUP
-	_action_timer = windup
+	_action_runtime.set_action_state(ACTION_STATE_RANGED_WINDUP)
+	_action_runtime.set_action_timer(windup)
 	_emit_attack_windup(windup)
 	if windup <= 0.0:
 		_begin_ranged_burst()
 
 
 func _begin_ranged_burst() -> void:
-	_action_state = ACTION_STATE_RANGED_BURST
-	_action_timer = 0.0
+	_action_runtime.set_action_state(ACTION_STATE_RANGED_BURST)
+	_action_runtime.set_action_timer(0.0)
 	_fire_ranged_burst_shot()
 
 
 func _fire_ranged_burst_shot() -> void:
 	var attack: Dictionary = _current_attack()
 	if (
-		_burst_shots_remaining <= 0
-		or _locked_direction.length_squared() <= 0.0
+		_action_runtime.burst_shots_remaining() <= 0
+		or _action_runtime.locked_direction().length_squared() <= 0.0
 	):
 		_finish_ranged_burst(attack)
 		return
-	_fire_ranged_projectile(_locked_direction)
+	_fire_ranged_projectile(_action_runtime.locked_direction())
 	attack_committed.emit(
 		self,
-		_current_action,
+		_action_runtime.current_action(),
 		_attack_feedback_context(attack, 0.0, false)
 	)
-	_burst_shots_remaining -= 1
-	if _burst_shots_remaining <= 0:
+	_action_runtime.set_burst_shots_remaining(
+		_action_runtime.burst_shots_remaining() - 1
+	)
+	if _action_runtime.burst_shots_remaining() <= 0:
 		_finish_ranged_burst(attack)
 		return
-	_action_timer = float(attack.get("shot_interval", 0.0))
+	_action_runtime.set_action_timer(
+		float(attack.get("shot_interval", 0.0))
+	)
 
 
 func _finish_ranged_burst(attack: Dictionary) -> void:
-	_burst_shots_remaining = 0
-	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
-	_action_state = ""
-	_action_timer = 0.0
-	_current_action = ""
+	_action_runtime.set_burst_shots_remaining(0)
+	_action_runtime.set_attack_cooldown_remaining(
+		float(attack.get("cooldown", 0.0))
+	)
+	_action_runtime.set_action_state("")
+	_action_runtime.set_action_timer(0.0)
+	_action_runtime.set_current_action("")
 	_focus_target = _primary_target
 
 
@@ -969,57 +1052,57 @@ func _reparent_to_parent(node: Node) -> void:
 func _start_charge() -> void:
 	if _focus_target == null or not is_instance_valid(_focus_target):
 		return
-	_locked_direction = (
+	_action_runtime.set_locked_direction((
 		_focus_target.global_position - global_position
-	).normalized()
-	if _locked_direction.length_squared() <= 0.0:
+	).normalized())
+	if _action_runtime.locked_direction().length_squared() <= 0.0:
 		return
-	_attack_hit_committed = false
-	_collateral_player_hit_committed = false
+	_action_runtime.set_attack_hit_committed(false)
+	_action_runtime.set_collateral_player_hit_committed(false)
 	var windup: float = float(_current_attack().get("windup", 0.0))
 	if windup > 0.0:
-		_action_state = ACTION_STATE_CHARGE_WINDUP
-		_action_timer = windup
+		_action_runtime.set_action_state(ACTION_STATE_CHARGE_WINDUP)
+		_action_runtime.set_action_timer(windup)
 		_emit_attack_windup(windup)
 	else:
 		_begin_charge_release()
 
 
 func _update_attack_state(delta: float) -> void:
-	_action_timer = maxf(_action_timer - delta, 0.0)
-	if _action_state == ACTION_STATE_RANGED_WINDUP:
-		if _action_timer <= 0.0:
+	_action_runtime.advance_action_timer(delta)
+	if _action_runtime.action_state() == ACTION_STATE_RANGED_WINDUP:
+		if _action_runtime.action_timer() <= 0.0:
 			_begin_ranged_burst()
 		return
-	if _action_state == ACTION_STATE_RANGED_BURST:
-		if _action_timer <= 0.0:
+	if _action_runtime.action_state() == ACTION_STATE_RANGED_BURST:
+		if _action_runtime.action_timer() <= 0.0:
 			_fire_ranged_burst_shot()
 		return
-	if _action_state == ACTION_STATE_MELEE_WINDUP:
-		if _action_timer <= 0.0:
+	if _action_runtime.action_state() == ACTION_STATE_MELEE_WINDUP:
+		if _action_runtime.action_timer() <= 0.0:
 			_commit_melee_attack()
 		return
-	if _action_state == ACTION_STATE_CHARGE_WINDUP:
-		if _action_timer <= 0.0:
+	if _action_runtime.action_state() == ACTION_STATE_CHARGE_WINDUP:
+		if _action_runtime.action_timer() <= 0.0:
 			_begin_charge_release()
 		return
-	if _action_state == ACTION_STATE_CHARGE_RELEASE:
+	if _action_runtime.action_state() == ACTION_STATE_CHARGE_RELEASE:
 		_update_charge_release(delta)
 
 
 func _start_melee_attack() -> void:
 	if _focus_target == null or not is_instance_valid(_focus_target):
 		return
-	_locked_direction = (
+	_action_runtime.set_locked_direction((
 		_focus_target.global_position - global_position
-	).normalized()
-	if _locked_direction.length_squared() <= 0.0:
+	).normalized())
+	if _action_runtime.locked_direction().length_squared() <= 0.0:
 		return
-	_attack_hit_committed = false
-	_collateral_player_hit_committed = false
+	_action_runtime.set_attack_hit_committed(false)
+	_action_runtime.set_collateral_player_hit_committed(false)
 	var windup: float = float(_current_attack().get("windup", 0.0))
-	_action_state = ACTION_STATE_MELEE_WINDUP
-	_action_timer = windup
+	_action_runtime.set_action_state(ACTION_STATE_MELEE_WINDUP)
+	_action_runtime.set_action_timer(windup)
 	_emit_attack_windup(windup)
 	if windup <= 0.0:
 		_commit_melee_attack()
@@ -1035,26 +1118,30 @@ func _commit_melee_attack() -> void:
 			attack
 		)
 		if bool(result.get("applied", false)):
-			_attack_hit_committed = true
+			_action_runtime.set_attack_hit_committed(true)
 	attack_committed.emit(
 		self,
-		_current_action,
+		_action_runtime.current_action(),
 		_attack_feedback_context(attack, 0.0, false)
 	)
-	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
-	_action_state = ""
-	_action_timer = 0.0
-	_current_action = ""
+	_action_runtime.set_attack_cooldown_remaining(
+		float(attack.get("cooldown", 0.0))
+	)
+	_action_runtime.set_action_state("")
+	_action_runtime.set_action_timer(0.0)
+	_action_runtime.set_current_action("")
 	_focus_target = _primary_target
 
 
 func _begin_charge_release() -> void:
 	var attack: Dictionary = _current_attack()
-	_action_state = ACTION_STATE_CHARGE_RELEASE
-	_action_timer = float(attack.get("release_duration", 0.0))
+	_action_runtime.set_action_state(ACTION_STATE_CHARGE_RELEASE)
+	_action_runtime.set_action_timer(
+		float(attack.get("release_duration", 0.0))
+	)
 	attack_committed.emit(
 		self,
-		_current_action,
+		_action_runtime.current_action(),
 		_attack_feedback_context(attack, 0.0, false)
 	)
 
@@ -1063,13 +1150,13 @@ func _update_charge_release(delta: float) -> void:
 	var attack: Dictionary = _current_attack()
 	var previous_position: Vector2 = global_position
 	var motion: Vector2 = (
-		_locked_direction
+		_action_runtime.locked_direction()
 		* _move_speed
 		* _status_move_speed_multiplier()
 		* float(attack.get("speed_multiplier", 0.0))
 		* delta
 	)
-	_update_facing(_locked_direction)
+	_update_facing(_action_runtime.locked_direction())
 	var collided: bool = _move_with_collision(motion, false)
 	var before_bounds: Vector2 = global_position
 	_apply_movement_bounds()
@@ -1078,41 +1165,43 @@ func _update_charge_release(delta: float) -> void:
 
 	var hit_during_step: bool = false
 	if (
-		not _attack_hit_committed
+		not _action_runtime.attack_hit_committed()
 		and _charge_sweep_hits_target(
 			_primary_target,
 			previous_position,
 			global_position
 		)
 	):
-		_attack_hit_committed = true
+		_action_runtime.set_attack_hit_committed(true)
 		hit_during_step = true
 		_commit_charge_hit(_primary_target, attack)
 	if (
 		_player_target != _primary_target
-		and not _collateral_player_hit_committed
+		and not _action_runtime.collateral_player_hit_committed()
 		and _charge_sweep_hits_target(
 			_player_target,
 			previous_position,
 			global_position
 		)
 	):
-		_collateral_player_hit_committed = true
+		_action_runtime.set_collateral_player_hit_committed(true)
 		hit_during_step = true
 		_commit_charge_hit(_player_target, attack)
 	if hit_during_step and bool(attack.get("stop_on_hit", false)):
 		_finish_charge_release(attack)
 		return
 
-	if collided or _action_timer <= 0.0:
+	if collided or _action_runtime.action_timer() <= 0.0:
 		_finish_charge_release(attack)
 
 
 func _finish_charge_release(attack: Dictionary) -> void:
-	_action_state = ""
-	_action_timer = 0.0
-	_current_action = ""
-	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
+	_action_runtime.set_action_state("")
+	_action_runtime.set_action_timer(0.0)
+	_action_runtime.set_current_action("")
+	_action_runtime.set_attack_cooldown_remaining(
+		float(attack.get("cooldown", 0.0))
+	)
 	_focus_target = _primary_target
 
 
@@ -1144,7 +1233,7 @@ func _melee_target_in_arc(
 	var half_arc: float = deg_to_rad(
 		float(attack.get("arc_degrees", 0.0)) * 0.5
 	)
-	var angle: float = _locked_direction.angle_to(
+	var angle: float = _action_runtime.locked_direction().angle_to(
 		to_target.normalized()
 	)
 	return (
@@ -1206,7 +1295,7 @@ func _commit_charge_hit(target: Node2D, attack: Dictionary) -> void:
 	):
 		target.call(
 			"apply_external_knockback",
-			_locked_direction,
+			_action_runtime.locked_direction(),
 			knockback_distance,
 			knockback_duration
 		)
@@ -1238,51 +1327,59 @@ func _apply_attack_damage_to_target(
 
 
 func _arm_explosion(from_chain: bool) -> void:
-	if _armed or _has_exploded:
+	if (
+		_action_runtime.is_armed()
+		or _action_runtime.has_exploded()
+	):
 		return
 	var action: Dictionary = _action_by_id(
 		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
 	)
 	if action.is_empty():
 		return
-	_current_action = ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
-	_focus_target = null
-	_armed = true
-	_armed_from_chain = from_chain
-	_attack_hit_committed = false
-	_collateral_player_hit_committed = false
-	_locked_direction = Vector2.ZERO
-	_action_state = ACTION_STATE_ARMED_WINDUP
-	_action_timer = float(
-		_attack_from_action(action).get("windup", 0.0)
+	_action_runtime.set_current_action(
+		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
 	)
+	_focus_target = null
+	_action_runtime.set_armed(true)
+	_action_runtime.set_armed_from_chain(from_chain)
+	_action_runtime.set_attack_hit_committed(false)
+	_action_runtime.set_collateral_player_hit_committed(false)
+	_action_runtime.set_locked_direction(Vector2.ZERO)
+	_action_runtime.set_action_state(ACTION_STATE_ARMED_WINDUP)
+	_action_runtime.set_action_timer(float(
+		_attack_from_action(action).get("windup", 0.0)
+	))
 	velocity = Vector2.ZERO
 	_set_collision_enabled(false)
-	_emit_attack_windup(_action_timer)
+	_emit_attack_windup(_action_runtime.action_timer())
 	_refresh_visuals()
-	if _action_timer <= 0.0:
+	if _action_runtime.action_timer() <= 0.0:
 		_detonate_exploder()
 
 
 func _update_armed_state(delta: float) -> void:
-	if _has_exploded:
+	if _action_runtime.has_exploded():
 		return
-	_action_timer = maxf(_action_timer - delta, 0.0)
-	if _action_timer <= 0.0:
+	_action_runtime.advance_action_timer(delta)
+	if _action_runtime.action_timer() <= 0.0:
 		_detonate_exploder()
 
 
 func _detonate_exploder() -> void:
-	if not _armed or _has_exploded:
+	if (
+		not _action_runtime.is_armed()
+		or _action_runtime.has_exploded()
+	):
 		return
-	_has_exploded = true
-	_attack_hit_committed = true
+	_action_runtime.set_has_exploded(true)
+	_action_runtime.set_attack_hit_committed(true)
 	var attack: Dictionary = _current_attack()
 	var blast_position: Vector2 = global_position
 	var blast_radius: float = float(attack.get("radius", 0.0))
 	attack_committed.emit(
 		self,
-		_current_action,
+		_action_runtime.current_action(),
 		_attack_feedback_context(attack, 0.0, true)
 	)
 
@@ -1343,7 +1440,7 @@ func _emit_attack_windup(remaining: float) -> void:
 	var attack: Dictionary = _current_attack()
 	attack_windup_started.emit(
 		self,
-		_current_action,
+		_action_runtime.current_action(),
 		_attack_feedback_context(attack, remaining, false)
 	)
 
@@ -1358,19 +1455,28 @@ func _attack_feedback_context(
 		"world_position": global_position,
 		"follow_owner": false,
 		"duration": duration,
-		"rotation": _locked_direction.angle()
-			if _locked_direction.length_squared() > 0.0
+		"rotation": _action_runtime.locked_direction().angle()
+			if _action_runtime.locked_direction().length_squared() > 0.0
 			else 0.0,
 	}
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
+	if (
+		_action_runtime.current_action()
+		== ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	):
 		var radius: float = float(attack.get("radius", 0.0))
 		context["scale"] = (
 			Vector2.ONE * radius / (23.0 if detached else 36.0)
 		)
-	elif _current_action == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
+	elif (
+		_action_runtime.current_action()
+		== ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
+	):
 		var melee_range: float = float(attack.get("range", 0.0))
 		context["scale"] = Vector2.ONE * melee_range
-	elif _current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
+	elif (
+		_action_runtime.current_action()
+		== ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+	):
 		var lane_length: float = float(attack.get("trigger_range", 0.0))
 		var target_radius: float = (
 			float(_primary_target.call("hit_radius"))
@@ -1573,7 +1679,10 @@ func _refresh_cached_navigation_waypoint() -> void:
 	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
 		return
 	var target_position: Vector2 = Vector2.ZERO
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
+	if (
+		_action_runtime.current_action()
+		== ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME
+	):
 		target_position = _home_position
 	elif (
 		_brain.perception_state() == EnemyBrain.PERCEPTION_MEMORY
@@ -1590,87 +1699,12 @@ func _refresh_cached_navigation_waypoint() -> void:
 
 
 func _update_ai_timers(delta: float) -> void:
-	_attack_cooldown_remaining = maxf(
-		_attack_cooldown_remaining - delta,
-		0.0
-	)
+	_action_runtime.advance_attack_cooldown(delta)
 	_brain.advance_memory(delta)
 
 
 func _is_attack_state_active() -> bool:
-	return (
-		_action_state == ACTION_STATE_MELEE_WINDUP
-		or _action_state == ACTION_STATE_CHARGE_WINDUP
-		or _action_state == ACTION_STATE_CHARGE_RELEASE
-		or _action_state == ACTION_STATE_RANGED_WINDUP
-		or _action_state == ACTION_STATE_RANGED_BURST
-	)
-
-
-func _restore_ranged_burst_state(
-	has_saved_burst_state: bool,
-	has_valid_saved_action_timer: bool
-) -> void:
-	var is_ranged_action: bool = (
-		_current_action == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
-	)
-	var is_ranged_phase: bool = (
-		_action_state == ACTION_STATE_RANGED_WINDUP
-		or _action_state == ACTION_STATE_RANGED_BURST
-	)
-	if not has_saved_burst_state:
-		if is_ranged_action or is_ranged_phase:
-			_clear_restored_ranged_burst(false)
-		return
-	if not is_ranged_phase and _burst_shots_remaining <= 0:
-		return
-	var attack: Dictionary = _current_attack()
-	var configured_burst_count: int = int(attack.get("burst_count", 0))
-	var valid_state: bool = (
-		is_ranged_action
-		and is_ranged_phase
-		and configured_burst_count > 0
-		and has_valid_saved_action_timer
-		and _burst_shots_remaining > 0
-		and _burst_shots_remaining <= configured_burst_count
-		and _locked_direction.length_squared() > 0.0
-	)
-	if _action_state == ACTION_STATE_RANGED_WINDUP:
-		valid_state = (
-			valid_state
-			and _burst_shots_remaining == configured_burst_count
-			and _action_timer <= float(attack.get("windup", 0.0))
-		)
-	elif _action_state == ACTION_STATE_RANGED_BURST:
-		valid_state = (
-			valid_state
-			and _burst_shots_remaining < configured_burst_count
-			and _action_timer <= float(attack.get("shot_interval", 0.0))
-		)
-	if not valid_state:
-		_clear_restored_ranged_burst(true)
-		return
-	_locked_direction = _locked_direction.normalized()
-	velocity = Vector2.ZERO
-	_update_facing(_locked_direction)
-	if _action_state == ACTION_STATE_RANGED_WINDUP:
-		_emit_attack_windup(_action_timer)
-
-
-func _clear_restored_ranged_burst(apply_cooldown: bool) -> void:
-	if apply_cooldown:
-		var attack := _current_attack()
-		if _current_action != ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
-			attack = _ranged_attack()
-		_attack_cooldown_remaining = maxf(
-			_attack_cooldown_remaining,
-			float(attack.get("cooldown", 0.0))
-		)
-	_current_action = ""
-	_action_state = ""
-	_action_timer = 0.0
-	_burst_shots_remaining = 0
-	_locked_direction = Vector2.ZERO
+	return _action_runtime.is_attack_state_active()
 
 
 func _start_hit_flash() -> void:
@@ -1733,7 +1767,7 @@ func _refresh_attack_visuals() -> void:
 		exploder_core.visible = is_exploder
 		exploder_core.color = (
 			Color(1.0, 0.16, 0.04, 1.0)
-			if _armed
+			if _action_runtime.is_armed()
 			else Color(1.0, 0.68, 0.12, 1.0)
 		)
 	if bulwark_armor_outline != null:
@@ -1908,7 +1942,9 @@ func _attack_from_action(action: Dictionary) -> Dictionary:
 
 
 func _current_attack() -> Dictionary:
-	return _attack_from_action(_action_by_id(_current_action))
+	return _attack_from_action(
+		_action_by_id(_action_runtime.current_action())
+	)
 
 
 func _ranged_attack() -> Dictionary:

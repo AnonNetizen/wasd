@@ -625,7 +625,15 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 		},
 		{"reward_snapshot": reward_snapshot}
 	)
-	enemy.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK)
+	_expect(
+		bool(
+			enemy.call(
+				"debug_force_action_for_test",
+				ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+			)
+		),
+		"L1 enemy fixture should accept its configured ranged action"
+	)
 	var ai_summary: Dictionary = enemy.call("ai_debug_summary")
 	_expect(
 		is_equal_approx(float(enemy.call("max_life")), 204.0),
