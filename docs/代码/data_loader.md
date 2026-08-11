@@ -6,6 +6,7 @@
 ## 职责
 
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
+- 将官方 JSON / CSV 的物理读取与解析交给纯静态 `DataSourceReader`；`DataLoader` 保留公开读取门面、错误输出、Mod overlay 与 contracts 例外。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 将已加载、已合并且完成坏包隔离的数据交给纯 `DataReferenceIndexBuilder` 构建跨文件校验索引；读取顺序、Mod 边界和 schema 错误仍由 `DataLoader` 持有。
 - 将已加载的相机反馈配置交给纯 `CameraFeedbackValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、调用位置、二次索引读取和 schema 计数。
@@ -33,6 +34,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
+| `client/scripts/data/data_source_reader.gd` | 对单次官方 JSON / CSV 读取与解析返回 typed result；无缓存、无 Node / autoload、无 Mod overlay、无错误输出 |
 | `client/scripts/data/data_reference_index_builder.gd` | 从调用方已加载的 JSON / CSV 值构建 18 类跨文件引用索引；纯、静态、无状态，不读取文件 / Mod、不输出错误、不缓存或排序 |
 | `client/scripts/data/camera_feedback_validator.gd` | 纯、静态的相机反馈 schema 校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数或引用索引 |
 | `client/scripts/data/credits_validator.gd` | 纯、静态的致谢 schema 校验；只接收已加载 root、locale key callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数 |
@@ -41,6 +43,8 @@
 | `client/scripts/data/level_progression_validator.gd` | 纯、静态的等级曲线校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/data_fingerprint_builder.gd` | 纯、类型化的玩法指纹 payload 归一化；不读取文件、不访问 autoload、不改变数组顺序 |
 | `client/tests/unit/test_data_reference_index_builder.gd` | 锁定引用索引的坏 root / 类型、真实 loader String 产物、strict JSON 对 `StringName` / 数字 ID 的拒绝、空 ID、插入顺序、重复折叠、别名隔离、机关半径与嵌套波次行为 |
+| `client/tests/unit/test_data_source_reader.gd` | 锁定 JSON 对象 / 数组 / 标量、`null` 旧失败语义、CSV 有无表头、短行补空、长行截断、空行、空文件、失败元数据与每次重读无缓存 |
+| `client/tests/integration/test_data_source_reader_adapter.gd` | 通过真实 `DataLoader.load_json()` / `load_csv()` 门面和 root `ModLoader` 测试替身，锁定失败元数据转 `_fail()`、失败时不调 overlay、成功后才 overlay、contracts 禁止 overlay 与每次重读 |
 | `client/tests/unit/test_camera_feedback_validator.gd` | 锁定相机反馈 schema、aim / 两组 shake / 武器振幅指数的诊断顺序、嵌套 Dictionary 短路、int-like / finite / 数值边界、额外 key、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_credits_validator.gd` | 锁定致谢 schema、section / entry source order 与计数、String 化重复 id、external 分支、locale callback、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_gear_mod_drop_table_validator.gd` | 锁定掉落表边界、空表、多错误顺序、未知引用、等级范围 / 重复、包输入形状、旧静默诊断与跨调用无状态 |
@@ -86,7 +90,7 @@
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | autoload `_ready()` | 加载 `_contracts.json` | `reload_contracts()` |
-| 配置读取 | 调用方按需读 JSON / CSV，并叠加已启用本地 mod patch | `load_json()`、`load_csv()` |
+| 配置读取 | 每次公开调用都让 `DataSourceReader` 重新打开官方文件并解析；失败元数据由 `DataLoader` 转为原 `[DataLoader]` 错误，成功后才叠加已启用本地 Mod patch | `DataSourceReader.read_json()` / `read_csv()`、`DataLoader.load_json()` / `load_csv()` |
 | schema 校验 | 启动 smoke 或工具调用正式数据校验；运行时会校验合并后的数据 | `validate_project_data()`、`schema_counts()` |
 | 相机反馈 | 玩家 schema 后读取 `camera_feedback.json` 并交给纯 validator；随后必须再次 `load_json()`，把新 payload 交给引用 builder，再继续视觉效果校验，不缓存或复用校验 payload | `CameraFeedbackValidator.validate()`、`DataReferenceIndexBuilder.collect_camera_feedback_ids()` |
 | 引用索引 | 每个 schema 校验后按原读取顺序重新取得当前合并值，再交给纯 builder 建索引；Gear Mod 必须在坏玩法包隔离后重新读取 | `DataReferenceIndexBuilder.collect_*()` |
@@ -114,6 +118,17 @@
 | `mod_diagnostics()` | 无 | `Array[String]` | 返回 `ModLoader` 的 manifest / patch 诊断 |
 | `gear_mod_gameplay_fingerprint_payload()` | 无 | `Dictionary` | 保持原公开 API；输入包含当前有效 Mod 合并结果，数组顺序保持为玩法顺序，展示字段不进入 payload |
 | `effect_gameplay_fingerprint_payload()` | 无 | `Dictionary` | 保持原公开 API；返回 skills 深拷贝与同一份 Gear Mod 玩法 payload，供 Replay 数据指纹使用 |
+
+### 内部纯数据源读取 API
+
+`DataSourceReader` 是无状态 `RefCounted` 边界，只使用 Godot `FileAccess` / `JSON` 解析单次官方输入。它不访问 `DataLoader`、`ModLoader`、autoload 或 `user://mods`，不缓存结果，不 `push_error`。
+
+| 静态入口 | 返回 | 保留的兼容语义 |
+|----------|------|----------------|
+| `read_json(resource_path)` | `JsonReadResult {ok, data, failure_field, failure_expected}` | 打开失败返回 `file / readable JSON file`；`JSON.parse_string()` 返回 `null` 时无论原文是 JSON `null` 还是非法文本，都返回 `json / valid JSON`；其余 root 类型不在本层限制 |
+| `read_csv(resource_path, has_header)` | `CsvReadResult {ok, rows, failure_field, failure_expected}` | 打开失败返回 `file / readable CSV file`；有表头时短行补空、长行忽略多余列，无表头时键为从 `"0"` 开始的字符串索引；仅单列空白行被跳过，空文件 / 仅表头文件成功返回空数组 |
+
+`DataLoader.load_json()` / `load_csv()` 仅在 result 成功后调用 `_apply_json_mods()` / `_apply_csv_mods()`；`CONTRACTS_PATH` 仍由 `_apply_json_mods()` 原地短路，禁止 Mod 覆盖。Reader 失败时 `DataLoader` 用 result 的 field / expected 调用原 `_fail()`，并继续返回 JSON 空字典或 CSV 空数组。
 
 ### 内部纯引用索引 API
 
@@ -220,14 +235,15 @@
 
 ## 依赖
 
-- 上游依赖：Godot `FileAccess`、`JSON`、生成契约文件、`ModLoader`。
-- 内部纯依赖：`DataReferenceIndexBuilder`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback，不得反向读取 `DataLoader`、`ModLoader`、文件系统或 `user://`。
+- 上游依赖：生成契约文件、`ModLoader`，以及仅由 `DataSourceReader` / CSV header 校验边界直接使用的 Godot `FileAccess` / `JSON`。
+- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
 ## 扩展点
 
 - 新数据格式优先通过新解析函数接入，再由业务模块做 schema 校验。
+- 新官方 JSON / CSV 物理读取行为应先收口到 `DataSourceReader`，再由 `DataLoader` 公开门面做错误输出和 Mod overlay；不得在 Reader 中加缓存、autoload 查询或 schema 逻辑。
 - 新约定字符串必须先改 `docs/词表与契约.md` 并跑契约同步，不在 DataLoader 内硬编码白名单。
 - 热重载可复用 `data_reloaded` 信号扩展。
 - 本地 mod 只能通过 `ModLoader` manifest v2 给 Gear Mod 定义、奖励池贡献、掉落和 locale 做声明式 append；不得让业务系统绕过 `DataLoader` 直接读取 `user://mods`。
@@ -244,6 +260,7 @@
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
 | 加 JSON 数据 schema | `data_loader.gd` + `tools/validate_data.py` | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
+| 改官方 JSON / CSV 物理读取或 DataLoader 公开接线 | `data_source_reader.gd`、`data_loader.gd`、目标 GUT | 本文档 | Reader unit + full GUT + `validate_data` + schema test + `mod-loader-smoke` + L1/runtime/replay smoke + headless boot + Replay regression |
 | 改视觉效果 / profile schema | `data_loader.gd`、`validate_data.py`、catalog / profiles | `visual_effects.md`、数据手册、词表 | `sync_contracts --check` + `validate_data` + `vfx-smoke` |
 | 改相机反馈校验 / DataLoader 接线 | `camera_feedback_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / Gameplay Runtime 文档 | 目标 GUT + `validate_data` + schema test + `vfx-smoke` + `runtime-smoke` + headless boot + Replay regression |
 | 改致谢校验 / DataLoader 接线 | `credits_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + `validate_data` + schema test + `mod-loader-smoke` + headless boot + Replay regression |
@@ -268,6 +285,8 @@
 | 启动时 contracts=0 | `client/data/_contracts.json` 是否存在且 JSON 有效 |
 | `contract_values()` 返回空 | contract id 是否存在于 `_contracts.json` 的 `contracts` |
 | CSV 行字段错位 | 表头数量与数据列数量是否一致 |
+| JSON / CSV 读取失败但没有原路径诊断 | 确认 `DataSourceReader` result 返回的 `failure_field` / `failure_expected` 非空，且 `DataLoader.load_json()` / `load_csv()` 仍将原 `resource_path` 与元数据转发给 `_fail()` |
+| 官方文件已更改但读到旧值 | Reader 不应保持缓存；确认调用方每次都通过 `DataLoader.load_json()` / `load_csv()` 重读，并排查 Mod overlay 是否有效覆盖了官方值 |
 | `data_schema_ok=false` | headless boot 日志前后的 `[DataLoader]` fail-fast 错误 |
 | 坏 Mod 的掉落行仍在最终合并表 | 确认 `validate_project_data()` 没有在包隔离前缓存 rows，且隔离后重读了 Gear Mod ids 与 `gear_mod_drop_tables.csv`；`schema_counts().gear_mod_drop_rows` 应只计最终合并行 |
 | 导出版打开后像空场景 / 空界面 | 用 console 导出版检查 `data_schema_ok` 与 CSV 计数；若 `enemies`、`hazards`、`spawn_waves` 等为 0，确认 `client/data/*.csv.import` 是 `importer="keep"`，且 `export_presets.cfg` 的 `include_filter` 包含 `*.csv` |
@@ -279,6 +298,7 @@
 - 改 mod 接口或 `contract_values()` 合并逻辑时跑 `tools/godot_bridge.py --project client l1-smoke`。
 - 改契约 / 数据时跑 `tools/sync_contracts.py --check` 与 `tools/validate_data.py`。
 - F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
+- `DataSourceReader` 或 `DataLoader.load_json()` / `load_csv()` 接线变更需跑 unit + adapter integration GUT：unit 覆盖 JSON Dictionary / Array / scalar、`null` 的旧失败语义、CSV 有无 header、短行补空 / 长行截断 / 空白行 / 空文件、文件打开失败 field / expected 与无缓存；adapter 覆盖 `_fail()` 转发、失败不 overlay、成功后 overlay、contracts 例外与重读。非法 JSON 文本仍会由 Godot 输出 parse error 并被标准 fatal gate 可见；本 unit 只直接锁定 JSON `null`，不在同进程内 suppress 该引擎错误，也不声称现有 schema fixture 已单独覆盖 malformed 输入。再跑 full GUT、Python schema、`mod-loader-smoke`、L1 / runtime / replay smoke、headless boot 与 Replay regression，确认 `DataLoader` 仍在成功后才应用 Mod overlay，`_contracts.json` 仍禁止覆盖，原错误文本 / 读取顺序 / 每次重读 / data hash / Replay v9 摘要不变。
 - 引用索引 builder 或 `validate_project_data()` 的索引接线变更需跑目标 GUT unit，覆盖坏 root / 类型、真实 loader String 输入、strict JSON 对非 String ID 的拒绝、各类空 ID、source order、重复折叠、输出无别名、机关 clamp / last-write 和波次嵌套结构；再跑 DataLoader schema 与 headless boot 确认读取、坏 Mod 隔离和 fail-fast 顺序不变。
 - 相机反馈 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 最小边界、root 类型、schema → aim 4 字段 → 玩家 shake 7 字段 → 武器 shake 7 字段 → 振幅指数的诊断顺序、嵌套 Dictionary 短路、integral float、number / finite / 范围、额外 key、错误 sink 参数及跨调用无状态；再跑 Python schema、`vfx-smoke`、`runtime-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、玩家后 / 视觉效果前调用位置、二次加载的索引输入、Dictionary root 的 `camera_feedback_profiles = 2`、data hash 与 Replay v9 摘要不变。
 - 致谢 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / integral-float schema、root / sections shape、section / entry source order 与计数、String 化重复 id、external 前缀分支、可选 copyright、locale callback、错误 sink 参数及跨调用无状态；再跑 Python schema、`mod-loader-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、Mod-aware locale 诊断、Dictionary root 的两个 count、data hash 与 Replay v9 摘要不变。

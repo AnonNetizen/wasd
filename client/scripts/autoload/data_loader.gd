@@ -34,6 +34,9 @@ const CONTENT_UNLOCK_RULE_MODES := preload(
 const CONTENT_UNLOCK_PROGRESS_COUNTERS := preload(
 	"res://scripts/contracts/content_unlock_progress_counters.gd"
 )
+const DATA_SOURCE_READER := preload(
+	"res://scripts/data/data_source_reader.gd"
+)
 const DATA_REFERENCE_INDEX_BUILDER := preload(
 	"res://scripts/data/data_reference_index_builder.gd"
 )
@@ -395,47 +398,31 @@ func effect_gameplay_fingerprint_payload() -> Dictionary:
 
 
 func load_json(resource_path: String) -> Variant:
-	var file: FileAccess = FileAccess.open(resource_path, FileAccess.READ)
-	if file == null:
-		_fail(resource_path, "file", "readable JSON file")
+	var result: DATA_SOURCE_READER.JsonReadResult = (
+		DATA_SOURCE_READER.read_json(resource_path)
+	)
+	if not result.ok:
+		_fail(
+			resource_path,
+			result.failure_field,
+			result.failure_expected
+		)
 		return {}
-
-	var text: String = file.get_as_text()
-	var parsed: Variant = JSON.parse_string(text)
-	if parsed == null:
-		_fail(resource_path, "json", "valid JSON")
-		return {}
-
-	return _apply_json_mods(resource_path, parsed)
+	return _apply_json_mods(resource_path, result.data)
 
 
 func load_csv(resource_path: String, has_header: bool = true) -> Array[Dictionary]:
-	var file: FileAccess = FileAccess.open(resource_path, FileAccess.READ)
-	if file == null:
-		_fail(resource_path, "file", "readable CSV file")
+	var result: DATA_SOURCE_READER.CsvReadResult = (
+		DATA_SOURCE_READER.read_csv(resource_path, has_header)
+	)
+	if not result.ok:
+		_fail(
+			resource_path,
+			result.failure_field,
+			result.failure_expected
+		)
 		return []
-
-	var rows: Array[Dictionary] = []
-	var headers: PackedStringArray = PackedStringArray()
-
-	if has_header and not file.eof_reached():
-		headers = file.get_csv_line()
-
-	while not file.eof_reached():
-		var values: PackedStringArray = file.get_csv_line()
-		if _is_empty_csv_row(values):
-			continue
-
-		var row: Dictionary = {}
-		if has_header:
-			for index: int in range(headers.size()):
-				row[String(headers[index])] = values[index] if index < values.size() else ""
-		else:
-			for index: int in range(values.size()):
-				row[String.num_int64(index)] = values[index]
-		rows.append(row)
-
-	return _apply_csv_mods(resource_path, rows)
+	return _apply_csv_mods(resource_path, result.rows)
 
 
 func _validate_csv_header(
@@ -8099,10 +8086,6 @@ func _parse_tag_list(value: Variant) -> Array[String]:
 		if not tag.is_empty():
 			tags.append(tag)
 	return tags
-
-
-func _is_empty_csv_row(values: PackedStringArray) -> bool:
-	return values.size() == 0 or (values.size() == 1 and String(values[0]).strip_edges().is_empty())
 
 
 func _schema_fail(resource_path: String, field_path: String, expected: String) -> bool:
