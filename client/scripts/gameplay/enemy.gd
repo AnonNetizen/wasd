@@ -25,6 +25,9 @@ const ENEMY_ACTION_RUNTIME_SCRIPT := preload(
 const ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_charge_attack_handler.gd"
 )
+const ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_explosion_attack_handler.gd"
+)
 const ENEMY_BRAIN_SCRIPT := preload("res://scripts/gameplay/enemy_brain.gd")
 const ENEMY_MELEE_ATTACK_HANDLER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_melee_attack_handler.gd"
@@ -42,9 +45,6 @@ const ENEMY_DEFEAT_CAUSES := preload(
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
-const ACTION_STATE_ARMED_WINDUP: String = (
-	ENEMY_ACTION_RUNTIME_SCRIPT.ACTION_STATE_ARMED_WINDUP
-)
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
 const NAVIGATION_MODE_LOCAL_ASTAR: String = "local_astar"
@@ -97,6 +97,7 @@ var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
 var _primary_target: Node2D = null
 var _charge_attack_ports: ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT.Ports = null
+var _explosion_attack_ports: ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Ports = null
 var _melee_attack_ports: ENEMY_MELEE_ATTACK_HANDLER_SCRIPT.Ports = null
 var _projectile_materializer_ports: ENEMY_PROJECTILE_MATERIALIZER_SCRIPT.Ports = null
 var _ranged_attack_ports: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports = null
@@ -456,6 +457,29 @@ func debug_advance_charge_for_test(delta: float) -> bool:
 	return result.handled
 
 
+## Debug-build-only seam for deterministic explosion arming.
+func debug_arm_explosion_for_test(from_chain: bool = false) -> bool:
+	if not _can_debug_drive_explosion_attack():
+		return false
+	var result: ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Result = (
+		_arm_explosion(from_chain)
+	)
+	return result.armed
+
+
+## Debug-build-only seam for deterministic armed-phase advancement.
+func debug_advance_explosion_for_test(delta: float) -> bool:
+	if (
+		not _can_debug_drive_explosion_attack()
+		or not _action_runtime.is_armed()
+	):
+		return false
+	var result: ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Result = (
+		_update_armed_state(delta)
+	)
+	return result.handled
+
+
 ## Debug-build-only seam for the real ranged projectile adapter.
 func debug_materialize_ranged_projectile_for_test(
 	target_direction: Vector2
@@ -762,11 +786,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		if action_result.resume_ranged_windup:
 			_emit_attack_windup(_action_runtime.action_timer())
 	if _action_runtime.is_armed():
-		_action_runtime.force_armed_restore(
-			ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
-		)
-		_set_collision_enabled(false)
-		_emit_attack_windup(_action_runtime.action_timer())
+		_restore_armed_explosion()
 	elif _life_points <= 0.0:
 		remove_from_group("active_enemies")
 	_refresh_visuals()
@@ -1595,104 +1615,190 @@ func _apply_attack_damage_values_to_target(
 	return Combat.apply_damage(target, info)
 
 
-func _arm_explosion(from_chain: bool) -> void:
-	if (
-		_action_runtime.is_armed()
-		or _action_runtime.has_exploded()
-	):
-		return
+func _arm_explosion(
+	from_chain: bool
+) -> ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Result:
 	var action: Dictionary = _action_by_id(
 		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
 	)
-	if action.is_empty():
-		return
-	_action_runtime.set_current_action(
-		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	var request: ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.ArmRequest = (
+		ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.ArmRequest.new()
 	)
+	request.action_available = not action.is_empty()
+	request.from_chain = from_chain
+	return ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.arm(
+		_action_runtime,
+		_explosion_attack_config(action),
+		request,
+		_explosion_attack_ports_value()
+	)
+
+
+func _update_armed_state(
+	delta: float
+) -> ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Result:
+	return ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.advance(
+		_action_runtime,
+		_explosion_attack_config(_action_by_id(
+			ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+		)),
+		delta,
+		_explosion_attack_ports_value()
+	)
+
+
+func _restore_armed_explosion(
+) -> ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Result:
+	return ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.restore_armed(
+		_action_runtime,
+		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET,
+		_explosion_attack_ports_value()
+	)
+
+
+func _explosion_attack_config(
+	action: Dictionary
+) -> ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Config:
+	var attack: Dictionary = _attack_from_action(action)
+	var config: ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Config = (
+		ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Config.new()
+	)
+	config.explode_action_id = ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	config.windup = float(attack.get("windup", 0.0))
+	config.base_damage = float(attack.get("damage", 0.0))
+	config.element_id = String(attack.get("element_id", ""))
+	config.radius = float(attack.get("radius", 0.0))
+	return config
+
+
+func _explosion_attack_ports_value(
+) -> ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Ports:
+	if _explosion_attack_ports == null:
+		_explosion_attack_ports = (
+			ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.Ports.new(
+				Callable(self, "_clear_explosion_focus"),
+				Callable(self, "_stop_explosion_movement"),
+				Callable(self, "_set_collision_enabled"),
+				Callable(self, "_emit_attack_windup"),
+				Callable(self, "_refresh_visuals"),
+				Callable(self, "_explosion_source_position"),
+				Callable(self, "_emit_explosion_committed"),
+				Callable(self, "_explosion_direct_target_ports"),
+				Callable(self, "_explosion_enemy_target_ports"),
+				Callable(self, "_has_terrain_line_of_sight"),
+				Callable(self, "_finish_explosion")
+			)
+		)
+	return _explosion_attack_ports
+
+
+func _clear_explosion_focus() -> void:
 	_focus_target = null
-	_action_runtime.set_armed(true)
-	_action_runtime.set_armed_from_chain(from_chain)
-	_action_runtime.set_attack_hit_committed(false)
-	_action_runtime.set_collateral_player_hit_committed(false)
-	_action_runtime.set_locked_direction(Vector2.ZERO)
-	_action_runtime.set_action_state(ACTION_STATE_ARMED_WINDUP)
-	_action_runtime.set_action_timer(float(
-		_attack_from_action(action).get("windup", 0.0)
-	))
+
+
+func _stop_explosion_movement() -> void:
 	velocity = Vector2.ZERO
-	_set_collision_enabled(false)
-	_emit_attack_windup(_action_runtime.action_timer())
-	_refresh_visuals()
-	if _action_runtime.action_timer() <= 0.0:
-		_detonate_exploder()
 
 
-func _update_armed_state(delta: float) -> void:
-	if _action_runtime.has_exploded():
-		return
-	_action_runtime.advance_action_timer(delta)
-	if _action_runtime.action_timer() <= 0.0:
-		_detonate_exploder()
+func _explosion_source_position() -> Vector2:
+	return global_position
 
 
-func _detonate_exploder() -> void:
-	if (
-		not _action_runtime.is_armed()
-		or _action_runtime.has_exploded()
-	):
-		return
-	_action_runtime.set_has_exploded(true)
-	_action_runtime.set_attack_hit_committed(true)
+func _emit_explosion_committed() -> void:
 	var attack: Dictionary = _current_attack()
-	var blast_position: Vector2 = global_position
-	var blast_radius: float = float(attack.get("radius", 0.0))
 	attack_committed.emit(
 		self,
 		_action_runtime.current_action(),
 		_attack_feedback_context(attack, 0.0, true)
 	)
 
-	for damage_target: Node2D in _attack_targets():
-		if (
-			global_position.distance_to(damage_target.global_position)
-			> blast_radius
-			or not _has_terrain_line_of_sight(
-				global_position,
-				damage_target.global_position
+
+func _explosion_direct_target_ports(
+) -> Array[ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.DirectTargetPort]:
+	var ports: Array[ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.DirectTargetPort] = []
+	for target: Node2D in _attack_targets():
+		ports.append(
+			ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.DirectTargetPort.new(
+				Callable(self, "_explosion_target_is_valid").bind(target),
+				Callable(self, "_explosion_target_position").bind(target),
+				Callable(self, "_apply_explosion_damage").bind(target)
 			)
-		):
-			continue
-		_apply_attack_damage_to_target(damage_target, attack)
-
-	var targets: Array[Enemy] = []
-	for node: Node in get_tree().get_nodes_in_group("active_enemies"):
-		if node == self or not node is Enemy:
-			continue
-		var enemy: Enemy = node as Enemy
-		if enemy.is_armed() or not enemy.is_alive():
-			continue
-		if blast_position.distance_to(enemy.global_position) > blast_radius:
-			continue
-		if not _has_terrain_line_of_sight(
-			blast_position,
-			enemy.global_position
-		):
-			continue
-		targets.append(enemy)
-	targets.sort_custom(Callable(self, "_enemy_spawn_serial_less"))
-	for target: Enemy in targets:
-		if not is_instance_valid(target):
-			continue
-		var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-			_scaled_attack_damage(attack),
-			String(attack.get("element_id", "")),
-			self,
-			target,
-			TEAM_ENEMY,
-			TEAM_ENEMY
 		)
-		Combat.apply_damage(target, info)
+	return ports
 
+
+func _explosion_enemy_target_ports(
+) -> Array[ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.EnemyTargetPort]:
+	var ports: Array[ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.EnemyTargetPort] = []
+	for node: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if not node is Enemy:
+			continue
+		var target: Enemy = node as Enemy
+		ports.append(
+			ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.EnemyTargetPort.new(
+				Callable(self, "_explosion_target_is_valid").bind(target),
+				Callable(self, "_explosion_target_is_source").bind(target),
+				Callable(self, "_explosion_target_is_armed").bind(target),
+				Callable(self, "_explosion_target_is_alive").bind(target),
+				Callable(self, "_explosion_target_position").bind(target),
+				Callable(self, "_explosion_target_spawn_serial").bind(target),
+				Callable(self, "_apply_explosion_damage").bind(target)
+			)
+		)
+	return ports
+
+
+func _explosion_target_is_valid(target: Node2D) -> bool:
+	return target != null and is_instance_valid(target)
+
+
+func _explosion_target_is_source(target: Enemy) -> bool:
+	return target == self
+
+
+func _explosion_target_is_armed(target: Enemy) -> bool:
+	return target != null and is_instance_valid(target) and target.is_armed()
+
+
+func _explosion_target_is_alive(target: Enemy) -> bool:
+	return target != null and is_instance_valid(target) and target.is_alive()
+
+
+func _explosion_target_position(target: Node2D) -> Vector2:
+	if not _explosion_target_is_valid(target):
+		return Vector2.ZERO
+	return target.global_position
+
+
+func _explosion_target_spawn_serial(target: Enemy) -> int:
+	return (
+		target.runtime_spawn_serial()
+		if target != null and is_instance_valid(target)
+		else 0
+	)
+
+
+func _apply_explosion_damage(
+	base_damage: float,
+	element_id: String,
+	target: Node2D
+) -> ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.DamageResult:
+	var damage: Dictionary = _apply_attack_damage_values_to_target(
+		target,
+		base_damage,
+		element_id
+	)
+	var result: ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.DamageResult = (
+		ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT.DamageResult.new()
+	)
+	result.applied = bool(damage.get("applied", false))
+	result.amount = float(damage.get("amount", 0.0))
+	result.defeated = bool(damage.get("defeated", false))
+	result.reason = String(damage.get("reason", ""))
+	return result
+
+
+func _finish_explosion() -> void:
 	_life_points = 0.0
 	_finish_defeat(
 		false,
@@ -1701,8 +1807,13 @@ func _detonate_exploder() -> void:
 	)
 
 
-func _enemy_spawn_serial_less(left: Enemy, right: Enemy) -> bool:
-	return left.runtime_spawn_serial() < right.runtime_spawn_serial()
+func _can_debug_drive_explosion_attack() -> bool:
+	return (
+		OS.is_debug_build()
+		and _brain.has_action(
+			ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+		)
+	)
 
 
 func _emit_attack_windup(remaining: float) -> void:

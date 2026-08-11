@@ -2464,7 +2464,10 @@ func _expect_explicit_enemy_attacks(
 				})
 		)
 
-	first.call("_arm_explosion", false)
+	_expect(
+		bool(first.call("debug_arm_explosion_for_test", false)),
+		"exploder should arm through the typed debug seam"
+	)
 	_expect(bool(first.call("is_armed")), "exploder should become armed immediately")
 	var frozen_windup: float = float(
 		(first.call("snapshot") as Dictionary).get("action_timer", 0.0)
@@ -2984,8 +2987,17 @@ func _expect_explosion_terrain_blocking(
 	victim.set_physics_process(false)
 	var defense_before: float = _player_total_defense(player)
 	var victim_life_before: float = float(victim.call("current_life"))
-	source.call("_arm_explosion", false)
-	source.call("_update_armed_state", 0.65)
+	_expect(
+		bool(source.call("debug_arm_explosion_for_test", false)),
+		"terrain-blocked explosion should arm through the typed debug seam"
+	)
+	_expect(
+		bool(source.call(
+			"debug_advance_explosion_for_test",
+			0.65
+		)),
+		"terrain-blocked explosion should advance through the typed debug seam"
+	)
 	_expect(
 		is_equal_approx(
 			_player_total_defense(player),
@@ -3176,8 +3188,17 @@ func _expect_world_event_defense_targeting(
 		exploder.set_physics_process(false)
 		var target_before: float = target.current_health()
 		var player_before: float = _player_total_defense(player)
-		exploder.call("_arm_explosion", false)
-		exploder.call("_update_armed_state", 0.7)
+		_expect(
+			bool(exploder.call("debug_arm_explosion_for_test", false)),
+			"event explosion should arm through the typed debug seam"
+		)
+		_expect(
+			bool(exploder.call(
+				"debug_advance_explosion_for_test",
+				0.7
+			)),
+			"event explosion should advance through the typed debug seam"
+		)
 		_expect(
 			target.current_health() < target_before,
 			"event explosion should damage the defense target"
@@ -3198,7 +3219,13 @@ func _expect_world_event_defense_targeting(
 	)
 	if committed_exploder != null:
 		committed_exploder.set_physics_process(false)
-		committed_exploder.call("_arm_explosion", false)
+		_expect(
+			bool(committed_exploder.call(
+				"debug_arm_explosion_for_test",
+				false
+			)),
+			"committed event exploder should arm through the typed debug seam"
+		)
 		var armed_before: Dictionary = (
 			committed_exploder.call("ai_debug_summary") as Dictionary
 		)
@@ -4714,7 +4741,13 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var saved_attack_reward: Dictionary = {}
 	if saved_attack_enemy != null:
 		saved_attack_enemy.set_physics_process(false)
-		saved_attack_enemy.call("_arm_explosion", false)
+		_expect(
+			bool(saved_attack_enemy.call(
+				"debug_arm_explosion_for_test",
+				false
+			)),
+			"saved exploder should arm through the typed debug seam"
+		)
 		saved_attack_serial = int(
 			saved_attack_enemy.call("runtime_spawn_serial")
 		)
