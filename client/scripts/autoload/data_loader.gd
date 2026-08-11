@@ -55,6 +55,9 @@ const ENEMY_REWARD_MODEL_VALIDATOR := preload(
 const LEVEL_PROGRESSION_VALIDATOR := preload(
 	"res://scripts/data/level_progression_validator.gd"
 )
+const REWARD_CHOICE_POOL_VALIDATOR := preload(
+	"res://scripts/data/reward_choice_pool_validator.gd"
+)
 const DIFFICULTY_PROFILE_VALIDATOR := preload(
 	"res://scripts/data/difficulty_profile_validator.gd"
 )
@@ -4150,61 +4153,53 @@ func _report_level_progression_failure(
 
 func _validate_reward_choice_pools(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(REWARD_CHOICE_POOLS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(REWARD_CHOICE_POOLS_PATH, "root", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_exact_int(REWARD_CHOICE_POOLS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var pools: Array = _require_array(REWARD_CHOICE_POOLS_PATH, "pools", payload.get("pools"))
-	var pool_ids: Dictionary = {}
-	_last_schema_counts["reward_choice_pools"] = pools.size()
-	for pool_index: int in range(pools.size()):
-		var pool_field: String = "pools[%d]" % pool_index
-		var pool: Variant = pools[pool_index]
-		if not pool is Dictionary:
-			is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, pool_field, "Dictionary") and is_valid
-			continue
-		var pool_dict: Dictionary = pool as Dictionary
-		is_valid = _require_non_empty_string(REWARD_CHOICE_POOLS_PATH, "%s.id" % pool_field, pool_dict.get("id")) and is_valid
-		var pool_id: String = String(pool_dict.get("id", ""))
-		if not pool_id.is_empty():
-			if pool_ids.has(pool_id):
-				is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, "%s.id" % pool_field, "unique pool id") and is_valid
-			pool_ids[pool_id] = true
-		var entries: Array = _require_array(REWARD_CHOICE_POOLS_PATH, "%s.entries" % pool_field, pool_dict.get("entries"))
-		var entry_ids: Dictionary = {}
-		for entry_index: int in range(entries.size()):
-			var entry_field: String = "%s.entries[%d]" % [pool_field, entry_index]
-			var entry: Variant = entries[entry_index]
-			if not entry is Dictionary:
-				is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, entry_field, "Dictionary") and is_valid
-				continue
-			var entry_dict: Dictionary = entry as Dictionary
-			is_valid = _require_non_empty_string(REWARD_CHOICE_POOLS_PATH, "%s.id" % entry_field, entry_dict.get("id")) and is_valid
-			is_valid = _require_locale_key(REWARD_CHOICE_POOLS_PATH, "%s.name_key" % entry_field, entry_dict.get("name_key"), locale_keys) and is_valid
-			is_valid = _require_locale_key(REWARD_CHOICE_POOLS_PATH, "%s.desc_key" % entry_field, entry_dict.get("desc_key"), locale_keys) and is_valid
-			var entry_id: String = String(entry_dict.get("id", ""))
-			if not entry_id.is_empty():
-				if entry_ids.has(entry_id):
-					is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, "%s.id" % entry_field, "unique entry id") and is_valid
-				entry_ids[entry_id] = true
-			var kind: String = String(entry_dict.get("kind", ""))
-			is_valid = _require_non_empty_string(
-				REWARD_CHOICE_POOLS_PATH,
-				"%s.kind" % entry_field,
-				entry_dict.get("kind")
-			) and is_valid
-			if kind != "stat_modifier":
-				is_valid = _schema_fail(
-					REWARD_CHOICE_POOLS_PATH,
-					"%s.kind" % entry_field,
-					"stat_modifier"
-				) and is_valid
-			is_valid = _require_int(REWARD_CHOICE_POOLS_PATH, "%s.weight" % entry_field, entry_dict.get("weight"), 1) and is_valid
-			if entry_dict.has("min_level"):
-				is_valid = _require_int(REWARD_CHOICE_POOLS_PATH, "%s.min_level" % entry_field, entry_dict.get("min_level"), 1) and is_valid
-			is_valid = _validate_modifiers(REWARD_CHOICE_POOLS_PATH, "%s.modifiers" % entry_field, entry_dict.get("modifiers"), false) and is_valid
-	return is_valid
+	var validation_result: REWARD_CHOICE_POOL_VALIDATOR.ValidationResult = (
+		REWARD_CHOICE_POOL_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_reward_choice_locale_key").bind(
+				locale_keys
+			),
+			Callable(self, "_validate_reward_choice_modifiers"),
+			Callable(self, "_report_reward_choice_pool_failure")
+		)
+	)
+	if data is Dictionary:
+		_last_schema_counts["reward_choice_pools"] = (
+			validation_result.pool_count
+		)
+	return validation_result.is_valid
+
+
+func _require_reward_choice_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		REWARD_CHOICE_POOLS_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
+
+
+func _validate_reward_choice_modifiers(
+	field_path: String,
+	data: Variant
+) -> bool:
+	return _validate_modifiers(
+		REWARD_CHOICE_POOLS_PATH,
+		field_path,
+		data,
+		false
+	)
+
+
+func _report_reward_choice_pool_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(REWARD_CHOICE_POOLS_PATH, field_path, expected)
 
 
 func _validate_enemy_rewards_json() -> bool:

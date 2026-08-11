@@ -1754,7 +1754,7 @@ enemy_swarm,gear_mod_grid_rock,0.05,1,999
 
 | 字段路径 | 类型 | 范围 | 说明 |
 |----------|------|------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 固定 `1` | 数据结构版本 |
 | `pools[].id` | string | 非空，文件内唯一 | 通用奖励池 id；由发起请求的调用方显式指定 |
 | `pools[].entries` | array[object] | 可为空 | 候选条目列表；当前只落 `stat_modifier` 黄金样例 |
 | `entries[].id` | string | 非空，池内唯一 | 候选条目 id；用于回放记录和诊断 |
