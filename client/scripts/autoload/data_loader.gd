@@ -52,6 +52,9 @@ const CAMERA_FEEDBACK_VALIDATOR := preload(
 const CREDITS_VALIDATOR := preload(
 	"res://scripts/data/credits_validator.gd"
 )
+const ELEMENT_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/element_catalog_validator.gd"
+)
 const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 	"res://scripts/data/gear_mod_drop_table_validator.gd"
 )
@@ -1127,126 +1130,59 @@ func _validate_csv_profile_references(
 
 func _validate_elements_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(ELEMENTS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(ELEMENTS_PATH, "root", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_exact_int(
+	var result: ELEMENT_CATALOG_VALIDATOR.ValidationResult = (
+		ELEMENT_CATALOG_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_element_catalog_locale_key").bind(
+				locale_keys
+			),
+			Callable(self, "_require_element_catalog_id"),
+			Callable(self, "_list_registered_element_catalog_ids"),
+			Callable(self, "_report_element_catalog_failure")
+		)
+	)
+	if data is Dictionary:
+		_last_schema_counts["elements"] = result.element_count
+		_last_schema_counts["element_combinations"] = (
+			result.combination_count
+		)
+	return result.is_valid
+
+
+func _require_element_catalog_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
 		ELEMENTS_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		1
-	) and is_valid
-	is_valid = _require_registered(
+		field_path,
+		value,
+		locale_keys
+	)
+
+
+func _require_element_catalog_id(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
 		ELEMENTS_PATH,
-		"neutral_element_id",
-		payload.get("neutral_element_id"),
+		field_path,
+		value,
 		"elements"
-	) != "" and is_valid
-	if not payload.get("unmatched_result") is String:
-		is_valid = _schema_fail(
-			ELEMENTS_PATH,
-			"unmatched_result",
-			"String"
-		) and is_valid
-	var elements: Array = _require_array(
-		ELEMENTS_PATH,
-		"elements",
-		payload.get("elements")
 	)
-	var seen: Dictionary = {}
-	_last_schema_counts["elements"] = elements.size()
-	for index: int in range(elements.size()):
-		var field: String = "elements[%d]" % index
-		var raw_element: Variant = elements[index]
-		if not raw_element is Dictionary:
-			is_valid = _schema_fail(ELEMENTS_PATH, field, "Dictionary") and is_valid
-			continue
-		var element: Dictionary = raw_element as Dictionary
-		var element_id: String = _require_registered(
-			ELEMENTS_PATH,
-			"%s.id" % field,
-			element.get("id"),
-			"elements"
-		)
-		if not element_id.is_empty():
-			if seen.has(element_id):
-				is_valid = _schema_fail(
-					ELEMENTS_PATH,
-					"%s.id" % field,
-					"unique element id"
-				) and is_valid
-			seen[element_id] = true
-		is_valid = _require_locale_key(
-			ELEMENTS_PATH,
-			"%s.name_key" % field,
-			element.get("name_key"),
-			locale_keys
-		) and is_valid
-		var kind: String = String(element.get("kind", ""))
-		if not ["neutral", "primary", "composite"].has(kind):
-			is_valid = _schema_fail(
-				ELEMENTS_PATH,
-				"%s.kind" % field,
-				"neutral, primary, or composite"
-			) and is_valid
-		is_valid = _validate_registered_string_array(
-			ELEMENTS_PATH,
-			"%s.components" % field,
-			element.get("components", []),
-			"elements",
-			true
-		) and is_valid
-	for registered_element: Variant in contract_values("elements"):
-		if not seen.has(String(registered_element)):
-			is_valid = _schema_fail(
-				ELEMENTS_PATH,
-				"elements",
-				"definition for %s" % String(registered_element)
-			) and is_valid
-	var combinations: Array = _require_array(
-		ELEMENTS_PATH,
-		"combinations",
-		payload.get("combinations")
-	)
-	var seen_pairs: Dictionary = {}
-	for index: int in range(combinations.size()):
-		var field: String = "combinations[%d]" % index
-		var raw_combination: Variant = combinations[index]
-		if not raw_combination is Dictionary:
-			is_valid = _schema_fail(ELEMENTS_PATH, field, "Dictionary") and is_valid
-			continue
-		var combination: Dictionary = raw_combination as Dictionary
-		var left: String = _require_registered(
-			ELEMENTS_PATH,
-			"%s.left" % field,
-			combination.get("left"),
-			"elements"
-		)
-		var right: String = _require_registered(
-			ELEMENTS_PATH,
-			"%s.right" % field,
-			combination.get("right"),
-			"elements"
-		)
-		is_valid = _require_registered(
-			ELEMENTS_PATH,
-			"%s.result" % field,
-			combination.get("result"),
-			"elements"
-		) != "" and is_valid
-		var pair: Array[String] = [left, right]
-		pair.sort()
-		var pair_key: String = "|".join(pair)
-		if not pair_key.is_empty() and seen_pairs.has(pair_key):
-			is_valid = _schema_fail(
-				ELEMENTS_PATH,
-				field,
-				"unique unordered element pair"
-			) and is_valid
-		seen_pairs[pair_key] = true
-	_last_schema_counts["element_combinations"] = combinations.size()
-	return is_valid
+
+
+func _list_registered_element_catalog_ids() -> Array:
+	return contract_values("elements")
+
+
+func _report_element_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(ELEMENTS_PATH, field_path, expected)
 
 
 func _validate_hero_passives_json(locale_keys: Dictionary) -> bool:
