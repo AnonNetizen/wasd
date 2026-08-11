@@ -48,6 +48,9 @@ const CONSUMABLE_CATALOG_VALIDATOR := preload(
 const CAMERA_FEEDBACK_VALIDATOR := preload(
 	"res://scripts/data/camera_feedback_validator.gd"
 )
+const CHARACTER_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/character_catalog_validator.gd"
+)
 const CREDITS_VALIDATOR := preload(
 	"res://scripts/data/credits_validator.gd"
 )
@@ -1273,231 +1276,89 @@ func _validate_characters_json(
 	hero_passive_ids: Dictionary
 ) -> bool:
 	var data: Variant = load_json(CHARACTERS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(CHARACTERS_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_exact_int(
-		CHARACTERS_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		4
-	) and is_valid
-	var characters: Array = _require_array(CHARACTERS_PATH, "characters", payload.get("characters"))
-	if characters.is_empty():
-		is_valid = _schema_fail(CHARACTERS_PATH, "characters", "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	_last_schema_counts["characters"] = characters.size()
-	for index: int in range(characters.size()):
-		var field: String = "characters[%d]" % index
-		var character: Variant = characters[index]
-		if not character is Dictionary:
-			is_valid = _schema_fail(CHARACTERS_PATH, field, "Dictionary") and is_valid
-			continue
-		var character_dict: Dictionary = character as Dictionary
-		var character_id: String = _require_registered(CHARACTERS_PATH, "%s.id" % field, character_dict.get("id"), "character_ids")
-		if not character_id.is_empty():
-			if seen.has(character_id):
-				is_valid = _schema_fail(CHARACTERS_PATH, "%s.id" % field, "unique character id") and is_valid
-			seen[character_id] = true
-		is_valid = _validate_actor_scene_path(
-			CHARACTERS_PATH,
-			"%s.scene_path" % field,
-			character_dict.get("scene_path"),
-			"res://scenes/gameplay/actors/characters/"
-		) and is_valid
-		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.name_key" % field, character_dict.get("name_key"), locale_keys) and is_valid
-		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.desc_key" % field, character_dict.get("desc_key"), locale_keys) and is_valid
-		if character_dict.has("default_unlocked"):
-			is_valid = _require_bool(
-				CHARACTERS_PATH,
-				"%s.default_unlocked" % field,
-				character_dict.get("default_unlocked")
-			) and is_valid
-		var tags: Array = _require_array(CHARACTERS_PATH, "%s.tags" % field, character_dict.get("tags"))
-		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
-		if not tags.has("tag_character"):
-			is_valid = _schema_fail(CHARACTERS_PATH, "%s.tags" % field, "tag_character") and is_valid
-		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.capabilities" % field, character_dict.get("capabilities", []), "capabilities", true) and is_valid
-		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.control_profile" % field, character_dict.get("control_profile")) and is_valid
-		is_valid = _require_registered(
-			CHARACTERS_PATH,
-			"%s.element_id" % field,
-			character_dict.get("element_id"),
-			"elements"
-		) != "" and is_valid
-		var passive_id: String = _require_registered(
-			CHARACTERS_PATH,
-			"%s.passive_id" % field,
-			character_dict.get("passive_id"),
-			"hero_passive_ids"
-		)
-		if not passive_id.is_empty() and not hero_passive_ids.has(passive_id):
-			is_valid = _schema_fail(
-				CHARACTERS_PATH,
-				"%s.passive_id" % field,
-				"passive defined in hero_passives.json"
-			) and is_valid
-		var hero_skill_ids: Array = _require_array(
-			CHARACTERS_PATH,
-			"%s.hero_skill_ids" % field,
-			character_dict.get("hero_skill_ids")
-		)
-		if hero_skill_ids.size() != 2:
-			is_valid = _schema_fail(
-				CHARACTERS_PATH,
-				"%s.hero_skill_ids" % field,
-				"Array with exactly two skill ids"
-			) and is_valid
-		var seen_hero_skills: Dictionary = {}
-		for skill_index: int in range(hero_skill_ids.size()):
-			var skill_field: String = "%s.hero_skill_ids[%d]" % [
-				field,
-				skill_index,
-			]
-			var skill_id: String = _require_registered(
-				CHARACTERS_PATH,
-				skill_field,
-				hero_skill_ids[skill_index],
-				"skill_ids"
-			)
-			if skill_id.is_empty():
-				is_valid = false
-				continue
-			if seen_hero_skills.has(skill_id):
-				is_valid = _schema_fail(
-					CHARACTERS_PATH,
-					skill_field,
-					"unique hero skill id"
-				) and is_valid
-			seen_hero_skills[skill_id] = true
-			if not skill_ids.has(skill_id):
-				is_valid = _schema_fail(
-					CHARACTERS_PATH,
-					skill_field,
-					"skill defined in skills.json"
-				) and is_valid
-		is_valid = _validate_character_palette(
-			"%s.palette" % field,
-			character_dict.get("palette")
-		) and is_valid
-		is_valid = _validate_character_starting_loadout(
-			"%s.starting_loadout" % field,
-			character_dict.get("starting_loadout"),
+	var result: CHARACTER_CATALOG_VALIDATOR.ValidationResult = (
+		CHARACTER_CATALOG_VALIDATOR.validate(
+			data,
 			weapon_ids,
 			active_item_ids,
-			consumable_ids
-		) and is_valid
-		is_valid = _validate_character_skill_resources("%s.skill_resources" % field, character_dict.get("skill_resources", [])) and is_valid
-		var base_stats: Variant = character_dict.get("base_stats")
-		if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
-			is_valid = _schema_fail(CHARACTERS_PATH, "%s.base_stats" % field, "non-empty Dictionary") and is_valid
-		else:
-			var stats_dict: Dictionary = base_stats as Dictionary
-			for stat_key: Variant in stats_dict.keys():
-				var stat: String = String(stat_key)
-				is_valid = _validate_stat_value(CHARACTERS_PATH, "%s.base_stats.%s" % [field, stat], stat, stats_dict[stat_key]) and is_valid
-	return is_valid
-
-
-func _validate_character_palette(field: String, data: Variant) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(CHARACTERS_PATH, field, "Dictionary")
-	var palette: Dictionary = data as Dictionary
-	var is_valid: bool = _validate_exact_dictionary_keys(
-		CHARACTERS_PATH,
-		field,
-		palette,
-		["primary"]
-	)
-	var primary: Variant = palette.get("primary")
-	is_valid = _require_non_empty_string(
-		CHARACTERS_PATH,
-		"%s.primary" % field,
-		primary
-	) and is_valid
-	if primary is String and not Color.html_is_valid(String(primary)):
-		is_valid = _schema_fail(
-			CHARACTERS_PATH,
-			"%s.primary" % field,
-			"valid HTML color"
-		) and is_valid
-	return is_valid
-
-
-func _validate_character_starting_loadout(
-	field: String,
-	data: Variant,
-	weapon_ids: Dictionary,
-	active_item_ids: Dictionary,
-	consumable_ids: Dictionary
-) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(CHARACTERS_PATH, field, "Dictionary")
-	var loadout: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	var weapon_id: String = String(loadout.get("weapon_id", ""))
-	is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.weapon_id" % field, loadout.get("weapon_id")) and is_valid
-	if not weapon_id.is_empty() and not weapon_ids.has(weapon_id):
-		is_valid = _schema_fail(CHARACTERS_PATH, "%s.weapon_id" % field, "weapon defined in weapons.json") and is_valid
-	var active_item_id: String = String(loadout.get("active_item_id", ""))
-	is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.active_item_id" % field, loadout.get("active_item_id")) and is_valid
-	if not active_item_id.is_empty() and not active_item_ids.has(active_item_id):
-		is_valid = _schema_fail(CHARACTERS_PATH, "%s.active_item_id" % field, "active item defined in active_items.json") and is_valid
-	var starting_consumables: Array = _require_array(CHARACTERS_PATH, "%s.consumable_ids" % field, loadout.get("consumable_ids"))
-	var seen_consumables: Dictionary = {}
-	for index: int in range(starting_consumables.size()):
-		var item_field: String = "%s.consumable_ids[%d]" % [field, index]
-		var consumable_id: String = String(starting_consumables[index])
-		is_valid = _require_non_empty_string(CHARACTERS_PATH, item_field, starting_consumables[index]) and is_valid
-		if not consumable_id.is_empty():
-			if seen_consumables.has(consumable_id):
-				is_valid = _schema_fail(CHARACTERS_PATH, item_field, "unique consumable id") and is_valid
-			seen_consumables[consumable_id] = true
-			if not consumable_ids.has(consumable_id):
-				is_valid = _schema_fail(CHARACTERS_PATH, item_field, "consumable defined in consumables.json") and is_valid
-	if loadout.has("skill_ids"):
-		is_valid = _schema_fail(
-			CHARACTERS_PATH,
-			"%s.skill_ids" % field,
-			"removed field; use character.hero_skill_ids"
-		) and is_valid
-	return is_valid
-
-
-func _validate_character_skill_resources(field: String, data: Variant) -> bool:
-	var resources: Array = _require_array(CHARACTERS_PATH, field, data)
-	var is_valid: bool = true
-	var seen: Dictionary = {}
-	for index: int in range(resources.size()):
-		var resource_field: String = "%s[%d]" % [field, index]
-		var resource: Variant = resources[index]
-		if not resource is Dictionary:
-			is_valid = _schema_fail(CHARACTERS_PATH, resource_field, "Dictionary") and is_valid
-			continue
-		var resource_dict: Dictionary = resource as Dictionary
-		var resource_id: String = _require_registered(CHARACTERS_PATH, "%s.id" % resource_field, resource_dict.get("id"), "skill_resources")
-		if not resource_id.is_empty():
-			if seen.has(resource_id):
-				is_valid = _schema_fail(CHARACTERS_PATH, "%s.id" % resource_field, "unique skill resource id") and is_valid
-			seen[resource_id] = true
-		var max_stat: String = _require_registered(
-			CHARACTERS_PATH,
-			"%s.max_stat" % resource_field,
-			resource_dict.get("max_stat"),
-			"stats"
+			consumable_ids,
+			skill_ids,
+			hero_passive_ids,
+			Callable(self, "_require_character_contract_value"),
+			Callable(self, "_validate_character_actor_scene_path"),
+			Callable(self, "_require_character_locale_key").bind(
+				locale_keys
+			),
+			Callable(self, "_validate_character_stat_value"),
+			Callable(self, "_report_character_catalog_failure")
 		)
-		is_valid = not max_stat.is_empty() and is_valid
-		is_valid = _require_number(
-			CHARACTERS_PATH,
-			"%s.start_ratio" % resource_field,
-			resource_dict.get("start_ratio"),
-			0.0,
-			1.0
-		) and is_valid
-		is_valid = _require_number(CHARACTERS_PATH, "%s.regen_per_second" % resource_field, resource_dict.get("regen_per_second"), 0.0) and is_valid
-	return is_valid
+	)
+	if data is Dictionary:
+		_last_schema_counts["characters"] = result.character_count
+	return result.is_valid
+
+
+func _require_character_contract_value(
+	field_path: String,
+	value: Variant,
+	contract_id: String
+) -> String:
+	return _require_registered(
+		CHARACTERS_PATH,
+		field_path,
+		value,
+		contract_id
+	)
+
+
+func _validate_character_actor_scene_path(
+	field_path: String,
+	value: Variant,
+	required_prefix: String
+) -> bool:
+	return _validate_actor_scene_path(
+		CHARACTERS_PATH,
+		field_path,
+		value,
+		required_prefix
+	)
+
+
+func _require_character_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		CHARACTERS_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
+
+
+func _validate_character_stat_value(
+	field_path: String,
+	stat_id: String,
+	value: Variant
+) -> bool:
+	return _validate_stat_value(
+		CHARACTERS_PATH,
+		field_path,
+		stat_id,
+		value
+	)
+
+
+func _report_character_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(
+		CHARACTERS_PATH,
+		field_path,
+		expected
+	)
 
 
 func _validate_weapons_json(locale_keys: Dictionary) -> bool:
