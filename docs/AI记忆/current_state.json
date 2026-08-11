@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-11",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前三阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataSourceReader、DataReferenceIndexBuilder、PlayerDataValidator、HazardCatalogValidator、ActiveItemCatalogValidator、ConsumableCatalogValidator、GearModDropTableValidator、LevelProgressionValidator、RewardChoicePoolValidator、DifficultyProfileValidator、EnemyRewardModelValidator、CameraFeedbackValidator、CreditsValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain、EnemyActionRuntime、EnemyRangedAttackHandler / EnemyProjectileMaterializer、EnemyMeleeAttackHandler、EnemyChargeAttackHandler、EnemyExplosionAttackHandler、EnemyDamageHandler 与 ModuleWorldLayout 三十个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步优先提取 HeroPassiveCatalogValidator 与严格限定为导航意图 / 缓存的 EnemyNavigationRuntime；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前三阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataSourceReader、DataReferenceIndexBuilder、PlayerDataValidator、HazardCatalogValidator、ActiveItemCatalogValidator、ConsumableCatalogValidator、HeroPassiveCatalogValidator、GearModDropTableValidator、LevelProgressionValidator、RewardChoicePoolValidator、DifficultyProfileValidator、EnemyRewardModelValidator、CameraFeedbackValidator、CreditsValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain、EnemyActionRuntime、EnemyRangedAttackHandler / EnemyProjectileMaterializer、EnemyMeleeAttackHandler、EnemyChargeAttackHandler、EnemyExplosionAttackHandler、EnemyDamageHandler 与 ModuleWorldLayout 三十一个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。EnemyNavigationRuntime 正在收口；下一 DataLoader 候选为 ElementCatalogValidator。人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / DataLoader 英雄被动目录校验切片：新增纯 HeroPassiveCatalogValidator 与 typed ValidationResult，保持 root 硬返回、exact int-like schema 1、passives / id 历史 aggregate-bool 缺口、locale / passive-id / effect / element adapters、params 局部短路与 multiplier 边界；DataLoader 保留两次独立 Mod-aware 读取、elements 后 / weapons 前调用位置与 Dictionary root count。",
     "ADR #197 / DataLoader 消耗品目录校验切片：新增纯 ConsumableCatalogValidator 与 typed ValidationResult，保持 item source-order、locale / tag / effect adapters、stack / use effects 边界、unknown-tag 有诊断但 bool 不变的历史缺口；DataLoader 保留三次独立读取、ActiveItem 索引后 / Skills 前调用位置与 Dictionary root count。",
     "ADR #197 / Enemy 受伤决策与击杀归因：新增无状态 EnemyDamageHandler，以 typed request、惰性 source / amount ports 与 typed result 保持 armed / dead / friendly-fire 短路、生命计算、chain / hit / defeat follow-up、四键结果顺序及 kill / reward / cause 归因；Enemy 保留 Combat 动态入口、生命写入、chain arm、feedback、defeat / presentation / pool 与 Run v19 23-key façade。",
     "ADR #197 / DataLoader 主动道具目录校验切片：新增纯 ActiveItemCatalogValidator 与 typed ValidationResult，保持 item source-order、locale / tag / effect adapters、charge / use effects 边界、unknown-tag 有诊断但 bool 不变的历史缺口；DataLoader 保留三次独立读取、调用位置与 Dictionary root count。",
@@ -219,7 +220,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "继续 ADR #197 的协议不变渐进拆分：三十个渐进提取点已完成；下一独立切片优先提取 HeroPassiveCatalogValidator，并将 Enemy 下一边界严格限定为只持有导航 provider / mode / waypoint 的 EnemyNavigationRuntime，不搬 CharacterBody 位移、速度、边界或攻击顺序。",
+    "继续 ADR #197 的协议不变渐进拆分：三十一个渐进提取点已完成；EnemyNavigationRuntime 正在收口，继续严格限定为只持有导航 provider / mode / waypoint，不搬 CharacterBody 位移、速度、边界或攻击顺序；下一 DataLoader 候选为 ElementCatalogValidator。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",
@@ -267,6 +268,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-11",
+      "command": "targeted GDScript, project and semantic lint; HeroPassiveCatalogValidator target and shared full GUT; contracts; validate_data; test_data_loader_schema --jobs 1; shared mod-loader, L1, actor-scene, runtime, loading, codex, module-world, module-world-technical-slice, save and Replay smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and scoped diff checks; independent factual code review",
+      "result": "passed for ADR #197 HeroPassiveCatalogValidator extraction across the six owned files client/scripts/autoload/data_loader.gd, client/scripts/data/hero_passive_catalog_validator.gd plus .uid, client/tests/unit/test_hero_passive_catalog_validator.gd plus .uid, and docs/代码/data_loader.md. The pure typed validator preserves root hard return, exact int-like schema 1 including 1.0, normalization of non-Array passives to an empty Array without lowering aggregate validity, empty Arrays, normalized count, non-Dictionary item failure and continuation, diagnostic-only empty or unregistered IDs outside duplicate tracking, valid-ID duplicate failure, id/name/description/effect/params/element/multiplier order, non-short-circuit locale and effect diagnostics, params-local short circuit, element failure followed by multiplier validation, finite inclusive 0..1 multiplier, and ignored extra fields. DataLoader retains HERO_PASSIVES_PATH, two independent Mod-aware reads, adapters, elements then validation then second reference-index read then weapons, and Dictionary-root count. The target passes 10/10 and shared full GUT passes 289/289 with 2311 assertions; JUnit is 289/0/0. All listed shared smokes and headless pass, and Replay regression passes 4/4 without rewriting goldens. Independent review found Critical=0, High=0 and Medium=0. EnemyNavigationRuntime remains in progress; the next DataLoader candidate is ElementCatalogValidator. No performance probe or manual acceptance ran."
+    },
     {
       "date": "2026-08-11",
       "command": "targeted GDScript, project and semantic lint; ConsumableCatalogValidator unit and shared full GUT; contracts; validate_data; test_data_loader_schema --jobs 1; isolated mod-loader, L1 and Replay smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and diff checks; independent factual code review",

@@ -58,6 +58,9 @@ const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 const HAZARD_CATALOG_VALIDATOR := preload(
 	"res://scripts/data/hazard_catalog_validator.gd"
 )
+const HERO_PASSIVE_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/hero_passive_catalog_validator.gd"
+)
 const ENEMY_REWARD_MODEL_VALIDATOR := preload(
 	"res://scripts/data/enemy_reward_model_validator.gd"
 )
@@ -1248,89 +1251,77 @@ func _validate_elements_json(locale_keys: Dictionary) -> bool:
 
 func _validate_hero_passives_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(HERO_PASSIVES_PATH)
-	if not data is Dictionary:
-		return _schema_fail(HERO_PASSIVES_PATH, "root", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_exact_int(
-		HERO_PASSIVES_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		1
-	) and is_valid
-	var passives: Array = _require_array(
-		HERO_PASSIVES_PATH,
-		"passives",
-		payload.get("passives")
-	)
-	var seen: Dictionary = {}
-	_last_schema_counts["hero_passives"] = passives.size()
-	for index: int in range(passives.size()):
-		var field: String = "passives[%d]" % index
-		var raw_passive: Variant = passives[index]
-		if not raw_passive is Dictionary:
-			is_valid = _schema_fail(
-				HERO_PASSIVES_PATH,
-				field,
-				"Dictionary"
-			) and is_valid
-			continue
-		var passive: Dictionary = raw_passive as Dictionary
-		var passive_id: String = _require_registered(
-			HERO_PASSIVES_PATH,
-			"%s.id" % field,
-			passive.get("id"),
-			"hero_passive_ids"
+	var result: HERO_PASSIVE_CATALOG_VALIDATOR.ValidationResult = (
+		HERO_PASSIVE_CATALOG_VALIDATOR.validate(
+			data,
+			Callable(self, "_require_hero_passive_locale_key").bind(
+				locale_keys
+			),
+			Callable(self, "_require_hero_passive_id"),
+			Callable(self, "_require_hero_passive_effect"),
+			Callable(self, "_require_hero_passive_element"),
+			Callable(self, "_report_hero_passive_catalog_failure")
 		)
-		if not passive_id.is_empty():
-			if seen.has(passive_id):
-				is_valid = _schema_fail(
-					HERO_PASSIVES_PATH,
-					"%s.id" % field,
-					"unique passive id"
-				) and is_valid
-			seen[passive_id] = true
-		is_valid = _require_locale_key(
-			HERO_PASSIVES_PATH,
-			"%s.name_key" % field,
-			passive.get("name_key"),
-			locale_keys
-		) and is_valid
-		is_valid = _require_locale_key(
-			HERO_PASSIVES_PATH,
-			"%s.desc_key" % field,
-			passive.get("desc_key"),
-			locale_keys
-		) and is_valid
-		is_valid = _require_registered(
-			HERO_PASSIVES_PATH,
-			"%s.effect" % field,
-			passive.get("effect"),
-			"effects"
-		) != "" and is_valid
-		var params: Variant = passive.get("params")
-		if not params is Dictionary:
-			is_valid = _schema_fail(
-				HERO_PASSIVES_PATH,
-				"%s.params" % field,
-				"Dictionary"
-			) and is_valid
-			continue
-		var params_dict: Dictionary = params as Dictionary
-		is_valid = _require_registered(
-			HERO_PASSIVES_PATH,
-			"%s.params.element_id" % field,
-			params_dict.get("element_id"),
-			"elements"
-		) != "" and is_valid
-		is_valid = _require_number(
-			HERO_PASSIVES_PATH,
-			"%s.params.multiplier" % field,
-			params_dict.get("multiplier"),
-			0.0,
-			1.0
-		) and is_valid
-	return is_valid
+	)
+	if data is Dictionary:
+		_last_schema_counts["hero_passives"] = result.passive_count
+	return result.is_valid
+
+
+func _require_hero_passive_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		HERO_PASSIVES_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
+
+
+func _require_hero_passive_id(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		HERO_PASSIVES_PATH,
+		field_path,
+		value,
+		"hero_passive_ids"
+	)
+
+
+func _require_hero_passive_effect(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		HERO_PASSIVES_PATH,
+		field_path,
+		value,
+		"effects"
+	)
+
+
+func _require_hero_passive_element(
+	field_path: String,
+	value: Variant
+) -> String:
+	return _require_registered(
+		HERO_PASSIVES_PATH,
+		field_path,
+		value,
+		"elements"
+	)
+
+
+func _report_hero_passive_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(HERO_PASSIVES_PATH, field_path, expected)
 
 
 func _validate_characters_json(
