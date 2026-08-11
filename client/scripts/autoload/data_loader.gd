@@ -37,6 +37,9 @@ const CONTENT_UNLOCK_PROGRESS_COUNTERS := preload(
 const DATA_REFERENCE_INDEX_BUILDER := preload(
 	"res://scripts/data/data_reference_index_builder.gd"
 )
+const CAMERA_FEEDBACK_VALIDATOR := preload(
+	"res://scripts/data/camera_feedback_validator.gd"
+)
 const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 	"res://scripts/data/gear_mod_drop_table_validator.gd"
 )
@@ -629,103 +632,20 @@ func _validate_player_json() -> bool:
 
 func _validate_camera_feedback_json() -> bool:
 	var data: Variant = load_json(CAMERA_FEEDBACK_PATH)
-	if not data is Dictionary:
-		return _schema_fail(CAMERA_FEEDBACK_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(
-		CAMERA_FEEDBACK_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		3,
-		3
-	) and is_valid
-	var aim_look: Variant = payload.get("aim_look")
-	if not aim_look is Dictionary:
-		is_valid = _schema_fail(
-			CAMERA_FEEDBACK_PATH,
-			"aim_look",
-			"Dictionary"
-		) and is_valid
-	else:
-		is_valid = _validate_camera_aim_look(
-			aim_look as Dictionary
-		) and is_valid
-	for profile_id: String in [
-		"player_damage_shake",
-		"weapon_recoil_shake",
-	]:
-		var shake_data: Variant = payload.get(profile_id)
-		if not shake_data is Dictionary:
-			is_valid = _schema_fail(
-				CAMERA_FEEDBACK_PATH,
-				profile_id,
-				"Dictionary"
-			) and is_valid
-			continue
-		is_valid = _validate_camera_feedback_profile(
-			profile_id,
-			shake_data as Dictionary
-		) and is_valid
-	var recoil_profile: Variant = payload.get("weapon_recoil_shake")
-	if recoil_profile is Dictionary:
-		is_valid = _require_number(
-			CAMERA_FEEDBACK_PATH,
-			"weapon_recoil_shake.amplitude_exponent",
-			(recoil_profile as Dictionary).get("amplitude_exponent"),
-			0.0
-		) and is_valid
-	_last_schema_counts["camera_feedback_profiles"] = 2
+	var is_valid: bool = CAMERA_FEEDBACK_VALIDATOR.validate(
+		data,
+		Callable(self, "_report_camera_feedback_failure")
+	)
+	if data is Dictionary:
+		_last_schema_counts["camera_feedback_profiles"] = 2
 	return is_valid
 
 
-func _validate_camera_aim_look(profile: Dictionary) -> bool:
-	var is_valid: bool = true
-	is_valid = _require_number(
-		CAMERA_FEEDBACK_PATH,
-		"aim_look.pointer_offset_ratio",
-		profile.get("pointer_offset_ratio"),
-		0.0,
-		1.0,
-		true
-	) and is_valid
-	is_valid = _require_number(
-		CAMERA_FEEDBACK_PATH,
-		"aim_look.max_offset_px",
-		profile.get("max_offset_px"),
-		0.0
-	) and is_valid
-	is_valid = _require_number(
-		CAMERA_FEEDBACK_PATH,
-		"aim_look.pointer_dead_zone_px",
-		profile.get("pointer_dead_zone_px"),
-		0.0
-	) and is_valid
-	is_valid = _require_number(
-		CAMERA_FEEDBACK_PATH,
-		"aim_look.smoothing_time_seconds",
-		profile.get("smoothing_time_seconds"),
-		0.0,
-		null,
-		true
-	) and is_valid
-	return is_valid
-
-
-func _validate_camera_feedback_profile(
-	profile_id: String,
-	profile: Dictionary
+func _report_camera_feedback_failure(
+	field_path: String,
+	expected: String
 ) -> bool:
-	var is_valid: bool = true
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.amplitude" % profile_id, profile.get("amplitude"), 0.0) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.frequency" % profile_id, profile.get("frequency"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.growth_time" % profile_id, profile.get("growth_time"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.duration" % profile_id, profile.get("duration"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.decay_time" % profile_id, profile.get("decay_time"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.positional_multiplier_x" % profile_id, profile.get("positional_multiplier_x"), 0.0, 1.0) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.positional_multiplier_y" % profile_id, profile.get("positional_multiplier_y"), 0.0, 1.0) and is_valid
-	return is_valid
+	return _schema_fail(CAMERA_FEEDBACK_PATH, field_path, expected)
 
 
 func _validate_visual_effects_json() -> bool:

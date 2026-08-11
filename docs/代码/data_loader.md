@@ -8,12 +8,13 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 将已加载、已合并且完成坏包隔离的数据交给纯 `DataReferenceIndexBuilder` 构建跨文件校验索引；读取顺序、Mod 边界和 schema 错误仍由 `DataLoader` 持有。
+- 将已加载的相机反馈配置交给纯 `CameraFeedbackValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、调用位置、二次索引读取和 schema 计数。
 - 将包内与最终合并的 Gear Mod 掉落行交给纯 `GearModDropTableValidator` 校验；`DataLoader` 继续持有读取、错误输出、坏包禁用 / 重读和 schema 计数。
 - 将已加载的敌人金币模型交给纯 `EnemyRewardModelValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、调用位置和 schema 计数。
 - 将已加载的等级曲线交给纯 `LevelProgressionValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、校验顺序和 schema 计数。
 - 将合并后的技能、Gear Mod 与掉落表交给纯 `DataFingerprintBuilder` 归一化；`DataLoader` 只负责数据源与 Mod 环境，Replay 继续负责最终 SHA-256。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json` v3、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json` v6、`gear_mod_drop_tables.csv`、`content_unlock_rules.json`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`camera_feedback.json`、`characters.json`、`weapons.json`、`skills.json` v3、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json` v6、`gear_mod_drop_tables.csv`、`content_unlock_rules.json`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、金币交易、奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -32,17 +33,20 @@
 |------|------|
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
 | `client/scripts/data/data_reference_index_builder.gd` | 从调用方已加载的 JSON / CSV 值构建 18 类跨文件引用索引；纯、静态、无状态，不读取文件 / Mod、不输出错误、不缓存或排序 |
+| `client/scripts/data/camera_feedback_validator.gd` | 纯、静态的相机反馈 schema 校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数或引用索引 |
 | `client/scripts/data/gear_mod_drop_table_validator.gd` | 纯、静态的包内 / 合并掉落行校验；只接收现成 rows / ID 索引与错误 sink，不读文件 / Mod、不持有 Node / cache、不排序 |
 | `client/scripts/data/enemy_reward_model_validator.gd` | 纯、静态的敌人金币模型校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/level_progression_validator.gd` | 纯、静态的等级曲线校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/data_fingerprint_builder.gd` | 纯、类型化的玩法指纹 payload 归一化；不读取文件、不访问 autoload、不改变数组顺序 |
 | `client/tests/unit/test_data_reference_index_builder.gd` | 锁定引用索引的坏 root / 类型、真实 loader String 产物、strict JSON 对 `StringName` / 数字 ID 的拒绝、空 ID、插入顺序、重复折叠、别名隔离、机关半径与嵌套波次行为 |
+| `client/tests/unit/test_camera_feedback_validator.gd` | 锁定相机反馈 schema、aim / 两组 shake / 武器振幅指数的诊断顺序、嵌套 Dictionary 短路、int-like / finite / 数值边界、额外 key、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_gear_mod_drop_table_validator.gd` | 锁定掉落表边界、空表、多错误顺序、未知引用、等级范围 / 重复、包输入形状、旧静默诊断与跨调用无状态 |
 | `client/tests/unit/test_enemy_reward_model_validator.gd` | 锁定敌人金币模型的 exact-key / 字段错误顺序、int-like schema、数值 / 有限 / 范围边界、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_level_progression_validator.gd` | 锁定等级曲线有效 / 边界 root、字段错误文本与顺序、int-like 浮点、跨字段关系、额外 root key、错误 sink 参数和跨调用无状态 |
 | `client/scripts/autoload/mod_loader.gd` | 本地 mod manifest 扫描与数据 patch 合并入口 |
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
 | `client/data/player.json` | schema v4 玩家统一身体半径、基础属性、防御、冲刺与掉落规则 |
+| `client/data/camera_feedback.json` | schema v3 瞄准引导、玩家受伤震屏与武器后坐震屏参数 |
 | `client/data/characters.json` | schema v4 角色专属场景、primary-only palette、基础属性、标签、能力、控制配置和起始携带引用边界 |
 | `client/data/weapons.json` | schema v5 武器、子弹、后坐与扩散边界；玩家无限射击并精确拒绝遗留 `ammo` |
 | `client/data/skills.json` | schema v3：项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、能力缩放与通用效果程序 |
@@ -81,6 +85,7 @@
 | autoload `_ready()` | 加载 `_contracts.json` | `reload_contracts()` |
 | 配置读取 | 调用方按需读 JSON / CSV，并叠加已启用本地 mod patch | `load_json()`、`load_csv()` |
 | schema 校验 | 启动 smoke 或工具调用正式数据校验；运行时会校验合并后的数据 | `validate_project_data()`、`schema_counts()` |
+| 相机反馈 | 玩家 schema 后读取 `camera_feedback.json` 并交给纯 validator；随后必须再次 `load_json()`，把新 payload 交给引用 builder，再继续视觉效果校验，不缓存或复用校验 payload | `CameraFeedbackValidator.validate()`、`DataReferenceIndexBuilder.collect_camera_feedback_ids()` |
 | 引用索引 | 每个 schema 校验后按原读取顺序重新取得当前合并值，再交给纯 builder 建索引；Gear Mod 必须在坏玩法包隔离后重新读取 | `DataReferenceIndexBuilder.collect_*()` |
 | 敌人金币模型 | 敌人 AI profile 校验完成后、`enemies.csv` 与 Mod 隔离前读取 `enemy_rewards.json`；纯 validator 按旧顺序收集错误，DataLoader 补资源路径并仅为 Dictionary root 写 profile count | `EnemyRewardModelValidator.validate()` |
 | Gear Mod 掉落 | 敌人索引建好后先校验每包 rows 并隔离坏包，再重读合并 Gear Mod / 世界事件 / 掉落 CSV；合并 rows 数量仍由 DataLoader 记录，错误仍经 `_schema_fail()` 输出 | `GearModDropTableValidator.validate_package_rows()`、`validate_merged_rows()` |
@@ -116,6 +121,16 @@
 | 普通 JSON | `collect_hero_passive_ids()`、`collect_weapon_ids()`、`collect_enemy_ai_profile_ids()`、`collect_gear_mod_ids()`、`collect_world_event_ids()`、`collect_active_item_ids()`、`collect_consumable_ids()`、`collect_skill_ids()`、`collect_character_ids()`、`collect_difficulty_profile_ids()`、`collect_game_mode_ids()`、`collect_map_layout_ids()` | 只接收原值类型为 String 的 ID；空 String 继续保留，重复 ID 原位折叠且后写不改变首次插入顺序 |
 | CSV | `collect_enemy_ids()`、`collect_hazard_ids()` | 消费 `load_csv()` 的 String ID 并过滤空值；机关半径按旧规则从 String 转 int、至少为 1，重复 ID 最后写入值生效但不重排 |
 | 波次 | `collect_spawn_wave_ids_by_mode()` | 消费 `load_csv()` 的 String mode / wave ID 并过滤空值，保持 mode 与各 mode 内 wave 的首次插入顺序，返回独立嵌套 Dictionary |
+
+### 内部纯相机反馈校验 API
+
+`CameraFeedbackValidator.validate(raw_data, report_failure)` 的错误 sink 只接收 `(field_path, expected)`。正式接线由 `DataLoader` 补 `CAMERA_FEEDBACK_PATH` 并转发到 `_schema_fail()`；validator 不访问 autoload、文件、`user://`、Mod、缓存或引用索引。
+
+- root 非 `Dictionary` 时只报告 `root / Dictionary` 并立即返回；额外 root、aim 或 shake key 继续允许。
+- Dictionary root 先校验 schema，再校验 aim 的 4 个字段，然后依次校验玩家受伤 shake 的 7 个字段、武器后坐 shake 的 7 个字段，最后单独校验 `weapon_recoil_shake.amplitude_exponent`。
+- `aim_look` 或任一 shake profile 非 `Dictionary` 时只报告该 profile 的 `Dictionary` 错误并跳过其内部字段；武器 profile 非 Dictionary 时也跳过末尾的振幅指数，其他 profile 仍按顺序继续。
+- `schema_version` 固定为 3，整数值浮点继续视为 int-like。所有数值先要求 number / finite；`pointer_offset_ratio` 必须大于 `0.0` 且不超过 `1.0`，aim 最大偏移 / 死区非负、平滑时间为正；shake 振幅非负，频率 / 增长 / 持续 / 衰减时间为正，两个位置乘数在 `0.0..1.0`；武器振幅指数非负。
+- `DataLoader` 保留第一次 `load_json(CAMERA_FEEDBACK_PATH)` 供 validator 使用；随后按既有顺序第二次加载供 `DataReferenceIndexBuilder` 构建 id，不缓存或复用第一次 payload。root 非 Dictionary 不写计数；Dictionary root 即使字段非法也固定写 `camera_feedback_profiles = 2`。
 
 ### 内部纯 Gear Mod 掉落校验 API
 
@@ -191,7 +206,7 @@
 ## 依赖
 
 - 上游依赖：Godot `FileAccess`、`JSON`、生成契约文件、`ModLoader`。
-- 内部纯依赖：`DataReferenceIndexBuilder`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback，不得反向读取 `DataLoader`、`ModLoader`、文件系统或 `user://`。
+- 内部纯依赖：`DataReferenceIndexBuilder`、`CameraFeedbackValidator`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback，不得反向读取 `DataLoader`、`ModLoader`、文件系统或 `user://`。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -202,6 +217,7 @@
 - 热重载可复用 `data_reloaded` 信号扩展。
 - 本地 mod 只能通过 `ModLoader` manifest v2 给 Gear Mod 定义、奖励池贡献、掉落和 locale 做声明式 append；不得让业务系统绕过 `DataLoader` 直接读取 `user://mods`。
 - 新跨文件引用索引应在 `DataReferenceIndexBuilder` 新增纯静态入口，由 `DataLoader` 在原校验 / 读取时序中显式传入合并后的数据；不得让 builder 自行读文件、扫描 Mod、缓存或排序。
+- 新相机反馈字段或范围规则应在 `CameraFeedbackValidator` 中保持纯静态校验，由 `DataLoader` 继续控制首次校验读取、第二次索引读取、资源路径、调用位置与计数；不得在 validator 中加载 JSON、收集 profile id 或写 `_last_schema_counts`。
 - 新 Gear Mod 掉落字段或规则应在 `GearModDropTableValidator` 的包内与合并入口分别落地，并由 `DataLoader` 保持“先隔离、再重读、再计数 / 校验”；不得在 validator 中读文件、禁用包或缓存合并 rows。
 - 新敌人金币模型字段或关系规则应在 `EnemyRewardModelValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
 - 新等级曲线字段或关系规则应在 `LevelProgressionValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件路径、调用位置与计数；不得在 validator 中加载 JSON 或写 `_last_schema_counts`。
@@ -213,6 +229,7 @@
 |------------|----------|----------|----------|
 | 加 JSON 数据 schema | `data_loader.gd` + `tools/validate_data.py` | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
 | 改视觉效果 / profile schema | `data_loader.gd`、`validate_data.py`、catalog / profiles | `visual_effects.md`、数据手册、词表 | `sync_contracts --check` + `validate_data` + `vfx-smoke` |
+| 改相机反馈校验 / DataLoader 接线 | `camera_feedback_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / Gameplay Runtime 文档 | 目标 GUT + `validate_data` + schema test + `vfx-smoke` + `runtime-smoke` + headless boot + Replay regression |
 | 改技能 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/skill_system.md`、必要时 `docs/代码/status_effect_component.md` | `validate_data` + schema test + `l1-smoke` / `runtime-smoke` |
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
 | 改敌人 AI profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + schema test + `runtime-smoke` |
@@ -246,6 +263,7 @@
 - 改契约 / 数据时跑 `tools/sync_contracts.py --check` 与 `tools/validate_data.py`。
 - F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
 - 引用索引 builder 或 `validate_project_data()` 的索引接线变更需跑目标 GUT unit，覆盖坏 root / 类型、真实 loader String 输入、strict JSON 对非 String ID 的拒绝、各类空 ID、source order、重复折叠、输出无别名、机关 clamp / last-write 和波次嵌套结构；再跑 DataLoader schema 与 headless boot 确认读取、坏 Mod 隔离和 fail-fast 顺序不变。
+- 相机反馈 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 最小边界、root 类型、schema → aim 4 字段 → 玩家 shake 7 字段 → 武器 shake 7 字段 → 振幅指数的诊断顺序、嵌套 Dictionary 短路、integral float、number / finite / 范围、额外 key、错误 sink 参数及跨调用无状态；再跑 Python schema、`vfx-smoke`、`runtime-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、玩家后 / 视觉效果前调用位置、二次加载的索引输入、Dictionary root 的 `camera_feedback_profiles = 2`、data hash 与 Replay v9 摘要不变。
 - Gear Mod 掉落 validator 或接线变更需跑目标 GUT unit，覆盖数值边界、空合并表、多错误顺序、未知 id、等级解析 / 下限 / 倒置、重复 key、包 root / row 形状、exact-key 顺序、旧静默诊断、包内重复合法和跨调用无状态；再跑 Python schema 负例与 `mod-loader-smoke`，确认坏包的合法掉落行会随包隔离、最终 count / 有效包顺序不变。
 - 敌人金币模型 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 最小边界、root 类型、required / extra 与字段错误顺序、int-like schema、number / finite / 正数 / 非负边界、非法上下界仍执行关系比较、错误 sink 参数及跨调用无状态；再跑 Python schema、L1、`mod-loader-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、敌人 AI 后 / `enemies.csv` 前调用位置、Dictionary root 的 `enemy_reward_models = 1`、data hash 与 Replay v9 摘要不变。
 - 等级曲线 validator 或接线变更需跑目标 GUT unit，覆盖有效 / 最小边界、root 类型、逐字段错误和顺序、integral float、下限失败后的关系检查、非整数跳过关系、额外 root key、错误 sink 参数及跨调用无状态；再跑 Python schema 负例与 headless boot，确认原路径 / expected 文本、角色后 / 奖励池前的调用位置和 schema count 不变。
