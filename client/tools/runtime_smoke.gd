@@ -2067,10 +2067,44 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 	if enemy == null:
 		return
 
+	var movement_target := Node2D.new()
+	movement_target.name = "SmokeBoundsMovementTarget"
+	run_loop.add_child(movement_target)
+	movement_target.global_position = Vector2(
+		bounds.end.x + 240.0,
+		clampf(0.0, bounds.position.y + 160.0, bounds.end.y - 160.0)
+	)
+	var sight_radius: float = maxf(bounds.size.length(), 1.0)
+	enemy.call("configure", {
+		"id": "enemy_smoke_bounds",
+		"ai_profile_id": "enemy_ai_smoke_bounds",
+		"ai_profile": {
+			"perception": {
+				"sight_radius": sight_radius,
+				"path_awareness_radius": 0.0,
+				"memory_duration": 0.0,
+			},
+			"decision_interval": 0.01,
+			"targeting": {"player_weight": 1.0},
+			"movement": {"orbit_radius": 0.0},
+			"actions": [{
+				"id": ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET,
+				"base_score": 1.0,
+				"speed_scale": 1.0,
+			}],
+		},
+		"max_hp": 5,
+		"move_speed": 200.0,
+		"gold_reward": 0,
+		"hit_radius": 12.0,
+		"separation_radius": 0.0,
+	}, movement_target)
 	var edge_y: float = clampf(0.0, bounds.position.y + 160.0, bounds.end.y - 160.0)
-	enemy.set_physics_process(false)
 	enemy.global_position = Vector2(bounds.end.x - 2.0, edge_y)
-	enemy.call("_move_in_direction", Vector2.RIGHT, 1.0, 2.0)
+	enemy.set_physics_process(true)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	enemy.set_physics_process(false)
 	_expect(_position_inside_map_boundary(run_loop, enemy.global_position), "enemy movement should stay inside rectangular map bounds")
 	_expect(enemy.global_position.x <= bounds.end.x + 0.01, "enemy movement should clamp at the map right edge")
 
@@ -2087,6 +2121,7 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 	_expect(_position_inside_map_boundary(run_loop, enemy.global_position), "enemy restore should clamp position inside rectangular map bounds")
 
 	PoolManager.release(enemy)
+	movement_target.queue_free()
 
 
 func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:

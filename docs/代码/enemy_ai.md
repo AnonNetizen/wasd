@@ -6,9 +6,9 @@
 ## 职责
 
 - 让共享 `Enemy` Actor / `EnemyBase` 节点契约通过数据 profile 组合接近、环绕、爆炸、方向近战、冲撞和远程攻击；每种敌人的静态外观由专属继承场景保存。
-- 纯 `EnemyBrain` 持有 profile / action source order、决策计时、四级感知与记忆、Utility 分数和移动意图；纯 `EnemyActionRuntime` 单一持有当前 action、阶段、计时、命中位、锁向、点射与 armed / exploded 状态，并负责 Run v19 action 字段的 typed 恢复归一化。
+- 纯 `EnemyBrain` 持有 profile / action source order、决策计时、四级感知与记忆、Utility 分数和移动意图；纯 `EnemyNavigationRuntime` 单一持有可选导航 provider、当前导航模式与 waypoint flag / value，编排 direct / flow-field / local-AStar 方向、路径距离带、LOS / corridor 查询和派生缓存；纯 `EnemyActionRuntime` 单一持有当前 action、阶段、计时、命中位、锁向、点射与 armed / exploded 状态，并负责 Run v19 action 字段的 typed 恢复归一化。
 - 无状态 `EnemyMeleeAttackHandler` 只编排近战锁向、windup、扇区目标顺序、commit 与 cooldown transition；无状态 `EnemyChargeAttackHandler` 只编排冲撞 windup / release、逐帧扫掠、一次性命中与停止 / cooldown transition；无状态 `EnemyExplosionAttackHandler` 只编排爆炸 arm / detonate / armed restore、两类目标结算和自身退场；无状态 `EnemyRangedAttackHandler` 只编排远程 windup / burst / scheduled shot / cooldown transition；无状态 `EnemyProjectileMaterializer` 只把 typed projectile request 按既有顺序交给共享池和 `Bullet.configure()`；无状态 `EnemyDamageHandler` 只按 typed Actor 状态和延迟 source / amount ports 解析受伤短路、友伤、生命结果、归因与后续动作，六者都不持有 Run v19 字段。
-- `Enemy` Actor 编排节点目标、导航查询、近战 target / LOS / Combat adapter、冲撞移动 / 边界 / Combat / 击退 adapter、爆炸 target / LOS / Combat / defeat adapter、伤害 source facts / amount adapter、生命写入与 typed follow-up、远程移动与起手门禁、Pool / GameClock adapter、signal 与 23-key Run v19 顶层字典；Brain、Runtime 和无状态 handlers / materializer 都不持有 Actor 节点。
+- `Enemy` Actor 编排 movement target 上下文、CharacterBody 实际位移 / velocity / facing / bounds / separation、节点目标、近战 target / Combat adapter、冲撞移动 / 边界 / Combat / 击退 adapter、爆炸 target / Combat / defeat adapter、伤害 source facts / amount adapter、生命写入与 typed follow-up、远程起手顺序、Pool / GameClock adapter、signal 与 23-key Run v19 顶层字典；目标节点只在单次调用中借给导航上下文且不进入 Runtime 缓存，Brain、两个 Runtime 和无状态 handlers / materializer 都不持有 Actor 目标节点。
 - 普通环境敌人的感知与战斗目标固定为玩家；只有防御世界事件生成上下文可注入专用主目标，且仍把玩家作为可受击附带目标。身体重叠、推挤、贴身移动和中心分离永远不造成伤害。
 - 通过 Utility 评分选择动作，以显式阶段状态机执行前摇、释放和冷却；模块模式消费局部共享流场、全图地形视线与 AStar waypoint。
 - 所有伤害通过 `Combat.apply_damage()`；`Enemy.receive_damage()` 默认拒绝 `team_enemy`，只允许已提交爆猎者的爆炸伤害。
@@ -23,6 +23,7 @@
 | 调敌人基础数值 / profile / 场景 / 对象池绑定 | `client/data/enemies.csv` |
 | 调敌人静态颜色 / 轮廓 / 子节点 | `client/scenes/gameplay/actors/enemies/enemy_*.tscn` |
 | 改感知、评分或移动意图 | `client/scripts/gameplay/enemy_brain.gd` |
+| 改 provider 查询、导航模式、orbit / path-band 方向或 waypoint 缓存 | `client/scripts/gameplay/enemy_navigation_runtime.gd` |
 | 改 action 状态、计时或恢复归一化 | `client/scripts/gameplay/enemy_action_runtime.gd` |
 | 改近战 windup / 扇区提交顺序 | `client/scripts/gameplay/enemy_melee_attack_handler.gd` |
 | 改冲撞 windup / 扫掠 / 停止与击退顺序 | `client/scripts/gameplay/enemy_charge_attack_handler.gd` |
@@ -39,6 +40,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/gameplay/enemy_brain.gd` | 纯 `RefCounted` profile / action 解释、四级感知、Utility 评分、决策计时与移动意图；只接收 typed 值输入，不持有节点 |
+| `client/scripts/gameplay/enemy_navigation_runtime.gd` | 纯 `RefCounted` 导航意图 / 查询 / 缓存边界；单一持有 provider、mode 与 cached waypoint，固定邻居顺序、tangent 权重和 epsilon tie，不执行 CharacterBody 位移 |
 | `client/scripts/gameplay/enemy_action_runtime.gd` | 纯 `RefCounted` action 状态与计时所有者；提供 typed snapshot / restore 值对象，复现非法 action、旧缺失 burst 与非法 ranged 阶段的既有 fail-closed 语义 |
 | `client/scripts/gameplay/enemy_melee_attack_handler.gd` | 无状态 typed 近战 transition 编排；借用 `EnemyActionRuntime` 与同步 target ports，保持 primary → distinct player、damage → committed signal、cooldown / clear → focus restore 顺序 |
 | `client/scripts/gameplay/enemy_charge_attack_handler.gd` | 无状态 typed 冲撞 transition 编排；借用 `EnemyActionRuntime` 与同步 movement / target ports，保持 timer → full-delta 无滑动移动 → 边界 → primary / distinct player 扫掠 → clear / cooldown / focus restore 顺序 |
@@ -46,7 +48,7 @@
 | `client/scripts/gameplay/enemy_damage_handler.gd` | 无状态 typed 受伤决策；按 armed → dead / feedback → 延迟 source facts → 友伤 → 延迟 amount 顺序返回生命结果、公开四键结果与 follow-up，不持有 Node、Presentation、Pool 或 Runtime |
 | `client/scripts/gameplay/enemy_ranged_attack_handler.gd` | 无状态 typed 点射 transition 编排；借用 `EnemyActionRuntime` 和同步 ports，保持 materialize → committed signal → 扣 scheduled shot → interval / cooldown 顺序 |
 | `client/scripts/gameplay/enemy_projectile_materializer.gd` | 无状态 typed 子弹材化；保持 acquire、方向 / 枪口、世界位置、重挂父节点与 configure 的既有顺序，返回诊断结果但不决定 shot 是否提交 |
-| `client/scripts/gameplay/enemy.gd` | Actor 节点目标 / 导航感知输入、近战 target / LOS / Combat ports、冲撞 movement / target / damage / knockback ports、伤害 source / amount ports 与 life / follow-up、远程移动 / 起手与 typed ports、爆炸 handler、连锁爆炸、中心分离、signal 与 23-key 快照 façade |
+| `client/scripts/gameplay/enemy.gd` | Actor 节点目标 / movement target 上下文、导航 Runtime 桥接、CharacterBody 实际位移、近战 target / Combat ports、冲撞 movement / target / damage / knockback ports、伤害 source / amount ports 与 life / follow-up、远程起手与 typed ports、爆炸 handler、连锁爆炸、中心分离、signal 与 23-key 快照 façade |
 | `client/scenes/gameplay/actors/enemy_base.tscn` | 共享敌人基础场景；根节点为 `CharacterBody2D`，挂 `Enemy` 脚本与必需组件 |
 | `client/scenes/gameplay/actors/enemies/enemy_*.tscn` | 五种敌人的专属继承场景；保存 `fill_color`、归一化轮廓与未来静态表现覆盖 |
 | `client/scripts/gameplay/module_navigation_field.gd` | 77×77 静态 mask、半径由最大视觉范围推导的局部共享 Dijkstra 流场、全图 AStar 与视线 / 走廊查询 |
@@ -56,7 +58,8 @@
 | `client/scripts/contracts/enemy_ai_actions.gd` | 由词表生成的 action 常量 |
 | `client/tools/runtime_smoke.gd` | 五种显式攻击、事件防御目标、远程锁向点射、连锁、金币快照、玩家归因 Mod 实体掉落 / 手动配置、无弹药掉落、视线、墙体、击退、暂停与 Run v19 恢复 |
 | `client/tests/unit/test_enemy_brain.gd` | 四级感知 / 记忆过期、source-order + epsilon tie、cooldown / 走廊 / 视线 / 射程门禁、移动意图、深拷贝与纯 `RefCounted` 边界 |
-| `client/tests/integration/test_enemy_brain_actor.gd` | Actor 配置桥接、Brain 派生状态不入 Run v19 及敌人 23-key 快照 wire 不变 |
+| `client/tests/unit/test_enemy_navigation_runtime.gd` | direct fallback、provider 惰性调用、corridor → query 顺序、flow / local / none mode、waypoint reset、固定邻居与 epsilon tie、orbit 方向 |
+| `client/tests/integration/test_enemy_brain_actor.gd` | Actor 配置桥接、sense route → LOS → corridor、零玩家权重不查询 provider、decision action → focus → waypoint refresh、Brain / Navigation 派生状态不入 Run v19 及敌人 23-key 快照 wire 不变 |
 | `client/tests/unit/test_enemy_action_runtime.gd` | 11 字段 reset / 初始 cooldown / 计时边界、typed snapshot / restore、非法 action 与 ranged fallback、无 alias / signal |
 | `client/tests/integration/test_enemy_action_runtime_actor.gd` | Enemy 23-key wire、池生命周期 reset；ranged windup / armed 恢复在状态和节点生命周期提交后各 emit 一次，ranged burst 不 emit，且合法 ranged 两阶段都先停速并按锁向更新朝向 |
 | `client/tests/unit/test_enemy_melee_attack_handler.gd` | 缺失目标 / 零方向、windup timer boundary、primary → collateral、range / arc / LOS 短路、零距离命中、damage / signal / cooldown / focus 回调顺序与无 alias |
@@ -97,10 +100,10 @@ Enemy (CharacterBody2D)
 | 阶段 | 发生什么 | 关键点 |
 |------|----------|--------|
 | 配置 | `GameplayRunLoop` 合并敌人基础数据与 profile 后调用 `configure(enemy_data, player, navigation_provider, difficulty, spawn_context)` | 默认主目标为玩家；防御事件额外注入 `event_instance_id/primary_target/damage_target_groups` |
-| 感知输入 | `Enemy` 验证主目标节点，按旧顺序查询 route、地形视线和冲锋走廊，构造 `EnemyBrain.SenseInput` | Brain 不持有 `Node2D` / navigation provider，也不使用字符串反射 |
+| 感知输入 | `Enemy` 验证主目标节点并单次借用其位置；玩家权重为零时先返回，否则通过 NavigationRuntime 按旧顺序查询 route、地形视线和冲锋走廊，构造 `EnemyBrain.SenseInput` | Brain 不持有 `Node2D` / navigation provider；provider 保持按需调用，目标节点不缓存 |
 | 感知 | Brain 在决策 tick 依次判断地形视线 + 直线距离、局部共享流场路径距离、最后已知位置记忆 | 当前半径 8 覆盖最大视觉 / 路径感知并加两格缓冲；记忆期间不读取玩家实时位置，不扫描其他敌人 |
-| 评分 | Brain 按 profile `actions[]` source order 对合法动作评分，只在 `score > best + 0.001` 时替换，返回 typed `Decision` | `Enemy` 提交当前 action / focus 后才刷新记忆 / 守家 waypoint；行为差异来自数据，不按 enemy id 分支 |
-| 执行 | 畅通时直追，受阻时读共享流场；近战起手后交由 `EnemyMeleeAttackHandler` 推进 windup，冲撞交由 `EnemyChargeAttackHandler` 先减 timer 再通过 Actor port 做完整 delta 的无滑动移动 / 边界，爆炸交由 `EnemyExplosionAttackHandler` 推进 armed timer / detonate，远程起手后交由 `EnemyRangedAttackHandler` 推进点射 schedule | 爆炸 / 近战要求地形视线；冲撞要求清晰走廊；远程只在起手检查视线并锁定方向；Runtime 不执行 Combat、movement 或 projectile |
+| 评分 | Brain 按 profile `actions[]` source order 对合法动作评分，只在 `score > best + 0.001` 时替换，返回 typed `Decision` | `Enemy` 先提交当前 action、再提交 focus，随后才让 NavigationRuntime 刷新记忆 / 守家 waypoint；行为差异来自数据，不按 enemy id 分支 |
+| 执行 | NavigationRuntime 产生 direct / flow-field / local-AStar 方向，Actor 才通过 `_move_in_direction()` 执行 CharacterBody 位移；近战起手后交由 `EnemyMeleeAttackHandler` 推进 windup，冲撞交由 `EnemyChargeAttackHandler` 先减 timer 再通过 Actor port 做完整 delta 的无滑动移动 / 边界，爆炸交由 `EnemyExplosionAttackHandler` 推进 armed timer / detonate，远程起手后交由 `EnemyRangedAttackHandler` 推进点射 schedule | 爆炸 / 近战要求地形视线；冲撞要求清晰走廊；远程每帧保持导航处理 → 原始直线距离 → cooldown → LOS 的起手顺序并锁定方向；两个 Runtime 都不执行 Combat、CharacterBody movement 或 projectile |
 | 提交 | 近战 handler 通过 Actor typed ports 按主目标 → 不同玩家顺序做 alive / 扇区 / 地形视线与 Combat；冲撞 handler 在 release signal 后按主目标 → 不同玩家逐帧线段扫掠，先写一次性 flag 再经 Actor port 伤害，并只对真实玩家的有效正伤害调用击退 capability；爆炸先冻结敌方结算原点并发 committed signal，再以 signal 后 live source 结算 direct targets，direct 完成后才收 active enemies 并以冻结原点、`runtime_spawn_serial` 结算，两类目标不做全局去重；远程每发先让 `EnemyProjectileMaterializer` 尝试材化，再同步发 committed signal，之后才扣 scheduled shot 并推进 interval / cooldown | 近战全部 damage 返回后才发 committed，随后设置 cooldown、清 action / phase 并恢复主目标；每次冲撞对每个目标最多命中一次，几何命中即满足 stop_on_hit；爆炸者 self-finish 前不清 armed / exploded / action 状态，留到 pool release；突击枪手一次 windup、四次 commit，中途不追踪；pool / configure 失败也沿用旧的 committed / 消耗本发语义 |
 | 爆猎者锁定 | 进入前摇即 `armed`、生命伤害入口关闭、CollisionShape 禁用、停止移动与分离 | 之后必然爆炸；离开范围、状态伤害或普通攻击都不能取消 |
 | 连锁 | 爆炸致死未 armed 爆猎者时，目标生命归零并进入完整新一代前摇 | 同代同时前摇，不同代不在同帧递归，每只最多爆炸一次 |
@@ -195,6 +198,16 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 | `restore(input, rules)` | `RestoreInput` + `RestoreRules` | `RestoreResult` | 原子校验并提交；非法 action 清空，旧缺失 burst 清空但不加 cooldown，非法 ranged phase / count / direction / timer 清空并应用一次当前 ranged cooldown |
 | `force_armed_restore(explode_action_id)` | 已登记爆炸 action | `void` | 只做恢复后的 action / phase 收口；碰撞生命周期与唯一 windup signal 仍由 Enemy 在提交后执行 |
 
+### `EnemyNavigationRuntime` 内部 typed 边界
+
+| 名称 | 输入 | 输出 | 约束 |
+|------|------|------|------|
+| `configure(provider)` / `reset()` | 可选导航 Node / 无 | `void` | 单一设置或清空 provider、mode 与 waypoint flag / value；Enemy 的 configure、pool reset / release 调用，restore 不额外 reset |
+| `active_navigation_query(...)` / `navigation_query(...)` | 当前 / 目标位置与是否活动目标 | route `Dictionary` | 活动目标优先共享流场，其他目标走全图 query；缺 provider / method 时保持直线可达 fallback，provider 只在需要时调用 |
+| `has_terrain_line_of_sight(...)` / `has_clear_corridor(...)` | 起止点与 clearance | `bool` | 缺 provider / method 时保持 `true` fallback；sense 由 Actor 固定按 route → LOS → corridor 调用 |
+| `movement_direction_to(...)` / `direction_to_cached_target(...)` / `path_band_direction(...)` / `orbit_direction(...)` | 值类型位置、半径、目标身份与 orbit sign | `Vector2` 导航意图 | 不写 Actor position / velocity；path-band 固定八邻 source order，每个候选严格 corridor → query → score，只有 `score > best + 0.001` 才替换 |
+| `refresh_cached_waypoint(...)` | 当前点、是否存在派生目标及目标位置 | `void` | 每次先清旧缓存；只在 guard / memory 决策提交后由 Actor 传入目标，不持有目标 Node，缓存不进 Run v19 |
+
 ### 伤害 / 近战 / 冲撞 / 爆炸 / 远程 handler 与 projectile materializer 内部 typed 边界
 
 | 名称 | 输入 | 输出 | 约束 |
@@ -220,9 +233,9 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 
 ## 依赖
 
-- 上游：`EnemyBrain` 只依赖已验证 profile 和生成 action 常量；`EnemyActionRuntime` 只依赖 typed 值与 Actor 提供的已验证 restore rules；`EnemyDamageHandler` 只依赖 typed 值、延迟 ports 与生成的 defeat cause 常量；`EnemyMeleeAttackHandler` / `EnemyChargeAttackHandler` / `EnemyExplosionAttackHandler` / `EnemyRangedAttackHandler` 只借用 Runtime 与 typed ports；`EnemyProjectileMaterializer` 只借用 typed request 和 acquire / configure ports；`Enemy` Actor 依赖 `DataLoader`、`GameClock`、`GameState`、`PoolManager`、`Combat`、`DamageInfo`、`StatusEffectComponent`、`ModuleWorldManager` 可选导航门面、地图边界和生成契约常量。
+- 上游：`EnemyBrain` 只依赖已验证 profile 和生成 action 常量；`EnemyNavigationRuntime` 只长期持有可选 `ModuleWorldManager` 导航门面并接收 Actor 的值类型位置 / 目标上下文；`EnemyActionRuntime` 只依赖 typed 值与 Actor 提供的已验证 restore rules；`EnemyDamageHandler` 只依赖 typed 值、延迟 ports 与生成的 defeat cause 常量；`EnemyMeleeAttackHandler` / `EnemyChargeAttackHandler` / `EnemyExplosionAttackHandler` / `EnemyRangedAttackHandler` 只借用 ActionRuntime 与 typed ports；`EnemyProjectileMaterializer` 只借用 typed request 和 acquire / configure ports；`Enemy` Actor 依赖 `DataLoader`、`GameClock`、`GameState`、`PoolManager`、`Combat`、`DamageInfo`、`StatusEffectComponent`、地图边界和生成契约常量。
 - 下游：`GameplayRunLoop`、runtime / module-world / save smoke、回放工具。
-- 禁止依赖：`EnemyBrain`、`EnemyActionRuntime`、`EnemyDamageHandler` 与四个 attack Handler 不得依赖 Node / SceneTree、导航 provider、`GameClock`、RNG 或 autoload；Runtime 不得接管具体 handler、movement、projectile 或 signal，Handler / Materializer 不得新增镜像 action 字段。整个模块不得依赖原始输入、原始时间、裸随机或运行时网络模型，不得绕过 `Combat` 扣血，不得按 enemy id 写行为分支，不得恢复通用接触伤害。
+- 禁止依赖：`EnemyBrain`、`EnemyActionRuntime`、`EnemyDamageHandler` 与四个 attack Handler 不得依赖 Node / SceneTree、导航 provider、`GameClock`、RNG 或 autoload；NavigationRuntime 不得缓存目标 Node 或接管 CharacterBody、velocity、facing、bounds、separation、Combat、attack order、signal、Pool 或 snapshot；ActionRuntime 不得接管具体 handler、movement、projectile 或 signal，Handler / Materializer 不得新增镜像 action 字段。整个模块不得依赖原始输入、原始时间、裸随机或运行时网络模型，不得绕过 `Combat` 扣血，不得按 enemy id 写行为分支，不得恢复通用接触伤害。
 
 ## 扩展点
 
@@ -250,6 +263,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 |------|----------|
 | 敌人不动 | profile 是否有合法 action、`move_speed`、`GameState` 和玩家引用 |
 | 敌人持续顶墙 | `navigation_mode` 是否切到 `flow_field`；Manager 是否已在 assignment / restore 后重建 mask；玩家格是否可走 |
+| 池复用后沿用旧路径或 provider | `Enemy.configure()`、`_pool_reset()`、`_pool_release()` 是否都调用 `EnemyNavigationRuntime.configure/reset`；restore 不应另行 reset |
 | 隔墙无限追踪 | `perception_state`、路径距离阈值和 `memory_remaining`；记忆期间 `last_known_position` 不得跟随玩家更新 |
 | 爆炸 / 近战隔墙命中 | 提交时的 `has_terrain_line_of_sight()` 是否仍在 |
 | 冲锋 / 远程穿墙起手 | `has_clear_corridor()` / `has_terrain_line_of_sight()` 门禁是否仍在候选与开火路径中 |
@@ -270,6 +284,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 
 - 改 profile / enemies 数据：`validate_data.py`、`test_data_loader_schema.py`、`sync_contracts.py --check`。
 - 改 `enemy_brain.gd`：必跑 Brain unit，锁定四级感知 / 记忆过期、source-order + epsilon tie、近战 / 爆炸 / 冲锋 cooldown gate 与 ranged 例外、charge corridor、ranged LOS / range、approach / orbit / guard、configure / reset / 深拷贝与无 Node / RNG / clock 依赖；追加 Actor integration 确认 23-key wire 不变。
+- 改 `enemy_navigation_runtime.gd`：必跑 NavigationRuntime unit 与 Brain Actor integration，锁定 provider 惰性、sense route → LOS → corridor、零玩家权重不查询、decision action → focus → waypoint refresh、direct / flow / local / none mode、固定邻居 corridor → query → score / epsilon tie、ranged 导航 → 原始距离 → cooldown → LOS、pool reset / release 清理和 23-key wire 不变。
 - 改 `enemy_action_runtime.gd` / damage、melee、charge、explosion 或 ranged handler / materializer / `enemy.gd`：GDScript / semantic lint、EnemyActionRuntime / damage / melee / charge / explosion / ranged handler / materializer / EnemyBrain unit、七套 Actor integration、L1 / actor-scene / runtime / save / loading smoke、完整 / technical module-world、headless boot 与四条 checked-in Replay v9 golden。
 - 改基础 / 专属敌人场景或池绑定：追加 `actor-scene-smoke`，验证继承、必需节点、场景颜色 / 几何不被 `configure()` 覆盖，以及五个独立池生成 / 复用不串场景。
 - 改稳定行为、数据指纹或刷怪：重录并回放四条 checked-in golden replay。
@@ -280,7 +295,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 
 - 当前 Run schema 为 v19；旧 Run v18 保持源文件但不显示继续入口，不迁移。
 - Run v19 恢复当前 profile 已删除的 action 时清空阶段并在下一决策 tick 重选；合法攻击阶段按剩余时间继续，不得重复提交。
-- Brain 的感知、记忆、决策计时、分数和移动意图仍是不进快照的派生状态；ActionRuntime 继续单一拥有原 11 个 action 字段，五个 Handler / Materializer 不持有可恢复状态；Enemy 23-key 字典顺序、字段值 / 恢复时序、Run v19、Replay v9 与 game v1.18 均不变。
+- Brain 的感知、记忆、决策计时、分数和移动意图，以及 NavigationRuntime 的 provider / mode / waypoint flag / value，仍是不进快照的派生状态；ActionRuntime 继续单一拥有原 11 个 action 字段，五个 Handler / Materializer 不持有可恢复状态；Enemy restore 不新增 NavigationRuntime reset，Enemy 23-key 字典顺序、字段值 / 恢复时序、Run v19、Replay v9 与 game v1.18 均不变。
 - `burst_shots_remaining` 继续随 Run v19 保存；字段存在但点射阶段、计时、方向或剩余弹数非法时，清空攻击并应用一次当前远程冷却，防止重复发弹。Replay v9 明确拒绝 v8。
 - schema v1–v4 profile、旧 `sense_radius`、旧 movement 攻击字段与旧 contact CSV 表头必须被双端 validator 拒绝，不做静默忽略。
 

@@ -35,6 +35,9 @@ const ENEMY_BRAIN_SCRIPT := preload("res://scripts/gameplay/enemy_brain.gd")
 const ENEMY_MELEE_ATTACK_HANDLER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_melee_attack_handler.gd"
 )
+const ENEMY_NAVIGATION_RUNTIME_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_navigation_runtime.gd"
+)
 const ENEMY_PROJECTILE_MATERIALIZER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_projectile_materializer.gd"
 )
@@ -48,22 +51,6 @@ const ENEMY_DEFEAT_CAUSES := preload(
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
-const NAVIGATION_MODE_DIRECT: String = "direct"
-const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
-const NAVIGATION_MODE_LOCAL_ASTAR: String = "local_astar"
-const NAVIGATION_MODE_NONE: String = "none"
-const NAVIGATION_NEIGHBOR_OFFSETS: Array[Vector2i] = [
-	Vector2i.UP,
-	Vector2i.RIGHT,
-	Vector2i.DOWN,
-	Vector2i.LEFT,
-	Vector2i(1, -1),
-	Vector2i(1, 1),
-	Vector2i(-1, 1),
-	Vector2i(-1, -1),
-]
-const PATH_TANGENT_SCORE_WEIGHT: float = 0.2
-const SCORE_EPSILON: float = 0.001
 const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
 const TARGET_MODE_EVENT_PRIMARY: String = "event_primary"
@@ -78,6 +65,9 @@ var _action_runtime: ENEMY_ACTION_RUNTIME_SCRIPT = (
 	ENEMY_ACTION_RUNTIME_SCRIPT.new()
 )
 var _brain: EnemyBrain = ENEMY_BRAIN_SCRIPT.new()
+var _navigation_runtime: ENEMY_NAVIGATION_RUNTIME_SCRIPT = (
+	ENEMY_NAVIGATION_RUNTIME_SCRIPT.new()
+)
 var _collision_shape: CollisionShape2D = null
 var _base_max_life: float = 1.0
 var _debug_ai_enabled: bool = true
@@ -94,8 +84,6 @@ var _max_life: float = 1.0
 var _has_movement_bounds: bool = false
 var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
-var _navigation_mode: String = NAVIGATION_MODE_NONE
-var _navigation_provider: Node = null
 var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
 var _primary_target: Node2D = null
@@ -107,8 +95,6 @@ var _ranged_attack_ports: ENEMY_RANGED_ATTACK_HANDLER_SCRIPT.Ports = null
 var _damage_target_groups: Array[String] = []
 var _runtime_spawn_serial: int = 0
 var _separation_radius: float = 0.0
-var _cached_navigation_waypoint: Vector2 = Vector2.ZERO
-var _has_cached_navigation_waypoint: bool = false
 var _status_effect_component: Node = null
 var _presentation: ActorPresentationController = null
 var _spawn_damage_multiplier: float = 1.0
@@ -182,7 +168,7 @@ func configure(
 			DAMAGE_TARGET_GROUPS.ACTIVE_PROJECTILE_BLOCKERS,
 			DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
 		]
-	_navigation_provider = navigation_provider
+	_navigation_runtime.configure(navigation_provider)
 	_home_position = global_position
 	_enemy_id = String(enemy_data.get("id", ""))
 	_brain.configure(
@@ -191,9 +177,6 @@ func configure(
 	)
 	_action_runtime.configure(_brain.initial_attack_cooldown())
 	_debug_ai_enabled = true
-	_navigation_mode = NAVIGATION_MODE_NONE
-	_has_cached_navigation_waypoint = false
-	_cached_navigation_waypoint = Vector2.ZERO
 	_spawn_health_multiplier = maxf(
 		float(spawn_difficulty.get("health_multiplier", 1.0)),
 		0.0
@@ -258,7 +241,7 @@ func ai_debug_summary() -> Dictionary:
 			else {}
 		),
 		"memory_remaining": _brain.memory_remaining(),
-		"navigation_mode": _navigation_mode,
+		"navigation_mode": _navigation_runtime.mode(),
 		"attack_time_remaining": action_values.action_timer,
 		"attack_cooldown_remaining": (
 			action_values.attack_cooldown_remaining
@@ -877,8 +860,7 @@ func _pool_reset() -> void:
 	_max_life = 1.0
 	clear_movement_bounds()
 	_move_speed = 0.0
-	_navigation_mode = NAVIGATION_MODE_NONE
-	_navigation_provider = null
+	_navigation_runtime.reset()
 	_clear_status_effects_for_reuse()
 	_player_target = null
 	_primary_target = null
@@ -887,8 +869,6 @@ func _pool_reset() -> void:
 	_separation_radius = 0.0
 	_spawn_damage_multiplier = 1.0
 	_spawn_health_multiplier = 1.0
-	_cached_navigation_waypoint = Vector2.ZERO
-	_has_cached_navigation_waypoint = false
 	visible = true
 	_set_collision_enabled(false)
 	if has_meta("debug_test_arena_kind"):
@@ -909,14 +889,12 @@ func _pool_release() -> void:
 	clear_movement_bounds()
 	_focus_target = null
 	_brain.clear_runtime_state()
-	_navigation_mode = NAVIGATION_MODE_NONE
-	_navigation_provider = null
+	_navigation_runtime.reset()
 	_player_target = null
 	_primary_target = null
 	_damage_target_groups.clear()
 	_gold_reward = 0
 	_reward_snapshot.clear()
-	_has_cached_navigation_waypoint = false
 	_set_collision_enabled(false)
 	if has_meta("debug_test_arena_kind"):
 		remove_meta("debug_test_arena_kind")
@@ -1944,141 +1922,80 @@ func _movement_target_direction() -> Vector2:
 func _orbit_direction() -> Vector2:
 	if _focus_target == null or not is_instance_valid(_focus_target):
 		return Vector2.ZERO
-	var from_target: Vector2 = global_position - _focus_target.global_position
-	if from_target.length_squared() <= 0.0:
-		from_target = Vector2.RIGHT
-	var radial: Vector2 = from_target.normalized()
-	var tangent: Vector2 = Vector2(-radial.y, radial.x) * _orbit_sign()
-	var orbit_radius: float = maxf(_movement_value("orbit_radius"), 1.0)
-	var distance: float = global_position.distance_to(_focus_target.global_position)
-	if distance > orbit_radius:
-		return (_focus_target.global_position - global_position).normalized() + tangent * 0.7
-	return radial + tangent * 0.85
+	return _navigation_runtime.orbit_direction(
+		global_position,
+		_focus_target.global_position,
+		_movement_value("orbit_radius"),
+		_orbit_sign()
+	)
 
 
 func _movement_direction_to(target_position: Vector2, use_active_field: bool) -> Vector2:
-	var direct_direction: Vector2 = target_position - global_position
-	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
-		_navigation_mode = NAVIGATION_MODE_DIRECT
-		return direct_direction
-	if _has_clear_corridor(global_position, target_position, _hit_radius):
-		_navigation_mode = NAVIGATION_MODE_DIRECT
-		return direct_direction
-	var use_player_flow_field: bool = (
+	var primary_target_is_active_target: bool = (
+		_primary_target != null
+		and is_instance_valid(_primary_target)
+		and _primary_target == _player_target
+	)
+	var target_is_active_target: bool = (
 		use_active_field
+		and primary_target_is_active_target
 		and _player_target != null
 		and is_instance_valid(_player_target)
 		and target_position.is_equal_approx(
 			_player_target.global_position
 		)
 	)
-	var query: Dictionary = (
-		_active_navigation_query()
-		if use_player_flow_field
-		else _navigation_query(global_position, target_position)
+	return _navigation_runtime.movement_direction_to(
+		global_position,
+		target_position,
+		_hit_radius,
+		use_active_field,
+		target_is_active_target
 	)
-	if not bool(query.get("reachable", false)):
-		_navigation_mode = NAVIGATION_MODE_NONE
-		return Vector2.ZERO
-	_navigation_mode = (
-		NAVIGATION_MODE_FLOW_FIELD
-		if use_player_flow_field
-		else NAVIGATION_MODE_LOCAL_ASTAR
-	)
-	return (query.get("next_position", global_position) as Vector2) - global_position
 
 
 func _direction_to_cached_target(target_position: Vector2) -> Vector2:
-	var direct_direction: Vector2 = target_position - global_position
-	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
-		_navigation_mode = NAVIGATION_MODE_DIRECT
-		return direct_direction
-	if _has_clear_corridor(global_position, target_position, _hit_radius):
-		_navigation_mode = NAVIGATION_MODE_DIRECT
-		return direct_direction
-	if not _has_cached_navigation_waypoint:
-		_navigation_mode = NAVIGATION_MODE_NONE
-		return Vector2.ZERO
-	_navigation_mode = NAVIGATION_MODE_LOCAL_ASTAR
-	return _cached_navigation_waypoint - global_position
+	return _navigation_runtime.direction_to_cached_target(
+		global_position,
+		target_position,
+		_hit_radius
+	)
 
 
 func _path_band_direction(desired_distance: float) -> Vector2:
 	if _focus_target == null or not is_instance_valid(_focus_target):
 		return Vector2.ZERO
-	if _focus_target != _player_target:
-		if _has_clear_corridor(
-			global_position,
-			_focus_target.global_position,
-			_hit_radius
-		):
-			_navigation_mode = NAVIGATION_MODE_DIRECT
-			return _orbit_direction()
-		return _movement_direction_to(
-			_focus_target.global_position,
-			false
-		)
-	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
-		_navigation_mode = NAVIGATION_MODE_DIRECT
-		return _orbit_direction()
-	if not (
-		_navigation_provider.has_method("world_to_global_cell")
-		and _navigation_provider.has_method("global_cell_to_world")
-	):
-		return _movement_direction_to(_focus_target.global_position, true)
-	var current_cell: Vector2i = _navigation_provider.call("world_to_global_cell", global_position) as Vector2i
-	var from_target: Vector2 = global_position - _focus_target.global_position
-	if from_target.length_squared() <= 0.0:
-		from_target = Vector2.RIGHT
-	var tangent: Vector2 = Vector2(-from_target.y, from_target.x).normalized() * _orbit_sign()
-	var best_direction: Vector2 = Vector2.ZERO
-	var best_score: float = -INF
-	var safe_desired_distance: float = maxf(desired_distance, 1.0)
-	for offset: Vector2i in NAVIGATION_NEIGHBOR_OFFSETS:
-		var candidate_cell: Vector2i = current_cell + offset
-		var candidate_position: Vector2 = _navigation_provider.call("global_cell_to_world", candidate_cell) as Vector2
-		if not _has_clear_corridor(global_position, candidate_position, _hit_radius):
-			continue
-		var query: Dictionary = _navigation_provider.call("navigation_query_to_active_target", candidate_position) as Dictionary
-		if not bool(query.get("reachable", false)):
-			continue
-		var route_distance: float = float(query.get("distance", INF))
-		var direction: Vector2 = (candidate_position - global_position).normalized()
-		var distance_score: float = -absf(route_distance - safe_desired_distance) / safe_desired_distance
-		var tangent_score: float = direction.dot(tangent) * PATH_TANGENT_SCORE_WEIGHT
-		var score: float = distance_score + tangent_score
-		if score > best_score + SCORE_EPSILON:
-			best_score = score
-			best_direction = candidate_position - global_position
-	if best_direction.length_squared() <= 0.0:
-		return _movement_direction_to(_focus_target.global_position, true)
-	_navigation_mode = NAVIGATION_MODE_FLOW_FIELD
-	return best_direction
+	return _navigation_runtime.path_band_direction(
+		global_position,
+		_focus_target.global_position,
+		_focus_target == _player_target,
+		_hit_radius,
+		desired_distance,
+		_movement_value("orbit_radius"),
+		_orbit_sign()
+	)
 
 
 func _refresh_cached_navigation_waypoint() -> void:
-	_has_cached_navigation_waypoint = false
-	_cached_navigation_waypoint = Vector2.ZERO
-	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
-		return
+	var has_target: bool = false
 	var target_position: Vector2 = Vector2.ZERO
 	if (
 		_action_runtime.current_action()
 		== ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME
 	):
 		target_position = _home_position
+		has_target = true
 	elif (
 		_brain.perception_state() == EnemyBrain.PERCEPTION_MEMORY
 		and _brain.has_movement_target()
 	):
 		target_position = _brain.movement_target_position()
-	else:
-		return
-	var query: Dictionary = _navigation_query(global_position, target_position)
-	if not bool(query.get("reachable", false)):
-		return
-	_cached_navigation_waypoint = query.get("next_position", Vector2.ZERO) as Vector2
-	_has_cached_navigation_waypoint = true
+		has_target = true
+	_navigation_runtime.refresh_cached_waypoint(
+		global_position,
+		has_target,
+		target_position
+	)
 
 
 func _update_ai_timers(delta: float) -> void:
@@ -2248,64 +2165,36 @@ func _movement_value(key: String) -> float:
 
 
 func _active_navigation_query() -> Dictionary:
-	if (
-		_primary_target != null
-		and is_instance_valid(_primary_target)
-		and _primary_target != _player_target
-	):
-		return _navigation_query(
-			global_position,
-			_primary_target.global_position
-		)
-	if (
-		_navigation_provider != null
-		and is_instance_valid(_navigation_provider)
-		and _navigation_provider.has_method("navigation_query_to_active_target")
-	):
-		return _navigation_provider.call("navigation_query_to_active_target", global_position) as Dictionary
 	if _primary_target == null or not is_instance_valid(_primary_target):
 		return {"reachable": false, "distance": INF}
-	return {
-		"reachable": true,
-		"distance": global_position.distance_to(_primary_target.global_position),
-		"next_position": _primary_target.global_position,
-		"target_position": _primary_target.global_position,
-	}
+	var target_position: Vector2 = _primary_target.global_position
+	return _navigation_runtime.active_navigation_query(
+		global_position,
+		target_position,
+		_primary_target == _player_target
+	)
 
 
 func _navigation_query(from_position: Vector2, target_position: Vector2) -> Dictionary:
-	if (
-		_navigation_provider != null
-		and is_instance_valid(_navigation_provider)
-		and _navigation_provider.has_method("navigation_query")
-	):
-		return _navigation_provider.call("navigation_query", from_position, target_position) as Dictionary
-	return {
-		"reachable": true,
-		"distance": from_position.distance_to(target_position),
-		"next_position": target_position,
-		"target_position": target_position,
-	}
+	return _navigation_runtime.navigation_query(
+		from_position,
+		target_position
+	)
 
 
 func _has_terrain_line_of_sight(from_position: Vector2, target_position: Vector2) -> bool:
-	if (
-		_navigation_provider != null
-		and is_instance_valid(_navigation_provider)
-		and _navigation_provider.has_method("has_terrain_line_of_sight")
-	):
-		return bool(_navigation_provider.call("has_terrain_line_of_sight", from_position, target_position))
-	return true
+	return _navigation_runtime.has_terrain_line_of_sight(
+		from_position,
+		target_position
+	)
 
 
 func _has_clear_corridor(from_position: Vector2, target_position: Vector2, clearance: float) -> bool:
-	if (
-		_navigation_provider != null
-		and is_instance_valid(_navigation_provider)
-		and _navigation_provider.has_method("has_clear_corridor")
-	):
-		return bool(_navigation_provider.call("has_clear_corridor", from_position, target_position, clearance))
-	return true
+	return _navigation_runtime.has_clear_corridor(
+		from_position,
+		target_position,
+		clearance
+	)
 
 
 func _action_speed_scale(action_id: String) -> float:
