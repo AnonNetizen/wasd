@@ -25,6 +25,9 @@ const ENEMY_ACTION_RUNTIME_SCRIPT := preload(
 const ENEMY_CHARGE_ATTACK_HANDLER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_charge_attack_handler.gd"
 )
+const ENEMY_DAMAGE_HANDLER_SCRIPT := preload(
+	"res://scripts/gameplay/enemy_damage_handler.gd"
+)
 const ENEMY_EXPLOSION_ATTACK_HANDLER_SCRIPT := preload(
 	"res://scripts/gameplay/enemy_explosion_attack_handler.gd"
 )
@@ -632,72 +635,72 @@ func clear_movement_bounds() -> void:
 
 
 func receive_damage(info: RefCounted) -> Dictionary:
-	if _action_runtime.is_armed():
-		return {
-			"applied": false,
-			"amount": 0.0,
-			"defeated": false,
-			"reason": "armed",
-		}
-	if _life_points <= 0.0 or is_defeat_feedback_active():
-		return {
-			"applied": false,
-			"amount": 0.0,
-			"defeated": true,
-			"reason": "defeated",
-		}
+	var result: ENEMY_DAMAGE_HANDLER_SCRIPT.Result = (
+		ENEMY_DAMAGE_HANDLER_SCRIPT.resolve(
+			_enemy_damage_request(),
+			_enemy_damage_ports(info)
+		)
+	)
+	if result.applied:
+		_life_points = result.next_life
+	match result.follow_up:
+		ENEMY_DAMAGE_HANDLER_SCRIPT.FollowUp.CHAIN_ARM:
+			_arm_explosion(true)
+		ENEMY_DAMAGE_HANDLER_SCRIPT.FollowUp.FINISH_DEFEAT:
+			_finish_defeat(
+				result.counts_as_kill,
+				result.drops_rewards,
+				result.cause_id
+			)
+		ENEMY_DAMAGE_HANDLER_SCRIPT.FollowUp.HIT_FLASH:
+			_start_hit_flash()
+	return result.public_result()
+
+
+func _enemy_damage_request() -> ENEMY_DAMAGE_HANDLER_SCRIPT.Request:
+	var request: ENEMY_DAMAGE_HANDLER_SCRIPT.Request = (
+		ENEMY_DAMAGE_HANDLER_SCRIPT.Request.new()
+	)
+	request.armed = _action_runtime.is_armed()
+	request.defeat_feedback_active = is_defeat_feedback_active()
+	request.current_life = _life_points
+	request.can_chain_explode = _has_action(
+		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	)
+	return request
+
+
+func _enemy_damage_ports(
+	info: RefCounted
+) -> ENEMY_DAMAGE_HANDLER_SCRIPT.Ports:
+	return ENEMY_DAMAGE_HANDLER_SCRIPT.Ports.new(
+		Callable(self, "_enemy_damage_source_facts").bind(info),
+		Callable(self, "_enemy_damage_amount").bind(info)
+	)
+
+
+func _enemy_damage_source_facts(
+	info: RefCounted
+) -> ENEMY_DAMAGE_HANDLER_SCRIPT.SourceFacts:
+	var facts: ENEMY_DAMAGE_HANDLER_SCRIPT.SourceFacts = (
+		ENEMY_DAMAGE_HANDLER_SCRIPT.SourceFacts.new()
+	)
 	var source_team: String = String(info.get("source_team"))
 	var source: Node = info.get("source") as Node
-	var enemy_explosion: bool = (
-		source_team == TEAM_ENEMY
+	facts.source_is_enemy = source_team == TEAM_ENEMY
+	facts.source_is_player = source_team == TEAM_PLAYER
+	facts.source_is_committed_exploder = (
+		facts.source_is_enemy
 		and source != null
 		and is_instance_valid(source)
 		and source.has_method("is_committed_exploder")
 		and bool(source.call("is_committed_exploder"))
 	)
-	if source_team == TEAM_ENEMY and not enemy_explosion:
-		return {
-			"applied": false,
-			"amount": 0.0,
-			"defeated": false,
-			"reason": "friendly_fire_blocked",
-		}
+	return facts
 
-	var amount: float = float(info.get("amount"))
-	var applied_amount: float = minf(amount, _life_points)
-	_life_points = maxf(_life_points - amount, 0.0)
-	var is_defeated: bool = _life_points <= 0.0
-	if is_defeated:
-		if (
-			enemy_explosion
-			and _has_action(ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET)
-		):
-			_arm_explosion(true)
-			return {
-				"applied": true,
-				"amount": applied_amount,
-				"defeated": false,
-				"reason": "chain_armed",
-			}
-		var counts_as_kill: bool = source_team == TEAM_PLAYER or enemy_explosion
-		var cause_id: String = (
-			ENEMY_DEFEAT_CAUSES.ENEMY_EXPLOSION
-			if enemy_explosion
-			else (
-				ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE
-				if source_team == TEAM_PLAYER
-				else ENEMY_DEFEAT_CAUSES.OTHER_CAUSE
-			)
-		)
-		_finish_defeat(counts_as_kill, counts_as_kill, cause_id)
-	else:
-		_start_hit_flash()
-	return {
-		"applied": true,
-		"amount": applied_amount,
-		"defeated": is_defeated,
-		"reason": "applied",
-	}
+
+func _enemy_damage_amount(info: RefCounted) -> float:
+	return float(info.get("amount"))
 
 
 func snapshot() -> Dictionary:
