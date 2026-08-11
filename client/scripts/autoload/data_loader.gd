@@ -40,6 +40,9 @@ const DATA_REFERENCE_INDEX_BUILDER := preload(
 const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 	"res://scripts/data/gear_mod_drop_table_validator.gd"
 )
+const ENEMY_REWARD_MODEL_VALIDATOR := preload(
+	"res://scripts/data/enemy_reward_model_validator.gd"
+)
 const LEVEL_PROGRESSION_VALIDATOR := preload(
 	"res://scripts/data/level_progression_validator.gd"
 )
@@ -4313,73 +4316,20 @@ func _validate_reward_choice_pools(locale_keys: Dictionary) -> bool:
 
 func _validate_enemy_rewards_json() -> bool:
 	var data: Variant = load_json(ENEMY_REWARDS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(ENEMY_REWARDS_PATH, "root", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = _validate_exact_dictionary_keys(
-		ENEMY_REWARDS_PATH,
-		"root",
-		payload,
-		[
-			"schema_version",
-			"base_coefficient",
-			"time_growth_per_tier",
-			"random_multiplier_min",
-			"random_multiplier_max",
-		]
+	var is_valid: bool = ENEMY_REWARD_MODEL_VALIDATOR.validate(
+		data,
+		Callable(self, "_report_enemy_reward_model_failure")
 	)
-	is_valid = _require_exact_int(
-		ENEMY_REWARDS_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		1
-	) and is_valid
-	is_valid = _require_number(
-		ENEMY_REWARDS_PATH,
-		"base_coefficient",
-		payload.get("base_coefficient"),
-		0.0,
-		null,
-		true
-	) and is_valid
-	is_valid = _require_number(
-		ENEMY_REWARDS_PATH,
-		"time_growth_per_tier",
-		payload.get("time_growth_per_tier"),
-		0.0
-	) and is_valid
-	is_valid = _require_number(
-		ENEMY_REWARDS_PATH,
-		"random_multiplier_min",
-		payload.get("random_multiplier_min"),
-		0.0,
-		null,
-		true
-	) and is_valid
-	is_valid = _require_number(
-		ENEMY_REWARDS_PATH,
-		"random_multiplier_max",
-		payload.get("random_multiplier_max"),
-		0.0,
-		null,
-		true
-	) and is_valid
-	if (
-		payload.get("random_multiplier_min") is int
-		or payload.get("random_multiplier_min") is float
-	) and (
-		payload.get("random_multiplier_max") is int
-		or payload.get("random_multiplier_max") is float
-	) and float(payload.get("random_multiplier_min")) > float(
-		payload.get("random_multiplier_max")
-	):
-		is_valid = _schema_fail(
-			ENEMY_REWARDS_PATH,
-			"random_multiplier_min",
-			"number <= random_multiplier_max"
-		) and is_valid
-	_last_schema_counts["enemy_reward_models"] = 1
+	if data is Dictionary:
+		_last_schema_counts["enemy_reward_models"] = 1
 	return is_valid
+
+
+func _report_enemy_reward_model_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(ENEMY_REWARDS_PATH, field_path, expected)
 
 
 func _validate_difficulty_profiles(locale_keys: Dictionary) -> bool:
