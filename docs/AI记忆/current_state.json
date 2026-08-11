@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-11",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前三阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataSourceReader、DataReferenceIndexBuilder、GearModDropTableValidator、LevelProgressionValidator、RewardChoicePoolValidator、DifficultyProfileValidator、EnemyRewardModelValidator、CameraFeedbackValidator、CreditsValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain、EnemyActionRuntime、EnemyRangedAttackHandler / EnemyProjectileMaterializer、EnemyMeleeAttackHandler、EnemyChargeAttackHandler 与 ModuleWorldLayout 二十四个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步优先提取 PlayerDataValidator，并推进 EnemyExplosionAttackHandler 的独立切片；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "current_status": "ADR #197 架构治理已完成前三阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataSourceReader、DataReferenceIndexBuilder、PlayerDataValidator、GearModDropTableValidator、LevelProgressionValidator、RewardChoicePoolValidator、DifficultyProfileValidator、EnemyRewardModelValidator、CameraFeedbackValidator、CreditsValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain、EnemyActionRuntime、EnemyRangedAttackHandler / EnemyProjectileMaterializer、EnemyMeleeAttackHandler、EnemyChargeAttackHandler 与 ModuleWorldLayout 二十五个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。下一步推进 EnemyExplosionAttackHandler，并优先提取 HazardCatalogValidator；人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
   "latest_adr": 197,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #197 / DataLoader 玩家配置校验切片：新增纯 PlayerDataValidator 与 typed ValidationResult，保持 root / base stats 硬返回、schema→body→base stats→gold→energy、raw stat count、金币池双诊断与旧 under-validation；DataLoader 保留 locale 后 / camera feedback 前读取、stat / pool adapters 与条件 count。",
     "ADR #197 / DataLoader 通用奖励选择池校验切片：新增纯 RewardChoicePoolValidator 与 typed ValidationResult，保持 schema→pools→entries source-order、locale / modifier adapters、Dictionary root count，以及非 Array / 未登记 stat 有诊断但 bool 可能仍成功的历史兼容缺口；数据手册同步 schema_version 固定 1。",
     "ADR #197 / Enemy 冲锋 handler：新增无状态 EnemyChargeAttackHandler，借用 EnemyActionRuntime 与 typed ports，保持缺 focus / 零方向边界、windup→committed→release、face→no-slide movement→bounds→primary / player sweep、命中位 / damage / knockback / stop 及 finish→cooldown→focus restore 顺序；Enemy 保留 CharacterBody、Combat、signal/context 与 Run v19 23-key façade。",
     "ADR #197 / DataLoader 难度 profile 校验切片：新增纯 DifficultyProfileValidator 与 typed ValidationResult，保持 root/profile exact-key、五个数值字段、9 段 locale / 重复 source-order；DataLoader 保留奖励池后读取、Mod-aware locale adapter、Dictionary root count、第二次读取与 game mode 引用索引。",
@@ -213,7 +214,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "继续 ADR #197 的协议不变渐进拆分：二十四个渐进提取点已完成；下一独立切片优先提取 PlayerDataValidator，并推进 EnemyExplosionAttackHandler 的独立可回滚提交。",
+    "继续 ADR #197 的协议不变渐进拆分：二十五个渐进提取点已完成；下一独立切片完成 EnemyExplosionAttackHandler，并在其后优先提取 HazardCatalogValidator。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",
@@ -261,6 +262,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-11",
+      "command": "targeted GDScript, project and semantic lint; PlayerDataValidator target and shared full GUT; contracts; validate_data; test_data_loader_schema --jobs 1; isolated L1, actor-scene, runtime, save and loading smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and diff checks; independent factual code review",
+      "result": "passed for ADR #197 PlayerDataValidator extraction. The pure validator preserves root and base-stats hard returns, schema then body then base stats then gold then energy source order, required-extra-radius diagnostics, raw stat count and key order, legacy stat reporting, non-short-circuit stat callback propagation, gold pool double diagnostics, and the existing root, defense, dash and energy under-validation. DataLoader retains the single Mod-aware player.json read after locale and before camera feedback, path and stat/pool adapters, and conditional player_stats count. Target GUT passes 10/10 with 53 assertions; shared full GUT passes 229/229 with 1894 assertions; schema and all listed smokes/headless pass; all four Replay v9 goldens retain data fingerprint ae289a23d12e2a6aae462df13a047830f6e4ef860ef77a9dd551ce198e8b72d5 and map hash 2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a without rewrite. Meta v4, Run v19, Replay v9 and game v1.18 remain unchanged. No performance probe or manual acceptance ran; visual, audio and feel checks remain pending user acceptance."
+    },
     {
       "date": "2026-08-11",
       "command": "targeted GDScript, project and semantic lint; RewardChoicePoolValidator target and shared full GUT; validate_data; test_data_loader_schema --jobs 1; isolated mod-loader smoke; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and diff checks; independent factual code review",

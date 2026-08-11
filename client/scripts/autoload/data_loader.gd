@@ -55,6 +55,9 @@ const ENEMY_REWARD_MODEL_VALIDATOR := preload(
 const LEVEL_PROGRESSION_VALIDATOR := preload(
 	"res://scripts/data/level_progression_validator.gd"
 )
+const PLAYER_DATA_VALIDATOR := preload(
+	"res://scripts/data/player_data_validator.gd"
+)
 const REWARD_CHOICE_POOL_VALIDATOR := preload(
 	"res://scripts/data/reward_choice_pool_validator.gd"
 )
@@ -527,103 +530,38 @@ func _validate_locale_strings(_locale_keys: Dictionary) -> bool:
 
 func _validate_player_json() -> bool:
 	var data: Variant = load_json(PLAYER_DATA_PATH)
-	if not data is Dictionary:
-		return _schema_fail(PLAYER_DATA_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_exact_int(
-		PLAYER_DATA_PATH,
-		"schema_version",
-		payload.get("schema_version"),
-		4
-	) and is_valid
-	var body: Variant = payload.get("body")
-	if not body is Dictionary:
-		is_valid = _schema_fail(
-			PLAYER_DATA_PATH,
-			"body",
-			"Dictionary"
-		) and is_valid
-	else:
-		var body_dict: Dictionary = body as Dictionary
-		is_valid = _validate_exact_dictionary_keys(
-			PLAYER_DATA_PATH,
-			"body",
-			body_dict,
-			["radius"]
-		) and is_valid
-		is_valid = _require_number(
-			PLAYER_DATA_PATH,
-			"body.radius",
-			body_dict.get("radius"),
-			0.0,
-			null,
-			true
-		) and is_valid
-	var base_stats: Variant = payload.get("base_stats")
-	if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
-		return _schema_fail(PLAYER_DATA_PATH, "base_stats", "non-empty Dictionary")
-
-	var stats_dict: Dictionary = base_stats as Dictionary
-	if stats_dict.has("pickup_orb_speed"):
-		is_valid = _schema_fail(
-			PLAYER_DATA_PATH,
-			"base_stats.pickup_orb_speed",
-			"removed in schema_version 3"
-		) and is_valid
-	_last_schema_counts["player_stats"] = stats_dict.size()
-	for stat_key: Variant in stats_dict.keys():
-		var stat: String = String(stat_key)
-		is_valid = _validate_stat_value(PLAYER_DATA_PATH, "base_stats.%s" % stat, stat, stats_dict[stat_key]) and is_valid
-	var gold_drop: Variant = payload.get("gold_drop")
-	if not gold_drop is Dictionary:
-		is_valid = _schema_fail(
-			PLAYER_DATA_PATH,
-			"gold_drop",
-			"Dictionary"
-		) and is_valid
-	else:
-		var gold_drop_dict: Dictionary = gold_drop as Dictionary
-		is_valid = _require_number(
-			PLAYER_DATA_PATH,
-			"gold_drop.pickup_speed",
-			gold_drop_dict.get("pickup_speed"),
-			0.0,
-			null,
-			true
-		) and is_valid
-		var gold_pool_id: String = _require_registered(
-			PLAYER_DATA_PATH,
-			"gold_drop.pool_id",
-			gold_drop_dict.get("pool_id"),
-			"pool_ids"
+	var result: PLAYER_DATA_VALIDATOR.ValidationResult = (
+		PLAYER_DATA_VALIDATOR.validate(
+			data,
+			Callable(self, "_validate_player_stat_value"),
+			Callable(self, "_require_player_pool_id"),
+			Callable(self, "_report_player_data_failure")
 		)
-		is_valid = not gold_pool_id.is_empty() and is_valid
-		if gold_pool_id != "gold_orb":
-			is_valid = _schema_fail(
-				PLAYER_DATA_PATH,
-				"gold_drop.pool_id",
-				"gold_orb"
-			) and is_valid
-	var energy_drop: Variant = payload.get("energy_drop")
-	if not energy_drop is Dictionary:
-		is_valid = _schema_fail(
-			PLAYER_DATA_PATH,
-			"energy_drop",
-			"Dictionary"
-		) and is_valid
-	else:
-		var energy_drop_dict: Dictionary = energy_drop as Dictionary
-		is_valid = _require_number(
-			PLAYER_DATA_PATH,
-			"energy_drop.pickup_speed",
-			energy_drop_dict.get("pickup_speed"),
-			0.0,
-			null,
-			true
-		) and is_valid
-	return is_valid
+	)
+	if result.has_stat_count:
+		_last_schema_counts["player_stats"] = result.stat_count
+	return result.is_valid
+
+
+func _validate_player_stat_value(
+	field: String,
+	stat: String,
+	value: Variant
+) -> bool:
+	return _validate_stat_value(PLAYER_DATA_PATH, field, stat, value)
+
+
+func _require_player_pool_id(field: String, value: Variant) -> String:
+	return _require_registered(
+		PLAYER_DATA_PATH,
+		field,
+		value,
+		"pool_ids"
+	)
+
+
+func _report_player_data_failure(field: String, expected: String) -> bool:
+	return _schema_fail(PLAYER_DATA_PATH, field, expected)
 
 
 func _validate_camera_feedback_json() -> bool:

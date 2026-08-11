@@ -9,6 +9,7 @@
 - 将官方 JSON / CSV 的物理读取与解析交给纯静态 `DataSourceReader`；`DataLoader` 保留公开读取门面、错误输出、Mod overlay 与 contracts 例外。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 将已加载、已合并且完成坏包隔离的数据交给纯 `DataReferenceIndexBuilder` 构建跨文件校验索引；读取顺序、Mod 边界和 schema 错误仍由 `DataLoader` 持有。
+- 将已加载的玩家配置交给纯 `PlayerDataValidator` 校验；`DataLoader` 继续持有文件读取、stat / pool 契约 callback、资源路径错误包装、调用位置和 schema 计数。
 - 将已加载的相机反馈配置交给纯 `CameraFeedbackValidator` 校验；`DataLoader` 继续持有文件读取、资源路径错误包装、调用位置、二次索引读取和 schema 计数。
 - 将已加载的致谢配置交给纯 `CreditsValidator` 校验；`DataLoader` 继续持有文件读取、Mod-aware locale key 校验、资源路径错误包装、调用位置和 schema 计数。
 - 将包内与最终合并的 Gear Mod 掉落行交给纯 `GearModDropTableValidator` 校验；`DataLoader` 继续持有读取、错误输出、坏包禁用 / 重读和 schema 计数。
@@ -38,6 +39,7 @@
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
 | `client/scripts/data/data_source_reader.gd` | 对单次官方 JSON / CSV 读取与解析返回 typed result；无缓存、无 Node / autoload、无 Mod overlay、无错误输出 |
 | `client/scripts/data/data_reference_index_builder.gd` | 从调用方已加载的 JSON / CSV 值构建 18 类跨文件引用索引；纯、静态、无状态，不读取文件 / Mod、不输出错误、不缓存或排序 |
+| `client/scripts/data/player_data_validator.gd` | 纯、静态的玩家 schema 校验；只接收已加载 root、stat / pool callback 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/camera_feedback_validator.gd` | 纯、静态的相机反馈 schema 校验；只接收已加载 root 与错误 sink，不读文件、不持有 Node / cache，也不写 schema 计数或引用索引 |
 | `client/scripts/data/credits_validator.gd` | 纯、静态的致谢 schema 校验；只接收已加载 root、locale key callback 与错误 sink，不读文件 / Mod、不持有 Node / cache，也不写 schema 计数 |
 | `client/scripts/data/gear_mod_drop_table_validator.gd` | 纯、静态的包内 / 合并掉落行校验；只接收现成 rows / ID 索引与错误 sink，不读文件 / Mod、不持有 Node / cache、不排序 |
@@ -49,6 +51,7 @@
 | `client/tests/unit/test_data_reference_index_builder.gd` | 锁定引用索引的坏 root / 类型、真实 loader String 产物、strict JSON 对 `StringName` / 数字 ID 的拒绝、空 ID、插入顺序、重复折叠、别名隔离、机关半径与嵌套波次行为 |
 | `client/tests/unit/test_data_source_reader.gd` | 锁定 JSON 对象 / 数组 / 标量、`null` 旧失败语义、CSV 有无表头、短行补空、长行截断、空行、空文件、失败元数据与每次重读无缓存 |
 | `client/tests/integration/test_data_source_reader_adapter.gd` | 通过真实 `DataLoader.load_json()` / `load_csv()` 门面和 root `ModLoader` 测试替身，锁定失败元数据转 `_fail()`、失败时不调 overlay、成功后才 overlay、contracts 禁止 overlay 与每次重读 |
+| `client/tests/unit/test_player_data_validator.gd` | 锁定玩家 root / base stats 硬返回、schema / body 诊断顺序、stat callback 与源顺序 / raw count、金币池双诊断、energy 兼容缺口、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_camera_feedback_validator.gd` | 锁定相机反馈 schema、aim / 两组 shake / 武器振幅指数的诊断顺序、嵌套 Dictionary 短路、int-like / finite / 数值边界、额外 key、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_credits_validator.gd` | 锁定致谢 schema、section / entry source order 与计数、String 化重复 id、external 分支、locale callback、错误 sink 和跨调用无状态 |
 | `client/tests/unit/test_gear_mod_drop_table_validator.gd` | 锁定掉落表边界、空表、多错误顺序、未知引用、等级范围 / 重复、包输入形状、旧静默诊断与跨调用无状态 |
@@ -98,6 +101,7 @@
 | autoload `_ready()` | 加载 `_contracts.json` | `reload_contracts()` |
 | 配置读取 | 每次公开调用都让 `DataSourceReader` 重新打开官方文件并解析；失败元数据由 `DataLoader` 转为原 `[DataLoader]` 错误，成功后才叠加已启用本地 Mod patch | `DataSourceReader.read_json()` / `read_csv()`、`DataLoader.load_json()` / `load_csv()` |
 | schema 校验 | 启动 smoke 或工具调用正式数据校验；运行时会校验合并后的数据 | `validate_project_data()`、`schema_counts()` |
+| 玩家配置 | locale 校验后读取 `player.json` 并交给纯 validator；DataLoader 通过既有 stat helper 与 pool 契约 helper 保留字段范围和错误文本，仅在 validator 到达合法非空 `base_stats` 后写入 raw stat count，再继续相机反馈校验 | `PlayerDataValidator.validate()`、`_validate_player_stat_value()`、`_require_player_pool_id()` |
 | 相机反馈 | 玩家 schema 后读取 `camera_feedback.json` 并交给纯 validator；随后必须再次 `load_json()`，把新 payload 交给引用 builder，再继续视觉效果校验，不缓存或复用校验 payload | `CameraFeedbackValidator.validate()`、`DataReferenceIndexBuilder.collect_camera_feedback_ids()` |
 | 引用索引 | 每个 schema 校验后按原读取顺序重新取得当前合并值，再交给纯 builder 建索引；Gear Mod 必须在坏玩法包隔离后重新读取 | `DataReferenceIndexBuilder.collect_*()` |
 | 致谢 | 技能校验与引用索引完成后、角色校验前读取 `credits.json` 并交给纯 validator；DataLoader 通过现有 locale helper 保留契约扩展、Mod CSV patch 与导出版 translation fallback，再按 validator 返回的源数组计数写入 schema count | `CreditsValidator.validate()`、`_require_credits_locale_key()` |
@@ -148,6 +152,17 @@
 | 普通 JSON | `collect_hero_passive_ids()`、`collect_weapon_ids()`、`collect_enemy_ai_profile_ids()`、`collect_gear_mod_ids()`、`collect_world_event_ids()`、`collect_active_item_ids()`、`collect_consumable_ids()`、`collect_skill_ids()`、`collect_character_ids()`、`collect_difficulty_profile_ids()`、`collect_game_mode_ids()`、`collect_map_layout_ids()` | 只接收原值类型为 String 的 ID；空 String 继续保留，重复 ID 原位折叠且后写不改变首次插入顺序 |
 | CSV | `collect_enemy_ids()`、`collect_hazard_ids()` | 消费 `load_csv()` 的 String ID 并过滤空值；机关半径按旧规则从 String 转 int、至少为 1，重复 ID 最后写入值生效但不重排 |
 | 波次 | `collect_spawn_wave_ids_by_mode()` | 消费 `load_csv()` 的 String mode / wave ID 并过滤空值，保持 mode 与各 mode 内 wave 的首次插入顺序，返回独立嵌套 Dictionary |
+
+### 内部纯玩家配置校验 API
+
+`PlayerDataValidator.validate(raw_data, validate_stat_value, require_pool_id, report_failure)` 每次返回新的 typed `ValidationResult { is_valid, stat_count, has_stat_count }`。Stat callback 接收 `(field_path, stat, value)`，pool callback 接收 `(field_path, value)` 并返回已登记 id 或空字符串，错误 sink 接收 `(field_path, expected)`；正式接线由 `DataLoader` 补 `PLAYER_DATA_PATH`，复用 `_validate_stat_value()`、`_require_registered(..., "pool_ids")` 与 `_schema_fail()`。Validator 不访问 autoload、文件、`user://`、Mod、缓存或 schema count；金币池的固定目标使用生成的 `PoolIds.GOLD_ORB`。
+
+- root 非 `Dictionary` 时只报告 `root / Dictionary` 并立即返回，且 `has_stat_count=false`；Dictionary root 不做 exact-key 校验，也不校验 `defense` / `dash`。
+- Dictionary root 按 schema → body → base stats → gold drop → energy drop 的旧顺序收集错误。`schema_version` 精确为 int-like `4`；body 合法时先按固定 `radius` required、原 Dictionary 插入序 extra、再校验 radius 为有限正数，body 类型错误不阻止后续 base stats。
+- `base_stats` 非 Dictionary 或为空时报告 `non-empty Dictionary` 后硬返回；此前 schema / body 错误保留，但 gold / energy 不再执行，stat callback 不调用且 count 不写。合法非空 Dictionary 先拒绝遗留 `pickup_orb_speed`，再把原 Dictionary size 写入 result，随后按 JSON loader 可达的 String key source order 调 stat callback；raw count 包含遗留或未登记 stat。实现仍沿用 `String(raw_key)`，但不把测试字面量的跨类型 key 转换声明为兼容契约。
+- gold drop 只校验 Dictionary、正 `pickup_speed` 与 pool id。Pool callback 返回空字符串时，既保留 callback 自身的未登记 / 非空诊断，也继续追加 `gold_drop.pool_id / gold_orb`；返回已登记但非 `gold_orb` 的 id 时同样追加该诊断。gold drop 不做 exact-key 校验。
+- energy drop 只校验 Dictionary 与正 `pickup_speed`；`chance`、`amount`、`pool_id`、`rng_stream` 和额外字段继续不在本 GDScript 边界校验。该 under-validation 及 root / defense / dash 缺口只做等价提取，不代表新数据可依赖；收紧必须另立迁移决策并同步 Python schema。
+- `DataLoader` 保留 locale 后 / camera feedback 前的调用位置、首次 `load_json()`、资源路径包装和 callback 依赖；仅当 `has_stat_count=true` 时写 `_last_schema_counts.player_stats`，因此 base stats 硬返回继续不留下 count。
 
 ### 内部纯相机反馈校验 API
 
@@ -230,7 +245,7 @@
 - `_contracts.json` 由 `tools/sync_contracts.py` 生成，禁止手改。
 - 玩家 mod 不得修改 `_contracts.json` 或生成常量；manifest v2 只允许声明 `gear_mod_ids` 与 `locale_prefixes`，且 Gear Mod / locale key 必须使用 `mod_<package_id>_` 命名空间。
 - 当前 F3 schema 覆盖：
-  - `player.json`：schema v4 新增 `body`，且 `body` 必须且只能含正数 `radius`；其余根级配置继续包含 `base_stats`、`defense`、`dash`、`energy_drop` 与 `gold_drop`。stat id 必须来自词表，数值范围按 stat 类型校验；`max_hp` 是正数浮点血量，`health_regen` 是非负 HP/s，两个掉落的 `pickup_speed` 必须为正数。遗留 `pickup_orb_speed` 会被明确拒绝，`luck` 保留为暂未生效属性。
+  - `player.json`：schema v4 新增 `body`，且 GDScript validator 要求 `body` 必须且只能含正数 `radius`；其余根级配置继续包含 `base_stats`、`defense`、`dash`、`energy_drop` 与 `gold_drop`。非空 `base_stats` 的 stat id 必须来自词表，数值范围按 stat 类型校验；`max_hp` 是正数浮点血量，`health_regen` 是非负 HP/s，两个掉落的 `pickup_speed` 必须为正数。遗留 `pickup_orb_speed` 会被明确拒绝，`luck` 保留为暂未生效属性。等价提取继续保留 GDScript 边界不校验 root exact / defense / dash、energy 其余字段以及 base stats 错误硬返回的旧语义；Python schema 仍可提供更严格的全项目门禁。
   - `characters.json`：schema v4 角色 id、专属 `scene_path`、表现 profile、名称 / 描述 key、可选图鉴图标、默认解锁 / 解锁规则、tags、capabilities、控制配置、起始携带引用和角色基础属性；字段缺失等同默认开放。每个 `palette` 必须且只能含一个合法 HTML 颜色 `primary`，遗留 `secondary` / `accent` 或任何额外键均拒绝。场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：schema v5；武器 id、表现 profile、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型与弹体数值。根级和单武器均执行 exact-key 校验，任何遗留 `ammo` 或额外字段都会拒绝。
   - `skills.json`：schema v3；技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、能量消耗、目标类型、能力缩放和 `programs[]`。技能首版只允许 `skill_activated` trigger；程序 id 唯一，conditions/actions 必须来自生成契约，概率 / 内部冷却合法；状态、元素、stack rule、ability tag 与 pool 引用继续 fail-fast。
@@ -264,7 +279,7 @@
 ## 依赖
 
 - 上游依赖：生成契约文件、`ModLoader`，以及仅由 `DataSourceReader` / CSV header 校验边界直接使用的 Godot `FileAccess` / `JSON`。
-- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator`、`RewardChoicePoolValidator`、`DifficultyProfileValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。
+- 内部纯依赖：`DataSourceReader` 只依赖 Godot 物理文件 / 解析 API；`DataReferenceIndexBuilder`、`PlayerDataValidator`、`CameraFeedbackValidator`、`CreditsValidator`、`GearModDropTableValidator`、`EnemyRewardModelValidator`、`LevelProgressionValidator`、`RewardChoicePoolValidator`、`DifficultyProfileValidator` 与 `DataFingerprintBuilder` 只接收已加载的 `Variant` / `Array[Dictionary]` 和显式索引 / callback。所有边界都不得反向读取 `DataLoader` 或 `ModLoader`；除 Reader 自身外不得读物理数据源。`PlayerDataValidator` 只额外静态引用生成的 `PoolIds.GOLD_ORB`，不查询契约运行时状态。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -276,6 +291,7 @@
 - 热重载可复用 `data_reloaded` 信号扩展。
 - 本地 mod 只能通过 `ModLoader` manifest v2 给 Gear Mod 定义、奖励池贡献、掉落和 locale 做声明式 append；不得让业务系统绕过 `DataLoader` 直接读取 `user://mods`。
 - 新跨文件引用索引应在 `DataReferenceIndexBuilder` 新增纯静态入口，由 `DataLoader` 在原校验 / 读取时序中显式传入合并后的数据；不得让 builder 自行读文件、扫描 Mod、缓存或排序。
+- 新玩家 body / base stat / 掉落结构规则应在 `PlayerDataValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件读取、stat / pool adapters、资源路径、locale 后 / camera 前的调用位置与 count；不得在 validator 中加载 JSON、查询 Mod / autoload 或写 `_last_schema_counts`。现有 base stats 硬返回、energy under-validation 与金币池双诊断不得在无独立迁移决策时顺手收紧。
 - 新相机反馈字段或范围规则应在 `CameraFeedbackValidator` 中保持纯静态校验，由 `DataLoader` 继续控制首次校验读取、第二次索引读取、资源路径、调用位置与计数；不得在 validator 中加载 JSON、收集 profile id 或写 `_last_schema_counts`。
 - 新致谢字段或规则应在 `CreditsValidator` 中保持纯静态校验，由 `DataLoader` 继续控制文件读取、Mod-aware locale callback、资源路径、调用位置与计数；不得在 validator 中加载 JSON、查询 Mod / locale 或写 `_last_schema_counts`。
 - 新 Gear Mod 掉落字段或规则应在 `GearModDropTableValidator` 的包内与合并入口分别落地，并由 `DataLoader` 保持“先隔离、再重读、再计数 / 校验”；不得在 validator 中读文件、禁用包或缓存合并 rows。
@@ -291,6 +307,7 @@
 |------------|----------|----------|----------|
 | 加 JSON 数据 schema | `data_loader.gd` + `tools/validate_data.py` | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
 | 改官方 JSON / CSV 物理读取或 DataLoader 公开接线 | `data_source_reader.gd`、`data_loader.gd`、目标 GUT | 本文档 | Reader unit + full GUT + `validate_data` + schema test + `mod-loader-smoke` + L1/runtime/replay smoke + headless boot + Replay regression |
+| 改玩家配置校验 / DataLoader 接线 | `player_data_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 / full GUT + contracts + `validate_data` + schema test + L1/runtime/actor/save/loading + headless boot + Replay regression |
 | 改视觉效果 / profile schema | `data_loader.gd`、`validate_data.py`、catalog / profiles | `visual_effects.md`、数据手册、词表 | `sync_contracts --check` + `validate_data` + `vfx-smoke` |
 | 改相机反馈校验 / DataLoader 接线 | `camera_feedback_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 / Gameplay Runtime 文档 | 目标 GUT + `validate_data` + schema test + `vfx-smoke` + `runtime-smoke` + headless boot + Replay regression |
 | 改致谢校验 / DataLoader 接线 | `credits_validator.gd`、`data_loader.gd`、目标 GUT、schema tests | 本文档；字段语义变化时追加数据手册 | 目标 GUT + `validate_data` + schema test + `mod-loader-smoke` + headless boot + Replay regression |
@@ -332,6 +349,7 @@
 - F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
 - `DataSourceReader` 或 `DataLoader.load_json()` / `load_csv()` 接线变更需跑 unit + adapter integration GUT：unit 覆盖 JSON Dictionary / Array / scalar、`null` 的旧失败语义、CSV 有无 header、短行补空 / 长行截断 / 空白行 / 空文件、文件打开失败 field / expected 与无缓存；adapter 覆盖 `_fail()` 转发、失败不 overlay、成功后 overlay、contracts 例外与重读。非法 JSON 文本仍会由 Godot 输出 parse error 并被标准 fatal gate 可见；本 unit 只直接锁定 JSON `null`，不在同进程内 suppress 该引擎错误，也不声称现有 schema fixture 已单独覆盖 malformed 输入。再跑 full GUT、Python schema、`mod-loader-smoke`、L1 / runtime / replay smoke、headless boot 与 Replay regression，确认 `DataLoader` 仍在成功后才应用 Mod overlay，`_contracts.json` 仍禁止覆盖，原错误文本 / 读取顺序 / 每次重读 / data hash / Replay v9 摘要不变。
 - 引用索引 builder 或 `validate_project_data()` 的索引接线变更需跑目标 GUT unit，覆盖坏 root / 类型、真实 loader String 输入、strict JSON 对非 String ID 的拒绝、各类空 ID、source order、重复折叠、输出无别名、机关 clamp / last-write 和波次嵌套结构；再跑 DataLoader schema 与 headless boot 确认读取、坏 Mod 隔离和 fail-fast 顺序不变。
+- 玩家配置 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / raw count、root 与 base stats 两处硬返回、int-like schema、body required → extra → radius 顺序、遗留 stat → callback source-order、stat false 传播、金币 pool callback 空返回后的双诊断、已登记错误 pool、energy 与 root / defense / dash under-validation、错误 sink参数及跨调用无状态；再跑 full GUT、contracts、Python data/schema、L1 / runtime / actor / save / loading smoke、headless boot 与四条 checked-in Replay v9 golden，确认 locale 后 / camera feedback 前调用位置、base stats 硬返回不写 count、data hash 与 Replay 摘要不变。
 - 相机反馈 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / 最小边界、root 类型、schema → aim 4 字段 → 玩家 shake 7 字段 → 武器 shake 7 字段 → 振幅指数的诊断顺序、嵌套 Dictionary 短路、integral float、number / finite / 范围、额外 key、错误 sink 参数及跨调用无状态；再跑 Python schema、`vfx-smoke`、`runtime-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、玩家后 / 视觉效果前调用位置、二次加载的索引输入、Dictionary root 的 `camera_feedback_profiles = 2`、data hash 与 Replay v9 摘要不变。
 - 致谢 validator 或接线变更需跑目标 GUT unit，覆盖 canonical / integral-float schema、root / sections shape、section / entry source order 与计数、String 化重复 id、external 前缀分支、可选 copyright、locale callback、错误 sink 参数及跨调用无状态；再跑 Python schema、`mod-loader-smoke`、headless boot 与 Replay regression，确认原路径 / expected 文本、Mod-aware locale 诊断、Dictionary root 的两个 count、data hash 与 Replay v9 摘要不变。
 - Gear Mod 掉落 validator 或接线变更需跑目标 GUT unit，覆盖数值边界、空合并表、多错误顺序、未知 id、等级解析 / 下限 / 倒置、重复 key、包 root / row 形状、exact-key 顺序、旧静默诊断、包内重复合法和跨调用无状态；再跑 Python schema 负例与 `mod-loader-smoke`，确认坏包的合法掉落行会随包隔离、最终 count / 有效包顺序不变。
