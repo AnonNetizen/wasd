@@ -49,6 +49,9 @@ const CREDITS_VALIDATOR := preload(
 const GEAR_MOD_DROP_TABLE_VALIDATOR := preload(
 	"res://scripts/data/gear_mod_drop_table_validator.gd"
 )
+const HAZARD_CATALOG_VALIDATOR := preload(
+	"res://scripts/data/hazard_catalog_validator.gd"
+)
 const ENEMY_REWARD_MODEL_VALIDATOR := preload(
 	"res://scripts/data/enemy_reward_model_validator.gd"
 )
@@ -2212,32 +2215,38 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 
 func _validate_hazards_csv(locale_keys: Dictionary) -> bool:
 	var rows: Array[Dictionary] = load_csv(HAZARDS_PATH)
-	var is_valid: bool = true
-	var seen: Dictionary = {}
-	if rows.is_empty():
-		is_valid = _schema_fail(HAZARDS_PATH, "rows", "non-empty CSV") and is_valid
-	_last_schema_counts["hazards"] = rows.size()
-	for index: int in range(rows.size()):
-		var row: Dictionary = rows[index]
-		var field: String = "line %d" % (index + 2)
-		var hazard_id: String = String(row.get("id", ""))
-		is_valid = _require_non_empty_string(HAZARDS_PATH, "%s.id" % field, row.get("id")) and is_valid
-		if not hazard_id.is_empty():
-			if seen.has(hazard_id):
-				is_valid = _schema_fail(HAZARDS_PATH, "%s.id" % field, "unique hazard id") and is_valid
-			seen[hazard_id] = true
-		is_valid = _require_locale_key(HAZARDS_PATH, "%s.name_key" % field, row.get("name_key"), locale_keys) and is_valid
-		var tags: Array[String] = _parse_tag_list(row.get("tags"))
-		is_valid = _validate_registered_string_array(HAZARDS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
-		if not tags.has("tag_hazard"):
-			is_valid = _schema_fail(HAZARDS_PATH, "%s.tags" % field, "tag_hazard") and is_valid
-		is_valid = _require_registered(HAZARDS_PATH, "%s.pool_id" % field, row.get("pool_id"), "pool_ids") != "" and is_valid
-		is_valid = _require_csv_int(HAZARDS_PATH, "%s.damage" % field, row.get("damage"), 0) and is_valid
-		is_valid = _require_registered(HAZARDS_PATH, "%s.element_id" % field, row.get("element_id"), "elements") != "" and is_valid
-		is_valid = _require_csv_number(HAZARDS_PATH, "%s.trigger_interval" % field, row.get("trigger_interval"), 0.0, null, true) and is_valid
-		is_valid = _require_csv_int(HAZARDS_PATH, "%s.radius_tiles" % field, row.get("radius_tiles"), 1) and is_valid
-		is_valid = _require_csv_number(HAZARDS_PATH, "%s.duration" % field, row.get("duration"), 0.0) and is_valid
-	return is_valid
+	var result: HAZARD_CATALOG_VALIDATOR.ValidationResult = (
+		HAZARD_CATALOG_VALIDATOR.validate(
+			rows,
+			Callable(self, "_require_hazard_locale_key").bind(
+				locale_keys
+			),
+			Callable(self, "has_contract_value"),
+			Callable(self, "_report_hazard_catalog_failure")
+		)
+	)
+	_last_schema_counts["hazards"] = result.row_count
+	return result.is_valid
+
+
+func _require_hazard_locale_key(
+	field_path: String,
+	value: Variant,
+	locale_keys: Dictionary
+) -> bool:
+	return _require_locale_key(
+		HAZARDS_PATH,
+		field_path,
+		value,
+		locale_keys
+	)
+
+
+func _report_hazard_catalog_failure(
+	field_path: String,
+	expected: String
+) -> bool:
+	return _schema_fail(HAZARDS_PATH, field_path, expected)
 
 
 func _validate_spawn_waves_csv(enemy_ids: Dictionary, hazard_ids: Dictionary, game_mode_ids: Dictionary) -> bool:
