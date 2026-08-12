@@ -1,5 +1,5 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "worlds": [
     {
       "id": "module_world_7x7",
@@ -10,6 +10,10 @@
       "cell_size": 160,
       "active_radius": 1,
       "seal_outer_edges": true,
+      "teleporter_transition": {
+        "fade_out_duration": 0.2,
+        "fade_in_duration": 0.2
+      },
       "start_slot": {
         "x": 0,
         "y": 6
@@ -60,8 +64,21 @@
       ],
       "limited_template_groups": [
         {
+          "id": "teleporter_modules",
+          "pick_distinct": 1,
+          "minimum_manhattan_distance": 4,
+          "entries": [
+            {
+              "template_id": "module_teleporter_pad",
+              "weight": 1,
+              "count_per_floor": 3
+            }
+          ]
+        },
+        {
           "id": "world_event_modules",
           "pick_distinct": 3,
+          "minimum_manhattan_distance": 0,
           "entries": [
             {
               "template_id": "module_world_event_defense",
@@ -209,7 +226,7 @@
             "x": 0,
             "y": 2
           },
-          "template_id": "module_flat_ground",
+          "template_id": "module_teleporter_pad",
           "rotation": 0
         },
         {
@@ -289,7 +306,7 @@
             "x": 3,
             "y": 3
           },
-          "template_id": "module_flat_ground",
+          "template_id": "module_teleporter_pad",
           "rotation": 0
         },
         {
@@ -369,7 +386,7 @@
             "x": 6,
             "y": 4
           },
-          "template_id": "module_flat_ground",
+          "template_id": "module_teleporter_pad",
           "rotation": 0
         },
         {

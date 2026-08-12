@@ -396,3 +396,10 @@ ui_world_event_gold_shrine_failure,祭坛吞下了金币，但没有回应。,Th
 ui_world_event_insufficient_gold,金币不足。,Not enough Gold.
 ui_world_event_blood_shrine_success,献祭完成：获得 {amount} 金币。,Sacrifice complete: gained {amount} Gold.
 ui_world_event_insufficient_health,当前生命、护盾与超量护盾不足以完成献祭。,Not enough current health shields and overshield for the sacrifice.
+ui_interact_use_teleporter,[{binding}] 使用传送台,[{binding}] Use Teleporter
+ui_teleport_choice_title,选择传送台,Choose Teleporter
+ui_teleport_choice_desc,选择一座已发现的传送台。,Choose a discovered teleporter.
+ui_teleport_station_format,传送台 {number},Teleporter {number}
+ui_teleport_no_other_stations,尚未发现其他传送台。,No other teleporters have been discovered.
+ui_teleport_source_unsafe,附近仍有心象，无法使用传送台。,Mindforms nearby prevent teleporter use.
+ui_teleport_failed,传送失败，请重新选择目的地。,Teleport failed. Choose a destination again.

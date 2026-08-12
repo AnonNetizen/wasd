@@ -134,7 +134,7 @@ func spawn_fresh(spec: Dictionary) -> Dictionary:
 	return _result(true, "", enemy)
 
 
-## Materializes an enemy from a Run v19 entity snapshot. Reward and event
+## Materializes an enemy from a Run v20 entity snapshot. Reward and event
 ## context are supplied by the caller and are never re-resolved here.
 func restore_enemy(spec: Dictionary) -> Dictionary:
 	if not _configured:

@@ -206,6 +206,21 @@ func current_look_offset() -> Vector2:
 	return _current_look_offset
 
 
+## Hard-synchronizes both Phantom Camera and the live Camera2D after an
+## out-of-band player move such as a teleporter transaction.
+func snap_to_target(reset_look_offset: bool = true) -> void:
+	if _target == null or not is_instance_valid(_target):
+		return
+	if reset_look_offset:
+		_current_look_offset = Vector2.ZERO
+		_last_direction_look = Vector2.ZERO
+		_has_direction_look = false
+		_has_pointer_look = false
+	_apply_look_offset(_current_look_offset)
+	_player_camera.teleport_position()
+	_camera.global_position = _target.global_position + _current_look_offset
+
+
 func _configure_camera_nodes() -> void:
 	_camera.enabled = false
 	_camera.position_smoothing_enabled = false

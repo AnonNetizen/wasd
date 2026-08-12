@@ -376,7 +376,7 @@ func _expect_board_domain() -> void:
 			"x": 3,
 			"y": 2,
 		},
-		"placement should atomically return the flattened Run v19 shape"
+		"placement should atomically return the flattened Run v20 shape"
 	)
 	var cage_result: Dictionary = board.request_placement(
 		2,

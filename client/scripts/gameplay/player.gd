@@ -373,6 +373,31 @@ func debug_is_invulnerable() -> bool:
 	return _debug_invulnerable
 
 
+## Moves the player as one teleport transaction while clearing only transient
+## movement. Health, shields, statuses, temporary modifiers, and cooldowns are
+## deliberately preserved.
+func teleport_to(world_position: Vector2) -> bool:
+	if not is_finite(world_position.x) or not is_finite(world_position.y):
+		push_error("[Player] cannot teleport to a non-finite position")
+		return false
+
+	var was_dashing: bool = is_dashing()
+	global_position = world_position
+	velocity = Vector2.ZERO
+	_dash_direction = Vector2.ZERO
+	_dash_invulnerability_remaining = 0.0
+	_dash_remaining = 0.0
+	_external_knockback_duration = 0.0
+	_external_knockback_remaining = 0.0
+	_external_knockback_velocity = Vector2.ZERO
+	_weapon_recoil_duration = 0.0
+	_weapon_recoil_remaining = 0.0
+	_weapon_recoil_velocity = Vector2.ZERO
+	if was_dashing:
+		dash_finished.emit()
+	return true
+
+
 func debug_reset_transient_state(world_position: Vector2) -> void:
 	global_position = world_position
 	velocity = Vector2.ZERO

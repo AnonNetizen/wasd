@@ -9,7 +9,7 @@
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`。主文件缺失时允许尝试 `.bak`；普通损坏主文件只有成功隔离到 `user://saves/.broken/` 并广播 / 埋点后才能尝试备份，隔离失败必须保留主 / 备文件并立即失败，避免静默绕过仍在原位的坏档。主文件若是需保留的不兼容 Run（版本或 mod environment 不匹配），同样立即失败并保留主 / 备文件，禁止用兼容备份偷偷覆盖该诊断。已实际尝试的备份若普通损坏则隔离，若需保留则原字节保留；最终失败的 `last_error()` 采用已存在且被尝试的备份错误。
 - 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load_envelope()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
-- 当前 `meta` 为 v4、`run` 为 v19：Meta 保存上次确认的主／副智能碎片和稀疏横向内容进度，不含本地或局内 Gear Mod 实例；Run 保存精确 `mod_environment`、GameplayEffectRuntime 状态、完整 7×7 assignment、Gear Mod placements、带实例 ID 的地面物、冻结内容池、玩家、经济、敌人、世界事件和 RNG 状态。旧 Run v18 保持原文件但不显示继续入口，不迁移。
+- 当前 `meta` 为 v4、`run` 为 v20：Meta 保存上次确认的主／副智能碎片和稀疏横向内容进度，不含本地或局内 Gear Mod 实例；Run 保存精确 `mod_environment`、GameplayEffectRuntime 状态、完整 7×7 assignment、Gear Mod placements、带实例 ID 的地面物、冻结内容池、玩家、经济、敌人、世界事件、RNG 状态及传送选择 `ui_restore`。旧 Run v19 原文件保留但不显示继续入口、不迁移。
 - `GameplayRunLoop + GearModBoard` 是空间 Mod 状态权威，`GearModSystem` 不读写 SaveManager；Meta v4 中只允许 `content_progression.unlocked.gear_mod` 保存内容可用资格。Meta v3→v4 保留英雄组合并初始化空进度。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
@@ -62,8 +62,9 @@ user://saves/
 | 损坏 | 普通损坏主文件在回退前用唯一文件名隔离到 `.broken`；已尝试且普通损坏的备份同样隔离。需保留的不兼容文件不隔离 | `save_corrupted` |
 | 删除 | 删除正式、备份、临时文件；若 slot 目录空则清理空目录 | `delete()` / `save_deleted` |
 | F5 续局 | Gameplay runtime 生成 JSON 友好的 run payload，SaveManager 写入 envelope；标题继续时只返回 payload | `save()` / `load()` |
-| 局内 Gear Mod / 效果 | `GameplayRunLoop` 把棋盘、Runtime 程序状态与带 `instance_id` 的未拾取实体写入 Run v19；恢复后只从 modifier components 替换应用 Mod 层，再恢复 Runtime | `save()` / `load()` |
-| 内容进度 | `ContentUnlockSystem` 原子提交 Meta v4；Run v19 只暂存冻结池与未结算增量，本地 Gear Mod 不写 Meta | `save()` / `load()` |
+| 局内 Gear Mod / 效果 | `GameplayRunLoop` 把棋盘、Runtime 程序状态与带 `instance_id` 的未拾取实体写入 Run v20；恢复后只从 modifier components 替换应用 Mod 层，再恢复 Runtime | `save()` / `load()` |
+| 内容进度 | `ContentUnlockSystem` 原子提交 Meta v4；Run v20 只暂存冻结池与未结算增量，本地 Gear Mod 不写 Meta | `save()` / `load()` |
+| 传送选择恢复 | Run v20 的 `ui_restore` 在直接选择态保存来源站；暂停菜单叠在选择面板上方时同时保存 underlying `TELEPORT_CHOICE` 与来源站。续局由 RunLoop 复验来源并重建面板，`SaveManager` 不解释业务字段 | `save()` / `load_envelope()` |
 
 ## 公共 API
 
@@ -117,7 +118,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-Run v19 payload 延续模块、事件和敌人奖励确定性字段，并保存精确 `mod_environment[{id,version,gameplay_hash}]`、GameplayEffectRuntime 来源 / 冷却 / 周期 / action state、49 槽 assignment、`gear_mods.next_instance_id`、行优先 `unlocked_cells` / placements、顶层活动 `gear_mod_pickups`、非活动模块 `gear_mod_pickup_snapshots`、`content_availability` 与 `content_progress_delta`。核心从主英雄派生，不保存；每个地面拾取快照携带正整数 `instance_id` 与有限 `position`，棋盘、活动物和模块缓存间必须全局唯一。未提交 placement transaction 不保存，恢复后仍是普通地面物。缺包、版本或 gameplay hash 不匹配时保留原文件并阻止继续，不按损坏档隔离；当前版本内部未知字段、非法坐标 / 来源、非有限位置或逻辑上限超限才走坏档隔离。
+Run v20 payload 延续模块、事件、敌人奖励与 Gear Mod 确定性字段，并保存精确 `mod_environment[{id,version,gameplay_hash}]`、GameplayEffectRuntime 来源 / 冷却 / 周期 / action state、49 槽 assignment、`gear_mods.next_instance_id`、行优先 `unlocked_cells` / placements、顶层活动 `gear_mod_pickups`、非活动模块 `gear_mod_pickup_snapshots`、`content_availability`、`content_progress_delta` 与传送选择 `ui_restore`。核心从主英雄派生，不保存；每个地面拾取快照携带正整数 `instance_id` 与有限 `position`，棋盘、活动物和模块缓存间必须全局唯一。未提交 placement transaction 不保存，恢复后仍是普通地面物；传送事务只保存已提交后的世界状态，选择态则只保存原来源站及暂停 underlying state。缺包、版本或 gameplay hash 不匹配时保留原文件并阻止继续，不按损坏档隔离；当前版本内部未知字段、非法坐标 / 来源、非有限位置或逻辑上限超限才走坏档隔离。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 
@@ -147,6 +148,8 @@ Run v19 payload 延续模块、事件和敌人奖励确定性字段，并保存�
 
 `run` v17→v18 是 ADR #194 的空间棋盘边界：旧 `gear_mods.mod_ids` 没有实例 ID、坐标、解锁格和地图行为状态，无法无损推断 placement。迁移只推进 schema 并设置 `legacy_run_incompatible=true`；正式启动提示一次后只删除 Run，Meta v4 保留。
 
+`run` v19→v20 是 ADR #199 的三站式传送台网络边界：旧 Run 缺少传送选择来源站、暂停 underlying state，以及与新 world assignment / map hash / data fingerprint 对应的确定性状态。项目不注册 v19→v20 migration；旧 Run v19 原文件保留，标题继续入口拒绝加载且不得借用 `.bak` 绕过诊断。Meta v4 不变。
+
 `meta` v1→v2 在保留当时 `gear_mods` 字段的同时补入默认组合；`meta` v2→v3 保留合法的 `main_hero_id` / `sub_hero_id`，直接删除旧 `gear_mods` inventory、rank、dust 与 loadout，不补偿。SaveManager 仍只校验 envelope 与 hash，业务层只解释英雄组合。
 
 ## 依赖
@@ -158,7 +161,7 @@ Run v19 payload 延续模块、事件和敌人奖励确定性字段，并保存�
 ## 扩展点
 
 - 新 save kind：先登记 `docs/词表与契约.md` §14，跑 `tools/sync_contracts.py`，再补当前版本与文档。
-- 新 schema 版本：更新 `CURRENT_KIND_VERSIONS`，注册逐级 migration，并补 L1 迁移测试。
+- 新 schema 版本：更新 `CURRENT_KIND_VERSIONS`，明确选择逐级 migration 或“保留原文件并拒绝”的不兼容策略，并补对应 L1 迁移 / 拒绝测试；ADR #199 的 Run v19→v20 明确采用后者。
 - `meta` 接入：FormalClientBoot 解释上次英雄组合；`ContentUnlockSystem` 是内容资格与计数唯一写入方，局内 Gear Mod 实例不得写入 Meta。
 - `run` 接入：玩法系统生成可恢复快照，`SaveManager` 不知道玩家 / 敌人 / 子弹内部字段；保存对象池实体时只保存活动节点字段，恢复时由玩法系统通过 `PoolManager` 重新 acquire。
 
@@ -187,20 +190,20 @@ Run v19 payload 延续模块、事件和敌人奖励确定性字段，并保存�
 ## 测试义务
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，并跑 `python tools/godot_bridge.py --project client save-smoke`。
-- 改 Meta v4 英雄组合 / 内容进度或 Run v19 Gear Mod 棋盘 / Runtime / 地面实例 / 冻结池 / mod environment / 7×7 assignment 字段时追加 `content-progression-smoke`、`save-smoke`、`effect-runtime-smoke`、`mod-loader-smoke`、`gear-mod-smoke`、`gear-mod-pickup-smoke`、`module-world-smoke` 与 `runtime-smoke`；Meta 必须断言不存在局内或本地 `gear_mods`。
+- 改 Meta v4 英雄组合 / 内容进度或 Run v20 Gear Mod 棋盘 / Runtime / 地面实例 / 冻结池 / mod environment / 7×7 assignment / `ui_restore` 字段时追加 `content-progression-smoke`、`save-smoke`、`effect-runtime-smoke`、`mod-loader-smoke`、`gear-mod-smoke`、`gear-mod-pickup-smoke`、`module-world-smoke`、`teleporter-smoke` 与 `runtime-smoke`；Meta 必须断言不存在局内或本地 `gear_mods`。
 - 后续引入 GUT 后，`SaveManager` 必须覆盖 envelope 字段、hash mismatch、原子写入 / `.bak`、迁移链、坏档隔离、`meta` / `run` roundtrip、slot 校验和删除行为；当前 smoke 的主 / 备 3×3 矩阵固定覆盖主文件缺失 / 普通损坏 / 需保留不兼容 × 备份有效 / 普通损坏 / 需保留不兼容，并逐项断言返回值、`last_error()`、原字节保留与 `.broken` 隔离状态；另以 `.broken` 路径碰撞覆盖“损坏主档隔离失败时不读取有效备份”。还须从 FormalBoot 继续按钮路径验证“损坏主档 + 不兼容备份”失败后退出 `LOADING`、显示不可用提示且备份字节不变。
-- 改存档 schema 必须注册 migration 并补迁移测试；改 `run` 续局字段还要跑适用的自动 roundtrip，L5 存档 checklist 保持待人工验收并由用户执行。影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
+- 改存档 schema 必须明确逐级 migration 或不兼容保留拒绝策略并补对应测试；改 `run` 续局字段还要跑适用的自动 roundtrip。三站传送需覆盖传送后保存恢复、直接选择态保存恢复、暂停叠加选择态恢复，以及旧 Run v19 原字节保留且拒绝继续。L5 存档 checklist 保持待人工验收并由用户执行。影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
 
 ## 迁移 / 兼容
 
-当前 `meta` 为 v4、`run` 为 v19、`replay_index` 为 v1，游戏版本标签为 `v1.18`。Meta v3→v4 保留英雄组合并初始化稀疏内容进度；旧 Run v18 保留但拒绝继续，不迁移。Replay 文件由 `Replay` 独立管理，当前为 v9，旧 Replay v8 保留但拒绝播放；四条黄金回放因统一效果、Gear Mod v6 与本地环境指纹变化有意重录。未来每次提升 kind 版本时必须：
+当前 `meta` 为 v4、`run` 为 v20、`replay_index` 为 v1，游戏版本标签为 `v1.19`。Meta v3→v4 保留英雄组合并初始化稀疏内容进度；旧 Run v19 保留但拒绝继续，不迁移。Replay 文件由 `Replay` 独立管理，当前为 v10，旧 Replay v9 保留但拒绝播放；四条黄金回放因三站 assignment、map hash 与 data fingerprint 变化需要重新捕获并复跑。未来每次提升 kind 版本时必须：
 
 1. 更新 `CURRENT_KIND_VERSIONS[kind]`。
-2. 用 `register_migration(kind, old, old + 1, fn)` 补逐级迁移。
-3. 保证 migration 返回新的 payload `Dictionary`。
+2. 明确选择逐级 migration，或像 ADR #199 一样保留旧文件并拒绝加载；禁止隐式迁移。
+3. 选择 migration 时用 `register_migration(kind, old, old + 1, fn)` 注册且保证返回新的 payload `Dictionary`；选择拒绝时补原字节保留与备份不绕过断言。
 4. 更新本文档、测试策略中对应测试说明和当日会话日志。
 
-不得跳版本注册迁移，不得静默丢弃未知字段。
+不得跳版本隐式迁移，不得静默丢弃未知字段。
 
 ## 相关文档
 

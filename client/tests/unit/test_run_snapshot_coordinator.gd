@@ -48,7 +48,7 @@ func before_each() -> void:
 	_staged_flags.clear()
 
 
-func test_capture_preserves_run_v19_field_order_and_deep_copies() -> void:
+func test_capture_preserves_run_v20_field_order_and_deep_copies() -> void:
 	var coordinator := RUN_SNAPSHOT_COORDINATOR_SCRIPT.new()
 	var state: RUN_SNAPSHOT_COORDINATOR_SCRIPT.CaptureState = (
 		RUN_SNAPSHOT_COORDINATOR_SCRIPT.CaptureState.new()
@@ -90,7 +90,7 @@ func test_capture_preserves_run_v19_field_order_and_deep_copies() -> void:
 
 	assert_eq(actual_keys, EXPECTED_RUN_V19_KEYS)
 	assert_eq(snapshot.size(), 30)
-	assert_eq(int(snapshot.get("schema_version", -1)), 19)
+	assert_eq(int(snapshot.get("schema_version", -1)), 20)
 	assert_false(snapshot.has("mod_environment"))
 	(state.hero_composition["nested"] as Dictionary)["value"] = 99
 	state.hazards[0]["id"] = 99
@@ -173,7 +173,7 @@ func test_leaf_failure_stops_before_later_restore_ports() -> void:
 
 func _valid_snapshot() -> Dictionary:
 	return {
-		"schema_version": 19,
+		"schema_version": 20,
 		"content_availability": {},
 		"content_progress_delta": {},
 	}

@@ -449,6 +449,30 @@ func show_world_event_feedback(
 	_start_feedback()
 
 
+func show_teleport_no_other_stations_feedback() -> void:
+	_show_feedback("ui_teleport_no_other_stations", "")
+
+
+func show_teleport_source_unsafe_feedback() -> void:
+	_show_feedback("ui_teleport_source_unsafe", "")
+
+
+func show_teleport_failed_feedback() -> void:
+	_show_feedback("ui_teleport_failed", "")
+
+
+func show_teleporter_no_destination_feedback() -> void:
+	show_teleport_no_other_stations_feedback()
+
+
+func show_teleporter_unsafe_feedback() -> void:
+	show_teleport_source_unsafe_feedback()
+
+
+func show_teleporter_failed_feedback() -> void:
+	show_teleport_failed_feedback()
+
+
 func set_module_world_state(state: Dictionary) -> void:
 	if _module_minimap == null or not is_instance_valid(_module_minimap):
 		return

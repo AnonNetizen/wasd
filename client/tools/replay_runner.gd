@@ -7,6 +7,12 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const TELEPORT_CHOICE_OUTCOMES := preload(
+	"res://scripts/contracts/teleport_choice_outcomes.gd"
+)
+const TELEPORTER_REPLAY_FIXTURE := preload(
+	"res://tools/teleporter_replay_fixture.gd"
+)
 
 const ARG_ALLOW_DATA_FINGERPRINT_MISMATCH: String = "--allow-data-fingerprint-mismatch"
 const ARG_EXPECTATION_FILE: String = "--expectation-file"
@@ -22,8 +28,10 @@ const INPUT_PLAYBACK_SCENARIO: String = "runner_input_playback"
 const SMOKE_REPLAY_FILE_NAME: String = "runner_smoke_basic_run.replay"
 const SMOKE_REPLAY_SEED: int = 20260619
 const SMOKE_RECORD_FRAMES: int = 3
+const TELEPORT_COMPLETION_WAIT_FRAMES: int = 180
 
 var _failures: Array[String] = []
+var _pending_replay_teleport_payload: Dictionary = {}
 var _runtime_save_backups: Dictionary = {}
 
 
@@ -333,35 +341,42 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 			)
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var runtime_events: Array[Dictionary] = _sorted_runtime_events(recording.get("runtime_events", []))
-	var placement_decisions: Array[Dictionary] = _sorted_placement_decision_events(
+	var semantic_decisions: Array[Dictionary] = _sorted_semantic_decision_events(
 		recording.get("decision_events", [])
 	)
 	var next_input_index: int = 0
 	var next_runtime_index: int = 0
-	var next_placement_index: int = 0
+	var next_semantic_index: int = 0
 	var frame_samples: Array[Dictionary] = []
 	for frame_number: int in range(1, capture_frames + 1):
 		next_input_index = await _apply_due_input_events(input_events, next_input_index, frame_number)
-		next_placement_index = await _apply_due_placement_decisions(
-			placement_decisions,
-			next_placement_index,
+		next_semantic_index = await _apply_due_semantic_decisions(
+			semantic_decisions,
+			next_semantic_index,
 			frame_number,
 			run_loop
 		)
 		next_runtime_index = await _apply_due_runtime_events(runtime_events, next_runtime_index, frame_number, run_loop)
 		await get_tree().physics_frame
 		await get_tree().process_frame
+		_settle_completed_replay_teleport(run_loop)
 		if _should_capture_frame_sample(frame_number, capture_frames):
 			frame_samples.append(_frame_sample(run_loop, frame_number, scenario))
 
 	next_input_index = await _apply_due_input_events(input_events, next_input_index, capture_frames + 1)
-	next_placement_index = await _apply_due_placement_decisions(
-		placement_decisions,
-		next_placement_index,
+	next_semantic_index = await _apply_due_semantic_decisions(
+		semantic_decisions,
+		next_semantic_index,
 		capture_frames + 1,
 		run_loop
 	)
 	next_runtime_index = await _apply_due_runtime_events(runtime_events, next_runtime_index, capture_frames + 1, run_loop)
+	if not _pending_replay_teleport_payload.is_empty():
+		await _await_replay_teleport_completion(
+			run_loop,
+			_pending_replay_teleport_payload
+		)
+		_pending_replay_teleport_payload.clear()
 	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario, frame_samples)
 	_release_input_actions()
 	InputService.set_playback_active(false)
@@ -392,7 +407,6 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 		"gold_balance": int(gold_progression.get("gold_balance", 0)),
 		"gold_earned_total": int(gold_progression.get("gold_earned_total", 0)),
 		"kills": int(snapshot.get("kills", 0)),
-		"difficulty_time": float(difficulty.get("elapsed", 0.0)),
 		"difficulty_level": int(
 			difficulty.get("difficulty_level", 1)
 		),
@@ -553,7 +567,7 @@ func _sorted_runtime_events(raw_runtime_events: Variant) -> Array[Dictionary]:
 	return runtime_events
 
 
-func _sorted_placement_decision_events(
+func _sorted_semantic_decision_events(
 		raw_decision_events: Variant
 	) -> Array[Dictionary]:
 	var decisions: Array[Dictionary] = []
@@ -563,7 +577,10 @@ func _sorted_placement_decision_events(
 		if raw_decision is not Dictionary:
 			continue
 		var decision: Dictionary = raw_decision as Dictionary
-		if String(decision.get("event", "")) != ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
+		if String(decision.get("event", "")) not in [
+			ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT,
+			ANALYTICS_EVENTS.TELEPORT_CHOICE,
+		]:
 			continue
 		var copied: Dictionary = decision.duplicate(true)
 		copied["_source_order"] = decisions.size()
@@ -614,7 +631,7 @@ func _apply_due_runtime_events(runtime_events: Array[Dictionary], next_runtime_i
 	return next_runtime_index
 
 
-func _apply_due_placement_decisions(
+func _apply_due_semantic_decisions(
 		decisions: Array[Dictionary],
 		next_decision_index: int,
 		frame_number: int,
@@ -624,21 +641,96 @@ func _apply_due_placement_decisions(
 		var decision: Dictionary = decisions[next_decision_index]
 		if not _is_input_event_due(decision, frame_number):
 			return next_decision_index
-		if not run_loop.has_method("apply_replay_gear_mod_placement"):
-			_expect(false, "ReplayRunner runtime lacks Gear Mod placement replay API")
-			return decisions.size()
-		var result: Dictionary = run_loop.call(
-			"apply_replay_gear_mod_placement",
-			_dictionary_or_empty(decision.get("payload", {}))
-		) as Dictionary
-		_expect(
-			bool(result.get("ok", false)),
-			"ReplayRunner Gear Mod placement divergence: %s"
-			% JSON.stringify(result)
+		var event_name: String = String(decision.get("event", ""))
+		var payload: Dictionary = _dictionary_or_empty(
+			decision.get("payload", {})
 		)
+		if event_name == ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
+			if not run_loop.has_method("apply_replay_gear_mod_placement"):
+				_expect(
+					false,
+					"ReplayRunner runtime lacks Gear Mod placement replay API"
+				)
+				return decisions.size()
+			var placement_result: Dictionary = run_loop.call(
+				"apply_replay_gear_mod_placement",
+				payload
+			) as Dictionary
+			_expect(
+				bool(placement_result.get("ok", false)),
+				"ReplayRunner Gear Mod placement divergence: %s"
+				% JSON.stringify(placement_result)
+			)
+		elif event_name == ANALYTICS_EVENTS.TELEPORT_CHOICE:
+			if not run_loop.has_method("apply_replay_teleport_choice"):
+				_expect(
+					false,
+					"ReplayRunner runtime lacks teleport choice replay API"
+				)
+				return decisions.size()
+			var applied: bool = bool(
+				run_loop.call(
+					"apply_replay_teleport_choice",
+					payload
+				)
+			)
+			_expect(
+				applied,
+				"ReplayRunner teleport choice divergence: %s"
+				% JSON.stringify(payload)
+			)
+			if (
+				applied
+				and String(payload.get("outcome", ""))
+				== TELEPORT_CHOICE_OUTCOMES.TELEPORTED
+			):
+				_pending_replay_teleport_payload = payload.duplicate(true)
 		next_decision_index += 1
 		await get_tree().process_frame
 	return next_decision_index
+
+
+func _await_replay_teleport_completion(
+	run_loop: Node,
+	payload: Dictionary
+) -> void:
+	if (
+		not run_loop.has_method("replay_teleport_choice_pending")
+		or not run_loop.has_method("replay_teleport_choice_completed")
+	):
+		_expect(false, "ReplayRunner runtime lacks teleport completion APIs")
+		return
+	for _frame: int in range(TELEPORT_COMPLETION_WAIT_FRAMES):
+		if not bool(run_loop.call("replay_teleport_choice_pending")):
+			break
+		await get_tree().process_frame
+	_expect(
+		not bool(run_loop.call("replay_teleport_choice_pending")),
+		"ReplayRunner teleport choice timed out: %s"
+		% JSON.stringify(payload)
+	)
+	_expect(
+		bool(run_loop.call("replay_teleport_choice_completed", payload)),
+		"ReplayRunner teleport choice completed with divergent state: %s"
+		% JSON.stringify(payload)
+	)
+
+
+func _settle_completed_replay_teleport(run_loop: Node) -> void:
+	if (
+		_pending_replay_teleport_payload.is_empty()
+		or bool(run_loop.call("replay_teleport_choice_pending"))
+	):
+		return
+	_expect(
+		bool(run_loop.call(
+			"replay_teleport_choice_completed",
+			_pending_replay_teleport_payload
+		)),
+		"ReplayRunner teleport choice completed with divergent state: %s"
+		% JSON.stringify(_pending_replay_teleport_payload)
+	)
+	_pending_replay_teleport_payload.clear()
 
 
 func _is_runtime_event_due(runtime_event: Dictionary, frame_number: int) -> bool:
@@ -655,6 +747,11 @@ func _apply_runtime_event(runtime_event: Dictionary, run_loop: Node) -> void:
 		await _request_reward_choice(run_loop, runtime_event)
 	elif event_name == "choose_reward_index":
 		await _choose_reward_index(int(runtime_event.get("index", 0)))
+	elif event_name == "prepare_teleporter_choice":
+		_expect(
+			not TELEPORTER_REPLAY_FIXTURE.prepare(run_loop).is_empty(),
+			"ReplayRunner should prepare the teleporter replay fixture"
+		)
 
 
 func _defeat_player(run_loop: Node) -> void:
@@ -831,6 +928,7 @@ func _reset_between_replays() -> void:
 		{"source": "replay_runner_batch_reset"}
 	)
 	_runtime_save_backups.clear()
+	_pending_replay_teleport_payload.clear()
 	await get_tree().process_frame
 
 

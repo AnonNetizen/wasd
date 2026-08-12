@@ -8,6 +8,9 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const TELEPORTER_REPLAY_FIXTURE := preload(
+	"res://tools/teleporter_replay_fixture.gd"
+)
 
 const CAPTURE_FRAMES: int = 180
 const CAPTURE_SECONDS: float = 3.0
@@ -15,6 +18,9 @@ const DEFAULT_SCENARIO: String = "golden_basic_run"
 const FRAME_SAMPLE_INTERVAL: int = 30
 const FULL_DEATH_FRAME: int = 75
 const GOLDEN_REPLAY_SEED: int = 20260619
+const TELEPORT_CHOICE_FRAME: int = 142
+const TELEPORT_INTERACT_FRAME: int = 141
+const TELEPORT_PREPARE_FRAME: int = 140
 const REWARD_CHOICE_FRAME: int = 45
 const REWARD_REQUEST_FRAME: int = 15
 const SCENARIO_ARGUMENT: String = "--golden-scenario"
@@ -22,6 +28,7 @@ const SCENARIO_ARGUMENT: String = "--golden-scenario"
 var _failures: Array[String] = []
 var _scenario: String = DEFAULT_SCENARIO
 var _scenario_save_backups: Dictionary = {}
+var _teleporter_fixture: Dictionary = {}
 
 
 func _ready() -> void:
@@ -118,10 +125,13 @@ func _run() -> void:
 
 	var completed: Dictionary = Replay.snapshot()
 	completed["input_events"] = _scenario_input_events()
+	_assign_semantic_frames(completed)
 	if _scenario == "golden_full_death":
 		completed["runtime_events"] = _full_death_runtime_events()
 	elif _scenario == "golden_reward_choice":
 		completed["runtime_events"] = _reward_choice_runtime_events()
+	elif _scenario == DEFAULT_SCENARIO:
+		completed["runtime_events"] = _teleporter_runtime_events()
 	completed["ended_tick"] = CAPTURE_FRAMES
 	completed["ended_time"] = CAPTURE_SECONDS
 	completed["run_summary"] = run_summary
@@ -171,7 +181,6 @@ func _runtime_summary(run_loop: Node, frame_samples: Array[Dictionary]) -> Dicti
 		"gold_balance": int(gold_progression.get("gold_balance", 0)),
 		"gold_earned_total": int(gold_progression.get("gold_earned_total", 0)),
 		"kills": int(snapshot.get("kills", 0)),
-		"difficulty_time": float(difficulty.get("elapsed", 0.0)),
 		"difficulty_level": int(
 			difficulty.get("difficulty_level", 1)
 		),
@@ -278,6 +287,8 @@ func _apply_scenario_inputs(frame_number: int) -> void:
 	elif _scenario == "golden_pause_resume" and frame_number == 45:
 		await _apply_input_event(ACTIONS.UI_BACK, true, 1.0)
 		await _apply_input_event(ACTIONS.UI_BACK, false, 0.0)
+	elif _scenario == DEFAULT_SCENARIO and frame_number == TELEPORT_INTERACT_FRAME:
+		await _tap_action(ACTIONS.INTERACT)
 
 
 func _tap_action(action_id: String) -> void:
@@ -297,6 +308,22 @@ func _apply_scenario_runtime_events(run_loop: Node, frame_number: int) -> void:
 		await _request_reward_choice(run_loop)
 	elif _scenario == "golden_reward_choice" and frame_number == REWARD_CHOICE_FRAME:
 		await _choose_reward_index(0)
+	elif _scenario == DEFAULT_SCENARIO and frame_number == TELEPORT_PREPARE_FRAME:
+		_teleporter_fixture = TELEPORTER_REPLAY_FIXTURE.prepare(run_loop)
+		_expect(
+			not _teleporter_fixture.is_empty(),
+			"GoldenReplayCapture should prepare the teleporter replay fixture"
+		)
+	elif _scenario == DEFAULT_SCENARIO and frame_number == TELEPORT_CHOICE_FRAME:
+		_expect(
+			GameState.is_state(GameState.TELEPORT_CHOICE),
+			"GoldenReplayCapture interact input should open teleport choice"
+		)
+		run_loop.call(
+			"_on_teleport_destination_selected",
+			String(_teleporter_fixture.get("destination_station_id", ""))
+		)
+		await get_tree().process_frame
 
 
 func _defeat_player(run_loop: Node) -> void:
@@ -424,6 +451,13 @@ func _scenario_input_events() -> Array[Dictionary]:
 		events.append(_input_event(ACTIONS.PAUSE, false, 0.0, 30))
 		events.append(_input_event(ACTIONS.UI_BACK, true, 1.0, 45))
 		events.append(_input_event(ACTIONS.UI_BACK, false, 0.0, 45))
+	elif _scenario == DEFAULT_SCENARIO:
+		events.append(
+			_input_event(ACTIONS.INTERACT, true, 1.0, TELEPORT_INTERACT_FRAME)
+		)
+		events.append(
+			_input_event(ACTIONS.INTERACT, false, 0.0, TELEPORT_INTERACT_FRAME)
+		)
 	return events
 
 
@@ -469,6 +503,30 @@ func _reward_choice_runtime_events() -> Array[Dictionary]:
 			"index": 0,
 		},
 	]
+
+
+func _teleporter_runtime_events() -> Array[Dictionary]:
+	return [
+		{
+			"event": "prepare_teleporter_choice",
+			"frame": TELEPORT_PREPARE_FRAME,
+			"tick": TELEPORT_PREPARE_FRAME,
+			"time": float(TELEPORT_PREPARE_FRAME) / 60.0,
+		},
+	]
+
+
+func _assign_semantic_frames(recording: Dictionary) -> void:
+	if _scenario != DEFAULT_SCENARIO:
+		return
+	var decisions: Array = recording.get("decision_events", []) as Array
+	for raw_decision: Variant in decisions:
+		if (
+			raw_decision is Dictionary
+			and String((raw_decision as Dictionary).get("event", ""))
+			== ANALYTICS_EVENTS.TELEPORT_CHOICE
+		):
+			(raw_decision as Dictionary)["frame"] = TELEPORT_CHOICE_FRAME
 
 
 func _argument_value(flag: String) -> String:

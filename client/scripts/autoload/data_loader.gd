@@ -9,6 +9,9 @@ const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_dir
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
+const TELEPORTER_NETWORK_IDS := preload(
+	"res://scripts/contracts/teleporter_network_ids.gd"
+)
 const EFFECT_ACTIONS := preload("res://scripts/contracts/effect_actions.gd")
 const EFFECT_CONDITIONS := preload("res://scripts/contracts/effect_conditions.gd")
 const EFFECT_TRIGGERS := preload("res://scripts/contracts/effect_triggers.gd")
@@ -5620,7 +5623,7 @@ func _validate_module_world_data(
 	if not data is Dictionary:
 		return _schema_fail(MODULE_WORLDS_PATH, "root", "Dictionary") and is_valid
 	var payload: Dictionary = data as Dictionary
-	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 5) and is_valid
+	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 6) and is_valid
 	var worlds: Array = _require_array(MODULE_WORLDS_PATH, "worlds", payload.get("worlds"))
 	if worlds.is_empty():
 		is_valid = _schema_fail(MODULE_WORLDS_PATH, "worlds", "non-empty Array") and is_valid
@@ -5648,6 +5651,38 @@ func _validate_module_world_data(
 		is_valid = _require_bool(MODULE_WORLDS_PATH, "%s.seal_outer_edges" % field, world.get("seal_outer_edges")) and is_valid
 		if world.get("seal_outer_edges") is bool and not bool(world.get("seal_outer_edges")):
 			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.seal_outer_edges" % field, "true") and is_valid
+		var transition_value: Variant = world.get("teleporter_transition")
+		if not transition_value is Dictionary:
+			is_valid = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.teleporter_transition" % field,
+				"Dictionary"
+			) and is_valid
+		else:
+			var transition: Dictionary = transition_value as Dictionary
+			is_valid = _validate_exact_dictionary_keys(
+				MODULE_WORLDS_PATH,
+				"%s.teleporter_transition" % field,
+				transition,
+				["fade_out_duration", "fade_in_duration"]
+			) and is_valid
+			for duration_field: String in ["fade_out_duration", "fade_in_duration"]:
+				var duration: Variant = transition.get(duration_field)
+				is_valid = _require_number(
+					MODULE_WORLDS_PATH,
+					"%s.teleporter_transition.%s" % [field, duration_field],
+					duration,
+					0.0,
+					null,
+					true
+				) and is_valid
+				if duration is int or duration is float:
+					if not is_equal_approx(float(duration), 0.2):
+						is_valid = _schema_fail(
+							MODULE_WORLDS_PATH,
+							"%s.teleporter_transition.%s" % [field, duration_field],
+							"0.2 seconds"
+						) and is_valid
 
 		var anchors: Dictionary = {}
 		var start_anchor: Variant = _validate_module_cell(
@@ -5747,6 +5782,11 @@ func _validate_module_world_data(
 			is_valid = bool(assignment_result.get("is_valid", false)) and is_valid
 			var assignment: Dictionary = assignment_result.get("assignment", {}) as Dictionary
 			if not technical:
+				is_valid = _validate_constrained_limited_fallback(
+					"%s.%s" % [field, assignment_name],
+					assignment,
+					world.get("limited_template_groups")
+				) and is_valid
 				for assigned_value: Variant in assignment.values():
 					var assigned_entry: Dictionary = assigned_value as Dictionary
 					var assigned_template_id: String = String(
@@ -5830,7 +5870,7 @@ func _validate_module_limited_template_groups(
 			MODULE_WORLDS_PATH,
 			group_field,
 			group,
-			["id", "pick_distinct", "entries"]
+			["id", "pick_distinct", "minimum_manhattan_distance", "entries"]
 		) and is_valid
 		var group_id: String = String(group.get("id", ""))
 		is_valid = _require_non_empty_string(
@@ -5845,6 +5885,13 @@ func _validate_module_limited_template_groups(
 				"unique limited template group id"
 			) and is_valid
 		seen_group_ids[group_id] = true
+		is_valid = _require_int(
+			MODULE_WORLDS_PATH,
+			"%s.minimum_manhattan_distance" % group_field,
+			group.get("minimum_manhattan_distance"),
+			0,
+			12
+		) and is_valid
 		var entries: Array = _require_array(
 			MODULE_WORLDS_PATH,
 			"%s.entries" % group_field,
@@ -5928,14 +5975,11 @@ func _validate_module_limited_template_groups(
 					"%s.template_id" % entry_field,
 					"approved template"
 				) and is_valid
-			if (
-				String(template.get("role", ""))
-				!= MODULE_ROLES.MODULE_ROLE_WORLD_EVENT
-			):
+			if String(template.get("role", "")) == MODULE_ROLES.MODULE_ROLE_SEALED:
 				is_valid = _schema_fail(
 					MODULE_WORLDS_PATH,
 					"%s.template_id" % entry_field,
-					"world event module role"
+					"non-sealed module role"
 				) and is_valid
 			if _module_spawnable_cell_count(template) < required_spawn_cells:
 				is_valid = _schema_fail(
@@ -5954,6 +5998,82 @@ func _validate_module_limited_template_groups(
 			field,
 			"selected module count no greater than %d free slots" % available_slots
 		) and is_valid
+	return is_valid
+
+
+func _validate_constrained_limited_fallback(
+	field: String,
+	assignment: Dictionary,
+	raw_groups: Variant
+) -> bool:
+	if not raw_groups is Array:
+		return false
+	var is_valid: bool = true
+	for raw_group: Variant in raw_groups as Array:
+		if not raw_group is Dictionary:
+			continue
+		var group: Dictionary = raw_group as Dictionary
+		var minimum_distance: int = int(
+			group.get("minimum_manhattan_distance", 0)
+		)
+		if minimum_distance <= 0:
+			continue
+		var expected_counts: Dictionary = {}
+		for raw_entry: Variant in _require_array(
+			MODULE_WORLDS_PATH,
+			"%s.entries" % field,
+			group.get("entries")
+		):
+			if raw_entry is Dictionary:
+				var entry: Dictionary = raw_entry as Dictionary
+				expected_counts[String(entry.get("template_id", ""))] = int(
+					entry.get("count_per_floor", 0)
+				)
+		var coords_by_template: Dictionary = {}
+		var all_coords: Array[Vector2i] = []
+		for raw_coord: Variant in assignment.keys():
+			if not raw_coord is Vector2i:
+				continue
+			var assigned_entry: Dictionary = assignment[raw_coord] as Dictionary
+			var template_id: String = String(
+				assigned_entry.get("template_id", "")
+			)
+			if not expected_counts.has(template_id):
+				continue
+			if not coords_by_template.has(template_id):
+				coords_by_template[template_id] = []
+			(coords_by_template[template_id] as Array).append(raw_coord)
+			all_coords.append(raw_coord)
+		var pick_distinct: int = int(group.get("pick_distinct", 0))
+		if coords_by_template.size() != pick_distinct:
+			is_valid = _schema_fail(
+				MODULE_WORLDS_PATH,
+				field,
+				"fallback contains exactly %d selected templates from constrained group %s"
+				% [pick_distinct, String(group.get("id", ""))]
+			) and is_valid
+		for raw_template_id: Variant in coords_by_template.keys():
+			var template_id: String = String(raw_template_id)
+			if (coords_by_template[template_id] as Array).size() != int(
+				expected_counts.get(template_id, 0)
+			):
+				is_valid = _schema_fail(
+					MODULE_WORLDS_PATH,
+					field,
+					"fallback count matches count_per_floor for %s" % template_id
+				) and is_valid
+		for left_index: int in range(all_coords.size()):
+			for right_index: int in range(left_index + 1, all_coords.size()):
+				var left: Vector2i = all_coords[left_index]
+				var right: Vector2i = all_coords[right_index]
+				var distance: int = absi(left.x - right.x) + absi(left.y - right.y)
+				if distance < minimum_distance:
+					is_valid = _schema_fail(
+						MODULE_WORLDS_PATH,
+						field,
+						"fallback constrained modules at least %d Manhattan cells apart"
+						% minimum_distance
+					) and is_valid
 	return is_valid
 
 
@@ -6272,8 +6392,8 @@ func _validate_module_file(
 ) -> bool:
 	var is_valid: bool = true
 	var schema_version: int = int(data.get("schema_version", 0))
-	if not _is_int_like(data.get("schema_version")) or schema_version != 4:
-		is_valid = _schema_fail(resource_path, "schema_version", "4") and is_valid
+	if not _is_int_like(data.get("schema_version")) or schema_version != 5:
+		is_valid = _schema_fail(resource_path, "schema_version", "5") and is_valid
 	is_valid = _require_non_empty_string(resource_path, "id", data.get("id")) and is_valid
 	if String(data.get("id", "")) != expected_id:
 		is_valid = _schema_fail(resource_path, "id", "id matching module template registry") and is_valid
@@ -6290,9 +6410,9 @@ func _validate_module_file(
 			if _require_registered(resource_path, "terrain_rows[%d][%d]" % [y, x], row[x], "module_cell_tokens").is_empty():
 				is_valid = false
 	var derived_sockets: Dictionary = _derive_module_edge_sockets(terrain_rows)
-	if schema_version == 4:
+	if schema_version == 5:
 		if data.has("edge_sockets"):
-			is_valid = _schema_fail(resource_path, "edge_sockets", "omitted because schema v4 derives sockets") and is_valid
+			is_valid = _schema_fail(resource_path, "edge_sockets", "omitted because schema v5 derives sockets") and is_valid
 		is_valid = _validate_module_visual_layers(resource_path, data.get("visual_layers"), module_tile_catalog) and is_valid
 		data["edge_sockets"] = derived_sockets
 	var placement_result: Dictionary = _validate_module_placements(
@@ -6542,10 +6662,63 @@ func _validate_module_placements(
 						"%s.world_event_id" % field,
 						"world event defined in world_events.json"
 					) and is_valid
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER:
+				is_valid = _validate_exact_dictionary_keys(
+					resource_path,
+					field,
+					placement,
+					["type", "cell", "network_id", "interaction_radius"]
+				) and is_valid
+				var network_id: String = _require_registered(
+					resource_path,
+					"%s.network_id" % field,
+					placement.get("network_id"),
+					"teleporter_network_ids"
+				)
+				if network_id != TELEPORTER_NETWORK_IDS.TELEPORTER_NETWORK_PRIMARY:
+					is_valid = _schema_fail(
+						resource_path,
+						"%s.network_id" % field,
+						"primary teleporter network"
+					) and is_valid
+				var interaction_radius: Variant = placement.get("interaction_radius")
+				is_valid = _require_number(
+					resource_path,
+					"%s.interaction_radius" % field,
+					interaction_radius,
+					0.0,
+					null,
+					true
+				) and is_valid
+				if interaction_radius is int or interaction_radius is float:
+					if not is_equal_approx(float(interaction_radius), 180.0):
+						is_valid = _schema_fail(
+							resource_path,
+							"%s.interaction_radius" % field,
+							"180 px"
+						) and is_valid
+				if cell != Vector2i(5, 5):
+					is_valid = _schema_fail(
+						resource_path,
+						"%s.cell" % field,
+						"module center cell (5, 5)"
+					) and is_valid
+				elif (
+					terrain_rows.size() <= 5
+					or not terrain_rows[5] is Array
+					or (terrain_rows[5] as Array).size() <= 5
+					or String((terrain_rows[5] as Array)[5])
+					!= MODULE_CELL_TOKENS.MODULE_CELL_FLOOR
+				):
+					is_valid = _schema_fail(
+						resource_path,
+						"%s.cell" % field,
+						"walkable floor cell"
+					) and is_valid
 			_:
 				pass
 	var danger_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD]
-	var protected_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT]
+	var protected_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT, MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER]
 	for left_index: int in range(occupied.size()):
 		var left: Dictionary = occupied[left_index]
 		for right_index: int in range(left_index + 1, occupied.size()):
@@ -6594,11 +6767,16 @@ func _validate_module_footprint(resource_path: String, field: String, value: Var
 func _validate_module_role_budget(resource_path: String, role: String, counts: Dictionary) -> bool:
 	var hazards: int = int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD, 0))
 	var rewards: int = int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, 0))
+	var teleporters: int = int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER, 0))
+	if teleporters > 0 and role != MODULE_ROLES.MODULE_ROLE_CONNECTOR:
+		return _schema_fail(resource_path, "placements", "teleporter placement only in connector module")
 	match role:
 		MODULE_ROLES.MODULE_ROLE_START:
 			if hazards != 0 or int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, 0)) != 1:
 				return _schema_fail(resource_path, "placements", "one player start and no hazards")
 		MODULE_ROLES.MODULE_ROLE_CONNECTOR:
+			if teleporters > 0 and (teleporters != 1 or counts.size() != 1):
+				return _schema_fail(resource_path, "placements", "one teleporter and no other placements")
 			if hazards > 1:
 				return _schema_fail(resource_path, "placements", "connector budget")
 		MODULE_ROLES.MODULE_ROLE_COMBAT:

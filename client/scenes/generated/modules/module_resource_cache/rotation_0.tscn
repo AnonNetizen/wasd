@@ -23,7 +23,7 @@ script = ExtResource("1_l8tca")
 module_id = "module_resource_cache"
 gameplay_hash = "6b5f311b995afbad561dd6b5541bd281a8f4da0aefef85fe2a7b05e364920a2a"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "8b0a7c3e564af7e9bf73bc30d8042317b731c1f2080b1d44c5cceb27dcaa825e"
+bake_hash = "1efc105d1baff1289eb0d50daf4db3f02bd75ccce222373419711d8fd57cb2eb"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,

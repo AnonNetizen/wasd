@@ -92,6 +92,15 @@ const INTEREST_POINT_TARGET_SCENE := preload("res://scenes/gameplay/interest_poi
 const REWARD_CHOICE_PANEL_SCENE := preload(
 	"res://scenes/ui/reward_choice_panel.tscn"
 )
+const TELEPORT_CHOICE_PANEL_SCENE := preload(
+	"res://scenes/ui/teleport_choice_panel.tscn"
+)
+const TELEPORT_FADE_OVERLAY_SCENE := preload(
+	"res://scenes/ui/teleport_fade_overlay.tscn"
+)
+const TELEPORTER_INTERACTABLE_SCENE := preload(
+	"res://scenes/gameplay/teleporter_interactable.tscn"
+)
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const GOLD_ORB_SCENE := preload("res://scenes/gameplay/gold_orb.tscn")
 const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
@@ -117,6 +126,9 @@ const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_directo
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
+const TELEPORT_CHOICE_OUTCOMES := preload(
+	"res://scripts/contracts/teleport_choice_outcomes.gd"
+)
 const DAMAGE_TARGET_GROUPS := preload(
 	"res://scripts/contracts/damage_target_groups.gd"
 )
@@ -184,9 +196,11 @@ const GEAR_MOD_CAGE_OCCUPANT_GROUPS: Array[String] = [
 	"active_world_event_defense_targets",
 ]
 const UI_RESTORE_REWARD_CHOICE: String = "reward_choice"
+const UI_RESTORE_TELEPORT_CHOICE: String = "teleport_choice"
 const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
 const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
+const UI_RESTORE_SOURCE_STATION_ID: String = "source_station_id"
 const INPUT_PARTICIPANT_ID: String = "player_0"
 const DEFAULT_DEBUG_REWARD_POOL: String = "default_reward_choice"
 const LOADING_BATCH_SIZE: int = 8
@@ -244,6 +258,13 @@ var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
 var _main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _reward_choice_panel: CanvasLayer = null
+var _teleport_choice_panel: CanvasLayer = null
+var _teleport_fade_overlay: CanvasLayer = null
+var _teleport_source_station_id: String = ""
+var _teleport_transaction_active: bool = false
+var _teleporter_module_station_ids: Dictionary = {}
+var _teleporter_nodes: Dictionary = {}
+var _teleporter_stations: Dictionary = {}
 var _run_gear_mod_ids: Array[String] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pending_gear_mod_placement: Dictionary = {}
@@ -315,6 +336,7 @@ func _exit_tree() -> void:
 		)
 	_gear_mod_board_panel = null
 	_pending_gear_mod_placement.clear()
+	_clear_teleporters()
 	_clear_interest_point_caches()
 	_clear_world_events()
 	_release_active_world_pool_entities()
@@ -3339,6 +3361,7 @@ func _start_module_world_fresh() -> void:
 		return
 	_register_all_module_interest_points()
 	_register_all_module_world_events()
+	_register_all_module_teleporters()
 	var stream_change: Dictionary = _module_world_manager.call("tick", _player.global_position)
 	_handle_module_stream_change(stream_change)
 	_refresh_module_world_hud()
@@ -3349,6 +3372,7 @@ func _start_module_world_fresh_staged() -> bool:
 		return false
 	_register_all_module_interest_points()
 	_register_all_module_world_events()
+	_register_all_module_teleporters()
 	var stream_change: Dictionary = _module_world_manager.call(
 		"tick",
 		_player.global_position
@@ -3793,6 +3817,7 @@ func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool
 		state["initialized"] = true
 	state["slot_key"] = slot_key
 	_module_world_manager.call("set_slot_state", module_coord, state)
+	_activate_module_teleporter_visuals(module_coord)
 	if GameState.is_state(GameState.PLAYING):
 		_restore_module_encounter_vfx(module_coord)
 	# During full run restore, interest-point state is applied after active slots are rebuilt.
@@ -3820,6 +3845,7 @@ func _deactivate_module_slot(module_coord: Vector2i) -> void:
 		)
 	)
 	_module_world_manager.call("set_slot_state", module_coord, state)
+	_deactivate_module_teleporter_visuals(module_coord)
 	_deactivate_module_interest_visuals(slot_key)
 
 
@@ -4132,6 +4158,187 @@ func _register_all_module_interest_points() -> void:
 				_register_module_interest_point(module_coord, placement)
 
 
+func _register_all_module_teleporters() -> void:
+	if _module_world_manager == null or not _teleporter_stations.is_empty():
+		return
+	var stations: Array[Dictionary] = []
+	for row_index: int in range(7):
+		for column_index: int in range(7):
+			var module_coord := Vector2i(column_index, row_index)
+			var placements: Array[Dictionary] = _module_world_manager.call(
+				"placements_at",
+				module_coord
+			)
+			for placement: Dictionary in placements:
+				if (
+					String(placement.get("type", ""))
+					!= MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER
+				):
+					continue
+				var local_cell: Vector2i = _dict_to_vector2i(
+					placement.get("cell", {})
+				)
+				var station_id: String = _teleporter_station_id(
+					module_coord,
+					local_cell
+				)
+				stations.append({
+					"station_id": station_id,
+					"network_id": String(
+						placement.get("network_id", "")
+					),
+					"module_coord": _coord_to_dict(module_coord),
+					"cell": _coord_to_dict(local_cell),
+					"world_position": _dictionary_or_empty(
+						placement.get("world_position", {})
+					),
+					"interaction_radius": float(
+						placement.get("interaction_radius", 0.0)
+					),
+				})
+	stations.sort_custom(_teleporter_station_less)
+	for station_index: int in range(stations.size()):
+		var station: Dictionary = stations[station_index]
+		station["station_number"] = station_index + 1
+		var station_id: String = String(station.get("station_id", ""))
+		var module_coord: Vector2i = _dict_to_vector2i(
+			station.get("module_coord", {})
+		)
+		var slot_key: String = _module_slot_key(module_coord)
+		var module_station_ids: Array = _array_or_empty(
+			_teleporter_module_station_ids.get(slot_key, [])
+		).duplicate()
+		module_station_ids.append(station_id)
+		_teleporter_module_station_ids[slot_key] = module_station_ids
+		_teleporter_stations[station_id] = station
+	if stations.size() != 3:
+		# The checked-in technical slice is a compact combat/streaming fixture and
+		# intentionally does not model the formal world's three-station network.
+		if _module_world_technical_slice:
+			_teleporter_stations.clear()
+			_teleporter_module_station_ids.clear()
+			return
+		push_error(
+			"[GameplayRunLoop] teleporter network must contain exactly 3 stations"
+		)
+
+
+func _activate_module_teleporter_visuals(module_coord: Vector2i) -> void:
+	if _active_world == null:
+		return
+	var station_ids: Array = _array_or_empty(
+		_teleporter_module_station_ids.get(
+			_module_slot_key(module_coord),
+			[]
+		)
+	)
+	for raw_station_id: Variant in station_ids:
+		var station_id: String = String(raw_station_id)
+		if _teleporter_nodes.has(station_id):
+			continue
+		var station: Dictionary = _dictionary_or_empty(
+			_teleporter_stations.get(station_id, {})
+		)
+		var raw_node: Node = TELEPORTER_INTERACTABLE_SCENE.instantiate()
+		if not raw_node is Node2D:
+			raw_node.queue_free()
+			push_error(
+				"[GameplayRunLoop] teleporter interactable scene root is invalid"
+			)
+			continue
+		var interactable: Node2D = raw_node as Node2D
+		_active_world.add_child(interactable)
+		interactable.global_position = _dict_to_vector(
+			station.get("world_position", {}),
+			Vector2.ZERO
+		)
+		if interactable.has_method("configure"):
+			interactable.call(
+				"configure",
+				station_id,
+				float(station.get("interaction_radius", 0.0))
+			)
+		if interactable.has_method("set_station_number"):
+			interactable.call(
+				"set_station_number",
+				int(station.get("station_number", 0))
+			)
+		_teleporter_nodes[station_id] = interactable
+
+
+func _deactivate_module_teleporter_visuals(
+	module_coord: Vector2i
+) -> void:
+	for raw_station_id: Variant in _array_or_empty(
+		_teleporter_module_station_ids.get(
+			_module_slot_key(module_coord),
+			[]
+		)
+	):
+		var station_id: String = String(raw_station_id)
+		var node: Node = _teleporter_nodes.get(station_id) as Node
+		_teleporter_nodes.erase(station_id)
+		if node != null and is_instance_valid(node):
+			node.queue_free()
+
+
+func _clear_teleporters() -> void:
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+	):
+		UIManager.remove_expected(_teleport_choice_panel, true)
+	_teleport_choice_panel = null
+	if (
+		_teleport_fade_overlay != null
+		and is_instance_valid(_teleport_fade_overlay)
+	):
+		UIManager.remove_expected(_teleport_fade_overlay, true)
+	_teleport_fade_overlay = null
+	_teleport_source_station_id = ""
+	_teleport_transaction_active = false
+	for raw_node: Variant in _teleporter_nodes.values():
+		var interactable: Node = raw_node as Node
+		if interactable != null and is_instance_valid(interactable):
+			interactable.queue_free()
+	_teleporter_nodes.clear()
+	_teleporter_stations.clear()
+	_teleporter_module_station_ids.clear()
+
+
+func _teleporter_station_id(
+	module_coord: Vector2i,
+	local_cell: Vector2i
+) -> String:
+	return "teleporter_%d_%d_%d_%d" % [
+		module_coord.x,
+		module_coord.y,
+		local_cell.x,
+		local_cell.y,
+	]
+
+
+func _teleporter_station_less(
+	left: Dictionary,
+	right: Dictionary
+) -> bool:
+	var left_module: Vector2i = _dict_to_vector2i(
+		left.get("module_coord", {})
+	)
+	var right_module: Vector2i = _dict_to_vector2i(
+		right.get("module_coord", {})
+	)
+	if left_module.y != right_module.y:
+		return left_module.y < right_module.y
+	if left_module.x != right_module.x:
+		return left_module.x < right_module.x
+	var left_cell: Vector2i = _dict_to_vector2i(left.get("cell", {}))
+	var right_cell: Vector2i = _dict_to_vector2i(right.get("cell", {}))
+	if left_cell.y != right_cell.y:
+		return left_cell.y < right_cell.y
+	return left_cell.x < right_cell.x
+
+
 func _register_module_interest_point(module_coord: Vector2i, placement: Dictionary) -> void:
 	var placement_type: String = String(placement.get("type", ""))
 	if not placement_type in [
@@ -4423,6 +4630,10 @@ func _try_interact_nearest() -> bool:
 			)
 			_update_combined_interaction_prompt()
 			return bool(result.get("accepted", false))
+		"teleporter":
+			return _try_interact_teleporter(
+				String(candidate.get("id", ""))
+			)
 		_:
 			return false
 
@@ -4471,7 +4682,595 @@ func _nearest_interaction_candidate() -> Dictionary:
 		)
 	):
 		best = pickup_candidate
+	var teleporter_candidate: Dictionary = (
+		_nearest_teleporter_candidate()
+	)
+	if (
+		not teleporter_candidate.is_empty()
+		and (
+			best.is_empty()
+			or float(teleporter_candidate.get("distance", INF))
+			< float(best.get("distance", INF))
+		)
+	):
+		best = teleporter_candidate
 	return best
+
+
+func _nearest_teleporter_candidate() -> Dictionary:
+	if _player == null:
+		return {}
+	var best: Dictionary = {}
+	for raw_station_id: Variant in _teleporter_nodes.keys():
+		var station_id: String = String(raw_station_id)
+		var node: Node2D = _teleporter_nodes.get(station_id) as Node2D
+		if node == null or not is_instance_valid(node):
+			continue
+		if (
+			node.has_method("can_player_interact")
+			and not bool(node.call("can_player_interact", _player))
+		):
+			continue
+		var distance: float = _player.global_position.distance_to(
+			node.global_position
+		)
+		if (
+			best.is_empty()
+			or distance < float(best.get("distance", INF))
+		):
+			best = {
+				"kind": "teleporter",
+				"id": station_id,
+				"distance": distance,
+			}
+	return best
+
+
+func _try_interact_teleporter(station_id: String) -> bool:
+	if (
+		station_id.is_empty()
+		or _teleport_transaction_active
+		or (
+			_teleport_choice_panel != null
+			and is_instance_valid(_teleport_choice_panel)
+		)
+	):
+		return false
+	var station: Dictionary = _dictionary_or_empty(
+		_teleporter_stations.get(station_id, {})
+	)
+	if station.is_empty() or not _is_station_current(station):
+		return false
+	var source_coord: Vector2i = _dict_to_vector2i(
+		station.get("module_coord", {})
+	)
+	if _module_slot_has_hostile_pressure(source_coord):
+		_show_teleporter_feedback("show_teleporter_unsafe_feedback")
+		return false
+	var visited_stations: Array[Dictionary] = (
+		_visited_teleporter_stations(station_id)
+	)
+	if visited_stations.size() <= 1:
+		_show_teleporter_feedback(
+			"show_teleporter_no_destination_feedback"
+		)
+		return false
+	return _show_teleport_choice_panel(station_id)
+
+
+func _show_teleport_choice_panel(station_id: String) -> bool:
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+	):
+		return _teleport_source_station_id == station_id
+	var source: Dictionary = _dictionary_or_empty(
+		_teleporter_stations.get(station_id, {})
+	)
+	if source.is_empty() or not _is_station_current(source):
+		return false
+	if _module_slot_has_hostile_pressure(
+		_dict_to_vector2i(source.get("module_coord", {}))
+	):
+		return false
+	var stations: Array[Dictionary] = _visited_teleporter_stations(
+		station_id
+	)
+	if stations.size() <= 1:
+		return false
+	_teleport_choice_panel = UIManager.push(
+		TELEPORT_CHOICE_PANEL_SCENE,
+		{
+			"source": "teleport_choice",
+			"source_station_id": station_id,
+		}
+	) as CanvasLayer
+	if _teleport_choice_panel == null:
+		return false
+	_teleport_source_station_id = station_id
+	if not bool(
+		_teleport_choice_panel.call(
+			"configure",
+			station_id,
+			stations
+		)
+	):
+		UIManager.remove_expected(_teleport_choice_panel, true)
+		_teleport_choice_panel = null
+		_teleport_source_station_id = ""
+		return false
+	_teleport_choice_panel.connect(
+		"destination_selected",
+		Callable(self, "_on_teleport_destination_selected")
+	)
+	_teleport_choice_panel.connect(
+		"cancelled",
+		Callable(self, "_on_teleport_choice_cancelled"),
+		CONNECT_ONE_SHOT
+	)
+	_teleport_choice_panel.connect(
+		"pause_requested",
+		Callable(self, "_on_teleport_choice_pause_requested")
+	)
+	_teleport_choice_panel.tree_exited.connect(
+		Callable(self, "_on_teleport_choice_panel_tree_exited"),
+		CONNECT_ONE_SHOT
+	)
+	GameState.change_state(GameState.TELEPORT_CHOICE, {
+		"source_station_id": station_id,
+	})
+	return true
+
+
+func _on_teleport_destination_selected(
+	destination_station_id: String
+) -> void:
+	_begin_teleport_choice(destination_station_id, true)
+
+
+func _begin_teleport_choice(
+	destination_station_id: String,
+	record_event: bool
+) -> bool:
+	if _teleport_transaction_active:
+		return false
+	var transaction: Dictionary = _prepare_teleport_transaction(
+		_teleport_source_station_id,
+		destination_station_id
+	)
+	if transaction.is_empty():
+		_show_teleport_choice_failure()
+		return false
+	_teleport_transaction_active = true
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+		and _teleport_choice_panel.has_method("set_input_locked")
+	):
+		_teleport_choice_panel.call("set_input_locked", true)
+	_execute_teleport_transition(transaction, record_event)
+	return true
+
+
+func _prepare_teleport_transaction(
+	source_station_id: String,
+	destination_station_id: String
+) -> Dictionary:
+	if (
+		not GameState.is_state(GameState.TELEPORT_CHOICE)
+		or source_station_id.is_empty()
+		or destination_station_id.is_empty()
+		or source_station_id == destination_station_id
+		or _player == null
+		or not _player.has_method("teleport_to")
+		or _camera_controller == null
+		or not _camera_controller.has_method("snap_to_target")
+	):
+		return {}
+	var source: Dictionary = _dictionary_or_empty(
+		_teleporter_stations.get(source_station_id, {})
+	)
+	var destination: Dictionary = _dictionary_or_empty(
+		_teleporter_stations.get(destination_station_id, {})
+	)
+	if (
+		source.is_empty()
+		or destination.is_empty()
+		or String(source.get("network_id", ""))
+		!= String(destination.get("network_id", ""))
+		or not _is_station_current(source)
+	):
+		return {}
+	var source_coord: Vector2i = _dict_to_vector2i(
+		source.get("module_coord", {})
+	)
+	var destination_coord: Vector2i = _dict_to_vector2i(
+		destination.get("module_coord", {})
+	)
+	if (
+		_module_slot_has_hostile_pressure(source_coord)
+		or not bool(
+			_module_world_manager.call(
+				"is_module_visited",
+				destination_coord
+			)
+		)
+		or not _station_placement_still_exists(source)
+		or not _station_placement_still_exists(destination)
+	):
+		return {}
+	var destination_position: Vector2 = _dict_to_vector(
+		destination.get("world_position", {}),
+		Vector2(INF, INF)
+	)
+	if (
+		not destination_position.is_finite()
+		or not bool(
+			_module_world_manager.call(
+				"is_world_position_walkable",
+				destination_position
+			)
+		)
+	):
+		return {}
+	return {
+		"source_station_id": source_station_id,
+		"destination_station_id": destination_station_id,
+		"destination_coord": _coord_to_dict(destination_coord),
+		"destination_position": _vector_to_dict(destination_position),
+	}
+
+
+func _execute_teleport_transition(
+	transaction: Dictionary,
+	record_event: bool
+) -> void:
+	_teleport_fade_overlay = UIManager.push(
+		TELEPORT_FADE_OVERLAY_SCENE,
+		{"source": "teleport_transition", "immediate": true}
+	) as CanvasLayer
+	if _teleport_fade_overlay == null:
+		_finish_teleport_transition(false, transaction, record_event)
+		return
+	var transition_config: Dictionary = _dictionary_or_empty(
+		_module_world_definition.get("teleporter_transition", {})
+	)
+	var fade_out_duration: float = maxf(
+		float(transition_config.get("fade_out_duration", 0.2)),
+		0.0
+	)
+	var fade_in_duration: float = maxf(
+		float(transition_config.get("fade_in_duration", 0.2)),
+		0.0
+	)
+	var succeeded: bool = await _teleport_fade_overlay.call(
+		"transition",
+		Callable(self, "_commit_teleport_transaction").bind(
+			transaction
+		),
+		fade_out_duration,
+		fade_in_duration
+	)
+	_finish_teleport_transition(succeeded, transaction, record_event)
+
+
+func _commit_teleport_transaction(transaction: Dictionary) -> bool:
+	var refreshed: Dictionary = _prepare_teleport_transaction(
+		String(transaction.get("source_station_id", "")),
+		String(transaction.get("destination_station_id", ""))
+	)
+	if refreshed.is_empty():
+		return false
+	var destination_position: Vector2 = _dict_to_vector(
+		refreshed.get("destination_position", {}),
+		Vector2(INF, INF)
+	)
+	if not bool(_player.call("teleport_to", destination_position)):
+		return false
+	var stream_change: Dictionary = _module_world_manager.call(
+		"tick",
+		destination_position
+	)
+	_handle_module_stream_change(stream_change)
+	_camera_controller.call("snap_to_target", true)
+	_refresh_module_world_hud()
+	_update_combined_interaction_prompt()
+	var destination_coord: Vector2i = _dict_to_vector2i(
+		refreshed.get("destination_coord", {})
+	)
+	_restore_module_encounter_vfx(destination_coord)
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+	):
+		UIManager.remove_expected(_teleport_choice_panel, true)
+	_teleport_choice_panel = null
+	return true
+
+
+func _finish_teleport_transition(
+	succeeded: bool,
+	transaction: Dictionary,
+	record_event: bool
+) -> void:
+	if (
+		_teleport_fade_overlay != null
+		and is_instance_valid(_teleport_fade_overlay)
+	):
+		UIManager.remove_expected(_teleport_fade_overlay, true)
+	_teleport_fade_overlay = null
+	_teleport_transaction_active = false
+	if succeeded:
+		var source_station_id: String = String(
+			transaction.get("source_station_id", "")
+		)
+		var destination_station_id: String = String(
+			transaction.get("destination_station_id", "")
+		)
+		_teleport_source_station_id = ""
+		if record_event:
+			_record_teleport_choice({
+				"outcome": TELEPORT_CHOICE_OUTCOMES.TELEPORTED,
+				"source_station_id": source_station_id,
+				"destination_station_id": destination_station_id,
+			})
+		GameState.change_state(GameState.PLAYING, {
+			"source": "teleporter",
+			"destination_station_id": destination_station_id,
+		})
+		return
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+		and _teleport_choice_panel.has_method("set_input_locked")
+	):
+		_teleport_choice_panel.call("set_input_locked", false)
+	_show_teleport_choice_failure()
+
+
+func _on_teleport_choice_cancelled() -> void:
+	if _teleport_transaction_active:
+		return
+	_cancel_teleport_choice(true)
+
+
+func _cancel_teleport_choice(record_event: bool) -> bool:
+	if (
+		_teleport_source_station_id.is_empty()
+		or not GameState.is_state(GameState.TELEPORT_CHOICE)
+	):
+		return false
+	var source_station_id: String = _teleport_source_station_id
+	if record_event:
+		_record_teleport_choice({
+			"outcome": TELEPORT_CHOICE_OUTCOMES.CANCELLED,
+			"source_station_id": source_station_id,
+		})
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+	):
+		UIManager.remove_expected(_teleport_choice_panel, true)
+	_teleport_choice_panel = null
+	_teleport_source_station_id = ""
+	GameState.change_state(GameState.PLAYING, {
+		"source": "teleporter_cancelled",
+	})
+	return true
+
+
+func _on_teleport_choice_pause_requested() -> void:
+	if _pause_menu == null and not _teleport_transaction_active:
+		_show_pause_menu()
+
+
+func _on_teleport_choice_panel_tree_exited() -> void:
+	_teleport_choice_panel = null
+	if _teleport_transaction_active:
+		return
+	if GameState.is_state(GameState.TELEPORT_CHOICE):
+		_teleport_source_station_id = ""
+		GameState.change_state(GameState.PLAYING, {
+			"source": "teleporter_panel_closed",
+		})
+
+
+func _record_teleport_choice(payload: Dictionary) -> void:
+	if Replay.is_recording():
+		Replay.record_decision(
+			ANALYTICS_EVENTS.TELEPORT_CHOICE,
+			payload
+		)
+	Analytics.track_event(ANALYTICS_EVENTS.TELEPORT_CHOICE, payload)
+
+
+func apply_replay_teleport_choice(payload: Dictionary) -> bool:
+	var outcome: String = String(payload.get("outcome", ""))
+	var expected_size: int = (
+		3
+		if outcome == TELEPORT_CHOICE_OUTCOMES.TELEPORTED
+		else 2
+	)
+	if (
+		payload.size() != expected_size
+		or not payload.get("outcome") is String
+		or not payload.get("source_station_id") is String
+		or String(payload.get("source_station_id", ""))
+		!= _teleport_source_station_id
+	):
+		return false
+	if outcome == TELEPORT_CHOICE_OUTCOMES.CANCELLED:
+		return _cancel_teleport_choice(false)
+	if (
+		outcome != TELEPORT_CHOICE_OUTCOMES.TELEPORTED
+		or not payload.get("destination_station_id") is String
+	):
+		return false
+	return _begin_teleport_choice(
+		String(payload.get("destination_station_id", "")),
+		false
+	)
+
+
+func replay_teleport_choice_pending() -> bool:
+	return _teleport_transaction_active
+
+
+func replay_teleport_choice_completed(payload: Dictionary) -> bool:
+	if (
+		_teleport_transaction_active
+		or not GameState.is_state(GameState.PLAYING)
+		or String(payload.get("outcome", ""))
+		!= TELEPORT_CHOICE_OUTCOMES.TELEPORTED
+	):
+		return false
+	var destination: Dictionary = _dictionary_or_empty(
+		_teleporter_stations.get(
+			String(payload.get("destination_station_id", "")),
+			{}
+		)
+	)
+	if destination.is_empty() or _player == null or _module_world_manager == null:
+		return false
+	var destination_coord: Vector2i = _dict_to_vector2i(
+		destination.get("module_coord", {})
+	)
+	var destination_position: Vector2 = _dict_to_vector(
+		destination.get("world_position", {}),
+		Vector2(INF, INF)
+	)
+	var current_coord: Vector2i = _module_world_manager.call(
+		"current_module_coord"
+	) as Vector2i
+	return (
+		destination_position.is_finite()
+		and _player.global_position.is_equal_approx(destination_position)
+		and current_coord == destination_coord
+	)
+
+
+func _visited_teleporter_stations(
+	source_station_id: String
+) -> Array[Dictionary]:
+	var source: Dictionary = _dictionary_or_empty(
+		_teleporter_stations.get(source_station_id, {})
+	)
+	var network_id: String = String(source.get("network_id", ""))
+	var result: Array[Dictionary] = []
+	for raw_station: Variant in _teleporter_stations.values():
+		var station: Dictionary = raw_station as Dictionary
+		var module_coord: Vector2i = _dict_to_vector2i(
+			station.get("module_coord", {})
+		)
+		if (
+			String(station.get("network_id", "")) != network_id
+			or not bool(
+				_module_world_manager.call(
+					"is_module_visited",
+					module_coord
+				)
+			)
+		):
+			continue
+		var copy: Dictionary = station.duplicate(true)
+		copy["is_current"] = (
+			String(copy.get("station_id", "")) == source_station_id
+		)
+		result.append(copy)
+	result.sort_custom(_teleporter_station_less)
+	return result
+
+
+func _is_station_current(station: Dictionary) -> bool:
+	if _module_world_manager == null:
+		return false
+	var current_module: Vector2i = _module_world_manager.call(
+		"current_module_coord"
+	) as Vector2i
+	return (
+		_dict_to_vector2i(station.get("module_coord", {}))
+		== current_module
+	)
+
+
+func _station_placement_still_exists(station: Dictionary) -> bool:
+	var module_coord: Vector2i = _dict_to_vector2i(
+		station.get("module_coord", {})
+	)
+	var expected_station_id: String = String(
+		station.get("station_id", "")
+	)
+	var placements: Array[Dictionary] = _module_world_manager.call(
+		"placements_at",
+		module_coord
+	)
+	for placement: Dictionary in placements:
+		if (
+			String(placement.get("type", ""))
+			!= MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER
+		):
+			continue
+		var local_cell: Vector2i = _dict_to_vector2i(
+			placement.get("cell", {})
+		)
+		if (
+			_teleporter_station_id(module_coord, local_cell)
+			== expected_station_id
+		):
+			return true
+	return false
+
+
+func _module_slot_has_hostile_pressure(
+	module_coord: Vector2i
+) -> bool:
+	if _module_world_manager == null:
+		return true
+	var state: Dictionary = _module_world_manager.call(
+		"slot_state",
+		module_coord
+	) as Dictionary
+	var encounter: Dictionary = _dictionary_or_empty(
+		state.get("enemy_encounter", {})
+	)
+	if (
+		String(encounter.get("state", ""))
+		== MODULE_ENCOUNTER_STATE_TELEGRAPHING
+		and float(encounter.get("remaining_telegraph", 0.0)) > 0.0
+	):
+		return true
+	if not _array_or_empty(state.get("enemy_snapshots", [])).is_empty():
+		return true
+	var slot_key: String = _module_slot_key(module_coord)
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if (
+			not _is_active_world_entity(enemy)
+			or String(enemy.get_meta("module_slot", "")) != slot_key
+		):
+			continue
+		if enemy.has_method("is_alive") and not bool(enemy.call("is_alive")):
+			continue
+		return true
+	return false
+
+
+func _show_teleporter_feedback(method_name: String) -> void:
+	if _hud != null and _hud.has_method(method_name):
+		_hud.call(method_name)
+
+
+func _show_teleport_choice_failure() -> void:
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+		and _teleport_choice_panel.has_method("show_feedback")
+	):
+		_teleport_choice_panel.call(
+			"show_feedback",
+			"ui_teleport_failed"
+		)
+		return
+	_show_teleporter_feedback("show_teleporter_failed_feedback")
 
 
 func _nearest_gear_mod_pickup_candidate() -> Dictionary:
@@ -4588,6 +5387,15 @@ func _update_combined_interaction_prompt() -> void:
 		_update_gear_mod_pickup_prompt(
 			candidate.get("pickup") as GearModPickup
 		)
+		return
+	if String(candidate.get("kind", "")) == "teleporter":
+		if _hud.has_method("show_interaction_prompt"):
+			_hud.call(
+				"show_interaction_prompt",
+				_interaction_binding_label(),
+				"ui_interact_use_teleporter",
+				{}
+			)
 		return
 	var instance_id: String = String(candidate.get("id", ""))
 	var event_id: String = String(candidate.get("event_id", ""))
@@ -6507,10 +7315,38 @@ func _ui_restore_snapshot() -> Dictionary:
 		_reward_choice_controller != null
 		and _reward_choice_controller.is_busy()
 	)
+	var teleport_choice_active: bool = (
+		not _teleport_source_station_id.is_empty()
+		and _teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+	)
+	if _pause_menu != null and teleport_choice_active:
+		return {
+			"state": UI_RESTORE_PAUSED,
+			UI_RESTORE_UNDERLYING_STATE: (
+				UI_RESTORE_TELEPORT_CHOICE
+			),
+			UI_RESTORE_SOURCE_STATION_ID: (
+				_teleport_source_station_id
+			),
+		}
 	if _pause_menu != null and reward_choice_active:
 		return {
 			"state": UI_RESTORE_PAUSED,
 			UI_RESTORE_UNDERLYING_STATE: UI_RESTORE_REWARD_CHOICE,
+		}
+	if (
+		teleport_choice_active
+		and (
+			GameState.is_state(GameState.TELEPORT_CHOICE)
+			or _teleport_choice_panel != null
+		)
+	):
+		return {
+			"state": UI_RESTORE_TELEPORT_CHOICE,
+			UI_RESTORE_SOURCE_STATION_ID: (
+				_teleport_source_station_id
+			),
 		}
 	if (
 		reward_choice_active
@@ -6958,6 +7794,7 @@ func _snapshot_restore_module_world(
 			return false
 		_register_all_module_interest_points()
 		_register_all_module_world_events()
+		_register_all_module_teleporters()
 		if not _restore_world_events(
 			_dictionary_or_empty(
 				snapshot_data.get("world_events", {})
@@ -7330,9 +8167,19 @@ func _restore_ui_state(raw_ui_restore: Variant) -> void:
 	var ui_restore: Dictionary = raw_ui_restore as Dictionary
 	var state: String = String(ui_restore.get("state", UI_RESTORE_PLAYING))
 	if state == UI_RESTORE_PAUSED:
-		if String(
+		var underlying_state: String = String(
 			ui_restore.get(UI_RESTORE_UNDERLYING_STATE, "")
-		) == UI_RESTORE_REWARD_CHOICE:
+		)
+		if underlying_state == UI_RESTORE_TELEPORT_CHOICE:
+			_show_teleport_choice_panel(
+				String(
+					ui_restore.get(
+						UI_RESTORE_SOURCE_STATION_ID,
+						""
+					)
+				)
+			)
+		elif underlying_state == UI_RESTORE_REWARD_CHOICE:
 			if (
 				_reward_choice_controller != null
 				and _reward_choice_controller.is_busy()
@@ -7341,6 +8188,16 @@ func _restore_ui_state(raw_ui_restore: Variant) -> void:
 					_reward_choice_controller.choices()
 				)
 		_show_pause_menu()
+		return
+	if state == UI_RESTORE_TELEPORT_CHOICE:
+		_show_teleport_choice_panel(
+			String(
+				ui_restore.get(
+					UI_RESTORE_SOURCE_STATION_ID,
+					""
+				)
+			)
+		)
 		return
 	if (
 		state == UI_RESTORE_REWARD_CHOICE

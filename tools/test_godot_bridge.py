@@ -43,6 +43,7 @@ LEGACY_SMOKE_COMMANDS = frozenset(
         "loading-smoke",
         "module-world-smoke",
         "module-world-technical-slice-smoke",
+        "teleporter-smoke",
         "save-smoke",
         "gear-mod-smoke",
         "mod-loader-smoke",

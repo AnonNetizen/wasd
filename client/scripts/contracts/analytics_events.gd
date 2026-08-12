@@ -23,6 +23,7 @@ const VALUES: Array[String] = [
 	"run_resumed",
 	"pool_overflow",
 	"gear_mod_placement",
+	"teleport_choice",
 ]
 
 const RUN_START: String = "run_start"
@@ -46,3 +47,4 @@ const RUN_SUSPENDED: String = "run_suspended"
 const RUN_RESUMED: String = "run_resumed"
 const POOL_OVERFLOW: String = "pool_overflow"
 const GEAR_MOD_PLACEMENT: String = "gear_mod_placement"
+const TELEPORT_CHOICE: String = "teleport_choice"

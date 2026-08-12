@@ -6,6 +6,8 @@
 > 当前状态：已启用 Stage 1 基础 workflow `.github/workflows/docs-check.yml` 与运行时 workflow `.github/workflows/godot-runtime.yml`。前者跑契约生成同步、数据 / locale、DataLoader schema、三档 GDScript / 项目规则 lint、文档健康和 whitespace；后者从 Godot 官方发布页下载并校验固定 SHA-512 的 `4.7.1`，串行执行版本门禁、正式 headless boot、GUT `9.7.1`、JUnit `tests > 0 / failures = 0 / errors = 0` 和稳定隔离 L1 smoke。黄金回放、平衡 sim、性能探针、commitlint 与复杂矩阵仍不进入常规 CI。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。ADR #143 后性能测试只由用户当次明确触发，不进入默认 CI 或 pre-commit。ADR #192 只改变本地验证编排、不改变本页 CI / hook 内容：每项任务先跑目标快检，交付前仍跑一次对应 pre-commit；完整门禁不得无诊断目的地重复。
+
+> ADR #199 的三站式传送台网络属于跨 schema / 世界生成 / UI / Save / Replay 的功能门禁：本地交付必须追加 `teleporter-smoke`、完整与 technical module-world、save/loading/runtime/replay/replay-input、完整 GUT、headless boot，并因 assignment / map hash / data fingerprint 变化重新捕获和复跑四条 Replay v10 golden。该专项尚不自动扩入当前常规 CI；视觉、双语布局、真实手柄焦点、淡出淡入与危险传入手感只保留 L5 人工验收，性能 probe 不运行。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 CI/CD 路线图权威；改 workflow / hook / health-check 设计时，常见联动为 `docs/测试策略.md`、`docs/AI协作/实时验证回路.md`、`CONTRIBUTING.md`、规则自检清单、`docs/AI记忆/项目记忆.md`。
 
@@ -196,6 +198,7 @@
 - 数值/原语改动后**强制更新或确认**黄金样例
 - 与 GDD 9.9 的"黄金回放"配套
 - F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。已入库 golden 为 `client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay` 和 `client/tests/replays/golden_reward_choice.replay`，可用对应 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实 `GameplayRunLoop` 运行时摘要、扩展稳定帧样本与场景语义字段。ADR #169 后 reward choice 场景由测试 harness 显式请求通用奖励，默认标准模式仍应由 runtime smoke 断言等级提升不进入 `REWARD_CHOICE`。`python tools/godot_bridge.py --project client replay-input-smoke` 已覆盖 gameplay 输入录制首片；`python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 已覆盖 runner 输入播放、full-death / reward-choice runtime event 播放与稳定帧样本 diff；`python tools/godot_bridge.py --project client rng-audit` 已覆盖 RNG 子流 seed mixer 跨流相关性审计，后续适合纳入 CI 的确定性门禁；更多黄金回放 CI 仍待后续接入。
+- ADR #199 后 Replay 当前为 v10，新增严格 `teleport_choice` 成功 / 取消语义；runner 在原始交互输入之后注入，把来源站、候选或当前选择状态不一致报告为 divergence，并在摘要前等待异步传送完成、复核最终模块与落点。旧 Replay v9 原文件保留但拒绝播放、不迁移。四条 golden 已在新 assignment、map hash `14f5e6b7...bd32748` 与 data fingerprint `0868a691...8657e967` 下重新捕获，`replay-regression` 4/4 通过；`golden_basic_run` 含真实 `interact` → 语义选择 → 非零淡出入覆盖，不以放宽 fingerprint 代替权威通过。
 - DebugTools 已启用显式本地命令 `python tools/godot_bridge.py --project client debug-tools-smoke`、`python tools/godot_bridge.py --project client debug-test-arena-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；后续发布型 CI 应至少保留 release guard 与 project rules 检查，防止控制台、测试岛场景 / 脚本 / smoke 或 GM 命令表进入正式导出。
 
 ### 4.N 平衡 Sim 报表（按需）⭐

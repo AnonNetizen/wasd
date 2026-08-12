@@ -97,8 +97,8 @@
       "success_markers": ["[ReplaySmoke] passed"],
       "standard_fatal": true,
       "expected_error_allow_patterns": [
-        "(?m)^ERROR: \\[Replay\\] unsupported replay file schema: (?:[1-8]|10); expected 9\\r?$",
-        "(?m)^ERROR: \\[Replay\\] unsupported replay recording schema: (?:[1-8]|10); expected 9\\r?$",
+        "(?m)^ERROR: \\[Replay\\] unsupported replay file schema: (?:[1-9]|11); expected 10\\r?$",
+        "(?m)^ERROR: \\[Replay\\] unsupported replay recording schema: (?:[1-9]|11); expected 10\\r?$",
         "(?m)^ERROR: \\[Replay\\] mod environment mismatch: local mod environment count mismatch: expected 1, found 0\\r?$",
         "(?m)^ERROR: \\[Replay\\] mod environment mismatch: local mod environment mismatch at 0\\.version: expected 1\\.0\\.0, found 2\\.0\\.0\\r?$",
         "(?m)^ERROR: \\[Replay\\] mod environment mismatch: local mod environment mismatch at 0\\.gameplay_hash: expected recorded_hash, found installed_hash\\r?$",
@@ -120,7 +120,11 @@
       "success_markers": ["[ReplayInputSmoke] passed;"],
       "standard_fatal": true,
       "expected_error_allow_patterns": [],
-      "shutdown_allow_patterns": []
+      "shutdown_allow_patterns": [
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ resources still in use at exit \\(run with --verbose for details\\)\\.\\r?$"
+      ]
     },
     {
       "id": "content-progression-smoke",
@@ -302,6 +306,7 @@
       ],
       "shutdown_allow_patterns": [
         "(?m)^ERROR: \\d+ RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit\\.\\r?$",
         "(?m)^ERROR: \\d+ RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit\\.\\r?$",
         "(?m)^ERROR: \\d+ resources still in use at exit \\(run with --verbose for details\\)\\.\\r?$"
       ]
@@ -351,6 +356,26 @@
       ]
     },
     {
+      "id": "teleporter-smoke",
+      "help": "Run the deterministic three-station teleporter network transaction smoke.",
+      "runner_type": "formal_boot",
+      "runner_path": "res://tools/teleporter_smoke.gd",
+      "runner_node_name": "TeleporterSmoke",
+      "formal_boot_setup": "start_gameplay",
+      "extra_user_args": [],
+      "preflight": [],
+      "isolation": "temporary_user_environment",
+      "success_markers": ["[TeleporterSmoke] PASS"],
+      "standard_fatal": true,
+      "expected_error_allow_patterns": [],
+      "shutdown_allow_patterns": [
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit\\.\\r?$",
+        "(?m)^ERROR: \\d+ resources still in use at exit \\(run with --verbose for details\\)\\.\\r?$"
+      ]
+    },
+    {
       "id": "save-smoke",
       "help": "Run the SaveManager run-save reliability smoke in headless Godot.",
       "runner_type": "formal_boot",
@@ -366,7 +391,7 @@
         "(?m)^ERROR: Parse JSON failed\\. Error at line 0: Expected key\\r?$",
         "(?m)^ERROR: \\[SaveManager\\] save file is not a JSON object: user://saves/slot_save_smoke/run\\.save\\r?$",
         "(?m)^ERROR: \\[SaveManager\\] save file is not a JSON object: user://saves/slot_save_smoke/run\\.save\\.bak\\r?$",
-        "(?m)^ERROR: \\[SaveManager\\] unsupported run version: 18; expected 19\\r?$",
+        "(?m)^ERROR: \\[SaveManager\\] unsupported run version: 19; expected 20\\r?$",
         "(?m)^ERROR: \\[SaveManager\\] run mod environment mismatch: local mod environment count mismatch: expected 1, found 0\\r?$",
         "(?m)^ERROR: \\[SaveManager\\] run mod environment mismatch: local mod environment mismatch at 0\\.version: expected 1\\.0\\.0, found 2\\.0\\.0\\r?$",
         "(?m)^ERROR: \\[SaveManager\\] run mod environment mismatch: local mod environment mismatch at 0\\.gameplay_hash: expected recorded_hash, found installed_hash\\r?$",

@@ -43,7 +43,7 @@ func _run() -> void:
 	_expect_isolation_failure_blocks_backup()
 	_expect_environment_mismatch_primary_blocks_valid_backup()
 	_expect_meta_migration_chain()
-	_expect_run_v18_is_preserved_and_rejected()
+	_expect_run_v19_is_preserved_and_rejected()
 	_expect_mod_environment_mismatches_are_preserved()
 	_expect_hash_damage_wins_over_environment_mismatch()
 	await _expect_formal_boot_preserves_incompatible_backup()
@@ -64,19 +64,19 @@ func _expect_basic_roundtrip() -> void:
 		return
 
 	var saved_payload: Dictionary = envelope.get("payload", {}) as Dictionary
-	_expect(int(envelope.get("version", 0)) == 19, "run envelope should use Run v19")
+	_expect(int(envelope.get("version", 0)) == 20, "run envelope should use Run v20")
 	_expect(String(envelope.get("kind", "")) == RUN_KIND, "run envelope kind should match")
 	_expect(String(envelope.get("slot", "")) == SMOKE_SLOT, "run envelope slot should match")
-	_expect(String(envelope.get("game_version", "")) == "v1.18", "run envelope should use game version v1.18")
+	_expect(String(envelope.get("game_version", "")) == "v1.19", "run envelope should use game version v1.19")
 	_expect(String(envelope.get("data_hash", "")).length() == 64, "run envelope should contain sha256 data_hash")
-	_expect(int(saved_payload.get("schema_version", 0)) == 19, "run payload should be normalized to schema v19")
+	_expect(int(saved_payload.get("schema_version", 0)) == 20, "run payload should be normalized to schema v20")
 	_expect(saved_payload.get("mod_environment", null) is Array, "run payload should contain an exact mod_environment array")
 	_expect(
 		(saved_payload.get("mod_environment", []) as Array) == ModLoader.mod_environment(),
 		"run payload mod_environment should match the immutable loader snapshot"
 	)
 	_expect(String(saved_payload.get("marker", "")) == "roundtrip", "run payload fields should roundtrip")
-	_expect(_loaded_versions.has(19), "run load should emit save_loaded v19")
+	_expect(_loaded_versions.has(20), "run load should emit save_loaded v20")
 
 
 func _expect_primary_backup_matrix() -> void:
@@ -247,7 +247,7 @@ func _backup_fixture_source(state: int) -> String:
 			var payload: Dictionary = _run_payload("matrix_backup_valid", 14)
 			payload["mod_environment"] = []
 			return JSON.stringify(
-				_run_envelope(19, "v1.18", payload),
+				_run_envelope(20, "v1.19", payload),
 				"\t"
 			)
 		BackupFixtureState.CORRUPT:
@@ -262,24 +262,24 @@ func _backup_fixture_source(state: int) -> String:
 
 func _incompatible_run_source(slot: String, marker: String) -> String:
 	var payload: Dictionary = _run_payload(marker, 15)
-	payload["schema_version"] = 18
+	payload["schema_version"] = 19
 	payload["mod_environment"] = []
 	return JSON.stringify(
-		_run_envelope(18, "v1.17", payload, slot),
+		_run_envelope(19, "v1.18", payload, slot),
 		"\t"
 	)
 
 
 func _matrix_expected_error(primary_state: int, backup_state: int) -> String:
 	if primary_state == PrimaryFixtureState.INCOMPATIBLE:
-		return "[SaveManager] unsupported run version: 18; expected 19"
+		return "[SaveManager] unsupported run version: 19; expected 20"
 	if backup_state == BackupFixtureState.CORRUPT:
 		return (
 			"[SaveManager] save file is not a JSON object: %s"
 			% _backup_path()
 		)
 	if backup_state == BackupFixtureState.INCOMPATIBLE:
-		return "[SaveManager] unsupported run version: 18; expected 19"
+		return "[SaveManager] unsupported run version: 19; expected 20"
 	return ""
 
 
@@ -321,7 +321,7 @@ func _expect_environment_mismatch_primary_blocks_valid_backup() -> void:
 		"gameplay_hash": "recorded_hash",
 	}]
 	var primary_source: String = JSON.stringify(
-		_run_envelope(19, "v1.18", payload),
+		_run_envelope(20, "v1.19", payload),
 		"\t"
 	)
 	_write_text(_save_path(), primary_source)
@@ -373,33 +373,33 @@ func _expect_meta_migration_chain() -> void:
 		_expect(_migrated_steps.has(step), "Meta migration should emit save_migrated for %s" % step)
 
 
-func _expect_run_v18_is_preserved_and_rejected() -> void:
+func _expect_run_v19_is_preserved_and_rejected() -> void:
 	_cleanup_smoke_files()
 	_set_mod_environment([])
-	var payload: Dictionary = _run_payload("legacy_v18", 6)
-	payload["schema_version"] = 18
+	var payload: Dictionary = _run_payload("legacy_v19", 6)
+	payload["schema_version"] = 19
 	payload["mod_environment"] = []
-	var envelope: Dictionary = _run_envelope(18, "v1.17", payload)
+	var envelope: Dictionary = _run_envelope(19, "v1.18", payload)
 	var source_text: String = JSON.stringify(envelope, "\t")
 	_write_text(_save_path(), source_text)
 	var before_corrupted_count: int = _corrupted_count
 
-	_expect(SaveManager.load(SMOKE_SLOT, RUN_KIND).is_empty(), "Run v18 should be rejected without migration")
+	_expect(SaveManager.load(SMOKE_SLOT, RUN_KIND).is_empty(), "Run v19 should be rejected without migration")
 	_expect(
-		SaveManager.last_error() == "[SaveManager] unsupported run version: 18; expected 19",
-		"Run v18 rejection should report the exact clean-cut version mismatch"
+		SaveManager.last_error() == "[SaveManager] unsupported run version: 19; expected 20",
+		"Run v19 rejection should report the exact clean-cut version mismatch"
 	)
-	_expect(not SaveManager.has_save(SMOKE_SLOT, RUN_KIND), "Run v18 should not appear as continuable")
+	_expect(not SaveManager.has_save(SMOKE_SLOT, RUN_KIND), "Run v19 should not appear as continuable")
 	var status: Dictionary = SaveManager.save_status(SMOKE_SLOT, RUN_KIND)
 	_expect(
 		bool(status.get("exists", false))
 		and not bool(status.get("compatible", true))
 		and bool(status.get("preserved_incompatible", false)),
-		"Run v18 status should remain present and explicitly preserved-incompatible"
+		"Run v19 status should remain present and explicitly preserved-incompatible"
 	)
-	_expect(_read_text(_save_path()) == source_text, "Run v18 rejection should preserve the original file")
-	_expect(_corrupted_count == before_corrupted_count, "Run v18 rejection should not isolate the source as corrupted")
-	_expect(_broken_file_count() == 0, "Run v18 rejection should not create a broken-file copy")
+	_expect(_read_text(_save_path()) == source_text, "Run v19 rejection should preserve the original file")
+	_expect(_corrupted_count == before_corrupted_count, "Run v19 rejection should not isolate the source as corrupted")
+	_expect(_broken_file_count() == 0, "Run v19 rejection should not create a broken-file copy")
 
 
 func _expect_mod_environment_mismatches_are_preserved() -> void:
@@ -430,9 +430,9 @@ func _expect_mod_environment_mismatches_are_preserved() -> void:
 func _expect_preserved_environment_rejection(environment: Array, label: String) -> void:
 	_cleanup_smoke_files()
 	var payload: Dictionary = _run_payload("environment_%s" % label.replace(" ", "_"), 7)
-	payload["schema_version"] = 19
+	payload["schema_version"] = 20
 	payload["mod_environment"] = environment.duplicate(true)
-	var envelope: Dictionary = _run_envelope(19, "v1.18", payload)
+	var envelope: Dictionary = _run_envelope(20, "v1.19", payload)
 	var source_text: String = JSON.stringify(envelope, "\t")
 	_write_text(_save_path(), source_text)
 	var before_corrupted_count: int = _corrupted_count
@@ -461,9 +461,9 @@ func _expect_hash_damage_wins_over_environment_mismatch() -> void:
 		"gameplay_hash": "recorded_hash",
 	}]
 	var payload: Dictionary = _run_payload("hash_and_environment_damage", 8)
-	payload["schema_version"] = 19
+	payload["schema_version"] = 20
 	payload["mod_environment"] = recorded_environment
-	var envelope: Dictionary = _run_envelope(19, "v1.18", payload)
+	var envelope: Dictionary = _run_envelope(20, "v1.19", payload)
 	envelope["data_hash"] = "0".repeat(64)
 	_write_json(_save_path(), envelope)
 	var before_corrupted_count: int = _corrupted_count
@@ -564,7 +564,7 @@ func _expect_formal_boot_preserves_incompatible_backup() -> void:
 	)
 	_expect(
 		SaveManager.last_error()
-		== "[SaveManager] unsupported run version: 18; expected 19",
+		== "[SaveManager] unsupported run version: 19; expected 20",
 		"FormalBoot continue should preserve the incompatible-backup diagnostic"
 	)
 	var title_menu_value: Variant = boot.get("_title_menu")
@@ -598,7 +598,7 @@ func _run_envelope(
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 19,
+		"schema_version": 20,
 		"marker": marker,
 		"mode": "mode_standard_survival",
 		"character": "character_default",

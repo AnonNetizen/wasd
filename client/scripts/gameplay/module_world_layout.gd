@@ -257,11 +257,16 @@ func build_fallback_assignment(
 
 
 func load_fallback_assignment() -> bool:
-	return _load_explicit_assignment(
+	if not _load_explicit_assignment(
 		_world_def.get("fallback_assignment", []),
 		false,
 		_assignment
-	)
+	):
+		return false
+	if not _assignment_matches_constrained_limited_groups(_assignment):
+		_assignment.clear()
+		return false
+	return true
 
 
 func assign_fallback_objective(
@@ -624,10 +629,18 @@ func _assign_limited_template_groups(
 ) -> bool:
 	if not raw_groups is Array:
 		return false
-	for raw_group: Variant in raw_groups as Array:
-		if not raw_group is Dictionary:
-			return false
-		var group: Dictionary = raw_group as Dictionary
+	var ordered_groups: Array[Dictionary] = []
+	for constrained_pass: bool in [true, false]:
+		for raw_group: Variant in raw_groups as Array:
+			if not raw_group is Dictionary:
+				return false
+			var candidate_group: Dictionary = raw_group as Dictionary
+			var is_constrained: bool = int(
+				candidate_group.get("minimum_manhattan_distance", 0)
+			) > 0
+			if is_constrained == constrained_pass:
+				ordered_groups.append(candidate_group)
+	for group: Dictionary in ordered_groups:
 		var raw_entries: Variant = group.get("entries", [])
 		if not raw_entries is Array:
 			return false
@@ -638,6 +651,7 @@ func _assign_limited_template_groups(
 		var pick_distinct: int = int(group.get("pick_distinct", 0))
 		if pick_distinct < 1 or pick_distinct > candidates.size():
 			return false
+		var selected_entries: Array[Dictionary] = []
 		for _selection_index: int in range(pick_distinct):
 			var selected_index: int = _weighted_limited_entry_index(
 				candidates,
@@ -647,6 +661,20 @@ func _assign_limited_template_groups(
 				return false
 			var selected: Dictionary = candidates[selected_index]
 			candidates.remove_at(selected_index)
+			selected_entries.append(selected)
+		var minimum_distance: int = int(
+			group.get("minimum_manhattan_distance", 0)
+		)
+		if minimum_distance > 0:
+			if not _assign_constrained_limited_group(
+				selected_entries,
+				minimum_distance,
+				assignment_value,
+				random_port
+			):
+				return false
+			continue
+		for selected: Dictionary in selected_entries:
 			var template_id: String = String(selected.get("template_id", ""))
 			var count_per_floor: int = int(
 				selected.get("count_per_floor", 0)
@@ -659,6 +687,127 @@ func _assign_limited_template_groups(
 				):
 					return false
 	return true
+
+
+func _assign_constrained_limited_group(
+	selected_entries: Array[Dictionary],
+	minimum_distance: int,
+	assignment_value: Dictionary,
+	random_port: RandomPort
+) -> bool:
+	var template_jobs: Array[String] = []
+	for selected: Dictionary in selected_entries:
+		var template_id: String = String(selected.get("template_id", ""))
+		var count_per_floor: int = int(selected.get("count_per_floor", 0))
+		if template_id.is_empty() or count_per_floor < 1:
+			return false
+		for _count_index: int in range(count_per_floor):
+			template_jobs.append(template_id)
+	var free_coords: Array[Vector2i] = []
+	for row_index: int in range(WORLD_ROWS):
+		for column_index: int in range(WORLD_COLUMNS):
+			var module_coord := Vector2i(column_index, row_index)
+			if not assignment_value.has(_slot_key(module_coord)):
+				free_coords.append(module_coord)
+	if template_jobs.is_empty() or template_jobs.size() > free_coords.size():
+		return false
+	var options_by_job: Array = []
+	for template_id: String in template_jobs:
+		var rotations: Array[int] = _allowed_rotations(template_id)
+		if rotations.is_empty():
+			return false
+		var options: Array[Dictionary] = []
+		for module_coord: Vector2i in free_coords:
+			for rotation_degrees: int in rotations:
+				options.append({
+					"module_coord": module_coord,
+					"rotation": rotation_degrees,
+				})
+		_shuffle_assignment_options(options, random_port)
+		options_by_job.append(options)
+	var temporary_assignment: Dictionary = assignment_value.duplicate(true)
+	var placed_coords: Array[Vector2i] = []
+	if not _backtrack_constrained_limited_group(
+		0,
+		template_jobs,
+		options_by_job,
+		minimum_distance,
+		temporary_assignment,
+		placed_coords
+	):
+		return false
+	assignment_value.clear()
+	assignment_value.merge(temporary_assignment, true)
+	return true
+
+
+func _shuffle_assignment_options(
+	options: Array[Dictionary],
+	random_port: RandomPort
+) -> void:
+	for index: int in range(options.size() - 1, 0, -1):
+		var swap_index: int = int(random_port.next_u32() % (index + 1))
+		var temporary: Dictionary = options[index]
+		options[index] = options[swap_index]
+		options[swap_index] = temporary
+
+
+func _backtrack_constrained_limited_group(
+	job_index: int,
+	template_jobs: Array[String],
+	options_by_job: Array,
+	minimum_distance: int,
+	temporary_assignment: Dictionary,
+	placed_coords: Array[Vector2i]
+) -> bool:
+	if job_index >= template_jobs.size():
+		return true
+	var template_id: String = template_jobs[job_index]
+	var options: Array = options_by_job[job_index] as Array
+	for raw_option: Variant in options:
+		if not raw_option is Dictionary:
+			continue
+		var option: Dictionary = raw_option as Dictionary
+		var module_coord: Vector2i = option.get(
+			"module_coord",
+			INVALID_COORD
+		) as Vector2i
+		var slot_key: String = _slot_key(module_coord)
+		if temporary_assignment.has(slot_key):
+			continue
+		var respects_distance: bool = true
+		for placed_coord: Vector2i in placed_coords:
+			if (
+				absi(module_coord.x - placed_coord.x)
+				+ absi(module_coord.y - placed_coord.y)
+				< minimum_distance
+			):
+				respects_distance = false
+				break
+		if not respects_distance:
+			continue
+		temporary_assignment[slot_key] = _make_assignment_entry(
+			module_coord,
+			template_id,
+			int(option.get("rotation", 0))
+		)
+		if _entry_fits_assigned_neighbors(
+			module_coord,
+			temporary_assignment
+		):
+			placed_coords.append(module_coord)
+			if _backtrack_constrained_limited_group(
+				job_index + 1,
+				template_jobs,
+				options_by_job,
+				minimum_distance,
+				temporary_assignment,
+				placed_coords
+			):
+				return true
+			placed_coords.pop_back()
+		temporary_assignment.erase(slot_key)
+	return false
 
 
 func _weighted_limited_entry_index(
@@ -874,7 +1023,84 @@ func _assignment_is_valid(assignment_value: Dictionary) -> bool:
 				assignment_value
 			):
 				return false
-	return _all_floor_cells_reachable(assignment_value)
+	return (
+		_all_floor_cells_reachable(assignment_value)
+		and _assignment_matches_constrained_limited_groups(assignment_value)
+	)
+
+
+func _assignment_matches_constrained_limited_groups(
+	assignment_value: Dictionary
+) -> bool:
+	for raw_entry: Variant in assignment_value.values():
+		if not raw_entry is Dictionary:
+			return false
+		if (
+			String((raw_entry as Dictionary).get("role", ""))
+			== MODULE_ROLES.MODULE_ROLE_SEALED
+		):
+			# The checked-in technical slice intentionally contains no network.
+			return true
+	var raw_groups: Variant = _world_def.get("limited_template_groups", [])
+	if not raw_groups is Array:
+		return false
+	for raw_group: Variant in raw_groups as Array:
+		if not raw_group is Dictionary:
+			return false
+		var group: Dictionary = raw_group as Dictionary
+		var minimum_distance: int = int(
+			group.get("minimum_manhattan_distance", 0)
+		)
+		if minimum_distance <= 0:
+			continue
+		var raw_entries: Variant = group.get("entries", [])
+		if not raw_entries is Array:
+			return false
+		var expected_counts: Dictionary = {}
+		for raw_limited_entry: Variant in raw_entries as Array:
+			if not raw_limited_entry is Dictionary:
+				return false
+			var limited_entry: Dictionary = raw_limited_entry as Dictionary
+			expected_counts[String(limited_entry.get("template_id", ""))] = int(
+				limited_entry.get("count_per_floor", 0)
+			)
+		var coords_by_template: Dictionary = {}
+		var all_coords: Array[Vector2i] = []
+		for raw_assignment_entry: Variant in assignment_value.values():
+			var assignment_entry: Dictionary = raw_assignment_entry as Dictionary
+			var template_id: String = String(
+				assignment_entry.get("template_id", "")
+			)
+			if not expected_counts.has(template_id):
+				continue
+			if not coords_by_template.has(template_id):
+				coords_by_template[template_id] = []
+			var coord: Vector2i = _coord_from_variant(
+				assignment_entry.get("slot", {}),
+				INVALID_COORD
+			)
+			if not is_module_coord_valid(coord):
+				return false
+			(coords_by_template[template_id] as Array).append(coord)
+			all_coords.append(coord)
+		if coords_by_template.size() != int(group.get("pick_distinct", 0)):
+			return false
+		for raw_template_id: Variant in coords_by_template.keys():
+			var template_id: String = String(raw_template_id)
+			if (coords_by_template[template_id] as Array).size() != int(
+				expected_counts.get(template_id, 0)
+			):
+				return false
+		for left_index: int in range(all_coords.size()):
+			for right_index: int in range(left_index + 1, all_coords.size()):
+				var left: Vector2i = all_coords[left_index]
+				var right: Vector2i = all_coords[right_index]
+				if (
+					absi(left.x - right.x) + absi(left.y - right.y)
+					< minimum_distance
+				):
+					return false
+	return true
 
 
 func _entry_fits_assigned_neighbors(

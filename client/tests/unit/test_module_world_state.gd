@@ -235,7 +235,7 @@ func test_reset_clears_all_dynamic_state() -> void:
 	assert_eq(state.slot_state(Vector2i(2, 3)), {})
 
 
-func test_manager_snapshot_keeps_run_v19_module_key_order() -> void:
+func test_manager_snapshot_keeps_run_v20_module_key_order() -> void:
 	var manager: MODULE_WORLD_MANAGER_SCRIPT = MODULE_WORLD_MANAGER_SCRIPT.new()
 	var snapshot_state: Dictionary = manager.snapshot()
 	manager.free()

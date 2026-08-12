@@ -3,11 +3,11 @@
 class_name RunSnapshotCoordinator
 extends RefCounted
 
-## Owns the stable Run v19 payload assembly and restore order. GameplayRunLoop
+## Owns the stable Run v20 payload assembly and restore order. GameplayRunLoop
 ## retains lifecycle, scene ownership, and the leaf operations supplied as ports.
 
 
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 19
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 20
 
 
 class CaptureState:

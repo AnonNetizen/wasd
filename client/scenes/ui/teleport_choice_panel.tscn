@@ -1,0 +1,68 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/teleport_choice_panel.gd" id="1_1b5wh"]
+[ext_resource type="Script" path="res://scripts/gameplay/teleport_minimap.gd" id="2_18njl"]
+
+[node name="TeleportChoicePanel" type="CanvasLayer" unique_id=2039518436]
+layer = 80
+script = ExtResource("1_1b5wh")
+
+[node name="Root" type="Control" parent="." unique_id=734428172]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Backdrop" type="ColorRect" parent="Root" unique_id=771766752]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.62)
+
+[node name="Center" type="CenterContainer" parent="Root" unique_id=1140077274]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="TeleportChoicePanelFrame" type="PanelContainer" parent="Root/Center" unique_id=191607872]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/TeleportChoicePanelFrame" unique_id=119040253]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 22
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/TeleportChoicePanelFrame/Margin" unique_id=535318712]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Root/Center/TeleportChoicePanelFrame/Margin/Layout" unique_id=238921880]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+
+[node name="DescriptionLabel" type="Label" parent="Root/Center/TeleportChoicePanelFrame/Margin/Layout" unique_id=1690649611]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Minimap" type="Control" parent="Root/Center/TeleportChoicePanelFrame/Margin/Layout" unique_id=988377261]
+custom_minimum_size = Vector2(360, 360)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+script = ExtResource("2_18njl")
+
+[node name="DestinationBox" type="VBoxContainer" parent="Root/Center/TeleportChoicePanelFrame/Margin/Layout" unique_id=1079386376]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CancelButton" type="Button" parent="Root/Center/TeleportChoicePanelFrame/Margin/Layout" unique_id=1806777232]
+custom_minimum_size = Vector2(420, 48)
+layout_mode = 2
+size_flags_horizontal = 3

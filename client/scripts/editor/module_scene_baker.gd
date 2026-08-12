@@ -17,7 +17,7 @@ const CELL_SIZE: int = 160
 const REGISTRY_PATH: String = "res://data/module_templates.json"
 const TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GENERATED_DIRECTORY: String = "res://scenes/generated/modules"
-const BAKER_SCHEMA_VERSION: int = 4
+const BAKER_SCHEMA_VERSION: int = 5
 const TRANSFORM_FLIP_H: int = TileSetAtlasSource.TRANSFORM_FLIP_H
 const TRANSFORM_FLIP_V: int = TileSetAtlasSource.TRANSFORM_FLIP_V
 const TRANSFORM_TRANSPOSE: int = TileSetAtlasSource.TRANSFORM_TRANSPOSE
@@ -348,8 +348,8 @@ static func _validate_module_for_bake(
 	module_path: String,
 	module_role: String
 ) -> void:
-	if int(module_data.get("schema_version", 0)) != 4:
-		_add_error(result, "%s schema_version must be 4." % module_path)
+	if int(module_data.get("schema_version", 0)) != 5:
+		_add_error(result, "%s schema_version must be 5." % module_path)
 	if String(module_data.get("id", "")) != expected_id:
 		_add_error(result, "%s id must be %s." % [module_path, expected_id])
 	if (
@@ -360,7 +360,7 @@ static func _validate_module_for_bake(
 	if module_data.has("edge_sockets"):
 		_add_error(
 			result,
-			"%s must omit derived edge_sockets in schema v2." % module_path
+			"%s must omit derived edge_sockets in schema v5." % module_path
 		)
 	var terrain_rows: Array = _array_or_empty(
 		module_data.get("terrain_rows", [])

@@ -1039,24 +1039,26 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 ## `module_worlds.json` / `module_templates.json` / `module_tile_catalog.json` / `modules/*.json`
 
-F13 的正式默认地图是 7×7 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` schema v5 定义世界几何、左下起点、三个意识核候选、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 为每模块单向生成唯一的 `scenes/generated/modules/<id>/rotation_0.tscn`，生成场景禁止手改。allowed rotations 只限制世界 assignment，运行时由 `ModuleChunk` 旋转规范场景根节点，不生成方向副本。
+F13 的正式默认地图是 7×7 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` schema v6 定义世界几何、左下起点、三个意识核候选、三站传送网络、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker v5 为每模块单向生成唯一的 `scenes/generated/modules/<id>/rotation_0.tscn`，生成场景禁止手改。allowed rotations 只限制世界 assignment，运行时由 `ModuleChunk` 旋转规范场景根节点，不生成方向副本。
 
-每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v4 中重复存储。相邻非封锁模块旋转后的边缘开放格交集必须非空，不再要求整条 socket 完全一致；世界外圈仍不得越界开放。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。模块 placement 不包含敌人出生点，旧 `module_place_enemy_spawn` 会被 DataLoader、Python 校验器、编辑器与 baker 明确拒绝。世界事件模块使用 `module_place_world_event`，payload 严格只有 `world_event_id`。
+每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v5 中重复存储。相邻非封锁模块旋转后的边缘开放格交集必须非空，不再要求整条 socket 完全一致；世界外圈仍不得越界开放。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。模块 placement 不包含敌人出生点，旧 `module_place_enemy_spawn` 会被 DataLoader、Python 校验器、编辑器与 baker 明确拒绝。世界事件模块使用 `module_place_world_event`，payload 严格只有 `world_event_id`。传送台模块使用 `module_place_teleporter`，payload 严格为 `type`、`cell`、`network_id`、`interaction_radius`；当前唯一网络为 `teleporter_network_primary`，台面固定在中心可走格 `(5,5)`，交互半径固定 180 px。
 
-正式 `template_pool` 当前只使用已批准模板；`fallback_assignment` 以平地为主，并在 runtime 以同一确定性选择覆盖本局意识核角落。固定左下起点不触发首次进入遭遇；选中的目标与普通非起点槽使用同一套空地刷怪规则。`module_start_corner` 的西 / 南封闭、北 / 东居中出口和中心出生已由用户人工批准；两张资源缓存模块因 dust 改为即时金币而自动降为 candidate，仍须待人工复核后才能重新进入正式池。
+正式 `template_pool` 当前只使用已批准模板；限量组固定按“有距离约束组 → 无距离约束组 → 普通模板”的顺序执行，因此生成顺序为起点、目标、三座传送台、世界事件、普通模块。三座传送台先在临时 assignment 上完成确定性随机化回溯，全部合法后才一次性提交；两两模块坐标的曼哈顿距离至少为 4。`fallback_assignment` 以平地为主，在 `(0,2)`、`(3,3)`、`(6,4)` 放置三座合法传送台，并在 runtime 以同一确定性选择覆盖本局意识核角落；回退仍无效时整局准备失败。固定左下起点不触发首次进入遭遇；选中的目标与普通非起点槽使用同一套空地刷怪规则。`module_start_corner` 的西 / 南封闭、北 / 东居中出口和中心出生已由用户人工批准；两张资源缓存模块因 dust 改为即时金币而自动降为 candidate，仍须待人工复核后才能重新进入正式池。
 
 AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在中央主编辑区中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
 
-`modules/*.json` schema v4 字段：
+`modules/*.json` schema v5 字段：
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `4` | 模块制作 schema；新增严格世界事件 placement |
+| `schema_version` | int | 必须为 `5` | 模块制作 schema；新增严格传送台 placement |
 | `id` | string | 与注册表 id、文件名一致 | 稳定模块 id |
 | `columns` / `rows` | int | 首版固定 `11` | 模块格尺寸 |
 | `terrain_rows[y][x]` | string | `module_cell_tokens` | 11×11 玩法地形；edge socket 由边缘 floor 派生 |
 | `placements[]` | object | type、整数 `cell`、可选 `footprint` 与类型专属 payload | 内容摆放；完整 footprint 必须落在 floor |
 | `placements[].world_event_id` | string | `module_place_world_event` 时必填，来自 `world_event_ids` | 世界事件 placement 不允许 footprint 或其它多余字段 |
+| `placements[].network_id` | string | `module_place_teleporter` 时固定 `teleporter_network_primary` | 同一传送网络稳定 id；不允许 footprint 或其它多余字段 |
+| `placements[].interaction_radius` | number | `module_place_teleporter` 时固定 `180`，px | 玩家可发起交互的半径 |
 | `visual_layers.ground.default_tile_id` / `visual_layers.obstacles.default_tile_id` | string | 对应层的稳定 tile id | 该玩法层非空格的默认视觉 |
 | `visual_layers.ground.overrides[]` / `visual_layers.obstacles.overrides[]` | object | cell、tile_id、rotation、flip_h、flip_v | 稀疏按格覆盖 |
 | `visual_layers.decoration.cells[]` | object | cell、tile_id、rotation、flip_h、flip_v | 不改变玩法地形的稀疏装饰 |
@@ -1077,13 +1079,14 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `5` | 7×7 世界与三个等概率 objective 候选；无撤离锚点 |
-| `worlds[].id` | string | 唯一、非空；当前 `module_world_7x7` | 世界 id；Run v16 的 `module_world` 子快照保存此值 |
+| `schema_version` | int | 必须为 `6` | 7×7 世界、三个等概率 objective 候选与三站传送网络 |
+| `worlds[].id` | string | 唯一、非空；当前 `module_world_7x7` | 世界 id；Run v20 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 当前固定 `7` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
 | `worlds[].active_radius` | int | 首版固定 `1` | 当前模块向四周激活的半径；最多 3×3 chunk |
 | `worlds[].seal_outer_edges` | bool | 首版必须 `true` | 外圈有效通道不得朝地图外开放 |
+| `worlds[].teleporter_transition.fade_out_duration` / `fade_in_duration` | number | 当前均固定 `0.2`，秒 | 传送选择确认后的淡出 / 淡入时长；运行时从数据读取 |
 | `worlds[].start_slot.x` / `worlds[].start_slot.y` | int | `0..6`，固定 `(0,6)` | 左下起点模块槽位 |
 | `worlds[].objective_spawn.template_id` | string | approved objective 模板；当前 `module_objective_core` | 本局意识核模板 |
 | `worlds[].objective_spawn.rotation` | int | `0/90/180/270`；当前 `0` | 本局意识核模板旋转 |
@@ -1098,9 +1101,10 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `worlds[].template_pool` | array[string] | 非空，只能引用 `approved` | 普通槽位随机模板池 |
 | `worlds[].limited_template_groups[]` | array[object] | 非空；组 id 与模板引用均不得重复 | 在普通模板填充前执行的限量抽选 |
 | `worlds[].limited_template_groups[].pick_distinct` | int | `1..entries.size()` | 按权重无放回抽取不同模板数；当前世界事件组为 3 |
-| `worlds[].limited_template_groups[].entries[].template_id` | string | approved 且角色为 `module_role_world_event` | 当前五种纯平原事件模板等权候选 |
+| `worlds[].limited_template_groups[].minimum_manhattan_distance` | int | `0..12` | 同组所有已选模块的两两最小曼哈顿距离；`0` 表示无约束，传送台组为 `4` |
+| `worlds[].limited_template_groups[].entries[].template_id` | string | approved 且非 sealed | 当前传送台 connector 与五种纯平原事件模板候选 |
 | `worlds[].limited_template_groups[].entries[].weight` | number | `> 0` | 组内相对抽取权重 |
-| `worlds[].limited_template_groups[].entries[].count_per_floor` | int | `>= 1`，选中总数不得超过自由槽位 | 某候选被选中后放置次数；当前均为 1 |
+| `worlds[].limited_template_groups[].entries[].count_per_floor` | int | `>= 1`，选中总数不得超过自由槽位 | 某候选被选中后放置次数；传送台为 3，世界事件为 1 |
 | `worlds[].fallback_assignment[].slot.x` / `worlds[].fallback_assignment[].slot.y` | int | 完整覆盖 `0..6`（49 格） | 固定安全布局槽位；运行时覆盖本局 objective 候选角 |
 | `worlds[].fallback_assignment[].template_id` | string | 注册表中存在且 approved | 固定安全布局模板 |
 | `worlds[].fallback_assignment[].rotation` | int | `0/90/180/270` | 固定安全布局旋转 |
@@ -1113,7 +1117,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `first_visit_enemy_spawn.enemy_pool[].unlock_time` | number | 非负、按数组非递减，首项为 `0` | 敌种开始参与抽取的 `GameClock` 局内时间 |
 | `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
 
-“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v16 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
+“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。传送台格属于 protected footprint，不参与敌人、机关或奖励出生点。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v20 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
 
 当前模块敌池按 `unlock_time` 非递减排列：0 秒开放爆猎者 55 与突击枪手 100，60 秒开放群袭者 30，240 秒开放伏击者 15，420 秒开放壁垒者 20。完整权重总和为 220，突击枪手占约 45.5%，是最高权重但不设置每房必出或保底。
 

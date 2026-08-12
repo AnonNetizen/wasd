@@ -27,6 +27,7 @@ const FLAT_ID: String = "module_layout_flat"
 const FIXED_ID: String = "module_layout_fixed"
 const OBJECTIVE_ID: String = "module_layout_objective"
 const EVENT_ID: String = "module_layout_event"
+const TELEPORTER_ID: String = "module_layout_teleporter"
 const ALTERNATE_ID: String = "module_layout_alternate"
 
 
@@ -93,6 +94,69 @@ func test_seeded_fixed_and_pool_prechecks_do_not_touch_rng_port() -> void:
 		"world"
 	))
 	assert_eq(empty_pool_recorder.calls, [])
+
+
+func test_constrained_limited_group_is_deterministic_and_keeps_minimum_distance() -> void:
+	var first_layout: MODULE_WORLD_LAYOUT_SCRIPT = _configured_layout(
+		_teleporter_world_definition(4)
+	)
+	var second_layout: MODULE_WORLD_LAYOUT_SCRIPT = _configured_layout(
+		_teleporter_world_definition(4)
+	)
+	assert_true(first_layout.build_seeded_assignment(
+		_random_port(RandomRecorder.new()),
+		"world"
+	))
+	assert_true(second_layout.build_seeded_assignment(
+		_random_port(RandomRecorder.new()),
+		"world"
+	))
+	assert_eq(first_layout.assignment_entries(), second_layout.assignment_entries())
+	var teleporter_coords: Array[Vector2i] = _coords_for_template(
+		first_layout,
+		TELEPORTER_ID
+	)
+	assert_eq(teleporter_coords.size(), 3)
+	for left_index: int in range(teleporter_coords.size()):
+		for right_index: int in range(left_index + 1, teleporter_coords.size()):
+			var left: Vector2i = teleporter_coords[left_index]
+			var right: Vector2i = teleporter_coords[right_index]
+			assert_gte(
+				absi(left.x - right.x) + absi(left.y - right.y),
+				4
+			)
+
+
+func test_constrained_limited_group_failure_has_no_partial_group_commit() -> void:
+	var layout: MODULE_WORLD_LAYOUT_SCRIPT = _configured_layout(
+		_teleporter_world_definition(12)
+	)
+	assert_false(layout.build_seeded_assignment(
+		_random_port(RandomRecorder.new()),
+		"world"
+	))
+	assert_eq(_coords_for_template(layout, TELEPORTER_ID), [])
+
+
+func test_fallback_rejects_incomplete_or_too_close_constrained_group() -> void:
+	var valid_world: Dictionary = _teleporter_world_definition(4)
+	var valid_fallback: Array[Dictionary] = _row_major_assignment(FLAT_ID)
+	_replace_template(valid_fallback, Vector2i(0, 2), TELEPORTER_ID)
+	_replace_template(valid_fallback, Vector2i(3, 3), TELEPORTER_ID)
+	_replace_template(valid_fallback, Vector2i(6, 4), TELEPORTER_ID)
+	valid_world["fallback_assignment"] = valid_fallback
+	var valid_layout: MODULE_WORLD_LAYOUT_SCRIPT = _configured_layout(valid_world)
+	assert_true(valid_layout.load_fallback_assignment())
+	assert_eq(_coords_for_template(valid_layout, TELEPORTER_ID).size(), 3)
+
+	var invalid_world: Dictionary = valid_world.duplicate(true)
+	var invalid_fallback: Array[Dictionary] = valid_fallback.duplicate(true)
+	_replace_template(invalid_fallback, Vector2i(3, 3), FLAT_ID)
+	_replace_template(invalid_fallback, Vector2i(1, 2), TELEPORTER_ID)
+	invalid_world["fallback_assignment"] = invalid_fallback
+	var invalid_layout: MODULE_WORLD_LAYOUT_SCRIPT = _configured_layout(invalid_world)
+	assert_false(invalid_layout.load_fallback_assignment())
+	assert_eq(invalid_layout.assignment_count(), 0)
 
 
 func test_fallback_load_precedes_objective_rng_and_keeps_row_major_order() -> void:
@@ -356,6 +420,7 @@ func _seeded_world_definition() -> Dictionary:
 		}],
 		"limited_template_groups": [{
 			"pick_distinct": 1,
+			"minimum_manhattan_distance": 0,
 			"entries": [{
 				"template_id": EVENT_ID,
 				"count_per_floor": 1,
@@ -372,12 +437,34 @@ func _seeded_world_definition() -> Dictionary:
 	}
 
 
+func _teleporter_world_definition(minimum_distance: int) -> Dictionary:
+	var world_def: Dictionary = _seeded_world_definition()
+	var event_group: Dictionary = (
+		(world_def.get("limited_template_groups", []) as Array)[0]
+		as Dictionary
+	).duplicate(true)
+	world_def["limited_template_groups"] = [
+		event_group,
+		{
+			"pick_distinct": 1,
+			"minimum_manhattan_distance": minimum_distance,
+			"entries": [{
+				"template_id": TELEPORTER_ID,
+				"count_per_floor": 3,
+				"weight": 1.0,
+			}],
+		},
+	]
+	return world_def
+
+
 func _registry() -> Dictionary:
 	return {
 		FLAT_ID: _registry_entry(MODULE_ROLES.MODULE_ROLE_CONNECTOR, [0]),
 		FIXED_ID: _registry_entry(MODULE_ROLES.MODULE_ROLE_START, [0]),
 		OBJECTIVE_ID: _registry_entry(MODULE_ROLES.MODULE_ROLE_OBJECTIVE, [0]),
 		EVENT_ID: _registry_entry(MODULE_ROLES.MODULE_ROLE_WORLD_EVENT, [0]),
+		TELEPORTER_ID: _registry_entry(MODULE_ROLES.MODULE_ROLE_CONNECTOR, [0]),
 		ALTERNATE_ID: _registry_entry(MODULE_ROLES.MODULE_ROLE_CONNECTOR, [0, 90]),
 	}
 
@@ -396,6 +483,7 @@ func _templates() -> Dictionary:
 		FIXED_ID: _template_data(FIXED_ID),
 		OBJECTIVE_ID: _template_data(OBJECTIVE_ID),
 		EVENT_ID: _template_data(EVENT_ID),
+		TELEPORTER_ID: _template_data(TELEPORTER_ID),
 		ALTERNATE_ID: _template_data(ALTERNATE_ID),
 	}
 
@@ -457,6 +545,22 @@ func _assignment_keys(layout: MODULE_WORLD_LAYOUT_SCRIPT) -> Array[String]:
 	var result: Array[String] = []
 	for raw_key: Variant in layout.assignment().keys():
 		result.append(String(raw_key))
+	return result
+
+
+func _coords_for_template(
+	layout: MODULE_WORLD_LAYOUT_SCRIPT,
+	template_id: String
+) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for entry: Dictionary in layout.assignment_entries():
+		if String(entry.get("template_id", "")) != template_id:
+			continue
+		var slot: Dictionary = entry.get("slot", {}) as Dictionary
+		result.append(Vector2i(
+			int(slot.get("x", -1)),
+			int(slot.get("y", -1))
+		))
 	return result
 
 

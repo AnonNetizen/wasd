@@ -1,0 +1,43 @@
+{
+  "schema_version": 5,
+  "id": "module_teleporter_pad",
+  "columns": 11,
+  "rows": 11,
+  "terrain_rows": [
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"],
+    ["module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor", "module_cell_floor"]
+  ],
+  "placements": [
+    {
+      "type": "module_place_teleporter",
+      "cell": {
+        "x": 5,
+        "y": 5
+      },
+      "network_id": "teleporter_network_primary",
+      "interaction_radius": 180
+    }
+  ],
+  "visual_layers": {
+    "ground": {
+      "default_tile_id": "module_tile_ground_default",
+      "overrides": []
+    },
+    "obstacles": {
+      "default_tile_id": "module_tile_obstacle_default",
+      "overrides": []
+    },
+    "decoration": {
+      "cells": []
+    }
+  }
+}

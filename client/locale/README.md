@@ -25,6 +25,7 @@ Godot 中央主界面的“数据配表”把 `strings.csv` 作为完整可编�
 | 你想做什么 | 怎么做 |
 |------------|--------|
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
+| 加传送台文案 | 在 `strings.csv` 加 `ui_teleport_*` 与 `ui_interact_use_teleporter`；站点编号保留 `{number}`，交互提示保留 `{binding}` |
 | 加标题 / 暂停 / 失败 / 结果面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title`、`ui_result_*` 等 key；结果清单行格式使用 `ui_result_resource_line` / `ui_result_gear_mod_line`，后者用 `{name}` / `{count}` 显示同名 Mod 与实例数量；UI 代码使用 `tr()` |
 | 加图鉴 / 内容解锁结果文案 | 在 `strings.csv` 加 `ui_codex_*` 与 `ui_result_new_unlock*` key；图鉴分类固定为智能碎片、Gear Mod、心象，锁定名使用 `ui_codex_locked`，进度 / 新解锁数量必须保留约定占位符 |
 | 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；无障碍、输入绑定选项也必须独立建 key |
@@ -250,6 +251,13 @@ gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces pr
 3. Gear Mod 图鉴详情显示类型、适用槽位（effect）与稀有度，不把 kind / behavior 契约 id 直接暴露给玩家；effect 实际效果来自固定 `modifiers`，map / grid 使用本地化描述。中心“核心”不是普通 Mod，不进入图鉴。
 4. 局终新解锁结果使用 `ui_result_new_unlocks_header`、`ui_result_new_unlock_line` 的 `{name}` 与 `ui_result_new_unlocks_summary` 的 `{count}`；同一 key 的中英文占位符集合必须完全一致。
 5. 心象图鉴正文使用 `enemy_*_desc`，由 `enemies.csv.desc_key` 引用；智能碎片与 Gear Mod 继续复用各自已有 `*_desc`。
+
+### 加一个传送台选择面板
+
+1. 交互提示使用 `ui_interact_use_teleporter`，必须保留 `{binding}`。
+2. 选择面板使用 `ui_teleport_choice_*`；目的地按钮通过 `ui_teleport_station_format` 的 `{number}` 显示按模块坐标行优先生成的稳定站点编号。
+3. 尚无其他已发现站点、来源仍有敌人以及提交校验失败分别使用独立 `ui_teleport_*` 反馈，不把内部 station id 或未发现坐标暴露给玩家。
+4. `zh_CN` / `en` 必须保留相同占位符；英文以 `Teleporter {number}` 的长度为按钮最小基准。
 
 ### 加一个世界事件
 

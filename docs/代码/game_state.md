@@ -8,6 +8,7 @@
 - 维护正式项目全局流程状态。
 - 提供唯一状态切换入口 `change_state()`。
 - 广播状态退出、切换、进入信号。
+- `TELEPORT_CHOICE` 表示传送目的地选择态：SceneTree 暂停、底层 `GameClock` 冻结，但 `PROCESS_MODE_ALWAYS` 的面板、淡出淡入与暂停菜单仍可工作。
 - 集中管理 `get_tree().paused` 联动，业务系统不得直接读写。
 - 不负责 UI 栈、存档、回放落盘或埋点具体实现；这些系统后续订阅状态信号。
 
@@ -36,6 +37,7 @@
 |------|----------|-------------------|
 | autoload `_ready()` | 进入默认 `MAIN_MENU` 并同步暂停状态 | `state_entered` |
 | 玩家加载 | 开始 / 继续 / 重开准备期间进入 `LOADING`；SceneTree 不暂停，但 gameplay 不接受输入、不推进 `GameClock`，加载完成并移除遮罩后才进入 `PLAYING` | `FormalClientBoot`、`GameplayRunLoop.run_prepared` |
+| 传送选择 | 当前站已发现、来源安全且至少存在一个同网络已发现目标时进入 `TELEPORT_CHOICE`；`UI_BACK` 取消回 `PLAYING`，暂停键可在其上叠加 `PAUSED`，关闭暂停菜单后恢复原选择态 | `GameplayRunLoop`、`TeleportChoicePanel`、`UIManager` |
 | 请求切换 | 校验目标状态是否已登记 | `can_change_to()` |
 | 切换成功 | 依次发退出、同步暂停、切换、进入 | `state_exited`、`state_changed`、`state_entered` |
 | 切换失败 | 输出错误并保持原状态 | `push_error` |
@@ -62,7 +64,8 @@
 
 - 当前状态常量来自 GDD §9.12。
 - `LOADING` 是正式玩家加载请求的准备态，不是 `PLAYING` 的别名；它覆盖开始、继续和重开，但不覆盖当前应用冷启动。
-- 当前登记状态为 `MAIN_MENU`、`LOADING`、`PLAYING`、`PAUSED`、`REWARD_CHOICE`、`GAME_OVER`。`REWARD_CHOICE` 只由通过原子校验的通用奖励请求进入，并与 `PAUSED` 一样冻结 SceneTree；等级提升本身不切换状态。
+- 当前登记状态为 `MAIN_MENU`、`LOADING`、`PLAYING`、`PAUSED`、`REWARD_CHOICE`、`TELEPORT_CHOICE`、`GAME_OVER`。`REWARD_CHOICE` 只由通过原子校验的通用奖励请求进入；`TELEPORT_CHOICE` 只由已发现传送台的安全来源进入。两者都与 `PAUSED` 一样冻结 SceneTree；等级提升本身不切换状态。
+- `PAUSED` 可以覆盖 `REWARD_CHOICE` 或 `TELEPORT_CHOICE`；暂停上下文必须保存 underlying state，关闭菜单后恢复原态。Run v20 保存传送选择来源站；续局只有在来源仍存在、属于当前模块且已发现时才重建面板，失败不得擅自移动玩家。
 - 暂无外部数据文件。
 - 后续若状态 id 进入词表，需要同步 `docs/词表与契约.md` 与生成常量。
 
@@ -83,7 +86,7 @@
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
 | 新增状态 | `game_state.gd` | GDD §9.12、本文档、AI导航 | headless boot，后续 GUT |
-| 改暂停联动 | `game_state.gd` | 本文档、测试策略 | headless boot，暂停 checklist |
+| 改暂停联动 | `game_state.gd` | 本文档、测试策略 | headless boot、runtime / teleporter smoke，L5 暂停 checklist |
 | 接入 UI 栈 | `UIManager` + 订阅 `GameState` | UIManager 文档 | UI 集成测 |
 
 ## 故障排查
@@ -94,12 +97,14 @@
 | 状态切换无效 | 目标状态是否在 `STATES` 中 |
 | 订阅方顺序异常 | 是否依赖了未声明的 signal 顺序 |
 | 加载期间 gameplay 已运行 | `FormalClientBoot` 是否先进入 `LOADING`；RunLoop 是否只在 `activate_prepared_run()` 中切到 `PLAYING` |
+| 传送面板打开后世界仍运行 | 当前是否为 `TELEPORT_CHOICE`；`GameState` 是否把该状态加入 SceneTree paused 集合；`GameClock` 是否同步冻结 |
+| 关闭暂停菜单后传送选择丢失 | `PAUSED` context 的 underlying state 是否为 `TELEPORT_CHOICE`；RunLoop 是否仍保存原来源站并恢复同一面板 |
 
 ## 测试义务
 
 - 必跑正式项目 headless boot。
-- F2 后续补 GUT：非法状态拒绝、signal 顺序、`PAUSED` / `REWARD_CHOICE` 与 SceneTree paused 联动。
-- UI 或存档接入后补集成测试。
+- F2 后续补 GUT：非法状态拒绝、signal 顺序、`PAUSED` / `REWARD_CHOICE` / `TELEPORT_CHOICE` 与 SceneTree paused 联动。
+- 传送状态接入必须覆盖：只发现当前站时不进入选择态、`UI_BACK` 取消恢复 `PLAYING`、暂停菜单覆盖与关闭恢复、Run v20 直接选择态及 underlying pause 续局恢复。
 - 玩家加载状态变化必须跑 `python tools/godot_bridge.py --project client loading-smoke`。
 
 ## 迁移 / 兼容

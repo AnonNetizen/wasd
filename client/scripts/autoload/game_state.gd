@@ -13,6 +13,7 @@ const LOADING: StringName = &"loading"
 const PLAYING: StringName = &"playing"
 const PAUSED: StringName = &"paused"
 const REWARD_CHOICE: StringName = &"reward_choice"
+const TELEPORT_CHOICE: StringName = &"teleport_choice"
 const GAME_OVER: StringName = &"game_over"
 const RESULT: StringName = &"result"
 const STATES: Array[StringName] = [
@@ -21,6 +22,7 @@ const STATES: Array[StringName] = [
 	PLAYING,
 	PAUSED,
 	REWARD_CHOICE,
+	TELEPORT_CHOICE,
 	GAME_OVER,
 	RESULT,
 ]
@@ -75,4 +77,8 @@ func _apply_tree_pause_for_state(state: StringName) -> void:
 	var tree := get_tree()
 	if tree == null:
 		return
-	tree.paused = state == PAUSED or state == REWARD_CHOICE
+	tree.paused = (
+		state == PAUSED
+		or state == REWARD_CHOICE
+		or state == TELEPORT_CHOICE
+	)

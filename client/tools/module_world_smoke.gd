@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective completion, threat-time combat gates and Run v19 restore.
+## objective completion, threat-time combat gates and Run v20 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -98,9 +98,9 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 19
+		int(fresh_run_snapshot.get("schema_version", 0)) == 20
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v19 should save registered world-event state"
+		"Run v20 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	var expected_start_coord := Vector2i(3, 3) if OS.get_cmdline_user_args().has("--module-world-technical-slice") else Vector2i(0, 6)
@@ -294,10 +294,10 @@ func _expect_deterministic_composition() -> void:
 		"one-module crossing should replace at most three edge chunks"
 	)
 	_expect(
-		_formal_assignment_has_three_events_and_flat_fill(
+		_formal_assignment_has_three_events_teleporters_and_flat_fill(
 			manager_a.call("assignment") as Dictionary
 		),
-		"formal assignment should contain three distinct event templates and flat-fill other ordinary slots"
+		"formal assignment should contain three events, three separated teleporters, and flat-fill other ordinary slots"
 	)
 	_expect(
 		String(manager_a.call("map_hash")) != String(manager_c.call("map_hash")),
@@ -363,6 +363,14 @@ func _expect_deterministic_composition() -> void:
 	var fallback_summary: Dictionary = manager_d.call("debug_summary")
 	_expect(int(fallback_summary.get("world_event_assignment_count", 0)) == 3, "fallback assignment should contain exactly three world events")
 	_expect((fallback_summary.get("world_event_template_ids", []) as Array).size() == 3, "fallback world events should be distinct")
+	_expect(
+		_teleporter_coords(manager_d.call("assignment") as Dictionary).size() == 3
+		and _teleporter_coords_respect_distance(
+			_teleporter_coords(manager_d.call("assignment") as Dictionary),
+			4
+		),
+		"fallback assignment should contain exactly three legal teleporter modules"
+	)
 	_expect(
 		manager_d.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == seeded_objective_coord,
 		"fallback should deterministically select the same objective corner for the run seed"
@@ -889,9 +897,9 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 		"create_run_snapshot"
 	) as Dictionary
 	_expect(
-		int(cage_run_snapshot.get("schema_version", 0)) == 19
+		int(cage_run_snapshot.get("schema_version", 0)) == 20
 		and cage_run_snapshot.get("effects", {}) == effect_snapshot,
-		"Run v19 should persist cage state through the unified effect snapshot"
+		"Run v20 should persist cage state through the unified effect snapshot"
 	)
 	var unknown_enemy_plan: Dictionary = locked_plan.duplicate(true)
 	unknown_enemy_plan["enemy_id"] = "missing_enemy"
@@ -1152,7 +1160,7 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 	)
 	_expect(
 		_saved_slot_has_encounter(saved_slot_states, encounter_slot_key, spawn_plan),
-		"Run v19 snapshot should persist the fixed telegraph plan"
+		"Run v20 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -1531,13 +1539,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v19 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v20 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 19, "module run snapshot should use schema v19")
+	_expect(int(snapshot.get("schema_version", 0)) == 20, "module run snapshot should use schema v20")
 	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v19 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
 	_expect(not loaded.is_empty(), "module run v19 should load")
@@ -1586,7 +1594,7 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 				0
 			)
 		) >= 1,
-		"Run v19 restore should preserve active event progress, pin, and fixed wave plan"
+		"Run v20 restore should preserve active event progress, pin, and fixed wave plan"
 	)
 	_expect(
 		is_equal_approx(
@@ -1603,13 +1611,13 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v19 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v20 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v19 fixture should resume after difficulty comparison"
+		"restored paused Run v20 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
@@ -1952,12 +1960,13 @@ func _expect_enemy_unlock_boundaries(run_loop: Node) -> void:
 	)
 
 
-func _formal_assignment_has_three_events_and_flat_fill(
+func _formal_assignment_has_three_events_teleporters_and_flat_fill(
 	assignment: Dictionary
 ) -> bool:
 	var event_template_ids: Array[String] = []
-	for raw_slot: Variant in assignment.keys():
-		var entry: Dictionary = assignment[raw_slot] as Dictionary
+	var teleporter_coords: Array[Vector2i] = []
+	for raw_entry: Variant in assignment.values():
+		var entry: Dictionary = raw_entry as Dictionary
 		if int(entry.get("rotation", -1)) != 0:
 			return false
 		var role: String = String(entry.get("role", ""))
@@ -1968,9 +1977,45 @@ func _formal_assignment_has_three_events_and_flat_fill(
 			if event_template_ids.has(template_id):
 				return false
 			event_template_ids.append(template_id)
+		elif String(entry.get("template_id", "")) == "module_teleporter_pad":
+			teleporter_coords.append(_assignment_entry_coord(entry))
 		elif String(entry.get("template_id", "")) != "module_flat_ground":
 			return false
-	return event_template_ids.size() == 3
+	return (
+		event_template_ids.size() == 3
+		and teleporter_coords.size() == 3
+		and _teleporter_coords_respect_distance(teleporter_coords, 4)
+	)
+
+
+func _teleporter_coords(assignment: Dictionary) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for raw_entry: Variant in assignment.values():
+		var entry: Dictionary = raw_entry as Dictionary
+		if String(entry.get("template_id", "")) == "module_teleporter_pad":
+			result.append(_assignment_entry_coord(entry))
+	return result
+
+
+func _assignment_entry_coord(entry: Dictionary) -> Vector2i:
+	var slot: Dictionary = entry.get("slot", {}) as Dictionary
+	return Vector2i(int(slot.get("x", -1)), int(slot.get("y", -1)))
+
+
+func _teleporter_coords_respect_distance(
+	coords: Array[Vector2i],
+	minimum_distance: int
+) -> bool:
+	for left_index: int in range(coords.size()):
+		for right_index: int in range(left_index + 1, coords.size()):
+			var left: Vector2i = coords[left_index]
+			var right: Vector2i = coords[right_index]
+			if (
+				absi(left.x - right.x) + absi(left.y - right.y)
+				< minimum_distance
+			):
+				return false
+	return true
 
 
 func _world_event_coords(assignment: Dictionary) -> Array[Vector2i]:

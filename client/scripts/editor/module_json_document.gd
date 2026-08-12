@@ -12,7 +12,7 @@ const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 
 const MODULE_SIZE: int = 11
-const MODULE_SCHEMA_VERSION: int = 4
+const MODULE_SCHEMA_VERSION: int = 5
 const DEFAULT_REGISTRY_PATH: String = "res://data/module_templates.json"
 const DEFAULT_MODULE_DIRECTORY: String = "res://data/modules"
 const DEFAULT_TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"

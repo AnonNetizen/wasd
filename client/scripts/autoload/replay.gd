@@ -22,9 +22,12 @@ const CONTENT_UNLOCK_TYPES := preload(
 const GEAR_MOD_PLACEMENT_OUTCOMES := preload(
 	"res://scripts/contracts/gear_mod_placement_outcomes.gd"
 )
+const TELEPORT_CHOICE_OUTCOMES := preload(
+	"res://scripts/contracts/teleport_choice_outcomes.gd"
+)
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 9
-const REPLAY_FILE_SCHEMA_VERSION: int = 9
+const REPLAY_SCHEMA_VERSION: int = 10
+const REPLAY_FILE_SCHEMA_VERSION: int = 10
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
@@ -166,6 +169,8 @@ func record_decision(event_name: String, payload: Dictionary = {}) -> bool:
 		return false
 	if event_name == ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
 		_discard_same_tick_gear_mod_trigger_input(payload)
+	elif event_name == ANALYTICS_EVENTS.TELEPORT_CHOICE:
+		_discard_same_tick_teleport_trigger_input(payload)
 	_trim_input_events_to_capacity()
 
 	_decision_events.append(decision_event)
@@ -183,6 +188,29 @@ func _discard_same_tick_gear_mod_trigger_input(payload: Dictionary) -> void:
 		GEAR_MOD_PLACEMENT_OUTCOMES.PLACED:
 			trigger_action = ACTIONS.UI_CONFIRM
 		GEAR_MOD_PLACEMENT_OUTCOMES.CANCELLED:
+			trigger_action = ACTIONS.UI_BACK
+	if trigger_action.is_empty():
+		return
+	var decision_tick: int = GameClock.tick()
+	for index: int in range(_input_events.size() - 1, -1, -1):
+		var input_event: Dictionary = _input_events[index]
+		if int(input_event.get("tick", -1)) != decision_tick:
+			continue
+		if (
+			String(input_event.get("action", "")) == trigger_action
+			and String(input_event.get("value_type", "")) == "bool"
+			and bool(input_event.get("value", false))
+		):
+			_input_events.remove_at(index)
+			return
+
+
+func _discard_same_tick_teleport_trigger_input(payload: Dictionary) -> void:
+	var trigger_action: String = ""
+	match String(payload.get("outcome", "")):
+		TELEPORT_CHOICE_OUTCOMES.TELEPORTED:
+			trigger_action = ACTIONS.UI_CONFIRM
+		TELEPORT_CHOICE_OUTCOMES.CANCELLED:
 			trigger_action = ACTIONS.UI_BACK
 	if trigger_action.is_empty():
 		return
@@ -618,8 +646,14 @@ func _is_valid_decision_event(event: Dictionary) -> bool:
 	if not _is_registered_analytics_event(event_name):
 		return false
 	if event_name != ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT:
+		if event_name == ANALYTICS_EVENTS.TELEPORT_CHOICE:
+			return _is_valid_teleport_choice_payload(
+				event["payload"] as Dictionary
+			)
 		return true
-	return _is_valid_gear_mod_placement_payload(event["payload"] as Dictionary)
+	return _is_valid_gear_mod_placement_payload(
+		event["payload"] as Dictionary
+	)
 
 
 func _is_valid_gear_mod_placement_payload(payload: Dictionary) -> bool:
@@ -641,6 +675,39 @@ func _is_valid_gear_mod_placement_payload(payload: Dictionary) -> bool:
 		var coord := Vector2i(int(payload["x"]), int(payload["y"]))
 		if coord.x < 0 or coord.x >= 7 or coord.y < 0 or coord.y >= 7:
 			return false
+	var actual_keys: Array[String] = []
+	for raw_key: Variant in payload.keys():
+		actual_keys.append(String(raw_key))
+	actual_keys.sort()
+	expected_keys.sort()
+	return actual_keys == expected_keys
+
+
+func _is_valid_teleport_choice_payload(payload: Dictionary) -> bool:
+	if (
+		not payload.get("outcome") is String
+		or not payload.get("source_station_id") is String
+		or String(payload.get("source_station_id", "")).is_empty()
+	):
+		return false
+	var outcome: String = String(payload.get("outcome", ""))
+	var expected_keys: Array[String] = [
+		"outcome",
+		"source_station_id",
+	]
+	if outcome == TELEPORT_CHOICE_OUTCOMES.TELEPORTED:
+		expected_keys.append("destination_station_id")
+		if (
+			not payload.get("destination_station_id") is String
+			or String(
+				payload.get("destination_station_id", "")
+			).is_empty()
+			or String(payload.get("destination_station_id", ""))
+			== String(payload.get("source_station_id", ""))
+		):
+			return false
+	elif outcome != TELEPORT_CHOICE_OUTCOMES.CANCELLED:
+		return false
 	var actual_keys: Array[String] = []
 	for raw_key: Variant in payload.keys():
 		actual_keys.append(String(raw_key))

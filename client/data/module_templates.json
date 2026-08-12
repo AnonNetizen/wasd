@@ -240,6 +240,18 @@
       "allowed_rotations": [
         0
       ],
+      "approved_gameplay_hash": "81ae85f4964515d82dd89b33f9da8814b9661e04de68819aa70c10eeb7b0f5e4",
+      "id": "module_teleporter_pad",
+      "path": "res://data/modules/module_teleporter_pad.json",
+      "review_status": "module_review_approved",
+      "role": "module_role_connector",
+      "source": "ai",
+      "tags": []
+    },
+    {
+      "allowed_rotations": [
+        0
+      ],
       "approved_gameplay_hash": "b1cdcf3d4a86f79bde87be5bcd4b530964859066ba504ae1ce9203ef9cf639f6",
       "id": "module_world_event_defense",
       "path": "res://data/modules/module_world_event_defense.json",

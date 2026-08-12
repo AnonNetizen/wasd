@@ -71,7 +71,8 @@
       "run_suspended",
       "run_resumed",
       "pool_overflow",
-      "gear_mod_placement"
+      "gear_mod_placement",
+      "teleport_choice"
     ],
     "settings_keys": [
       "general.locale",
@@ -372,7 +373,8 @@
       "module_place_hazard",
       "module_place_reward_cache",
       "module_place_objective",
-      "module_place_world_event"
+      "module_place_world_event",
+      "module_place_teleporter"
     ],
     "module_edge_directions": [
       "edge_north",
@@ -388,6 +390,13 @@
       "module_tile_ground_default",
       "module_tile_obstacle_default",
       "module_tile_decoration_default"
+    ],
+    "teleporter_network_ids": [
+      "teleporter_network_primary"
+    ],
+    "teleport_choice_outcomes": [
+      "teleported",
+      "cancelled"
     ],
     "world_event_ids": [
       "world_event_defense",

@@ -212,11 +212,19 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
-            "module world schema v5 is required",
-            _mutate_json("client/data/module_worlds.json", _set_schema_version(4)),
+            "module world schema v6 is required",
+            _mutate_json("client/data/module_worlds.json", _set_schema_version(5)),
             [
                 "client/data/module_worlds.json:schema_version",
-                "must equal 5",
+                "must equal 6",
+            ],
+        ),
+        (
+            "teleporter transition durations are fixed",
+            _mutate_json("client/data/module_worlds.json", _set_teleporter_fade_out(0.3)),
+            [
+                "client/data/module_worlds.json:worlds[0].teleporter_transition.fade_out_duration",
+                "must be 0.2 seconds",
             ],
         ),
         (
@@ -273,11 +281,27 @@ def main(argv: list[str] | None = None) -> int:
             ],
         ),
         (
-            "limited template group requires world event role",
-            _mutate_json("client/data/module_worlds.json", _set_limited_group_flat_template),
+            "limited template group requires a non-sealed role",
+            _mutate_json("client/data/module_worlds.json", _set_limited_group_sealed_template),
             [
                 "client/data/module_worlds.json:worlds[0].limited_template_groups[0].entries[0].template_id",
-                "template must use module_role_world_event",
+                "template must use a non-sealed role",
+            ],
+        ),
+        (
+            "limited template group requires its distance field",
+            _mutate_json("client/data/module_worlds.json", _remove_limited_group_distance),
+            [
+                "client/data/module_worlds.json:worlds[0].limited_template_groups[0]",
+                "must define exactly id, pick_distinct, minimum_manhattan_distance, and entries",
+            ],
+        ),
+        (
+            "fallback constrained modules respect Manhattan distance",
+            _mutate_json("client/data/module_worlds.json", _move_fallback_teleporter_too_close),
+            [
+                "client/data/module_worlds.json:worlds[0].fallback_assignment",
+                "must be at least 4 Manhattan cells apart",
             ],
         ),
         (
@@ -365,30 +389,30 @@ def main(argv: list[str] | None = None) -> int:
             ["client/data/modules/module_start_cross.json:terrain_rows", "must contain exactly 11 rows"],
         ),
         (
-            "module schema v4 derives sockets and accepts visual layers",
-            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v4),
+            "module schema v5 derives sockets and accepts visual layers",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v5),
             [],
         ),
         (
-            "module schema v3 is no longer accepted",
-            _mutate_json("client/data/modules/module_start_cross.json", _downgrade_module_to_v3),
+            "module schema v4 is no longer accepted",
+            _mutate_json("client/data/modules/module_start_cross.json", _downgrade_module_to_v4),
             [
                 "client/data/modules/module_start_cross.json:schema_version",
-                "must be >= 4",
-                "must be 4",
+                "must be >= 5",
+                "must be 5",
             ],
         ),
         (
-            "module schema v4 must omit derived sockets",
-            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v4_keep_sockets),
+            "module schema v5 must omit derived sockets",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v5_keep_sockets),
             [
                 "client/data/modules/module_start_cross.json:edge_sockets",
-                "must be omitted in schema v4 because sockets are derived",
+                "must be omitted in schema v5 because sockets are derived",
             ],
         ),
         (
             "module visual tile id must be registered",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_unknown_visual_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v5_unknown_visual_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.ground.overrides[0].tile_id",
                 "unknown id module_tile_unknown; expected one of module_tile_ids",
@@ -396,7 +420,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         (
             "module visual tile must belong to its layer",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_wrong_layer_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v5_wrong_layer_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.ground.default_tile_id",
                 "tile must belong to the ground layer",
@@ -404,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         (
             "module visual transform rotation must be orthogonal",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_invalid_visual_rotation),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v5_invalid_visual_rotation),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.decoration.cells[0].rotation",
                 "must be 0, 90, 180, or 270",
@@ -412,7 +436,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         (
             "module decoration layer must remain sparse",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_decoration_default_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v5_decoration_default_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.decoration",
                 "must define exactly cells",
@@ -511,6 +535,51 @@ def main(argv: list[str] | None = None) -> int:
             [
                 "client/data/modules/module_world_event_defense.json:placements[0]",
                 "must define exactly type, cell, and world_event_id",
+            ],
+        ),
+        (
+            "teleporter placement rejects surplus fields",
+            _mutate_json(
+                "client/data/modules/module_teleporter_pad.json",
+                _add_teleporter_placement_surplus_field,
+            ),
+            [
+                "client/data/modules/module_teleporter_pad.json:placements[0]",
+                "must define exactly type, cell, network_id, and interaction_radius",
+            ],
+        ),
+        (
+            "teleporter placement requires every strict field",
+            _mutate_json(
+                "client/data/modules/module_teleporter_pad.json",
+                _remove_teleporter_network_id,
+            ),
+            [
+                "client/data/modules/module_teleporter_pad.json:placements[0]",
+                "must define exactly type, cell, network_id, and interaction_radius",
+                "client/data/modules/module_teleporter_pad.json:placements[0].network_id",
+            ],
+        ),
+        (
+            "teleporter placement radius is 180 px",
+            _mutate_json(
+                "client/data/modules/module_teleporter_pad.json",
+                _set_teleporter_interaction_radius(179),
+            ),
+            [
+                "client/data/modules/module_teleporter_pad.json:placements[0].interaction_radius",
+                "must be 180 px",
+            ],
+        ),
+        (
+            "teleporter placement center must remain walkable",
+            _mutate_json(
+                "client/data/modules/module_teleporter_pad.json",
+                _block_teleporter_center,
+            ),
+            [
+                "client/data/modules/module_teleporter_pad.json:placements[0].cell",
+                "must be a walkable floor cell",
             ],
         ),
         (
@@ -4015,10 +4084,31 @@ def _set_limited_group_pick_too_high(payload: dict[str, Any]) -> None:
     payload["worlds"][0]["limited_template_groups"][0]["pick_distinct"] = 6
 
 
-def _set_limited_group_flat_template(payload: dict[str, Any]) -> None:
+def _set_limited_group_sealed_template(payload: dict[str, Any]) -> None:
     payload["worlds"][0]["limited_template_groups"][0]["entries"][0][
         "template_id"
-    ] = "module_flat_ground"
+    ] = "module_sealed"
+
+
+def _remove_limited_group_distance(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["limited_template_groups"][0].pop(
+        "minimum_manhattan_distance"
+    )
+
+
+def _move_fallback_teleporter_too_close(payload: dict[str, Any]) -> None:
+    for entry in payload["worlds"][0]["fallback_assignment"]:
+        if entry["slot"] == {"x": 3, "y": 3}:
+            entry["template_id"] = "module_flat_ground"
+        elif entry["slot"] == {"x": 1, "y": 2}:
+            entry["template_id"] = "module_teleporter_pad"
+
+
+def _set_teleporter_fade_out(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["worlds"][0]["teleporter_transition"]["fade_out_duration"] = value
+
+    return mutate
 
 
 def _remove_fixed_start_slot(payload: dict[str, Any]) -> None:
@@ -4087,8 +4177,8 @@ def _remove_module_terrain_row(payload: dict[str, Any]) -> None:
     payload["terrain_rows"].pop()
 
 
-def _upgrade_module_to_v4(payload: dict[str, Any]) -> None:
-    payload["schema_version"] = 4
+def _upgrade_module_to_v5(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 5
     payload.pop("edge_sockets", None)
     payload["visual_layers"] = {
         "ground": {
@@ -4105,13 +4195,13 @@ def _upgrade_module_to_v4(payload: dict[str, Any]) -> None:
     }
 
 
-def _upgrade_module_to_v4_keep_sockets(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v4(payload)
+def _upgrade_module_to_v5_keep_sockets(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v5(payload)
     payload["edge_sockets"] = _derived_sockets(payload["terrain_rows"])
 
 
-def _downgrade_module_to_v3(payload: dict[str, Any]) -> None:
-    payload["schema_version"] = 3
+def _downgrade_module_to_v4(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 4
 
 
 def _derived_sockets(terrain_rows: list[list[str]]) -> dict[str, list[int]]:
@@ -4124,8 +4214,8 @@ def _derived_sockets(terrain_rows: list[list[str]]) -> dict[str, list[int]]:
     }
 
 
-def _set_v4_unknown_visual_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v4(payload)
+def _set_v5_unknown_visual_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v5(payload)
     payload["visual_layers"]["ground"]["overrides"] = [
         {
             "cell": {"x": 0, "y": 0},
@@ -4137,13 +4227,13 @@ def _set_v4_unknown_visual_tile(payload: dict[str, Any]) -> None:
     ]
 
 
-def _set_v4_wrong_layer_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v4(payload)
+def _set_v5_wrong_layer_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v5(payload)
     payload["visual_layers"]["ground"]["default_tile_id"] = "module_tile_decoration_default"
 
 
-def _set_v4_invalid_visual_rotation(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v4(payload)
+def _set_v5_invalid_visual_rotation(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v5(payload)
     payload["visual_layers"]["decoration"]["cells"] = [
         {
             "cell": {"x": 5, "y": 5},
@@ -4155,8 +4245,8 @@ def _set_v4_invalid_visual_rotation(payload: dict[str, Any]) -> None:
     ]
 
 
-def _set_v4_decoration_default_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v4(payload)
+def _set_v5_decoration_default_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v5(payload)
     payload["visual_layers"]["decoration"]["default_tile_id"] = "module_tile_decoration_default"
 
 
@@ -4222,6 +4312,25 @@ def _set_unknown_world_event_placement_id(payload: dict[str, Any]) -> None:
 
 def _add_world_event_placement_surplus_field(payload: dict[str, Any]) -> None:
     payload["placements"][0]["surplus"] = True
+
+
+def _add_teleporter_placement_surplus_field(payload: dict[str, Any]) -> None:
+    payload["placements"][0]["surplus"] = True
+
+
+def _remove_teleporter_network_id(payload: dict[str, Any]) -> None:
+    payload["placements"][0].pop("network_id")
+
+
+def _set_teleporter_interaction_radius(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["placements"][0]["interaction_radius"] = value
+
+    return mutate
+
+
+def _block_teleporter_center(payload: dict[str, Any]) -> None:
+    payload["terrain_rows"][5][5] = "module_cell_blocked"
 
 
 def _add_legacy_module_enemy_spawn(payload: dict[str, Any]) -> None:

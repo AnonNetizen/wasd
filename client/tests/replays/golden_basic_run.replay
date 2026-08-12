@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_basic_run",
-	"data_fingerprint": "ae289a23d12e2a6aae462df13a047830f6e4ef860ef77a9dd551ce198e8b72d5",
-	"file_schema_version": 9,
-	"game_version": "v1.18",
+	"data_fingerprint": "0868a6914c6457bd4eac1397ad1830d80f9c8d2951707b53a5f8450f8657e967",
+	"file_schema_version": 10,
+	"game_version": "v1.19",
 	"mod_environment": [],
 	"recording": {
 		"context": {
@@ -41,6 +41,17 @@
 				},
 				"tick": 7,
 				"time": 0.0
+			},
+			{
+				"event": "teleport_choice",
+				"frame": 142,
+				"payload": {
+					"destination_station_id": "teleporter_5_3_5_5",
+					"outcome": "teleported",
+					"source_station_id": "teleporter_4_0_5_5"
+				},
+				"tick": 155,
+				"time": 2.58396633333333
 			}
 		],
 		"dropped_decision_events": 0,
@@ -137,6 +148,24 @@
 				"time": 2.0,
 				"value": false,
 				"value_type": "bool"
+			},
+			{
+				"action": "interact",
+				"frame": 141,
+				"participant_id": "player_0",
+				"tick": 141,
+				"time": 2.35,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "interact",
+				"frame": 141,
+				"participant_id": "player_0",
+				"tick": 141,
+				"time": 2.35,
+				"value": false,
+				"value_type": "bool"
 			}
 		],
 		"is_recording": false,
@@ -148,7 +177,6 @@
 			"active_gold_orbs": 0,
 			"capture_frames": 180,
 			"difficulty_level": 1,
-			"difficulty_time": 0.0,
 			"enemy_damage_multiplier": 1.0,
 			"enemy_health_multiplier": 1.0,
 			"frame_sample_interval": 30,
@@ -164,7 +192,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -186,7 +214,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -208,7 +236,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -230,7 +258,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -252,15 +280,15 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
 					},
 					"player_life": 500.0,
-					"player_moved_right": false,
-					"state": "playing",
-					"ui_stack": 0,
+					"player_moved_right": true,
+					"state": "teleport_choice",
+					"ui_stack": 2,
 					"weapon_cooldown_ready": true
 				},
 				{
@@ -274,13 +302,13 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
 					},
 					"player_life": 500.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true
@@ -290,12 +318,12 @@
 			"gold_earned_total": 0,
 			"kills": 0,
 			"level": 1,
-			"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+			"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0
 			},
-			"player_moved_right": false,
+			"player_moved_right": true,
 			"pool_stats": {
 				"bullet_basic": {
 					"acquired": 0,
@@ -366,18 +394,26 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 9,
+		"runtime_events": [
+			{
+				"event": "prepare_teleporter_choice",
+				"frame": 140,
+				"tick": 140,
+				"time": 2.33333333333333
+			}
+		],
+		"schema_version": 10,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "b05238f5bf6810b0d5f8722316e9bf0ce42e8ef4a29e278747dfc9b4ebcd7242",
+	"recording_hash": "dce95b6fb9bce55393bf006bd76cfeec7c35e8680ce6713e20fde03df5eda7ab",
 	"summary": {
-		"decision_events": 1,
+		"decision_events": 2,
 		"dropped_decision_events": 0,
 		"dropped_input_events": 0,
 		"ended_tick": 180,
 		"ended_time": 3.0,
-		"input_events": 10,
+		"input_events": 12,
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
@@ -386,7 +422,6 @@
 			"active_gold_orbs": 0,
 			"capture_frames": 180,
 			"difficulty_level": 1,
-			"difficulty_time": 0.0,
 			"enemy_damage_multiplier": 1.0,
 			"enemy_health_multiplier": 1.0,
 			"frame_sample_interval": 30,
@@ -402,7 +437,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -424,7 +459,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -446,7 +481,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -468,7 +503,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -490,15 +525,15 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
 					},
 					"player_life": 500.0,
-					"player_moved_right": false,
-					"state": "playing",
-					"ui_stack": 0,
+					"player_moved_right": true,
+					"state": "teleport_choice",
+					"ui_stack": 2,
 					"weapon_cooldown_ready": true
 				},
 				{
@@ -512,13 +547,13 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+					"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
 					},
 					"player_life": 500.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true
@@ -528,12 +563,12 @@
 			"gold_earned_total": 0,
 			"kills": 0,
 			"level": 1,
-			"module_map_hash": "2a7ebcdfde4b23311c64199feffe827a64aeaa503afecf23a6ad165f563c200a",
+			"module_map_hash": "14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0
 			},
-			"player_moved_right": false,
+			"player_moved_right": true,
 			"pool_stats": {
 				"bullet_basic": {
 					"acquired": 0,
@@ -604,7 +639,7 @@
 			"state": "playing",
 			"ui_stack": 0
 		},
-		"schema_version": 9,
+		"schema_version": 10,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

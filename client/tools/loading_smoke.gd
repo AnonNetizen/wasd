@@ -4,6 +4,9 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const TELEPORT_CHOICE_OUTCOMES := preload(
+	"res://scripts/contracts/teleport_choice_outcomes.gd"
+)
 const GAMEPLAY_RUN_LOOP_SCENE: PackedScene = preload(
 	"res://scenes/gameplay/gameplay_run_loop.tscn"
 )
@@ -144,10 +147,16 @@ func _run() -> void:
 		return
 	_expect(_count_nodes_by_name(get_tree().root, "GameplayRunLoop") == 1, "start should mount one GameplayRunLoop")
 
+	var teleport_source_id: String = await _prepare_teleporter_choice(first_run)
+	_expect(
+		not teleport_source_id.is_empty()
+		and GameState.is_state(GameState.TELEPORT_CHOICE),
+		"loading smoke should prepare a paused teleport choice"
+	)
 	var first_snapshot: Dictionary = first_run.call("create_run_snapshot")
 	_expect(
 		SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, first_snapshot),
-		"loading smoke should save a valid run for continue"
+		"loading smoke should save a valid teleport-choice run for continue"
 	)
 	first_run.emit_signal("quit_to_title_requested")
 	title_menu = await _wait_for_node("TitleMenu")
@@ -163,14 +172,70 @@ func _run() -> void:
 	_expect(continue_button.visible and not continue_button.disabled, "valid run should enable continue")
 	continue_button.pressed.emit()
 	await _expect_loading_visible("continue")
-	var continued_run: Node = await _wait_for_playing_run()
-	if not _expect_node(continued_run, "continue should finish with one playable run"):
+	var continued_run: Node = await _wait_for_run_state(GameState.TELEPORT_CHOICE)
+	if not _expect_node(continued_run, "continue should restore the teleport choice"):
 		_finish()
 		return
+	_expect(
+		String(continued_run.get("_teleport_source_station_id"))
+		== teleport_source_id
+		and _find_node_by_name(get_tree().root, "TeleportChoicePanel") != null,
+		"continue should rebuild the original source station choice panel"
+	)
 	_expect(
 		RNG.run_seed() == int(first_snapshot.get("rng", {}).get("run_seed", 0)),
 		"continue should restore the saved run seed"
 	)
+	continued_run.call("_show_pause_menu")
+	var paused_run: Node = await _wait_for_run_state(GameState.PAUSED)
+	_expect(paused_run == continued_run, "pause should overlay the restored teleport choice")
+	var paused_snapshot: Dictionary = continued_run.call("create_run_snapshot")
+	_expect(
+		SaveManager.save(
+			SaveManager.DEFAULT_SLOT,
+			SAVE_KINDS.RUN,
+			paused_snapshot
+		),
+		"loading smoke should save pause over teleport choice"
+	)
+	continued_run.emit_signal("quit_to_title_requested")
+	title_menu = await _wait_for_node("TitleMenu")
+	if not _expect_node(title_menu, "paused teleport choice should return to title"):
+		_finish()
+		return
+	continue_button = title_menu.get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/ContinueRunButton"
+	) as Button
+	if not _expect_node(continue_button, "paused choice should expose ContinueRunButton"):
+		_finish()
+		return
+	continue_button.pressed.emit()
+	await _expect_loading_visible("paused teleport continue")
+	continued_run = await _wait_for_run_state(GameState.PAUSED)
+	if not _expect_node(continued_run, "continue should restore pause over teleport choice"):
+		_finish()
+		return
+	var restored_ui: Dictionary = continued_run.call("_ui_restore_snapshot")
+	_expect(
+		String(restored_ui.get("state", "")) == "paused"
+		and String(restored_ui.get("underlying_state", ""))
+		== "teleport_choice"
+		and String(restored_ui.get("source_station_id", ""))
+		== teleport_source_id,
+		"continued pause should retain the underlying teleport source"
+	)
+	continued_run.call("_on_pause_resume_requested")
+	continued_run = await _wait_for_run_state(GameState.TELEPORT_CHOICE)
+	_expect(continued_run != null, "resuming continued pause should reveal teleport choice")
+	if continued_run != null:
+		_expect(
+			bool(continued_run.call("apply_replay_teleport_choice", {
+				"outcome": TELEPORT_CHOICE_OUTCOMES.CANCELLED,
+				"source_station_id": teleport_source_id,
+			})),
+			"continued teleport choice should remain cancellable"
+		)
+		continued_run = await _wait_for_playing_run()
 
 	continued_run.emit_signal("restart_requested")
 	await _expect_loading_visible("restart")
@@ -677,16 +742,62 @@ func _expect_loading_visible(source: String) -> void:
 
 
 func _wait_for_playing_run() -> Node:
+	return await _wait_for_run_state(GameState.PLAYING)
+
+
+func _wait_for_run_state(state: StringName) -> Node:
 	for _frame: int in range(MAX_WAIT_FRAMES):
 		await get_tree().process_frame
 		var run_loop: Node = _find_node_by_name(get_tree().root, "GameplayRunLoop")
 		if (
 			run_loop != null
-			and GameState.is_state(GameState.PLAYING)
+			and GameState.is_state(state)
 			and _count_nodes_by_name(get_tree().root, "LoadingScreen") == 0
 		):
 			return run_loop
 	return null
+
+
+func _prepare_teleporter_choice(run_loop: Node) -> String:
+	var manager: Node = _find_node_by_name(run_loop, "ModuleWorldManager")
+	var player: Node2D = _find_node_by_name(run_loop, "Player") as Node2D
+	if manager == null or player == null:
+		return ""
+	var stations: Array[Dictionary] = []
+	var raw_stations: Dictionary = run_loop.get("_teleporter_stations") as Dictionary
+	for raw_station: Variant in raw_stations.values():
+		if raw_station is Dictionary:
+			stations.append((raw_station as Dictionary).duplicate(true))
+	stations.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return int(left.get("station_number", 0)) < int(right.get("station_number", 0))
+	)
+	if stations.size() != 3:
+		return ""
+	for station_index: int in [0, 1, 0]:
+		var station: Dictionary = stations[station_index]
+		var position_data: Dictionary = station.get("world_position", {}) as Dictionary
+		var position := Vector2(
+			float(position_data.get("x", 0.0)),
+			float(position_data.get("y", 0.0))
+		)
+		player.call("teleport_to", position)
+		var stream_change: Dictionary = manager.call("tick", position)
+		run_loop.call("_handle_module_stream_change", stream_change)
+		var coord_data: Dictionary = station.get("module_coord", {}) as Dictionary
+		var module_coord := Vector2i(
+			int(coord_data.get("x", -1)),
+			int(coord_data.get("y", -1))
+		)
+		var state: Dictionary = manager.call("slot_state", module_coord)
+		state["enemy_snapshots"] = []
+		state["enemy_encounter"] = {"state": "cleared"}
+		manager.call("set_slot_state", module_coord, state)
+		await get_tree().process_frame
+	var source_id: String = String(stations[0].get("station_id", ""))
+	if not bool(run_loop.call("_show_teleport_choice_panel", source_id)):
+		return ""
+	return source_id
 
 
 func _wait_for_node(node_name: String) -> Node:

@@ -6,7 +6,7 @@
 ## 职责
 
 - 提供玩法时间 `now()`、物理 tick `tick()` 和缩放 delta `delta_scaled()`。
-- 订阅 `GameState`，在玩家加载、暂停、通用奖励选择和游戏结束等冻结状态返回 0 delta。
+- 订阅 `GameState`，在玩家加载、暂停、通用奖励选择、传送选择和游戏结束等冻结状态返回 0 delta。
 - 提供 `wall_now()` 给非玩法诊断 / UI / Analytics 使用。
 - F5 起提供 `snapshot()` / `restore_snapshot()`，供局内暂停保存退出后恢复玩法时间、物理 tick 与 time scale。
 - ADR #166 后 `GameClock` 仍驱动移动、冷却、状态、回复、机关、Replay tick 与其它底层确定性系统；玩家位于起点房时它继续推进，不承担玩家可见难度用时。
@@ -66,7 +66,7 @@
 
 ## 数据与契约
 
-无外部数据文件。冻结状态来自 `GameState.LOADING`、`GameState.PAUSED`、`GameState.REWARD_CHOICE` 与 `GameState.GAME_OVER`。金币升级只显示短暂 HUD 提示，不冻结时钟。
+无外部数据文件。冻结状态来自 `GameState.LOADING`、`GameState.PAUSED`、`GameState.REWARD_CHOICE`、`GameState.TELEPORT_CHOICE` 与 `GameState.GAME_OVER`。金币升级只显示短暂 HUD 提示，不冻结时钟。传送淡出 / 淡入由 `PROCESS_MODE_ALWAYS` 的 UI 时间线推进，不得借用 `GameClock`，淡入结束后才恢复 `PLAYING`。
 
 ## 依赖
 
@@ -94,7 +94,8 @@
 | 现象 | 优先检查 |
 |------|----------|
 | 暂停时仍推进玩法时间 | `GameState` 是否切到冻结状态 |
-| tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `REWARD_CHOICE` / `GAME_OVER` |
+| tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `REWARD_CHOICE` / `TELEPORT_CHOICE` / `GAME_OVER` |
+| 传送选择期间冷却或敌人仍推进 | `GameState` 是否进入 `TELEPORT_CHOICE`；该状态是否存在于 `GameClock` 冻结集合；玩法系统是否误用 wall time |
 | 回放时间不稳定 | 业务是否绕过 `GameClock` 读取 `Time` |
 | 起点房难度仍增长 | `GameplayRunLoop` 是否错误推进 `DifficultyProgression`；不要冻结 `GameClock` |
 
@@ -102,7 +103,8 @@
 
 - 必跑正式项目 headless boot。
 - `loading-smoke` 覆盖真实玩家入口在 `LOADING` 分帧准备时 elapsed / tick 均不推进。
-- F2 后续补 GUT：暂停冻结、time scale、`reset()`、tick 推进。
+- F2 后续补 GUT：暂停 / 奖励 / 传送选择冻结、time scale、`reset()`、tick 推进。
+- 三站传送自动测试必须断言面板与淡出淡入期间 `delta_scaled()` 为 0、tick 不增长，且淡入结束回到 `PLAYING` 后才恢复；生命、护盾、状态、技能 / 武器冷却和敌人状态不得因传送被重置。
 - 回放落地后纳入黄金回放确定性检查。
 
 ## 迁移 / 兼容

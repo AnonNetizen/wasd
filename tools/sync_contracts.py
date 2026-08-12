@@ -121,6 +121,18 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("module_review_statuses", "## 15-E. 模块审核状态 module_review_status", "module_review_statuses.gd", "ModuleReviewStatuses"),
     ContractSection("module_tile_ids", "## 15-F. 模块图块 module_tile_id", "module_tile_ids.gd", "ModuleTileIds"),
     ContractSection(
+        "teleporter_network_ids",
+        "## 15-G. 传送台网络 teleporter_network_id",
+        "teleporter_network_ids.gd",
+        "TeleporterNetworkIds",
+    ),
+    ContractSection(
+        "teleport_choice_outcomes",
+        "## 15-H. 传送选择结果 teleport_choice_outcome",
+        "teleport_choice_outcomes.gd",
+        "TeleportChoiceOutcomes",
+    ),
+    ContractSection(
         "world_event_ids",
         "## 17-A. 世界事件 id world_event_id",
         "world_event_ids.gd",

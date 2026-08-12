@@ -10,11 +10,15 @@ const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const WORLD_EVENT_IDS := preload("res://scripts/contracts/world_event_ids.gd")
+const TELEPORTER_NETWORK_IDS := preload(
+	"res://scripts/contracts/teleporter_network_ids.gd"
+)
 
 const LAYER_OPTIONS: Array[String] = ["ground", "obstacles", "decoration", "placements"]
 const LAYER_LABELS: Array[String] = ["地面", "障碍", "装饰", "放置点"]
 const TOOL_OPTIONS: Array[String] = ["select", "terrain", "tile", "placement", "erase"]
 const TOOL_LABELS: Array[String] = ["选择", "编辑地形", "绘制图块", "添加放置", "擦除"]
+const DEFAULT_TELEPORTER_INTERACTION_RADIUS: float = 180.0
 const ROTATION_OPTIONS: Array[int] = [0, 90, 180, 270]
 const TOOL_PANEL_WIDTH: float = 260.0
 const DETAILS_PANEL_WIDTH: float = 320.0
@@ -794,17 +798,26 @@ func _apply_placement(cell: Vector2i) -> void:
 
 
 func _on_placement_type_changed(_index: int) -> void:
-	if (
-		_selected_option_string(_placement_combo)
-		!= MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT
-	):
-		return
-	_payload_edit.text = JSON.stringify(
-		{"world_event_id": _selected_option_string(_world_event_combo)},
-		"  ",
-		false,
-		true
-	)
+	match _selected_option_string(_placement_combo):
+		MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT:
+			_payload_edit.text = JSON.stringify(
+				{"world_event_id": _selected_option_string(_world_event_combo)},
+				"  ",
+				false,
+				true
+			)
+		MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER:
+			_payload_edit.text = JSON.stringify(
+				{
+					"network_id": TELEPORTER_NETWORK_IDS.TELEPORTER_NETWORK_PRIMARY,
+					"interaction_radius": DEFAULT_TELEPORTER_INTERACTION_RADIUS,
+				},
+				"  ",
+				false,
+				true
+			)
+		_:
+			pass
 
 
 func _parse_payload() -> Dictionary:

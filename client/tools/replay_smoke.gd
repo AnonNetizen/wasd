@@ -3,6 +3,9 @@ extends Node
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
+const TELEPORT_CHOICE_OUTCOMES := preload(
+	"res://scripts/contracts/teleport_choice_outcomes.gd"
+)
 
 const REPLAY_FILE_NAME: String = "smoke_basic_run.replay"
 const UNSUPPORTED_REPLAY_FILE_NAME: String = "smoke_unsupported_input.replay"
@@ -87,6 +90,36 @@ func _run() -> void:
 		})),
 		"Replay should reject out-of-bounds Gear Mod placement payloads"
 	)
+	_expect(
+		Replay.record_input_value(ACTIONS.UI_CONFIRM, true, "player_0"),
+		"Replay should initially observe the teleport confirm input edge"
+	)
+	_expect(Replay.record_decision(ANALYTICS_EVENTS.TELEPORT_CHOICE, {
+		"outcome": TELEPORT_CHOICE_OUTCOMES.TELEPORTED,
+		"source_station_id": "teleporter_0_2_5_5",
+		"destination_station_id": "teleporter_3_3_5_5",
+	}), "Replay should record a valid teleport destination decision")
+	_expect(
+		Replay.record_input_value(ACTIONS.UI_BACK, true, "player_0"),
+		"Replay should initially observe the teleport cancel input edge"
+	)
+	_expect(Replay.record_decision(ANALYTICS_EVENTS.TELEPORT_CHOICE, {
+		"outcome": TELEPORT_CHOICE_OUTCOMES.CANCELLED,
+		"source_station_id": "teleporter_0_2_5_5",
+	}), "Replay should record a valid teleport cancellation decision")
+	_expect(
+		not bool(Replay.call("_is_valid_decision_event", {
+			"event": ANALYTICS_EVENTS.TELEPORT_CHOICE,
+			"payload": {
+				"outcome": TELEPORT_CHOICE_OUTCOMES.TELEPORTED,
+				"source_station_id": "teleporter_0_2_5_5",
+				"destination_station_id": "teleporter_0_2_5_5",
+			},
+			"tick": GameClock.tick(),
+			"time": GameClock.now(),
+		})),
+		"Replay should reject a teleport decision targeting its source"
+	)
 
 	GameState.change_state(GameState.GAME_OVER, {"source": "replay_smoke"})
 	var completed: Dictionary = Replay.snapshot()
@@ -103,13 +136,13 @@ func _run() -> void:
 
 	var envelope: Dictionary = Replay.load_replay_file(path)
 	_expect(String(envelope.get("data_fingerprint", "")) == Replay.current_data_fingerprint(), "Replay envelope should include the current data fingerprint")
-	_expect(String(envelope.get("game_version", "")) == "v1.18", "Replay envelope should use game version v1.18")
-	_expect(int(envelope.get("file_schema_version", 0)) == 9, "Replay envelope should use file schema v9")
-	_expect(int(loaded.get("schema_version", 0)) == 9, "Replay recording should use schema v9")
-	_expect(envelope.get("mod_environment", null) is Array, "Replay v9 envelope should contain mod_environment")
+	_expect(String(envelope.get("game_version", "")) == "v1.19", "Replay envelope should use game version v1.19")
+	_expect(int(envelope.get("file_schema_version", 0)) == 10, "Replay envelope should use file schema v10")
+	_expect(int(loaded.get("schema_version", 0)) == 10, "Replay recording should use schema v10")
+	_expect(envelope.get("mod_environment", null) is Array, "Replay v10 envelope should contain mod_environment")
 	_expect(
 		(envelope.get("mod_environment", []) as Array) == ModLoader.mod_environment(),
-		"Replay v9 envelope should freeze the exact local mod environment"
+		"Replay v10 envelope should freeze the exact local mod environment"
 	)
 	_expect_gear_mod_gameplay_fingerprint()
 	_expect(_has_typed_event(loaded, ACTIONS.MOVE, "vector2"), "Replay should persist typed Vector2 events")
@@ -125,6 +158,10 @@ func _run() -> void:
 	_expect(
 		_has_decision(loaded, ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT),
 		"Replay should persist Gear Mod placement decisions"
+	)
+	_expect(
+		_has_decision(loaded, ANALYTICS_EVENTS.TELEPORT_CHOICE),
+		"Replay should persist teleport choice decisions"
 	)
 	_expect_unsupported_schemas_are_rejected(envelope)
 	_expect_mod_environment_mismatches_are_rejected(envelope)
@@ -380,7 +417,7 @@ func _has_decision(recording: Dictionary, event_name: String) -> bool:
 
 func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> void:
 	var path: String = Replay.replay_root().path_join(UNSUPPORTED_REPLAY_FILE_NAME)
-	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 8, 10]:
+	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 8, 9, 11]:
 		var unsupported: Dictionary = current_envelope.duplicate(true)
 		unsupported["file_schema_version"] = unsupported_version
 		var source_text: String = JSON.stringify(unsupported, "\t")
@@ -388,11 +425,11 @@ func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> v
 		var loaded: Dictionary = Replay.load_replay_file(path)
 		_expect(loaded.is_empty(), "replay schema %d should be rejected" % unsupported_version)
 		_expect(
-			Replay.last_error() == "[Replay] unsupported replay file schema: %d; expected 9" % unsupported_version,
+			Replay.last_error() == "[Replay] unsupported replay file schema: %d; expected 10" % unsupported_version,
 			"unsupported replay schema should report the exact version mismatch"
 		)
 		_expect(_read_replay_text(path) == source_text, "rejected replay schema should not rewrite the source file")
-	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 8, 10]:
+	for unsupported_version: int in [1, 2, 3, 4, 5, 6, 7, 8, 9, 11]:
 		var unsupported: Dictionary = current_envelope.duplicate(true)
 		var recording: Dictionary = (unsupported.get("recording", {}) as Dictionary).duplicate(true)
 		recording["schema_version"] = unsupported_version
@@ -402,7 +439,7 @@ func _expect_unsupported_schemas_are_rejected(current_envelope: Dictionary) -> v
 		var loaded: Dictionary = Replay.load_replay_file(path)
 		_expect(loaded.is_empty(), "recording schema %d should be rejected" % unsupported_version)
 		_expect(
-			Replay.last_error() == "[Replay] unsupported replay recording schema: %d; expected 9" % unsupported_version,
+			Replay.last_error() == "[Replay] unsupported replay recording schema: %d; expected 10" % unsupported_version,
 			"unsupported recording schema should report the exact version mismatch"
 		)
 		_expect(_read_replay_text(path) == source_text, "rejected recording schema should not rewrite the source file")

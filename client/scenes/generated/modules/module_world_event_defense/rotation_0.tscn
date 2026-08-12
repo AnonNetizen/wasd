@@ -3,27 +3,26 @@
 [ext_resource type="Script" path="res://scripts/gameplay/generated_module_scene.gd" id="1_vl4en"]
 [ext_resource type="TileSet" path="res://resources/modules/module_placeholder_tileset.tres" id="2_icv3d"]
 
-[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_8wfqw"]
+[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_vl4en"]
 
-[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_q44kh"]
+[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_icv3d"]
 segments = PackedVector2Array(-80, -80, 80, -80, 80, 80, -80, 80, -80, 80, -80, -80, 80, -80, 240, -80, 240, 80, 80, 80, 240, -80, 400, -80, 400, 80, 240, 80, 400, -80, 560, -80, 560, 80, 400, 80, 560, -80, 720, -80, 720, 80, 560, 80, 720, -80, 880, -80, 880, 80, 720, 80, 880, -80, 1040, -80, 1040, 80, 880, 80, 1040, -80, 1200, -80, 1200, 80, 1040, 80, 1200, -80, 1360, -80, 1360, 80, 1200, 80, 1360, -80, 1520, -80, 1520, 80, 1360, 80, 1520, -80, 1680, -80, 1680, -80, 1680, 80, 1680, 80, 1520, 80)
 
-[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_d1mfb"]
+[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_8wfqw"]
 segments = PackedVector2Array(-80, 1520, 80, 1520, 80, 1680, -80, 1680, -80, 1680, -80, 1520, 80, 1520, 240, 1520, 240, 1680, 80, 1680, 240, 1520, 400, 1520, 400, 1680, 240, 1680, 400, 1520, 560, 1520, 560, 1680, 400, 1680, 560, 1520, 720, 1520, 720, 1680, 560, 1680, 720, 1520, 880, 1520, 880, 1680, 720, 1680, 880, 1520, 1040, 1520, 1040, 1680, 880, 1680, 1040, 1520, 1200, 1520, 1200, 1680, 1040, 1680, 1200, 1520, 1360, 1520, 1360, 1680, 1200, 1680, 1360, 1520, 1520, 1520, 1520, 1680, 1360, 1680, 1520, 1520, 1680, 1520, 1680, 1520, 1680, 1680, 1680, 1680, 1520, 1680)
 
-[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_xdx7h"]
+[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_q44kh"]
 segments = PackedVector2Array(1520, -80, 1680, -80, 1680, -80, 1680, 80, 1520, 80, 1520, -80, 1680, 80, 1680, 240, 1520, 240, 1520, 80, 1680, 240, 1680, 400, 1520, 400, 1520, 240, 1680, 400, 1680, 560, 1520, 560, 1520, 400, 1680, 560, 1680, 720, 1520, 720, 1520, 560, 1680, 720, 1680, 880, 1520, 880, 1520, 720, 1680, 880, 1680, 1040, 1520, 1040, 1520, 880, 1680, 1040, 1680, 1200, 1520, 1200, 1520, 1040, 1680, 1200, 1680, 1360, 1520, 1360, 1520, 1200, 1680, 1360, 1680, 1520, 1520, 1520, 1520, 1360, 1680, 1520, 1680, 1680, 1680, 1680, 1520, 1680, 1520, 1680, 1520, 1520)
 
-[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_owq8k"]
+[sub_resource type="ConcavePolygonShape2D" id="ConcavePolygonShape2D_d1mfb"]
 segments = PackedVector2Array(-80, -80, 80, -80, 80, -80, 80, 80, -80, 80, -80, -80, 80, 80, 80, 240, -80, 240, -80, 80, 80, 240, 80, 400, -80, 400, -80, 240, 80, 400, 80, 560, -80, 560, -80, 400, 80, 560, 80, 720, -80, 720, -80, 560, 80, 720, 80, 880, -80, 880, -80, 720, 80, 880, 80, 1040, -80, 1040, -80, 880, 80, 1040, 80, 1200, -80, 1200, -80, 1040, 80, 1200, 80, 1360, -80, 1360, -80, 1200, 80, 1360, 80, 1520, -80, 1520, -80, 1360, 80, 1520, 80, 1680, 80, 1680, -80, 1680, -80, 1680, -80, 1520)
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_vl4en")
-baker_schema_version = 4
 module_id = "module_world_event_defense"
 gameplay_hash = "aa9dc88ceb0ec8f3a97e98dd04c694dc7f5577159c3a550807cc80c9f198ca67"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "5ca31d154bd39c2bec1a7d9abf7c558e6f7d9a64f6c9056f0c6d6bdfeb61fecf"
+bake_hash = "a63529f58082cc11bb10cc1f49fe211498f6f2bec347c85256649cd2aea8ca4e"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,
@@ -50,7 +49,7 @@ tile_set = ExtResource("2_icv3d")
 collision_mask = 0
 
 [node name="MergedBlockedCells" type="CollisionShape2D" parent="TerrainCollision"]
-shape = SubResource("ConcavePolygonShape2D_8wfqw")
+shape = SubResource("ConcavePolygonShape2D_vl4en")
 disabled = true
 
 [node name="EdgeSeals" type="Node2D" parent="."]
@@ -67,7 +66,7 @@ tile_set = ExtResource("2_icv3d")
 collision_mask = 0
 
 [node name="Shape" type="CollisionShape2D" parent="EdgeSeals/North/SealCollision"]
-shape = SubResource("ConcavePolygonShape2D_q44kh")
+shape = SubResource("ConcavePolygonShape2D_icv3d")
 disabled = true
 
 [node name="South" type="Node2D" parent="EdgeSeals"]
@@ -82,7 +81,7 @@ tile_set = ExtResource("2_icv3d")
 collision_mask = 0
 
 [node name="Shape" type="CollisionShape2D" parent="EdgeSeals/South/SealCollision"]
-shape = SubResource("ConcavePolygonShape2D_d1mfb")
+shape = SubResource("ConcavePolygonShape2D_8wfqw")
 disabled = true
 
 [node name="East" type="Node2D" parent="EdgeSeals"]
@@ -97,7 +96,7 @@ tile_set = ExtResource("2_icv3d")
 collision_mask = 0
 
 [node name="Shape" type="CollisionShape2D" parent="EdgeSeals/East/SealCollision"]
-shape = SubResource("ConcavePolygonShape2D_xdx7h")
+shape = SubResource("ConcavePolygonShape2D_q44kh")
 disabled = true
 
 [node name="West" type="Node2D" parent="EdgeSeals"]
@@ -112,5 +111,5 @@ tile_set = ExtResource("2_icv3d")
 collision_mask = 0
 
 [node name="Shape" type="CollisionShape2D" parent="EdgeSeals/West/SealCollision"]
-shape = SubResource("ConcavePolygonShape2D_owq8k")
+shape = SubResource("ConcavePolygonShape2D_d1mfb")
 disabled = true

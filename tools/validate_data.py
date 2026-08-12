@@ -4607,7 +4607,7 @@ def _validate_module_world_data(
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 5)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 6)
     worlds = _require_list(ctx, path, "worlds", data.get("worlds"))
     if not worlds:
         ctx.error(path, "worlds", "must be a non-empty array")
@@ -4631,6 +4631,31 @@ def _validate_module_world_data(
         seal_outer_edges = _require_bool(ctx, path, f"{field}.seal_outer_edges", world.get("seal_outer_edges"))
         if seal_outer_edges is False:
             ctx.error(path, f"{field}.seal_outer_edges", "must be true")
+        transition = world.get("teleporter_transition")
+        if not isinstance(transition, dict):
+            ctx.error(path, f"{field}.teleporter_transition", "must be an object")
+        else:
+            if set(transition) != {"fade_out_duration", "fade_in_duration"}:
+                ctx.error(
+                    path,
+                    f"{field}.teleporter_transition",
+                    "must define exactly fade_out_duration and fade_in_duration",
+                )
+            for duration_field in ("fade_out_duration", "fade_in_duration"):
+                duration = _require_number(
+                    ctx,
+                    path,
+                    f"{field}.teleporter_transition.{duration_field}",
+                    transition.get(duration_field),
+                    minimum=0.0,
+                    exclusive_minimum=True,
+                )
+                if duration is not None and not math.isclose(duration, 0.2):
+                    ctx.error(
+                        path,
+                        f"{field}.teleporter_transition.{duration_field}",
+                        "must be 0.2 seconds",
+                    )
         if columns != 7 or rows != 7:
             continue
 
@@ -4729,6 +4754,13 @@ def _validate_module_world_data(
                 allow_technical_sealed=technical,
             )
             if not technical:
+                _validate_constrained_limited_fallback(
+                    ctx,
+                    path,
+                    f"{field}.{assignment_name}",
+                    assignment,
+                    world.get("limited_template_groups"),
+                )
                 for template_id, _rotation in assignment.values():
                     template = templates.get(template_id)
                     if template is None or template.get("role") == "module_role_start":
@@ -4792,13 +4824,25 @@ def _validate_module_limited_template_groups(
         if not isinstance(group, dict):
             ctx.error(path, group_field, "must be an object")
             continue
-        if set(group) != {"id", "pick_distinct", "entries"}:
-            ctx.error(path, group_field, "must define exactly id, pick_distinct, and entries")
+        if set(group) != {"id", "pick_distinct", "minimum_manhattan_distance", "entries"}:
+            ctx.error(
+                path,
+                group_field,
+                "must define exactly id, pick_distinct, minimum_manhattan_distance, and entries",
+            )
         group_id = _require_non_empty_string(ctx, path, f"{group_field}.id", group.get("id"))
         if group_id:
             if group_id in seen_group_ids:
                 ctx.error(path, f"{group_field}.id", f"duplicate group id {group_id}")
             seen_group_ids.add(group_id)
+        _require_int(
+            ctx,
+            path,
+            f"{group_field}.minimum_manhattan_distance",
+            group.get("minimum_manhattan_distance"),
+            minimum=0,
+            maximum=12,
+        )
         entries = _require_list(ctx, path, f"{group_field}.entries", group.get("entries"))
         pick_distinct = _require_int(
             ctx, path, f"{group_field}.pick_distinct", group.get("pick_distinct"), minimum=1
@@ -4854,8 +4898,8 @@ def _validate_module_limited_template_groups(
                 continue
             if template.get("review_status") != "module_review_approved":
                 ctx.error(path, f"{entry_field}.template_id", "template must be approved")
-            if template.get("role") != "module_role_world_event":
-                ctx.error(path, f"{entry_field}.template_id", "template must use module_role_world_event")
+            if template.get("role") == "module_role_sealed":
+                ctx.error(path, f"{entry_field}.template_id", "template must use a non-sealed role")
             if _module_spawnable_cell_count(template) < required_spawn_cells:
                 ctx.error(
                     path,
@@ -4866,6 +4910,62 @@ def _validate_module_limited_template_groups(
             selected_slots += sum(sorted(counts, reverse=True)[:pick_distinct])
     if selected_slots > available_slots:
         ctx.error(path, field, f"selected templates exceed {available_slots} available slots")
+
+
+def _validate_constrained_limited_fallback(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    assignment: dict[tuple[int, int], tuple[str, int]],
+    raw_groups: Any,
+) -> None:
+    if not isinstance(raw_groups, list):
+        return
+    for group in raw_groups:
+        if not isinstance(group, dict):
+            continue
+        minimum_distance = group.get("minimum_manhattan_distance", 0)
+        if not isinstance(minimum_distance, int) or isinstance(minimum_distance, bool) or minimum_distance <= 0:
+            continue
+        entries = group.get("entries", [])
+        if not isinstance(entries, list):
+            continue
+        expected_counts = {
+            entry.get("template_id"): entry.get("count_per_floor", 0)
+            for entry in entries
+            if isinstance(entry, dict) and isinstance(entry.get("template_id"), str)
+        }
+        coords_by_template: dict[str, list[tuple[int, int]]] = {}
+        all_coords: list[tuple[int, int]] = []
+        for coord, (template_id, _rotation) in assignment.items():
+            if template_id not in expected_counts:
+                continue
+            coords_by_template.setdefault(template_id, []).append(coord)
+            all_coords.append(coord)
+        pick_distinct = group.get("pick_distinct", 0)
+        if len(coords_by_template) != pick_distinct:
+            ctx.error(
+                path,
+                field,
+                f"fallback must contain exactly {pick_distinct} selected templates "
+                f"from constrained group {group.get('id', '')}",
+            )
+        for template_id, coords in coords_by_template.items():
+            if len(coords) != expected_counts.get(template_id):
+                ctx.error(
+                    path,
+                    field,
+                    f"fallback count for {template_id} must match count_per_floor",
+                )
+        for left_index, left in enumerate(all_coords):
+            for right in all_coords[left_index + 1:]:
+                distance = abs(left[0] - right[0]) + abs(left[1] - right[1])
+                if distance < minimum_distance:
+                    ctx.error(
+                        path,
+                        field,
+                        f"fallback constrained modules must be at least {minimum_distance} Manhattan cells apart",
+                    )
 
 
 def _validate_first_visit_enemy_spawn(
@@ -5100,9 +5200,9 @@ def _validate_module_file(
     world_event_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> None:
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=4)
-    if schema_version != 4:
-        ctx.error(path, "schema_version", "must be 4")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=5)
+    if schema_version != 5:
+        ctx.error(path, "schema_version", "must be 5")
     module_id = _require_non_empty_string(ctx, path, "id", data.get("id"))
     if module_id and expected_id and module_id != expected_id:
         ctx.error(path, "id", f"must match registry template id {expected_id}")
@@ -5120,9 +5220,9 @@ def _validate_module_file(
             _require_registered(ctx, path, f"{row_field}[{x}]", token, "module_cell_tokens")
 
     derived_sockets = _derive_module_edge_sockets(terrain_rows)
-    if schema_version == 4:
+    if schema_version == 5:
         if "edge_sockets" in data:
-            ctx.error(path, "edge_sockets", "must be omitted in schema v4 because sockets are derived")
+            ctx.error(path, "edge_sockets", "must be omitted in schema v5 because sockets are derived")
         _validate_module_visual_layers(ctx, path, data.get("visual_layers"), module_tile_catalog)
         data["edge_sockets"] = derived_sockets
 
@@ -5193,12 +5293,48 @@ def _validate_module_file(
                     f"{field}.world_event_id",
                     f"world event is not defined in world_events.json: {world_event_id}",
                 )
+        elif placement_type == "module_place_teleporter":
+            if set(placement) != {"type", "cell", "network_id", "interaction_radius"}:
+                ctx.error(
+                    path,
+                    field,
+                    "must define exactly type, cell, network_id, and interaction_radius",
+                )
+            network_id = _require_registered(
+                ctx,
+                path,
+                f"{field}.network_id",
+                placement.get("network_id"),
+                "teleporter_network_ids",
+            )
+            if network_id and network_id != "teleporter_network_primary":
+                ctx.error(path, f"{field}.network_id", "must use the primary teleporter network")
+            interaction_radius = _require_number(
+                ctx,
+                path,
+                f"{field}.interaction_radius",
+                placement.get("interaction_radius"),
+                minimum=0.0,
+                exclusive_minimum=True,
+            )
+            if interaction_radius is not None and not math.isclose(interaction_radius, 180.0):
+                ctx.error(path, f"{field}.interaction_radius", "must be 180 px")
+            if cell != (5, 5):
+                ctx.error(path, f"{field}.cell", "must be the module center cell (5, 5)")
+            elif (
+                len(terrain_rows) <= 5
+                or not isinstance(terrain_rows[5], list)
+                or len(terrain_rows[5]) <= 5
+                or terrain_rows[5][5] != "module_cell_floor"
+            ):
+                ctx.error(path, f"{field}.cell", "must be a walkable floor cell")
 
     protected_types = {
         "module_place_player_start",
         "module_place_reward_cache",
         "module_place_objective",
         "module_place_world_event",
+        "module_place_teleporter",
     }
     danger_types = {"module_place_hazard"}
     for left_index, (left_type, left_cells) in enumerate(footprint_by_type):
@@ -5353,12 +5489,18 @@ def _validate_module_role_budget(
 ) -> None:
     hazards = counts.get("module_place_hazard", 0)
     rewards = counts.get("module_place_reward_cache", 0)
+    teleporters = counts.get("module_place_teleporter", 0)
+    if teleporters and role != "module_role_connector":
+        ctx.error(path, "placements", "teleporter placement is only allowed in connector modules")
+        return
     if role == "module_role_start":
         if hazards != 0:
             ctx.error(path, "placements", "start module cannot contain hazards")
         if counts.get("module_place_player_start", 0) != 1:
             ctx.error(path, "placements", "start module requires exactly one player_start")
     elif role == "module_role_connector":
+        if teleporters and (teleporters != 1 or len(counts) != 1):
+            ctx.error(path, "placements", "teleporter connector requires one teleporter and no other placements")
         _validate_budget_range(ctx, path, hazards, 0, 1, "connector hazard count")
     elif role == "module_role_combat":
         _validate_budget_range(ctx, path, hazards, 0, 2, "combat hazard count")

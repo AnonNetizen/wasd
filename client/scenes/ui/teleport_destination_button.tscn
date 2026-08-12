@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="TeleportDestinationButton" type="Button" unique_id=282625212]
+custom_minimum_size = Vector2(420, 54)
+size_flags_horizontal = 3
+text_overrun_behavior = 3
