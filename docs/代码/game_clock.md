@@ -66,7 +66,7 @@
 
 ## 数据与契约
 
-无外部数据文件。冻结状态来自 `GameState.LOADING`、`GameState.PAUSED`、`GameState.REWARD_CHOICE` 与 `GameState.GAME_OVER`。金币升级只显示短暂 HUD 提示，不冻结时钟。`GameState.TELEPORT_CHOICE` 与传送淡出 / 淡入期间 `GameClock` 继续推进；UI 时间线仍由 `PROCESS_MODE_ALWAYS` 保证叠加暂停菜单时可工作，淡入结束后才恢复 `PLAYING`。
+无外部数据文件。冻结状态来自 `GameState.LOADING`、`GameState.PAUSED`、`GameState.REWARD_CHOICE` 与 `GameState.GAME_OVER`。金币升级只显示短暂 HUD 提示，不冻结时钟。传送选择与淡出 / 淡入始终保持 `GameState.PLAYING`，因此 `GameClock` 自然继续推进；UI 时间线仍由 `PROCESS_MODE_ALWAYS` 保证叠加暂停菜单时可工作。
 
 ## 依赖
 
@@ -94,8 +94,8 @@
 | 现象 | 优先检查 |
 |------|----------|
 | 暂停时仍推进玩法时间 | `GameState` 是否切到冻结状态 |
-| tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `REWARD_CHOICE` / `GAME_OVER`；若处于 `TELEPORT_CHOICE` 则检查是否被误加入冻结集合 |
-| 传送选择期间冷却或敌人停止 | `TELEPORT_CHOICE` 是否保持 `GameClock` 非冻结；玩法系统是否错误地只接受 `PLAYING` 而未使用统一 simulation-active 门禁 |
+| tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `REWARD_CHOICE` / `GAME_OVER`；传送 overlay 打开时必须仍为 `PLAYING` |
+| 传送选择期间冷却或敌人停止 | 是否误切离 `PLAYING`，或把传送 overlay 配成暂停 UI |
 | 回放时间不稳定 | 业务是否绕过 `GameClock` 读取 `Time` |
 | 起点房难度仍增长 | `GameplayRunLoop` 是否错误推进 `DifficultyProgression`；不要冻结 `GameClock` |
 
@@ -103,8 +103,8 @@
 
 - 必跑正式项目 headless boot。
 - `loading-smoke` 覆盖真实玩家入口在 `LOADING` 分帧准备时 elapsed / tick 均不推进。
-- F2 后续补 GUT：暂停 / 奖励冻结、传送选择继续推进、time scale、`reset()` 与 tick 规则。
-- 三站传送自动测试必须断言面板与淡出淡入期间 `delta_scaled()` 大于 0、tick 持续增长，玩家 gameplay intent 锁定但敌人、投射物、机关、回复、状态及武器 / 技能冷却继续；叠加 `PAUSED` 后才冻结。生命、护盾、状态、技能 / 武器冷却和敌人状态不得因传送提交被重置。
+- F2 后续补 GUT：暂停 / 奖励冻结、`PLAYING` 内传送 overlay 继续推进、time scale、`reset()` 与 tick 规则。
+- 三站传送自动测试必须断言面板与淡出淡入期间保持 `PLAYING`、`delta_scaled()` 大于 0、tick 持续增长，玩家 gameplay intent 由非暂停 capture 锁定但敌人、投射物、机关、回复、状态及武器 / 技能冷却继续；叠加 `PAUSED` 后才冻结。生命、护盾、状态、技能 / 武器冷却和敌人状态不得因传送提交被重置。
 - 回放落地后纳入黄金回放确定性检查。
 
 ## 迁移 / 兼容

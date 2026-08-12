@@ -150,8 +150,8 @@ func _run() -> void:
 	var teleport_source_id: String = await _prepare_teleporter_choice(first_run)
 	_expect(
 		not teleport_source_id.is_empty()
-		and GameState.is_state(GameState.TELEPORT_CHOICE),
-		"loading smoke should prepare a paused teleport choice"
+		and GameState.is_state(GameState.PLAYING),
+		"loading smoke should prepare a PLAYING teleport choice overlay"
 	)
 	var first_snapshot: Dictionary = first_run.call("create_run_snapshot")
 	_expect(
@@ -172,7 +172,7 @@ func _run() -> void:
 	_expect(continue_button.visible and not continue_button.disabled, "valid run should enable continue")
 	continue_button.pressed.emit()
 	await _expect_loading_visible("continue")
-	var continued_run: Node = await _wait_for_run_state(GameState.TELEPORT_CHOICE)
+	var continued_run: Node = await _wait_for_teleporter_choice()
 	if not _expect_node(continued_run, "continue should restore the teleport choice"):
 		_finish()
 		return
@@ -225,7 +225,7 @@ func _run() -> void:
 		"continued pause should retain the underlying teleport source"
 	)
 	continued_run.call("_on_pause_resume_requested")
-	continued_run = await _wait_for_run_state(GameState.TELEPORT_CHOICE)
+	continued_run = await _wait_for_teleporter_choice()
 	_expect(continued_run != null, "resuming continued pause should reveal teleport choice")
 	if continued_run != null:
 		_expect(
@@ -743,6 +743,29 @@ func _expect_loading_visible(source: String) -> void:
 
 func _wait_for_playing_run() -> Node:
 	return await _wait_for_run_state(GameState.PLAYING)
+
+
+func _wait_for_teleporter_choice() -> Node:
+	for _frame: int in range(MAX_WAIT_FRAMES):
+		await get_tree().process_frame
+		var run_loop: Node = _find_node_by_name(
+			get_tree().root,
+			"GameplayRunLoop"
+		)
+		if (
+			run_loop != null
+			and GameState.is_state(GameState.PLAYING)
+			and not String(
+				run_loop.get("_teleport_source_station_id")
+			).is_empty()
+			and run_loop.get("_teleport_choice_panel") != null
+			and _count_nodes_by_name(
+				get_tree().root,
+				"LoadingScreen"
+			) == 0
+		):
+			return run_loop
+	return null
 
 
 func _wait_for_run_state(state: StringName) -> Node:

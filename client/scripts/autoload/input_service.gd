@@ -1,5 +1,5 @@
 # Doc: docs/代码/input_service.md
-# Authority: docs/决策记录.md ADR #151, docs/词表与契约.md §7
+# Authority: docs/决策记录.md ADR #151 / #201, docs/词表与契约.md §7
 class_name InputServiceAutoload
 extends Node
 
@@ -144,6 +144,7 @@ var _input_detector: GUIDEInputDetector = null
 var _last_aim_source: StringName = AIM_SOURCE_DIRECTION
 var _last_emitted_vector_values: Dictionary = {}
 var _non_pausing_ui_capture_owners: Dictionary = {}
+var _non_pausing_ui_capture_passthrough_actions: Dictionary = {}
 var _overlay_capture_context_active: bool = false
 var _pending_bool_edges: Array[Dictionary] = []
 var _pending_ui_bridge_actions: Array[StringName] = []
@@ -240,10 +241,7 @@ func vector(action_id: StringName, participant_id: String = DEFAULT_PARTICIPANT_
 func is_pressed(action_id: StringName, participant_id: String = DEFAULT_PARTICIPANT_ID) -> bool:
 	if participant_id != DEFAULT_PARTICIPANT_ID:
 		return false
-	if (
-		non_pausing_ui_capture_active()
-		and NON_PAUSING_CAPTURE_BOOL_ACTIONS.has(action_id)
-	):
+	if _non_pausing_capture_masks_bool_action(action_id):
 		return false
 	if _playback_active:
 		return bool(_playback_values.get(action_id, false))
@@ -304,7 +302,10 @@ func set_debug_capture_active(enabled: bool) -> void:
 	_apply_contexts()
 
 
-func begin_non_pausing_ui_capture(owner: Object) -> bool:
+func begin_non_pausing_ui_capture(
+	owner: Object,
+	passthrough_actions: Array[StringName] = []
+) -> bool:
 	if owner == null or not is_instance_valid(owner):
 		return false
 	var owner_id: int = owner.get_instance_id()
@@ -312,6 +313,9 @@ func begin_non_pausing_ui_capture(owner: Object) -> bool:
 		return false
 	var was_active: bool = non_pausing_ui_capture_active()
 	_non_pausing_ui_capture_owners[owner_id] = weakref(owner)
+	_non_pausing_ui_capture_passthrough_actions[owner_id] = (
+		_valid_non_pausing_passthrough_actions(passthrough_actions)
+	)
 	if not was_active:
 		_emit_non_pausing_capture_boundary(true)
 	_context_signature = ""
@@ -325,6 +329,7 @@ func end_non_pausing_ui_capture(owner: Object) -> bool:
 	var owner_id: int = owner.get_instance_id()
 	if not _non_pausing_ui_capture_owners.erase(owner_id):
 		return false
+	_non_pausing_ui_capture_passthrough_actions.erase(owner_id)
 	if not non_pausing_ui_capture_active():
 		_emit_non_pausing_capture_boundary(false)
 	_context_signature = ""
@@ -586,8 +591,7 @@ func _flush_physical_edges() -> void:
 	for edge: Dictionary in queued_edges:
 		var action_id: StringName = StringName(edge.get("action", &""))
 		if (
-			non_pausing_ui_capture_active()
-			and NON_PAUSING_CAPTURE_BOOL_ACTIONS.has(action_id)
+			_non_pausing_capture_masks_bool_action(action_id)
 			and bool(edge.get("pressed", false))
 		):
 			continue
@@ -663,6 +667,39 @@ func _prune_non_pausing_ui_capture_owners() -> void:
 		var owner_ref: WeakRef = _non_pausing_ui_capture_owners[owner_id] as WeakRef
 		if owner_ref == null or owner_ref.get_ref() == null:
 			_non_pausing_ui_capture_owners.erase(owner_id)
+			_non_pausing_ui_capture_passthrough_actions.erase(owner_id)
+
+
+func _non_pausing_capture_masks_bool_action(action_id: StringName) -> bool:
+	if (
+		not non_pausing_ui_capture_active()
+		or not NON_PAUSING_CAPTURE_BOOL_ACTIONS.has(action_id)
+	):
+		return false
+	for owner_id: Variant in _non_pausing_ui_capture_owners:
+		var passthrough_actions: Array[StringName] = []
+		var raw_actions: Variant = (
+			_non_pausing_ui_capture_passthrough_actions.get(owner_id, [])
+		)
+		if raw_actions is Array:
+			for raw_action: Variant in raw_actions as Array:
+				passthrough_actions.append(StringName(raw_action))
+		if not passthrough_actions.has(action_id):
+			return true
+	return false
+
+
+func _valid_non_pausing_passthrough_actions(
+	actions: Array[StringName]
+) -> Array[StringName]:
+	var result: Array[StringName] = []
+	for action_id: StringName in actions:
+		if (
+			NON_PAUSING_CAPTURE_BOOL_ACTIONS.has(action_id)
+			and not result.has(action_id)
+		):
+			result.append(action_id)
+	return result
 
 
 func _set_device_family(device_family: StringName) -> void:

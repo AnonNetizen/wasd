@@ -49,7 +49,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if _target == null or not is_instance_valid(_target):
 		return
-	if not GameState.is_gameplay_simulation_active():
+	if not GameState.is_state(GameState.PLAYING):
 		return
 
 	var scaled_delta: float = GameClock.delta_scaled(delta)

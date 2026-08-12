@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-12",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #199 三站式传送台网络保持完成；ADR #200 已将 TELEPORT_CHOICE 与淡出 / 淡入改为非暂停流程：SceneTree、GameClock、世界、敌人、投射物、机关、状态、回复及武器 / 技能冷却继续推进，玩家 gameplay intent 锁定，暂停菜单覆盖后才真正冻结；全黑帧再次校验玩家存活和来源安全，死亡 / 外部离态清理面板且不得覆盖后续状态。Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 与 module map hash 不变。contracts、数据 / schema、23 模块 bake、完整与 technical module-world、teleporter、save、loading、runtime、replay / replay-input、368 项 / 2719 断言完整 GUT、三层 lint、docs health、headless boot 与四条 v10 golden 复跑均通过，golden 未重录。视觉、双语布局、真实手柄焦点、淡出淡入观感与危险目标传入手感待用户 L5 人工验收。性能 probe 未运行。",
-  "latest_adr": 200,
+  "current_status": "ADR #199 三站式传送台网络保持完成；ADR #201 已删除 GameState.TELEPORT_CHOICE，选择面板与淡出 / 淡入统一为 PLAYING 内非暂停 overlay：面板与 pending 事务复用 InputService owner capture 锁 gameplay intent，暂停 action 对传送面板透传并叠加 PAUSED。Run v20 的 teleport_choice / underlying 字符串仅为 UI 恢复标记，Replay v10 同名值仅为语义事件。Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 与 module map hash 不变。完整自动门禁与事实审查已通过；视觉、双语布局、真实手柄焦点、淡出淡入观感与危险目标传入手感待用户 L5 人工验收。性能 probe 未运行。",
+  "latest_adr": 201,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #201 / 传送选择统一为 PLAYING overlay：删除 GameState.TELEPORT_CHOICE 与各玩法实体 simulation 特判；TeleportChoicePanel 复用 Gear Mod 的 InputService 非暂停 capture，pending 事务在面板关闭后接管至淡入完成，pause 仅对传送面板 owner 透传。Run v20 UI 恢复标记、Replay v10 语义事件、Meta v4 / Run v20 / Replay v10 / 游戏 v1.19 保持。",
     "ADR #200 / 传送选择非暂停：TELEPORT_CHOICE 与淡出入保持 SceneTree、GameClock 和 gameplay simulation 推进，只锁玩家移动 / 瞄准 / 开火 / 技能 / 冲刺 / 交互 intent；暂停菜单覆盖后才冻结。全黑帧重验玩家存活与来源安全，死亡 / 外部离态清理面板且不覆盖后续状态。Meta v4 / Run v20 / Replay v10 / 游戏 v1.19 不变。",
     "ADR #199 / 三站式传送台网络：世界 / 模块 schema 升至 v6 / v5，RNG.world 受约束组在临时 assignment 上确定性回溯并一次性提交三座，同网络首访解锁且按行优先编号；RunLoop 建立稳定站点索引、visited-only UI、来源战斗门禁与淡出 / 传送 / 流送 / 相机同步事务；新增 TELEPORT_CHOICE、Player.teleport_to、Camera.snap_to_target、Run v20 ui_restore 与 Replay v10 teleport_choice。旧 Run v19 / Replay v9 保留拒绝且不迁移。",
     "ADR #198 / Godot Bridge 并行项目隔离：只读 Godot 命令默认在逐进程临时项目快照中运行，短锁保护 snapshot 建立并以前后 source manifest 检测并发写入；`.godot` 仅复用安全 cache seed，child 同时隔离 user 环境与测试结果。vfx-bake、module-bake、capture-golden-replay、capture-gear-mod-pickup 保留原项目写入并自动全程独占；裸 Godot 不承诺并行安全。",
@@ -279,6 +280,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-12",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema --jobs 1; module-bake-check / module-bake-smoke / module-json-editor-smoke; full and technical module-world; teleporter / save / loading / runtime / replay / replay-input / input / UIManager smokes; integration and full GUT; GDScript / project / semantic lint plus lint self-tests; docs health and JSON checks; headless boot; four Replay v10 replay-regression; factual code review; git diff --check",
+      "result": "passed for ADR #201 PLAYING teleporter overlay. GameState no longer defines TELEPORT_CHOICE; choice, save restore and fade transactions remain PLAYING while InputService owner capture masks gameplay polling, permits explicit Replay-injected UI edges and lets the teleporter panel pass pause through to PAUSED. Pending transaction ownership prevents movement or fire from returning between panel removal and fade-in completion. Integration and smoke coverage verifies PLAYING state, movement / fire lock, GameClock / regeneration / hazard progress, pause overlay, save restore and Replay semantics. Full GUT passes 368/368 with 2725 assertions; bake check passes 23/23 and bake smoke 114 assertions; all requested smokes and headless boot pass. Only golden_basic_run was recaptured because its stable frame sample changed from teleport_choice to playing; replay regression passes 4/4. Data fingerprint 0868a6914c6457bd4eac1397ad1830d80f9c8d2951707b53a5f8450f8657e967 and module map hash 14f5e6b7d625658228b0c6866ba515d723b67ec8878957e499a96ff4ebd32748 remain unchanged. Final review found Critical=0, High=0 and Medium=0; semantic lint retains only two pre-existing DataSourceReader advisories. No performance probe or manual acceptance ran."
+    },
     {
       "date": "2026-08-12",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema --jobs 1; module-bake-check / module-bake-smoke / module-json-editor-smoke; full and technical module-world; teleporter / save / loading / runtime / replay / replay-input smokes; integration and full GUT; GDScript / project / semantic lint; docs health and JSON checks; headless boot; four Replay v10 replay-regression; factual code review; git diff --check",
@@ -1097,6 +1103,7 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #201：传送选择和淡出入始终保持 PLAYING，不存在 GameState.TELEPORT_CHOICE；面板与 pending 事务使用 InputService 非暂停 owner capture，pause 对传送面板透传。Run v20 的 teleport_choice / underlying 字符串仅是 UI 恢复标记，Replay v10 同名值仅是语义事件。",
     "ADR #200：TELEPORT_CHOICE 与约 0.2 秒淡出 / 淡入不暂停 SceneTree 或 GameClock；世界模拟继续，玩家 gameplay intent 锁定。暂停菜单覆盖后才冻结；提交重验玩家存活与来源安全，死亡 / 外部离态不得被异步事务覆盖。协议和数据指纹保持 ADR #199 的 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19。",
     "ADR #199：当前 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19；旧 Run v19 / Replay v9 原文件保留但拒绝继续 / 播放且不迁移。三站式传送台由 RNG.world 确定性原子回溯布置，visited-only UI 不泄露未发现站点，来源危险 fail closed，传送失败不产生部分提交。自动门禁与四条 v10 golden 已通过，L5 只由用户人工验收，性能 probe 未运行。",
     "ADR #198：统一经 Godot Bridge 运行的只读 boot / smoke / GUT / replay / check 使用逐进程临时项目快照，可安全并行；四个源码写入 bake / capture 命令继续使用原项目并自动独占。裸 Godot、绕过 Bridge 或新增但未分类的 writer 仍不承诺并行安全。",

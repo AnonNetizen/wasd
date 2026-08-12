@@ -1,5 +1,5 @@
 # Doc: docs/代码/game_state.md
-# Authority: docs/游戏设计文档.md §9.12, docs/决策记录.md ADR #21 / #200
+# Authority: docs/游戏设计文档.md §9.12, docs/决策记录.md ADR #21 / #201
 class_name GameStateAutoload
 extends Node
 
@@ -13,7 +13,6 @@ const LOADING: StringName = &"loading"
 const PLAYING: StringName = &"playing"
 const PAUSED: StringName = &"paused"
 const REWARD_CHOICE: StringName = &"reward_choice"
-const TELEPORT_CHOICE: StringName = &"teleport_choice"
 const GAME_OVER: StringName = &"game_over"
 const RESULT: StringName = &"result"
 const STATES: Array[StringName] = [
@@ -22,7 +21,6 @@ const STATES: Array[StringName] = [
 	PLAYING,
 	PAUSED,
 	REWARD_CHOICE,
-	TELEPORT_CHOICE,
 	GAME_OVER,
 	RESULT,
 ]
@@ -46,10 +44,6 @@ func context() -> Dictionary:
 
 func is_state(state: StringName) -> bool:
 	return _current_state == state
-
-
-func is_gameplay_simulation_active() -> bool:
-	return _current_state == PLAYING or _current_state == TELEPORT_CHOICE
 
 
 func can_change_to(new_state: StringName) -> bool:

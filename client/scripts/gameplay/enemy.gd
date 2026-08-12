@@ -108,7 +108,7 @@ func _physics_process(delta: float) -> void:
 	var scaled_delta: float = GameClock.delta_scaled(delta)
 	if is_defeat_feedback_active():
 		return
-	if not GameState.is_gameplay_simulation_active():
+	if not GameState.is_state(GameState.PLAYING):
 		return
 	if scaled_delta <= 0.0:
 		return

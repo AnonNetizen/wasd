@@ -64,7 +64,7 @@ user://saves/
 | F5 续局 | Gameplay runtime 生成 JSON 友好的 run payload，SaveManager 写入 envelope；标题继续时只返回 payload | `save()` / `load()` |
 | 局内 Gear Mod / 效果 | `GameplayRunLoop` 把棋盘、Runtime 程序状态与带 `instance_id` 的未拾取实体写入 Run v20；恢复后只从 modifier components 替换应用 Mod 层，再恢复 Runtime | `save()` / `load()` |
 | 内容进度 | `ContentUnlockSystem` 原子提交 Meta v4；Run v20 只暂存冻结池与未结算增量，本地 Gear Mod 不写 Meta | `save()` / `load()` |
-| 传送选择恢复 | Run v20 的 `ui_restore` 在直接选择态保存来源站；暂停菜单叠在选择面板上方时同时保存 underlying `TELEPORT_CHOICE` 与来源站。续局由 RunLoop 复验来源并重建面板，`SaveManager` 不解释业务字段 | `save()` / `load_envelope()` |
+| 传送选择恢复 | Run v20 的 `ui_restore` 在 `PLAYING` 内传送 overlay 打开时保存来源站；暂停菜单叠在面板上方时同时保存 `underlying_state="teleport_choice"` 与来源站。该值是 UI 恢复标记，不是 GameState。续局由 RunLoop 复验来源并重建面板，`SaveManager` 不解释业务字段 | `save()` / `load_envelope()` |
 
 ## 公共 API
 

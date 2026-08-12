@@ -320,6 +320,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	InputService.end_non_pausing_ui_capture(self)
 	if InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	if GameState.state_changed.is_connected(_on_game_state_changed):
@@ -349,7 +350,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	_update_combat_hud()
 	_refresh_difficulty_hud()
-	if not GameState.is_gameplay_simulation_active():
+	if not GameState.is_state(GameState.PLAYING):
 		return
 	_update_effect_runtime(delta)
 	if _is_debug_test_arena():
@@ -368,7 +369,7 @@ func _process(delta: float) -> void:
 	_update_interest_points()
 	_update_combined_interaction_prompt()
 	_refresh_world_event_hud()
-	if not GameState.is_gameplay_simulation_active():
+	if not GameState.is_state(GameState.PLAYING):
 		return
 	if not _module_world_enabled:
 		_update_spawner()
@@ -393,6 +394,11 @@ func _on_input_action_pressed(action_id: StringName, participant_id: String) -> 
 			_try_interact_nearest()
 			return
 		if action_id == StringName(ACTIONS.PAUSE):
+			if (
+				_teleport_choice_panel != null
+				and is_instance_valid(_teleport_choice_panel)
+			):
+				return
 			_show_pause_menu()
 			return
 	if GameState.is_state(GameState.GAME_OVER) and action_id == StringName(ACTIONS.PAUSE):
@@ -406,11 +412,8 @@ func _on_game_state_changed(
 ) -> void:
 	if old_state == GameState.PLAYING and new_state != GameState.PLAYING:
 		_prepare_gear_mod_ui_for_playing_exit()
-	if (
-		old_state == GameState.TELEPORT_CHOICE
-		and new_state != GameState.PAUSED
-	):
-		_cleanup_teleport_choice_for_state_exit()
+		if new_state != GameState.PAUSED:
+			_cleanup_teleport_choice_for_state_exit()
 
 
 func _cleanup_teleport_choice_for_state_exit() -> void:
@@ -3833,7 +3836,7 @@ func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool
 	state["slot_key"] = slot_key
 	_module_world_manager.call("set_slot_state", module_coord, state)
 	_activate_module_teleporter_visuals(module_coord)
-	if GameState.is_gameplay_simulation_active():
+	if GameState.is_state(GameState.PLAYING):
 		_restore_module_encounter_vfx(module_coord)
 	# During full run restore, interest-point state is applied after active slots are rebuilt.
 	# Delay their visuals until then so a claimed/destroyed target cannot briefly reappear
@@ -4831,9 +4834,6 @@ func _show_teleport_choice_panel(station_id: String) -> bool:
 		Callable(self, "_on_teleport_choice_panel_tree_exited"),
 		CONNECT_ONE_SHOT
 	)
-	GameState.change_state(GameState.TELEPORT_CHOICE, {
-		"source_station_id": station_id,
-	})
 	return true
 
 
@@ -4856,6 +4856,9 @@ func _begin_teleport_choice(
 	if transaction.is_empty():
 		_show_teleport_choice_failure()
 		return false
+	if not InputService.begin_non_pausing_ui_capture(self):
+		_show_teleport_choice_failure()
+		return false
 	_teleport_transaction_active = true
 	if (
 		_teleport_choice_panel != null
@@ -4872,7 +4875,9 @@ func _prepare_teleport_transaction(
 	destination_station_id: String
 ) -> Dictionary:
 	if (
-		not GameState.is_state(GameState.TELEPORT_CHOICE)
+		not GameState.is_state(GameState.PLAYING)
+		or _teleport_choice_panel == null
+		or not is_instance_valid(_teleport_choice_panel)
 		or source_station_id.is_empty()
 		or destination_station_id.is_empty()
 		or source_station_id == destination_station_id
@@ -5031,18 +5036,10 @@ func _finish_teleport_transition(
 	):
 		UIManager.remove_expected(_teleport_fade_overlay, true)
 	_teleport_fade_overlay = null
+	InputService.end_non_pausing_ui_capture(self)
 	_teleport_transaction_active = false
 	if succeeded:
-		var destination_station_id: String = String(
-			transaction.get("destination_station_id", "")
-		)
 		_teleport_source_station_id = ""
-		if not GameState.is_state(GameState.TELEPORT_CHOICE):
-			return
-		GameState.change_state(GameState.PLAYING, {
-			"source": "teleporter",
-			"destination_station_id": destination_station_id,
-		})
 		return
 	if (
 		_teleport_choice_panel != null
@@ -5050,7 +5047,7 @@ func _finish_teleport_transition(
 		and _teleport_choice_panel.has_method("set_input_locked")
 	):
 		_teleport_choice_panel.call("set_input_locked", false)
-	if not GameState.is_state(GameState.TELEPORT_CHOICE):
+	if not GameState.is_state(GameState.PLAYING):
 		return
 	_show_teleport_choice_failure()
 
@@ -5064,7 +5061,9 @@ func _on_teleport_choice_cancelled() -> void:
 func _cancel_teleport_choice(record_event: bool) -> bool:
 	if (
 		_teleport_source_station_id.is_empty()
-		or not GameState.is_state(GameState.TELEPORT_CHOICE)
+		or not GameState.is_state(GameState.PLAYING)
+		or _teleport_choice_panel == null
+		or not is_instance_valid(_teleport_choice_panel)
 	):
 		return false
 	var source_station_id: String = _teleport_source_station_id
@@ -5080,9 +5079,6 @@ func _cancel_teleport_choice(record_event: bool) -> bool:
 		UIManager.remove_expected(_teleport_choice_panel, true)
 	_teleport_choice_panel = null
 	_teleport_source_station_id = ""
-	GameState.change_state(GameState.PLAYING, {
-		"source": "teleporter_cancelled",
-	})
 	return true
 
 
@@ -5095,11 +5091,7 @@ func _on_teleport_choice_panel_tree_exited() -> void:
 	_teleport_choice_panel = null
 	if _teleport_transaction_active:
 		return
-	if GameState.is_state(GameState.TELEPORT_CHOICE):
-		_teleport_source_station_id = ""
-		GameState.change_state(GameState.PLAYING, {
-			"source": "teleporter_panel_closed",
-		})
+	_teleport_source_station_id = ""
 
 
 func _record_teleport_choice(payload: Dictionary) -> void:
@@ -7362,13 +7354,7 @@ func _ui_restore_snapshot() -> Dictionary:
 			"state": UI_RESTORE_PAUSED,
 			UI_RESTORE_UNDERLYING_STATE: UI_RESTORE_REWARD_CHOICE,
 		}
-	if (
-		teleport_choice_active
-		and (
-			GameState.is_state(GameState.TELEPORT_CHOICE)
-			or _teleport_choice_panel != null
-		)
-	):
+	if teleport_choice_active:
 		return {
 			"state": UI_RESTORE_TELEPORT_CHOICE,
 			UI_RESTORE_SOURCE_STATION_ID: (

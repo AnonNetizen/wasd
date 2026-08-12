@@ -91,7 +91,11 @@ func _run() -> void:
 	var panel: Node = run_loop.get("_teleport_choice_panel") as Node
 	for _frame: int in range(3):
 		await get_tree().physics_frame
-	_expect(GameState.is_state(GameState.TELEPORT_CHOICE), "destination choice should keep its UI state")
+	_expect(GameState.is_state(GameState.PLAYING), "destination choice should remain in PLAYING")
+	_expect(
+		InputService.non_pausing_ui_capture_active(),
+		"destination choice should capture gameplay input without changing GameState"
+	)
 	_expect(
 		GameClock.tick() > choice_tick_before,
 		"destination choice should keep gameplay time running"
@@ -125,7 +129,7 @@ func _run() -> void:
 		"commit-time source pressure should reject the semantic choice"
 	)
 	_expect(player.global_position == position_before_failure, "failed teleport should not move the player")
-	_expect(GameState.is_state(GameState.TELEPORT_CHOICE), "failed teleport should remain selectable")
+	_expect(GameState.is_state(GameState.PLAYING), "failed teleport should remain selectable in PLAYING")
 	_clear_slot_pressure(manager, source_coord)
 
 	var replay_payload: Dictionary = {
@@ -180,9 +184,16 @@ func _run() -> void:
 	run_loop.call("_on_pause_resume_requested")
 	for _frame: int in range(30):
 		await get_tree().process_frame
-		if GameState.is_state(GameState.TELEPORT_CHOICE):
+		if (
+			GameState.is_state(GameState.PLAYING)
+			and run_loop.get("_teleport_choice_panel") != null
+		):
 			break
-	_expect(GameState.is_state(GameState.TELEPORT_CHOICE), "closing pause should restore teleport choice")
+	_expect(
+		GameState.is_state(GameState.PLAYING)
+		and run_loop.get("_teleport_choice_panel") != null,
+		"closing pause should reveal the PLAYING teleport choice overlay"
+	)
 	_expect(
 		bool(run_loop.call("apply_replay_teleport_choice", {
 			"outcome": TELEPORT_CHOICE_OUTCOMES.CANCELLED,
@@ -211,6 +222,10 @@ func _run() -> void:
 		player.global_position == destination_position
 		and bool(run_loop.call("replay_teleport_choice_pending")),
 		"teleport should commit before fade-in completes"
+	)
+	_expect(
+		InputService.non_pausing_ui_capture_active(),
+		"fade-in should keep gameplay input captured after the choice panel closes"
 	)
 	player.call("debug_set_life", 0.0)
 	for _frame: int in range(120):

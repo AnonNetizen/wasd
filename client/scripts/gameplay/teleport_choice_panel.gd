@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/游戏设计文档.md §5, docs/决策记录.md ADR #199
+# Authority: docs/游戏设计文档.md §5, docs/决策记录.md ADR #199 / #201
 class_name TeleportChoicePanel
 extends CanvasLayer
 
@@ -44,6 +44,10 @@ var _stations: Array[Dictionary] = []
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	InputService.begin_non_pausing_ui_capture(
+		self,
+		[StringName(ACTIONS.PAUSE)]
+	)
 	if (
 		_cancel_button == null
 		or _destination_box == null
@@ -62,6 +66,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	InputService.end_non_pausing_ui_capture(self)
 	if InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	if Localization.locale_changed.is_connected(_on_locale_changed):

@@ -23,30 +23,34 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
 
-func test_teleport_choice_keeps_scene_tree_and_game_clock_running() -> void:
+func test_teleport_choice_keeps_playing_and_game_clock_running() -> void:
 	var previous_state: StringName = GameState.current()
 	var previous_context: Dictionary = GameState.context()
+	GameState.change_state(GameState.PLAYING)
 	var probe := SimulationProbe.new()
 	add_child_autofree(probe)
+	var panel: CanvasLayer = CHOICE_PANEL_SCENE.instantiate() as CanvasLayer
+	add_child_autofree(panel)
 	await get_tree().process_frame
 	var frames_before: int = probe.processed_frames
 
-	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
-	assert_true(GameState.is_gameplay_simulation_active())
+	assert_true(GameState.is_state(GameState.PLAYING))
+	assert_true(InputService.non_pausing_ui_capture_active())
 	assert_gt(GameClock.delta_scaled(1.0), 0.0)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_gt(probe.processed_frames, frames_before)
 	assert_true(GameState.change_state(GameState.PAUSED))
-	assert_false(GameState.is_gameplay_simulation_active())
 	assert_eq(GameClock.delta_scaled(1.0), 0.0)
-	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
+	assert_true(GameState.change_state(GameState.PLAYING))
 
+	panel.queue_free()
+	await get_tree().process_frame
 	GameState.change_state(previous_state, previous_context)
 	assert_eq(GameState.current(), previous_state)
 
 
-func test_teleport_choice_updates_player_timers_without_accepting_playback_move() -> void:
+func test_teleport_choice_capture_blocks_gameplay_but_allows_pause() -> void:
 	var previous_state: StringName = GameState.current()
 	var previous_context: Dictionary = GameState.context()
 	GameState.change_state(GameState.PLAYING)
@@ -59,9 +63,16 @@ func test_teleport_choice_updates_player_timers_without_accepting_playback_move(
 		STATS.HEALTH_REGEN: 60.0,
 	})
 	player.debug_set_life(50.0)
+	var panel: CanvasLayer = CHOICE_PANEL_SCENE.instantiate() as CanvasLayer
+	add_child_autofree(panel)
 	InputService.set_playback_active(true)
 	assert_true(InputService.inject_playback_value(ACTIONS.MOVE, Vector2.RIGHT))
-	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
+	assert_true(InputService.inject_playback_value(ACTIONS.FIRE, true))
+	assert_true(InputService.inject_playback_value(ACTIONS.PAUSE, true))
+	assert_eq(InputService.vector(ACTIONS.MOVE), Vector2.ZERO)
+	assert_false(InputService.is_pressed(ACTIONS.FIRE))
+	assert_true(InputService.is_pressed(ACTIONS.PAUSE))
+	assert_true(GameState.is_state(GameState.PLAYING))
 	var position_before: Vector2 = player.global_position
 	var life_before: float = player.current_life()
 
@@ -70,7 +81,10 @@ func test_teleport_choice_updates_player_timers_without_accepting_playback_move(
 
 	assert_eq(player.global_position, position_before)
 	assert_gt(player.current_life(), life_before)
+	assert_true(InputService.inject_playback_value(ACTIONS.PAUSE, false))
 	InputService.set_playback_active(false)
+	panel.queue_free()
+	await get_tree().process_frame
 	GameState.change_state(previous_state, previous_context)
 
 
@@ -95,12 +109,17 @@ func test_teleport_choice_keeps_hazard_pressure_active() -> void:
 		"radius_tiles": 1,
 		"duration": 0.1,
 	}, player, Vector2(160.0, 160.0))
-	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
+	var panel: CanvasLayer = CHOICE_PANEL_SCENE.instantiate() as CanvasLayer
+	add_child_autofree(panel)
+	assert_true(GameState.is_state(GameState.PLAYING))
+	assert_true(InputService.non_pausing_ui_capture_active())
 
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 
 	assert_lt(player.current_life(), player.max_life())
+	panel.queue_free()
+	await get_tree().process_frame
 	GameState.change_state(previous_state, previous_context)
 
 

@@ -50,8 +50,8 @@
 					"outcome": "teleported",
 					"source_station_id": "teleporter_4_0_5_5"
 				},
-				"tick": 155,
-				"time": 2.58396633333333
+				"tick": 170,
+				"time": 2.851668
 			}
 		],
 		"dropped_decision_events": 0,
@@ -287,7 +287,7 @@
 					},
 					"player_life": 500.0,
 					"player_moved_right": true,
-					"state": "teleport_choice",
+					"state": "playing",
 					"ui_stack": 2,
 					"weapon_cooldown_ready": true
 				},
@@ -406,7 +406,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "dce95b6fb9bce55393bf006bd76cfeec7c35e8680ce6713e20fde03df5eda7ab",
+	"recording_hash": "3511f4e210e3125b1ea436d28e5e8e7449808d9bfa942e7e983234f487060dd4",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -532,7 +532,7 @@
 					},
 					"player_life": 500.0,
 					"player_moved_right": true,
-					"state": "teleport_choice",
+					"state": "playing",
 					"ui_stack": 2,
 					"weapon_cooldown_ready": true
 				},

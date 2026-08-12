@@ -36,7 +36,7 @@ var _trigger_interval: float = 1.0
 
 
 func _physics_process(delta: float) -> void:
-	if not GameState.is_gameplay_simulation_active():
+	if not GameState.is_state(GameState.PLAYING):
 		return
 	var scaled_delta: float = GameClock.delta_scaled(delta)
 	if scaled_delta <= 0.0:

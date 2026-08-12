@@ -73,9 +73,9 @@ autoload 启动顺序必须保持 `Settings → GUIDE → InputService → Repla
 | `set_playback_active(enabled)` / `playback_active()` | 开关 Replay 输入覆盖；切换时清空残留值 |
 | `set_ui_stack_active(active)` | 由 `UIManager` 单向推送受管 UI 栈是否非空；立即重算 GUIDE context。其他业务调用方不得自行伪造该事实 |
 | `inject_playback_value(action_id, value, participant_id) -> bool` | Replay v9 注入 bool / Vector2 intent；仅 playback 模式接受 |
-| `begin_non_pausing_ui_capture(owner) -> bool` | 以弱引用 owner 开始非暂停 UI 捕获；可嵌套不同 owner，首个 owner 进入时把轮询 intent 归零；持续开火记录 release，技能 / 冲刺 / 交互 / 暂停等 one-shot 不合成边沿 |
+| `begin_non_pausing_ui_capture(owner, passthrough_actions=[]) -> bool` | 以弱引用 owner 开始非暂停 UI 捕获；可嵌套不同 owner，首个 owner 进入时把轮询 intent 归零；持续开火记录 release，技能 / 冲刺 / 交互等 one-shot 不合成边沿。可为特定 owner 透传已在 capture 列表中的 bool action；任一并存 owner 未允许时仍保持屏蔽。传送面板仅透传 `pause`，Gear Mod 面板不透传 |
 | `end_non_pausing_ui_capture(owner) -> bool` | 移除 owner；最后一个 owner 离开时按真实物理状态恢复移动 / 瞄准 / 持续开火；仍按住的 one-shot 不合成第二次 press，必须先释放再重新按下 |
-| `non_pausing_ui_capture_active() -> bool` | 查询 Gear Mod 查看 / 放置等非暂停 UI 是否正在完整屏蔽角色 intent |
+| `non_pausing_ui_capture_active() -> bool` | 查询 Gear Mod 查看 / 放置、传送选择或淡入事务等非暂停 UI 是否正在屏蔽角色 intent |
 | `clear_playback_values()` | 清空当前回放值 |
 | `bindings_path() -> String` | 返回当前绑定文件路径 |
 | `debug_inject_input(event)` | 测试边界注入 GUIDE 原始事件；正式业务禁用 |
