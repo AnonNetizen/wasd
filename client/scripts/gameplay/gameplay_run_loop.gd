@@ -349,7 +349,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	_update_combat_hud()
 	_refresh_difficulty_hud()
-	if not GameState.is_state(GameState.PLAYING):
+	if not GameState.is_gameplay_simulation_active():
 		return
 	_update_effect_runtime(delta)
 	if _is_debug_test_arena():
@@ -368,7 +368,7 @@ func _process(delta: float) -> void:
 	_update_interest_points()
 	_update_combined_interaction_prompt()
 	_refresh_world_event_hud()
-	if not GameState.is_state(GameState.PLAYING):
+	if not GameState.is_gameplay_simulation_active():
 		return
 	if not _module_world_enabled:
 		_update_spawner()
@@ -406,6 +406,21 @@ func _on_game_state_changed(
 ) -> void:
 	if old_state == GameState.PLAYING and new_state != GameState.PLAYING:
 		_prepare_gear_mod_ui_for_playing_exit()
+	if (
+		old_state == GameState.TELEPORT_CHOICE
+		and new_state != GameState.PAUSED
+	):
+		_cleanup_teleport_choice_for_state_exit()
+
+
+func _cleanup_teleport_choice_for_state_exit() -> void:
+	if (
+		_teleport_choice_panel != null
+		and is_instance_valid(_teleport_choice_panel)
+	):
+		UIManager.remove_expected(_teleport_choice_panel, true)
+	_teleport_choice_panel = null
+	_teleport_source_station_id = ""
 
 
 func _prepare_gear_mod_ui_for_playing_exit() -> void:
@@ -3818,7 +3833,7 @@ func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool
 	state["slot_key"] = slot_key
 	_module_world_manager.call("set_slot_state", module_coord, state)
 	_activate_module_teleporter_visuals(module_coord)
-	if GameState.is_state(GameState.PLAYING):
+	if GameState.is_gameplay_simulation_active():
 		_restore_module_encounter_vfx(module_coord)
 	# During full run restore, interest-point state is applied after active slots are rebuilt.
 	# Delay their visuals until then so a claimed/destroyed target cannot briefly reappear
@@ -4863,6 +4878,10 @@ func _prepare_teleport_transaction(
 		or source_station_id == destination_station_id
 		or _player == null
 		or not _player.has_method("teleport_to")
+		or (
+			_player.has_method("is_alive")
+			and not bool(_player.call("is_alive"))
+		)
 		or _camera_controller == null
 		or not _camera_controller.has_method("snap_to_target")
 	):
@@ -4930,7 +4949,7 @@ func _execute_teleport_transition(
 		{"source": "teleport_transition", "immediate": true}
 	) as CanvasLayer
 	if _teleport_fade_overlay == null:
-		_finish_teleport_transition(false, transaction, record_event)
+		_finish_teleport_transition(false, transaction)
 		return
 	var transition_config: Dictionary = _dictionary_or_empty(
 		_module_world_definition.get("teleporter_transition", {})
@@ -4946,15 +4965,19 @@ func _execute_teleport_transition(
 	var succeeded: bool = await _teleport_fade_overlay.call(
 		"transition",
 		Callable(self, "_commit_teleport_transaction").bind(
-			transaction
+			transaction,
+			record_event
 		),
 		fade_out_duration,
 		fade_in_duration
 	)
-	_finish_teleport_transition(succeeded, transaction, record_event)
+	_finish_teleport_transition(succeeded, transaction)
 
 
-func _commit_teleport_transaction(transaction: Dictionary) -> bool:
+func _commit_teleport_transaction(
+	transaction: Dictionary,
+	record_event: bool
+) -> bool:
 	var refreshed: Dictionary = _prepare_teleport_transaction(
 		String(transaction.get("source_station_id", "")),
 		String(transaction.get("destination_station_id", ""))
@@ -4985,13 +5008,22 @@ func _commit_teleport_transaction(transaction: Dictionary) -> bool:
 	):
 		UIManager.remove_expected(_teleport_choice_panel, true)
 	_teleport_choice_panel = null
+	if record_event:
+		_record_teleport_choice({
+			"outcome": TELEPORT_CHOICE_OUTCOMES.TELEPORTED,
+			"source_station_id": String(
+				transaction.get("source_station_id", "")
+			),
+			"destination_station_id": String(
+				transaction.get("destination_station_id", "")
+			),
+		})
 	return true
 
 
 func _finish_teleport_transition(
 	succeeded: bool,
-	transaction: Dictionary,
-	record_event: bool
+	transaction: Dictionary
 ) -> void:
 	if (
 		_teleport_fade_overlay != null
@@ -5001,19 +5033,12 @@ func _finish_teleport_transition(
 	_teleport_fade_overlay = null
 	_teleport_transaction_active = false
 	if succeeded:
-		var source_station_id: String = String(
-			transaction.get("source_station_id", "")
-		)
 		var destination_station_id: String = String(
 			transaction.get("destination_station_id", "")
 		)
 		_teleport_source_station_id = ""
-		if record_event:
-			_record_teleport_choice({
-				"outcome": TELEPORT_CHOICE_OUTCOMES.TELEPORTED,
-				"source_station_id": source_station_id,
-				"destination_station_id": destination_station_id,
-			})
+		if not GameState.is_state(GameState.TELEPORT_CHOICE):
+			return
 		GameState.change_state(GameState.PLAYING, {
 			"source": "teleporter",
 			"destination_station_id": destination_station_id,
@@ -5025,6 +5050,8 @@ func _finish_teleport_transition(
 		and _teleport_choice_panel.has_method("set_input_locked")
 	):
 		_teleport_choice_panel.call("set_input_locked", false)
+	if not GameState.is_state(GameState.TELEPORT_CHOICE):
+		return
 	_show_teleport_choice_failure()
 
 

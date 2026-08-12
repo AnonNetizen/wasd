@@ -69,7 +69,7 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not GameState.is_state(GameState.PLAYING):
+	if not GameState.is_gameplay_simulation_active():
 		return
 	var scaled_delta: float = GameClock.delta_scaled(delta)
 	if scaled_delta <= 0.0:

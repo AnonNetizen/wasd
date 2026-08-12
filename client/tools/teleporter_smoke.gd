@@ -83,12 +83,19 @@ func _run() -> void:
 	var target_state: Dictionary = manager.call("slot_state", destination_coord)
 	target_state["enemy_snapshots"] = [{"enemy_id": "fixture"}]
 	manager.call("set_slot_state", destination_coord, target_state)
+	var choice_tick_before: int = GameClock.tick()
 	_expect(
 		bool(run_loop.call("_show_teleport_choice_panel", String(source.get("station_id", "")))),
-		"visited destinations should open the paused destination panel"
+		"visited destinations should open the non-pausing destination panel"
 	)
 	var panel: Node = run_loop.get("_teleport_choice_panel") as Node
-	_expect(GameState.is_state(GameState.TELEPORT_CHOICE), "destination choice should freeze the world")
+	for _frame: int in range(3):
+		await get_tree().physics_frame
+	_expect(GameState.is_state(GameState.TELEPORT_CHOICE), "destination choice should keep its UI state")
+	_expect(
+		GameClock.tick() > choice_tick_before,
+		"destination choice should keep gameplay time running"
+	)
 	_expect(
 		panel != null
 		and (panel.call("destination_ids") as Array).size() == 2
@@ -182,6 +189,37 @@ func _run() -> void:
 			"source_station_id": String(source.get("station_id", "")),
 		})),
 		"semantic teleport cancellation should restore play"
+	)
+	_expect(
+		bool(run_loop.call(
+			"_show_teleport_choice_panel",
+			String(source.get("station_id", ""))
+		)),
+		"death-during-fade fixture should reopen the source station"
+	)
+	_expect(
+		bool(run_loop.call("_begin_teleport_choice", String(
+			destination.get("station_id", "")
+		), false)),
+		"death-during-fade fixture should start a valid transaction"
+	)
+	for _frame: int in range(120):
+		if player.global_position == destination_position:
+			break
+		await get_tree().process_frame
+	_expect(
+		player.global_position == destination_position
+		and bool(run_loop.call("replay_teleport_choice_pending")),
+		"teleport should commit before fade-in completes"
+	)
+	player.call("debug_set_life", 0.0)
+	for _frame: int in range(120):
+		if not bool(run_loop.call("replay_teleport_choice_pending")):
+			break
+		await get_tree().process_frame
+	_expect(
+		GameState.is_state(GameState.GAME_OVER),
+		"death during fade-in should not be overwritten by PLAYING"
 	)
 
 	_finish()

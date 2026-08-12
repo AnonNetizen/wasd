@@ -1,5 +1,5 @@
 # Doc: docs/代码/game_clock.md
-# Authority: docs/游戏设计文档.md §9.12 / §9.18.2, docs/决策记录.md ADR #27 / #157
+# Authority: docs/游戏设计文档.md §9.12 / §9.18.2, docs/决策记录.md ADR #27 / #157 / #200
 class_name GameClockAutoload
 extends Node
 
@@ -88,6 +88,5 @@ func _state_freezes_clock(state: StringName) -> bool:
 		state == GameState.LOADING
 		or state == GameState.PAUSED
 		or state == GameState.REWARD_CHOICE
-		or state == GameState.TELEPORT_CHOICE
 		or state == GameState.GAME_OVER
 	)

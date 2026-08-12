@@ -31,7 +31,7 @@ func _process(delta: float) -> void:
 	var fire_pressed: bool = _is_fire_action_pressed()
 	if _player == null or _weapon_data.is_empty():
 		return
-	if not GameState.is_state(GameState.PLAYING):
+	if not GameState.is_gameplay_simulation_active():
 		return
 
 	var scaled_delta: float = GameClock.delta_scaled(delta)
@@ -40,7 +40,7 @@ func _process(delta: float) -> void:
 
 	_update_temporary_modifiers(scaled_delta)
 	_cooldown_remaining = maxf(_cooldown_remaining - scaled_delta, 0.0)
-	if not fire_pressed:
+	if not GameState.is_state(GameState.PLAYING) or not fire_pressed:
 		return
 	if not _is_combat_allowed():
 		return

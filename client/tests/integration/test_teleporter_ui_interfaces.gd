@@ -10,24 +10,98 @@ const CHOICE_PANEL_SCENE: PackedScene = preload(
 const FADE_OVERLAY_SCENE: PackedScene = preload(
 	"res://scenes/ui/teleport_fade_overlay.tscn"
 )
+const HAZARD_SCENE: PackedScene = preload(
+	"res://scenes/gameplay/hazard.tscn"
+)
 const INTERACTABLE_SCENE: PackedScene = preload(
 	"res://scenes/gameplay/teleporter_interactable.tscn"
 )
 const PLAYER_SCENE: PackedScene = preload(
 	"res://scenes/gameplay/actors/player_base.tscn"
 )
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
 
-func test_teleport_choice_freezes_scene_tree_and_game_clock() -> void:
+func test_teleport_choice_keeps_scene_tree_and_game_clock_running() -> void:
 	var previous_state: StringName = GameState.current()
 	var previous_context: Dictionary = GameState.context()
+	var probe := SimulationProbe.new()
+	add_child_autofree(probe)
+	await get_tree().process_frame
+	var frames_before: int = probe.processed_frames
 
 	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
+	assert_true(GameState.is_gameplay_simulation_active())
+	assert_gt(GameClock.delta_scaled(1.0), 0.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_gt(probe.processed_frames, frames_before)
+	assert_true(GameState.change_state(GameState.PAUSED))
+	assert_false(GameState.is_gameplay_simulation_active())
 	assert_eq(GameClock.delta_scaled(1.0), 0.0)
+	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
 
 	GameState.change_state(previous_state, previous_context)
 	assert_eq(GameState.current(), previous_state)
+
+
+func test_teleport_choice_updates_player_timers_without_accepting_playback_move() -> void:
+	var previous_state: StringName = GameState.current()
+	var previous_context: Dictionary = GameState.context()
+	GameState.change_state(GameState.PLAYING)
+	var player: Player = PLAYER_SCENE.instantiate() as Player
+	add_child_autofree(player)
+	player.configure({
+		STATS.MAX_HP: 100.0,
+		STATS.MAX_SHIELD: 0.0,
+		STATS.MOVE_SPEED: 300.0,
+		STATS.HEALTH_REGEN: 60.0,
+	})
+	player.debug_set_life(50.0)
+	InputService.set_playback_active(true)
+	assert_true(InputService.inject_playback_value(ACTIONS.MOVE, Vector2.RIGHT))
+	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
+	var position_before: Vector2 = player.global_position
+	var life_before: float = player.current_life()
+
+	for _frame: int in range(4):
+		await get_tree().physics_frame
+
+	assert_eq(player.global_position, position_before)
+	assert_gt(player.current_life(), life_before)
+	InputService.set_playback_active(false)
+	GameState.change_state(previous_state, previous_context)
+
+
+func test_teleport_choice_keeps_hazard_pressure_active() -> void:
+	var previous_state: StringName = GameState.current()
+	var previous_context: Dictionary = GameState.context()
+	GameState.change_state(GameState.PLAYING)
+	var player: Player = PLAYER_SCENE.instantiate() as Player
+	add_child_autofree(player)
+	player.configure({
+		STATS.MAX_HP: 100.0,
+		STATS.MAX_SHIELD: 0.0,
+		STATS.MOVE_SPEED: 300.0,
+	})
+	var hazard: Hazard = HAZARD_SCENE.instantiate() as Hazard
+	add_child_autofree(hazard)
+	hazard.configure({
+		"id": "test_teleport_choice_hazard",
+		"damage": 10.0,
+		"element_id": "element_neutral",
+		"trigger_interval": 1.0,
+		"radius_tiles": 1,
+		"duration": 0.1,
+	}, player, Vector2(160.0, 160.0))
+	assert_true(GameState.change_state(GameState.TELEPORT_CHOICE))
+
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	assert_lt(player.current_life(), player.max_life())
+	GameState.change_state(previous_state, previous_context)
 
 
 func test_player_teleport_clears_transient_movement_but_preserves_cooldown_and_life() -> void:
@@ -156,3 +230,11 @@ func _station(
 		"module_coord": {"x": module_x, "y": module_y},
 		"is_current": is_current,
 	}
+
+
+class SimulationProbe extends Node:
+	var processed_frames: int = 0
+
+
+	func _process(_delta: float) -> void:
+		processed_frames += 1

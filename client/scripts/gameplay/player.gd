@@ -94,7 +94,7 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not GameState.is_state(GameState.PLAYING):
+	if not GameState.is_gameplay_simulation_active():
 		velocity = Vector2.ZERO
 		return
 
@@ -116,13 +116,24 @@ func _physics_process(delta: float) -> void:
 		scaled_delta
 	)
 
-	var move_input: Vector2 = InputService.vector(ACTIONS.MOVE, INPUT_PARTICIPANT_ID)
-	var aim_input: Vector2 = InputService.vector(ACTIONS.AIM, INPUT_PARTICIPANT_ID)
-	if aim_input.length_squared() > 0.0:
-		_set_aim_direction(aim_input)
-	elif InputService.should_use_pointer_aim():
-		_set_pointer_aim_from_viewport_position(InputService.pointer_viewport_position())
-	InputService.publish_resolved_aim(aim_direction)
+	var accepts_gameplay_input: bool = GameState.is_state(GameState.PLAYING)
+	var move_input: Vector2 = (
+		InputService.vector(ACTIONS.MOVE, INPUT_PARTICIPANT_ID)
+		if accepts_gameplay_input
+		else Vector2.ZERO
+	)
+	if accepts_gameplay_input:
+		var aim_input: Vector2 = InputService.vector(
+			ACTIONS.AIM,
+			INPUT_PARTICIPANT_ID
+		)
+		if aim_input.length_squared() > 0.0:
+			_set_aim_direction(aim_input)
+		elif InputService.should_use_pointer_aim():
+			_set_pointer_aim_from_viewport_position(
+				InputService.pointer_viewport_position()
+			)
+		InputService.publish_resolved_aim(aim_direction)
 
 	if _dash_remaining > 0.0:
 		velocity = (

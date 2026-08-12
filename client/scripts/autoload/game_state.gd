@@ -1,5 +1,5 @@
 # Doc: docs/代码/game_state.md
-# Authority: docs/游戏设计文档.md §9.12, docs/决策记录.md ADR #21
+# Authority: docs/游戏设计文档.md §9.12, docs/决策记录.md ADR #21 / #200
 class_name GameStateAutoload
 extends Node
 
@@ -48,6 +48,10 @@ func is_state(state: StringName) -> bool:
 	return _current_state == state
 
 
+func is_gameplay_simulation_active() -> bool:
+	return _current_state == PLAYING or _current_state == TELEPORT_CHOICE
+
+
 func can_change_to(new_state: StringName) -> bool:
 	return STATES.has(new_state)
 
@@ -80,5 +84,4 @@ func _apply_tree_pause_for_state(state: StringName) -> void:
 	tree.paused = (
 		state == PAUSED
 		or state == REWARD_CHOICE
-		or state == TELEPORT_CHOICE
 	)

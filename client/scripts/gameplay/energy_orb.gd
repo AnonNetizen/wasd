@@ -29,7 +29,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if _resource_receiver == null or not is_instance_valid(_resource_receiver):
 		return
-	if not GameState.is_state(GameState.PLAYING):
+	if not GameState.is_gameplay_simulation_active():
 		return
 	if not _can_collect():
 		return
