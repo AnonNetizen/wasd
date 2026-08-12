@@ -129,4 +129,4 @@ AI agent 接到任务时优先按以下顺序：
 - 角色分工经验积累 → 微调 `角色分工.md`。
 - 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步详细的 `docs/代码/` 模块文档；数值字段同步 `client/data/README.md`，文案 / 语言 / 占位符同步 `client/locale/README.md`。
 - 平台入口变化 → 同步 `AGENTS.md` / `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。
-- 重大变更 → 同步进 `决策记录.md` + `AI记忆/项目记忆.md`。
+- 重大、长期、跨边界或高代价难回滚的决策 → 同步进 `决策记录.md` + `AI记忆/项目记忆.md`；普通功能、局部行为 / UI、bugfix、数值、内容、本地化、测试和实现细节不新增 ADR。

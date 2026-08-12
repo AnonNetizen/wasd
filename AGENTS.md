@@ -34,9 +34,15 @@
 
 1. **数据驱动**：可调数值进 `client/data/`，平表数值优先 CSV、复杂配置优先 JSON，字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv` 且多语言规则同步 `client/locale/README.md`；业务输入走生成 action 常量、`InputService` 与归一化 intent，GUIDE 只允许由 `InputService` 直接访问，`InputMap` 只用于 GUIDE / `InputService` 的 Godot UI 兼容桥和测试边界；约定字符串来自 `docs/词表与契约.md` 白名单且以**自动生成的常量**引用。
 2. **统一 autoload**：随机 `RNG.<stream>` / 时间 `GameClock` / 流程 `GameState` / UI 弹窗 `UIManager` / 高频实体 `PoolManager` / 伤害 `Combat.apply_damage` / 持续效果 `StatusEffect` / 存档 `SaveManager` / 音频 `AudioManager`。`SaveManager` 必须支持 `meta` 局外成长和 `run` 暂停退出续局，并具备标准头字段（含 `data_hash`）、版本迁移、原子写入、备份回退和损坏隔离。**禁止**绕过这些走原始 API。
-3. **改完同步文档**：新规则 → 规则文件；新决策 → ADR；设计变更 → GDD + AI 导航 + 词表；重要对话 → `docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json` + 当日会话日志（见规则 14-B）。
+3. **改完同步文档**：新规则 → 规则文件；设计变更 → 对应 GDD / 模块文档 / AI 导航 / 词表；只有达到下述门槛的重大决策才新增 ADR；重要对话 → `docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json` + 当日会话日志（见规则 14-B）。
 4. **`draft/` 人工草稿禁区**：`draft/`（含大小写变体如 `DRAFT/`）内是用户人工草稿，AI 默认不得读取、搜索、修改、整理、格式化或引用；只有用户明确点名授权处理该目录时才可进入。遵守此规则是默认行为，AI 不需要在每次回复中主动声明。
 5. **人工检查只由人工执行**：计划、工作包、测试策略、checklist 或验收说明中凡明确标为“人工检查 / 人工验收 / 手动检查 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收”的项目，AI 不得执行、不得用 GUI 自动化或截图自审替代、不得宣称通过；只能完成其余自动化验证，整理人工 checklist，并将这些项目保留为“待人工验收”。
+
+## 📝 ADR 收录门槛
+
+ADR 是重大决策的例外记录，不是每次功能修改的默认交付物。只有决策同时具有**长期影响**，并且涉及核心玩法方向、跨系统架构 / 所有权 / 依赖边界、存档 / 回放 / 数据协议断代、项目级红线，或难以回滚且代价较高的工具链 / 工作流策略时，才新增 ADR。
+
+普通功能、局部行为或 UI 调整、bugfix、数值与内容条目、本地化、测试补强、文档澄清、内部实现细节和不改变公共边界的重构，**不得为了留痕而新增 ADR**；按影响更新 GDD、模块文档、数据 / locale README、词表或测试策略即可，重要过程写当日会话日志。拿不准是否达到门槛时默认不建 ADR；只有不记录会让后续维护者可能合理地做出相反的重大架构选择时，才升级为 ADR。历史 ADR 保留，不因本规则批量删除或重编号。
 
 ## 🗣️ 沟通语言
 

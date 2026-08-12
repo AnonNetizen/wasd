@@ -28,7 +28,7 @@
 | `docs/词表与契约.md` | 所有约定字符串白名单（stat/effect/event/key），**禁止编造** |
 | `docs/游戏设计文档.md` | 完整设计 |
 | `docs/代码文档规范.md` | 代码变更与对应文档的同步规范 |
-| `docs/决策记录.md` | 既定决策与原因，勿误改 |
+| `docs/决策记录.md` | 重大、长期既定决策与原因；普通功能和局部调整不收录 |
 | `docs/修改建议.md` | 待决策的开放问题（D~E；A/B/C 与 J~R 已归档） |
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能菜单；不是已采纳路线图，用户点名后才推进 |
 | `docs/局内刷取参考研究.md` | 历史 F12 刷取 / 撤离参考研究；ADR #188 后不代表当前 Roguelike 路线 |
@@ -88,7 +88,7 @@
 | `docs/IP设定.md` | `WASD` 集体无意识 IP 与内容包装权威 |
 | `docs/IP美术风格.md` | 意识层抽象美术、环境代表色和稳定功能色权威 |
 | `docs/词表与契约.md` | 约定字符串白名单 |
-| `docs/决策记录.md` | ADR |
+| `docs/决策记录.md` | 达到门槛的重大 ADR；普通改动写对应权威文档 |
 | `docs/修改建议.md` | 待决策项（D~E；A/B/C 与 J~R 已归档） |
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能建议池；只作为人工选择菜单 |
 | `docs/局内刷取参考研究.md` | 历史 F12 外部参考研究；其中撤离 / 带回结论已被 ADR #188 取代 |
@@ -192,7 +192,7 @@
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；F12 历史外部参考看 `docs/局内刷取参考研究.md`，其中撤离 / 带回结论已由 ADR #188 取代，只可继续参考兴趣点与射击构筑；AI 只辅助开发的玩法 / 内容管线 / 工具机会看 `docs/AI辅助开发机会清单.md`；在线供应商与实施门禁看 `docs/在线服务规划.md`，具体异步玩法候选再看 `docs/小服务器玩法备忘.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
 | **改 IP / 世界观 / 智能碎片包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、层代表色、敌我 / 警示 / 交互功能色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
-| **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
+| **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再按影响建立 / 更新工作包、GDD、模块文档并实现，只有达到重大决策门槛时才写 ADR，不从建议文档自行挑选推进 |
 | **评估 / 规划在线服务** | 先看 `docs/在线服务规划.md`、ADR #150、GDD §9.22 / §9.23、`docs/代码/platform_services.md` 与测试策略；供应商路线是 `PlatformServices → GodotSteam`、`OnlineServices → Talo`，不开发自有通用后端。当前不安装；首个功能被用户点名后才重查官方版本、决定 Talo Cloud / 官方自托管并建立工作包 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`，再看 `docs/在线服务规划.md`、GDD §6.7 / §9.23、`docs/代码/replay.md`；GodotSteam + Talo 路线已采纳，但每日挑战、排行榜、死亡残响等具体玩法仍需用户点名，实时多人 / PvP / 强竞技排行榜默认暂缓 |
 | **启动 / 推进正式项目** | F13 模块世界已完成；当前 F14 入口为 `F14-EnemyNavigationAndPerception.md`、GDD §5.3、EnemyAI / ModuleWorldManager 文档、数据手册与测试策略。F14.1 活动流场当前半径 8、单次最多访问 289 格；导航 / 感知变更跑 contracts/data/schema/module-world/runtime/save 与黄金回放；性能 probe 仅在用户当次明确要求时运行 |

@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-12",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #204 已把 HUD 模块小地图从 visited-only 地标改为开局显示整张 7×7 assignment 的缓存、祭坛、持续事件信标和传送台；未访问格仍保持迷雾底色，marker 不表示访问、完成、可用或安全。传送目的地列表继续只接受已发现站点，提前看见位置不等于解锁。Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 与 module map hash 均不变。自动门禁与事实审查已通过且未发现阻塞问题；153 px HUD 清晰度、引导效果、重叠和色弱辨识待用户 L5 人工验收。性能 probe 未运行。",
+  "current_status": "AI 协作规则已提高 ADR 收录门槛：普通功能、局部行为 / UI、bugfix、数值、内容、本地化、测试、文档澄清和实现细节不新增 ADR，拿不准时默认不建；只有重大、长期、跨边界或高代价难回滚的决策才记录，历史 ADR 保留。ADR #204 的 HUD 全图交互地标引导与 ADR #203 的应用退出确认继续有效。Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 与 module map hash 均不变。HUD 与退出框的 L5 项仍待用户人工验收，性能 probe 未运行。",
   "latest_adr": 204,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "AI 协作规则 / ADR 收录门槛：ADR 改为重大决策的例外记录；普通功能、局部行为 / UI、bugfix、数值、内容、本地化、测试与实现细节只同步对应权威文档，拿不准时默认不建。四平台入口、规则、project-doc-sync skill、任务模板和文档维护规范已同步；历史 ADR 不删除、不重编号。",
     "ADR #204 / HUD 全图交互地标引导：RunLoop 按整张 7×7 assignment 组装缓存、祭坛、持续事件信标与传送台 marker；ModuleMinimap 不再按 visited 过滤合法地标，未访问格仍保留迷雾，传送目的地列表仍 visited-only。",
     "ADR #203 / 应用退出确认：FormalClientBoot 禁用 auto_accept_quit，将标题退出与 NOTIFICATION_WM_CLOSE_REQUEST 统一压入 ApplicationQuitModal；加载中的请求排队到加载成功或失败落稳后再显示，取消恢复原状态，确认先移除自身再按底层真实状态复用 save_run_snapshot，失败留在游戏并重新提示。",
     "历史 ADR #202 / HUD 模块小地图交互地标：建立缓存方形、祭坛三角、持续事件信标圆环和传送台菱形分类；其 visited-only 可见性已由 ADR #204 更新为开局全 assignment 显示，意识核目标圆点与协议版本保持不变。",
@@ -285,6 +286,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-12",
+      "command": "four-platform rule / project-doc-sync skill consistency hashes; current_state and _kb_index JSON parse; docs_health_check; obsolete mandatory-ADR wording audit; task-file pre-commit; git diff --check",
+      "result": "passed for the higher ADR admission threshold. Ordinary features, local behavior/UI, bug fixes, tuning, content, localization, tests, documentation clarification and implementation details now default to no ADR; major long-lived cross-boundary, protocol, project-red-line or costly hard-to-reverse decisions remain eligible. No ADR was added, latest_adr remains 204, and historical ADRs were preserved. Client runtime/data/protocol files were not part of this rule change."
+    },
     {
       "date": "2026-08-12",
       "command": "unit and full GUT; full and technical module-world; teleporter / world-event / runtime smokes; file-scoped pre-commit with contracts, data, GDScript / project / semantic lint and docs health; headless boot; JSON and git diff checks; factual code review",
@@ -1123,6 +1129,7 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR 收录门槛：只有重大、长期且涉及核心玩法方向、跨系统架构 / 所有权 / 依赖边界、存档 / 回放 / 数据协议断代、项目级红线，或高代价难回滚工具链 / 工作流策略的决策才新增 ADR。普通功能和局部实现不建，拿不准时默认不建；这不免除对应权威文档同步。",
     "ADR #204：HUD 模块小地图从开局显示整张 assignment 的缓存、祭坛、持续事件信标和传送台；未访问格仍保持迷雾，传送目的地列表继续 visited-only。marker 仍不写 Run v20 / Replay v10，也不改变站点发现或可用状态。",
     "ADR #203：标题退出与窗口 / 系统关闭统一进入暂停型 ApplicationQuitModal；取消恢复底层状态，确认只为有效进行中 Run 复用现有 Run v20 快照写入，提示框在快照前移除，保存失败不退出。协议和数据指纹不变。",
     "历史 ADR #202：曾规定 HUD 模块小地图只为 visited 槽显示静态交互地标；该可见性口径已由 ADR #204 改为开局全 assignment 显示，图形分类与协议边界保持。",

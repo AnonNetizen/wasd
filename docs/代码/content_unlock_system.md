@@ -127,7 +127,7 @@ Replay v9 的 context 保存同一 `content_availability` 与精确 `mod_environ
 3. 补齐中英文名称、描述、要求文案和可选图标。
 4. 跑 contracts、data/schema、`content-progression-smoke`、`codex-smoke` 与受影响池 smoke。
 
-若需要新条件类型，先更新 GDD / ADR、词表、生成常量、DataLoader 校验、计数采集和 smoke；禁止在规则表嵌入 GDScript 或自由表达式。
+若需要新条件类型，先更新 GDD、词表、生成常量、DataLoader 校验、计数采集和 smoke；只有达到重大决策门槛时才更新 ADR。禁止在规则表嵌入 GDScript 或自由表达式。
 
 ## 10. 故障排查
 

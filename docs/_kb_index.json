@@ -188,16 +188,16 @@
     {
       "path": "docs/决策记录.md",
       "type": "authority",
-      "authority": "Architecture decision records and accepted constraints",
+      "authority": "Major, long-lived architecture decision records and accepted constraints; ordinary features and local changes stay in their domain authority docs",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-08-08",
+      "last_reviewed": "2026-08-12",
       "canonical_for": ["adr", "accepted_decisions", "constraints"],
-      "must_read_for": ["decision_change", "rule_change", "design_reversal"],
+      "must_read_for": ["major_decision_change", "major_rule_change", "design_reversal", "protocol_break"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
-      "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #150", "ADR #151", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "ADR #174", "ADR #178", "ADR #179", "ADR #181", "ADR #183", "ADR #186", "ADR #187", "ADR #188", "ADR #189", "ADR #190", "ADR #191", "ADR #192", "ADR #193", "ADR #194", "ADR #195", "ADR #196", "ADR #197", "ADR #198", "Meta v4", "Run v19", "old Run v18 rejected", "Replay v9", "old Replay v8 rejected", "game v1.18", "Gear Mod v6", "skills v3", "GameplayEffectRuntime", "EffectPrimitiveRegistry", "EffectExecutionGateway", "manifest v2", "local Gear Mod", "components", "programs", "7x7 spatial Gear Mod board", "GearModBoard", "gear_mod_placement", "7x7 module world", "WASD", "集体无意识", "清理智能", "人工检查", "人工验收", "待人工验收", "world events", "explicit enemy attacks", "F14", "模块大地图", "ModuleWorldManager", "WarzoneDirector", "Gear Mod", "Godot editor plugin", "Phantom Camera", "G.U.I.D.E", "InputService", "性能测试按需", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "project snapshot", "parallel Godot", "exclusive writer", "AI Git", "code review", "事实review"]
+      "update_triggers": ["major long-lived decision", "project-wide red line", "cross-system architecture change", "protocol break", "accepted major proposal"],
+      "keywords": ["ADR", "major decision", "重大决策", "收录门槛", "默认不建 ADR", "决策", "约束", "ADR #124", "ADR #125", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #150", "ADR #151", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "ADR #174", "ADR #178", "ADR #179", "ADR #181", "ADR #183", "ADR #186", "ADR #187", "ADR #188", "ADR #189", "ADR #190", "ADR #191", "ADR #192", "ADR #193", "ADR #194", "ADR #195", "ADR #196", "ADR #197", "ADR #198", "Meta v4", "Run v19", "old Run v18 rejected", "Replay v9", "old Replay v8 rejected", "game v1.18", "Gear Mod v6", "skills v3", "GameplayEffectRuntime", "EffectPrimitiveRegistry", "EffectExecutionGateway", "manifest v2", "local Gear Mod", "components", "programs", "7x7 spatial Gear Mod board", "GearModBoard", "gear_mod_placement", "7x7 module world", "WASD", "集体无意识", "清理智能", "人工检查", "人工验收", "待人工验收", "world events", "explicit enemy attacks", "F14", "模块大地图", "ModuleWorldManager", "WarzoneDirector", "Gear Mod", "Godot editor plugin", "Phantom Camera", "G.U.I.D.E", "InputService", "性能测试按需", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "project snapshot", "parallel Godot", "exclusive writer", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",

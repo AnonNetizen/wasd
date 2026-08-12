@@ -221,7 +221,7 @@
 - 用 [Danger.js](https://danger.systems/) 把规则 19/20/24 自动化
 - PR 改下列文件时强制提示并要求确认：
   - 改 `游戏设计文档.md` → 是否同步 `AI导航.md`
-  - 新增决策 → 是否同步 `决策记录.md`
+  - 新增重大、长期决策 → 是否达到 ADR 门槛并同步 `决策记录.md`；普通调整不建 ADR
   - 新增 `stat`/`effect`/`event` → 是否在 `词表与契约.md` 登记
   - 改 `client/scripts/` 长期模块 / 公共 API / 数据 schema → 是否按 `docs/代码文档规范.md` 更新 `docs/代码/` 模块文档
   - 改 `.codebuddy/rules/game-coding-rules.md` 或 `.codex/rules/game-coding-rules.md` 或 `.opencode/rules/game-coding-rules.md` → 是否同步 `README.md` / `CONTRIBUTING.md` / `docs/AI协作/工具适配指南.md`

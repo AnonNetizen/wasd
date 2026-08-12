@@ -1,7 +1,7 @@
 # F13 Handcrafted Rooms 工作包
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
-> 本文档是手工房间制短刷图与房间编辑工作流的阶段工作包；改默认关卡承载形态、房间数据 schema、门 / 清房 / 切房流程、房间校验或验收命令时，必须同步 GDD、ADR、`docs/AI导航.md`、`docs/代码/gameplay_runtime.md`、测试策略、知识库索引与 AI 记忆。
+> 本文档是手工房间制短刷图与房间编辑工作流的阶段工作包；改默认关卡承载形态、房间数据 schema、门 / 清房 / 切房流程、房间校验或验收命令时，必须同步 GDD、`docs/AI导航.md`、`docs/代码/gameplay_runtime.md`、测试策略、知识库索引与 AI 记忆；只有达到重大决策门槛时才同步 ADR。
 
 > **已被取代（ADR #142，2026-07-20）**：默认关卡方向已改为 `F13-ModularGridWorld.md` 的 9×9 模块连续大地图。本文件只保留 ADR #127/#128 的历史首片记录；旧 RoomManager、线性数据、marker、演示场景、启动参数和 smoke 已删除，不再作为后续实现入口。`docs/代码/room_manager.md` 只保留退役说明。
 

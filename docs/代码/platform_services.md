@@ -1,7 +1,7 @@
 # PlatformServices 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 `PlatformServices` 的代码契约权威；改平台 provider、GodotSteam / Steamworks 接入边界、成就 / 富状态 / 联机 API 或测试义务时必须同步 GDD、ADR、`docs/在线服务规划.md`、AI 导航与测试策略。
+> 本文档是 `PlatformServices` 的代码契约权威；改平台 provider、GodotSteam / Steamworks 接入边界、成就 / 富状态 / 联机 API 或测试义务时必须同步 GDD、`docs/在线服务规划.md`、AI 导航与测试策略；只有达到重大决策门槛时才同步 ADR。
 
 ## 职责
 

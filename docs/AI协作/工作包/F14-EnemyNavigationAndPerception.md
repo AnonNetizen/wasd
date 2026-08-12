@@ -1,7 +1,7 @@
 # F14 敌人导航与感知工作包
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
-> 本文档是 ADR #145 / #146 的敌人共享流场寻路、混合感知与局部流场修正工作包；改静态导航 mask、流场 / AStar 查询、敌人感知 profile、最后已知位置、攻击视线门禁或验收命令时，必须同步 GDD、ADR、AI 导航、EnemyAI / ModuleWorldManager / Gameplay Runtime 文档、测试策略、数据手册、知识库索引与 AI 记忆。
+> 本文档是 ADR #145 / #146 的敌人共享流场寻路、混合感知与局部流场修正工作包；改静态导航 mask、流场 / AStar 查询、敌人感知 profile、最后已知位置、攻击视线门禁或验收命令时，必须同步 GDD、AI 导航、EnemyAI / ModuleWorldManager / Gameplay Runtime 文档、测试策略、数据手册、知识库索引与 AI 记忆；只有达到重大决策门槛时才同步 ADR。
 
 ## 1. 目标与依赖
 

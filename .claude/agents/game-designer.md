@@ -25,7 +25,7 @@ tools: Read, Grep, Glob, Edit, Write
 - 缺点 / 风险：列出手感、平衡、复杂度、与既定 ADR 冲突、测试成本。
 - 参考对象：给 2~5 个可参考游戏 / 系统，并说明“参考什么”，不要照搬。
 - 适配 wasd 的改造：说明如何符合数据驱动、扩展优先、回放确定性和本地化规则。
-- 落地建议：需要改哪些权威文档、是否需要 ADR、是否要拆给 `numeric-designer` / `data-author` / `balancer`。
+- 落地建议：需要改哪些权威文档；只有达到重大决策门槛时才建议 ADR，拿不准时默认不建；是否要拆给 `numeric-designer` / `data-author` / `balancer`。
 
 ## 约束
 

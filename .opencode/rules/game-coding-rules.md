@@ -41,4 +41,4 @@
 - 大更改完成后 AI 默认自动 commit，细微改动不 commit；大型代码改动提交前必须追加一次事实型 code review（优先用 `code-review-factual` skill 或 Reviewer 角色），并按 `docs/AI协作/代码审核流程.md` 先检查 pre-commit / lint / test / docs 输出，再审当前 diff 的 bug、回归风险和缺测试；自动 commit 前必须看 `git status --short` / `git diff` / `git log --oneline -10`，跑对应验证，只 stage 本次任务文件，禁止带入用户已有脏改动、`draft/` / `DRAFT/`、未确认临时文件或本机私有配置。
 - `draft/` / `DRAFT/` 是用户人工草稿禁区；除非用户明确点名授权，AI 不得读取、搜索、修改、整理、格式化、总结或引用其中内容，仓库级批量操作需排除该目录；这是默认行为，不需要每次主动汇报。
 - 历史 MVP 实验区已在验证完成后移除；MVP 经验只能经设计 / ADR 迁移，不得复活或搬运临时代码到正式 `client/`。
-- 改完同步文档：新规则进三个平台规则入口；新决策进 ADR；重要对话进 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与会话日志。
+- 改完同步文档：新规则进四个平台规则入口；设计与实现变化进对应权威文档。普通功能、局部行为 / UI、bugfix、数值、内容、本地化、测试和实现细节不新增 ADR；只有 `AGENTS.md` 定义的重大、长期、跨边界或高代价难回滚决策才写 ADR，拿不准时默认不建。重要对话进 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与会话日志。

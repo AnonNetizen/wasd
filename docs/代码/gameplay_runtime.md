@@ -376,7 +376,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 场景资源化：新增稳定 gameplay / UI 层级时优先新增 `.tscn`，脚本只做节点绑定、配置和 signal 编排；只有对象池工厂与数据驱动重复项可以在运行时创建节点，并要在模块文档说明原因。
 - 扩展 run 快照：新增可恢复实体字段时先保证 JSON 友好，再更新本文档、SaveManager 文档、`runtime-smoke` 和 `save-smoke`；不要保存 `PoolManager` 内部队列或节点引用。
 - 改普通新局 seed：只在 `FormalClientBoot` 的人工开始 / 重开入口生成新主 seed；不要在 `GameplayRunLoop` 内部、继续游戏、回放 runner 或 golden capture 路径隐式随机化。
-- 扩展死亡后奖励：旧 `MetaProgressionSystem` 与 Gear Mod 跨局结算已删除。若要新增死亡后奖励或局外资源来源，必须先写 ADR / 数据契约并建立独立系统，不能复用局内 Gear Mod 状态。
+- 扩展死亡后奖励：旧 `MetaProgressionSystem` 与 Gear Mod 跨局结算已删除。若要新增死亡后奖励或局外资源来源，必须先写 GDD / 数据契约并建立独立系统，不能复用局内 Gear Mod 状态；只有涉及重大跨局架构、协议断代或取代既有决策时才写 ADR。
 - 扩展 GM 指令：先在 `GMCommandRegistry` 增命令，再在目标系统补受控 API；禁止在命令注册表里直接改 gameplay 私有字段、节点树或存档文件。
 - 扩展标准对局 debug 实现：优先在 `GameplayDebugFacade` 增加方法并让 RunLoop 保留同名薄包装；每次调用重建 typed context，只通过已有正式 API / Callable port 产生副作用。测试岛、预树开关和领域专用入口不要为追求统一而迁入。
 
