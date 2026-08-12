@@ -2,15 +2,16 @@
   "schema_version": 1,
   "updated_at": "2026-08-12",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #203 已把标题退出、窗口关闭按钮和系统关闭通知统一为暂停型应用退出确认框，只提供保存并退出与取消；加载中的关闭请求排队到加载成功或失败落稳后再显示，不覆盖加载栈。取消恢复进入前状态且可重复请求；确认先移除自身，再仅在 PLAYING / PAUSED / REWARD_CHOICE 的有效 Run 上复用 GameplayRunLoop.save_run_snapshot()，其他状态保留既有存档后退出；保存失败重新提示且不退出。Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 与 module map hash 均不变。自动门禁与事实审查已完成且未发现阻塞问题；双语布局、真实窗口关闭和保存失败提示可读性待用户 L5 人工验收。性能 probe 未运行。",
-  "latest_adr": 203,
+  "current_status": "ADR #204 已把 HUD 模块小地图从 visited-only 地标改为开局显示整张 7×7 assignment 的缓存、祭坛、持续事件信标和传送台；未访问格仍保持迷雾底色，marker 不表示访问、完成、可用或安全。传送目的地列表继续只接受已发现站点，提前看见位置不等于解锁。Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 与 module map hash 均不变。自动门禁与事实审查已通过且未发现阻塞问题；153 px HUD 清晰度、引导效果、重叠和色弱辨识待用户 L5 人工验收。性能 probe 未运行。",
+  "latest_adr": 204,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #204 / HUD 全图交互地标引导：RunLoop 按整张 7×7 assignment 组装缓存、祭坛、持续事件信标与传送台 marker；ModuleMinimap 不再按 visited 过滤合法地标，未访问格仍保留迷雾，传送目的地列表仍 visited-only。",
     "ADR #203 / 应用退出确认：FormalClientBoot 禁用 auto_accept_quit，将标题退出与 NOTIFICATION_WM_CLOSE_REQUEST 统一压入 ApplicationQuitModal；加载中的请求排队到加载成功或失败落稳后再显示，取消恢复原状态，确认先移除自身再按底层真实状态复用 save_run_snapshot，失败留在游戏并重新提示。",
-    "ADR #202 / HUD 模块小地图交互地标：RunLoop 只从 visited 槽现有 placements 组装 marker payload；ModuleMinimap 以缓存方形、祭坛三角、持续事件信标圆环、传送台菱形绘制，并再次拒绝未访问、未知或畸形标记。意识核目标圆点与协议版本保持不变。",
+    "历史 ADR #202 / HUD 模块小地图交互地标：建立缓存方形、祭坛三角、持续事件信标圆环和传送台菱形分类；其 visited-only 可见性已由 ADR #204 更新为开局全 assignment 显示，意识核目标圆点与协议版本保持不变。",
     "ADR #201 / 传送选择统一为 PLAYING overlay：删除 GameState.TELEPORT_CHOICE 与各玩法实体 simulation 特判；TeleportChoicePanel 复用 Gear Mod 的 InputService 非暂停 capture，pending 事务在面板关闭后接管至淡入完成，pause 仅对传送面板 owner 透传。Run v20 UI 恢复标记、Replay v10 语义事件、Meta v4 / Run v20 / Replay v10 / 游戏 v1.19 保持。",
     "ADR #200 / 传送选择非暂停：TELEPORT_CHOICE 与淡出入保持 SceneTree、GameClock 和 gameplay simulation 推进，只锁玩家移动 / 瞄准 / 开火 / 技能 / 冲刺 / 交互 intent；暂停菜单覆盖后才冻结。全黑帧重验玩家存活与来源安全，死亡 / 外部离态清理面板且不覆盖后续状态。Meta v4 / Run v20 / Replay v10 / 游戏 v1.19 不变。",
     "ADR #199 / 三站式传送台网络：世界 / 模块 schema 升至 v6 / v5，RNG.world 受约束组在临时 assignment 上确定性回溯并一次性提交三座，同网络首访解锁且按行优先编号；RunLoop 建立稳定站点索引、visited-only UI、来源战斗门禁与淡出 / 传送 / 流送 / 相机同步事务；新增 TELEPORT_CHOICE、Player.teleport_to、Camera.snap_to_target、Run v20 ui_restore 与 Replay v10 teleport_choice。旧 Run v19 / Replay v9 保留拒绝且不迁移。",
@@ -233,8 +234,8 @@
   ],
   "next_actions": [
     "ADR #203 待用户 L5 人工验收：在正式 zh_CN / en 下分别从标题页、PLAYING、暂停菜单、奖励选择或传送 overlay 点击窗口关闭按钮 / 使用系统关闭快捷键，确认只出现“保存并退出 / 取消”；取消后原状态和焦点恢复且可再次关闭，保存退出后标题继续可恢复相同局面。另在可控的存档写入失败条件下确认游戏不退出且失败提示清晰。AI 不用 GUI、真实窗口、截图或模拟输入代验。",
-    "ADR #202 待用户 L5 人工验收：在正式 1920×1080 HUD 的 153 px 7×7 小地图上，进入包含金币 / 血量祭坛、防御 / 生存 / 占点事件和传送台的模块，确认未访问前不泄露、访问后方形 / 三角 / 圆环 / 菱形清晰可分；重点检查当前位置 / 意识核标记重叠、常见色弱辨识和拥挤战斗背景。标记只应表达地标存在，不表示完成、可用或安全。AI 不用 GUI、截图或模拟输入代验。",
-    "ADR #199 待用户 L5 人工验收：在正式 1920×1080 下分别使用 zh_CN / en、键鼠与真实手柄，检查 visited-only 站点编号 / 7×7 不泄露地图、默认焦点与返回 / 暂停叠加、约 0.2 秒淡出淡入观感，以及传入危险目标后必须清场才能离开的手感。AI 不用 GUI、截图或模拟输入代验。",
+    "ADR #204 待用户 L5 人工验收：在正式 1920×1080 HUD 的 153 px 7×7 小地图上，开局确认金币 / 血量祭坛、防御 / 生存 / 占点事件、缓存和三座传送台都能在未访问迷雾格上以方形 / 三角 / 圆环 / 菱形清晰区分，并实际体验这些提示是否能引导探索而不过度拥挤；重点检查当前位置 / 意识核标记重叠、常见色弱辨识和战斗背景。标记只应表达地标存在，不表示访问、完成、可用或安全。AI 不用 GUI、截图或模拟输入代验。",
+    "ADR #199 待用户 L5 人工验收：在正式 1920×1080 下分别使用 zh_CN / en、键鼠与真实手柄，检查传送目的地列表与选择面板小地图仍只包含已发现站点、稳定编号、默认焦点与返回 / 暂停叠加、约 0.2 秒淡出淡入观感，以及传入危险目标后必须清场才能离开的手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #197 的协议不变渐进治理已完成三十八个有独立领域语义的提取点。Enemy 与 DataLoader 的自动拆分均已停止；剩余 Skills / GearMods / ContentUnlock / GameModes / WorldEvents / ModuleWorld 等高耦合域若要继续，必须由用户另行授权为独立架构任务，先整体设计所有权、协议与验证矩阵，不为行数或提交数量微切。",
     "运行 Godot 自动门禁时优先统一走 `python tools/godot_bridge.py --project client <command>`：ADR #198 后只读命令可并行；四个源码写入 bake / capture 命令由 Bridge 自动互斥。裸 Godot、新增但未分类的写入命令或绕过 Bridge 的工具仍按不具备并行安全处理。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
@@ -284,6 +285,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-12",
+      "command": "unit and full GUT; full and technical module-world; teleporter / world-event / runtime smokes; file-scoped pre-commit with contracts, data, GDScript / project / semantic lint and docs health; headless boot; JSON and git diff checks; factual code review",
+      "result": "passed for ADR #204 full-assignment HUD interactable markers. Unit GUT passes 314/314 with 1909 assertions and full GUT passes 370/370 with 2733 assertions. Teleporter smoke proves all supported assignment markers and all three teleporter diamonds are present before exploration while one discovered station still cannot open a destination list; full and technical module-world, all five world events, runtime and headless boot pass. Factual review found Critical=0, High=0 and Medium=0. Semantic lint retains only two pre-existing DataSourceReader advisories accepted as unchanged and outside this task. Meta v4, Run v20, Replay v10, game v1.19, data fingerprint and module map hash remain unchanged. No performance probe or manual acceptance ran."
+    },
     {
       "date": "2026-08-12",
       "command": "sync_contracts --check; validate_data; loading / UIManager / save / runtime / settings smokes; full GUT; task-file pre-commit with GDScript / project / semantic lint and docs health; headless boot; factual code review; git diff --check",
@@ -1117,8 +1123,9 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #204：HUD 模块小地图从开局显示整张 assignment 的缓存、祭坛、持续事件信标和传送台；未访问格仍保持迷雾，传送目的地列表继续 visited-only。marker 仍不写 Run v20 / Replay v10，也不改变站点发现或可用状态。",
     "ADR #203：标题退出与窗口 / 系统关闭统一进入暂停型 ApplicationQuitModal；取消恢复底层状态，确认只为有效进行中 Run 复用现有 Run v20 快照写入，提示框在快照前移除，保存失败不退出。协议和数据指纹不变。",
-    "ADR #202：HUD 模块小地图只为 visited 槽显示静态交互地标；缓存方形、金币 / 血量祭坛三角、防御 / 生存 / 占点信标圆环、传送台菱形。marker 从 assignment + visited 派生，不写 Run v20 / Replay v10，不改变意识核目标圆点或未探索隐私。",
+    "历史 ADR #202：曾规定 HUD 模块小地图只为 visited 槽显示静态交互地标；该可见性口径已由 ADR #204 改为开局全 assignment 显示，图形分类与协议边界保持。",
     "ADR #201：传送选择和淡出入始终保持 PLAYING，不存在 GameState.TELEPORT_CHOICE；面板与 pending 事务使用 InputService 非暂停 owner capture，pause 对传送面板透传。Run v20 的 teleport_choice / underlying 字符串仅是 UI 恢复标记，Replay v10 同名值仅是语义事件。",
     "ADR #200：TELEPORT_CHOICE 与约 0.2 秒淡出 / 淡入不暂停 SceneTree 或 GameClock；世界模拟继续，玩家 gameplay intent 锁定。暂停菜单覆盖后才冻结；提交重验玩家存活与来源安全，死亡 / 外部离态不得被异步事务覆盖。协议和数据指纹保持 ADR #199 的 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19。",
     "ADR #199：当前 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19；旧 Run v19 / Replay v9 原文件保留但拒绝继续 / 播放且不迁移。三站式传送台由 RNG.world 确定性原子回溯布置，visited-only UI 不泄露未发现站点，来源危险 fail closed，传送失败不产生部分提交。自动门禁与四条 v10 golden 已通过，L5 只由用户人工验收，性能 probe 未运行。",

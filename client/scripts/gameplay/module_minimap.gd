@@ -142,7 +142,7 @@ func _configure_interactable_markers(raw_markers: Variant) -> void:
 		var marker: Dictionary = (raw_marker as Dictionary).duplicate(true)
 		var slot: Vector2i = _slot_from_variant(marker.get("slot", {}))
 		var slot_key: String = _slot_key(slot)
-		if not _is_valid_slot(slot) or not _visited.has(slot_key):
+		if not _is_valid_slot(slot):
 			continue
 		if _marker_kind(marker) == MarkerKind.NONE:
 			continue

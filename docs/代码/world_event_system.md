@@ -7,9 +7,9 @@
 
 - 用 `world_events.json` schema v2 定义防御、生存、占点、金币祭坛和血量祭坛；公共普通 Mod 池统一来自 `gear_mods.json`。
 - 由场景化 `WorldEventController` 维护事件实例状态、持续事件全局互斥、波次游标、隐藏奖励、祭坛事务和 HUD 状态。
-- 由模块 schema v5 的 `module_place_world_event` 把可交互物摆进 approved 模块；运行时不按事件 id 临时生成模块。HUD 小地图只在模块 visited 后显示该 placement：金币 / 血量祭坛为三角，其余三类事件为信标圆环。
+- 由模块 schema v5 的 `module_place_world_event` 把可交互物摆进 approved 模块；运行时不按事件 id 临时生成模块。HUD 小地图从开局显示整张 assignment 上的该 placement：金币 / 血量祭坛为三角，其余三类事件为信标圆环；未访问格仍保持迷雾底色。
 - 持续事件激活后固定所属模块并继续真实模拟；完成或失败后，残敌转为普通敌人，离开原模块或死亡后解除固定。
-- Run v20 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池、事务进度、Gear Mod 棋盘 placements、效果程序状态与带 ID 未拾取 Mod；不保存 Node 引用。小地图 marker 从已恢复 assignment + visited 重新派生，不新增快照字段。
+- Run v20 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池、事务进度、Gear Mod 棋盘 placements、效果程序状态与带 ID 未拾取 Mod；不保存 Node 引用。小地图 marker 从已恢复 assignment 重新派生，visited 只影响迷雾底色，不新增快照字段。
 
 ## 代码位置
 

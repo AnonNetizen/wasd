@@ -12,7 +12,7 @@ const WORLD_EVENT_KINDS := preload(
 )
 
 
-func test_configure_keeps_registered_markers_only_for_visited_modules() -> void:
+func test_configure_keeps_registered_markers_for_unvisited_modules() -> void:
 	var minimap: ModuleMinimap = MODULE_MINIMAP_SCRIPT.new()
 	add_child_autofree(minimap)
 	minimap.configure({
@@ -37,7 +37,7 @@ func test_configure_keeps_registered_markers_only_for_visited_modules() -> void:
 		],
 	})
 
-	assert_eq(minimap.interactable_markers().size(), 3)
+	assert_eq(minimap.interactable_markers().size(), 4)
 	assert_eq(minimap.marker_kinds_at(Vector2i(1, 1)), [
 		ModuleMinimap.MarkerKind.REWARD_CACHE,
 		ModuleMinimap.MarkerKind.SHRINE,
@@ -45,7 +45,9 @@ func test_configure_keeps_registered_markers_only_for_visited_modules() -> void:
 	assert_eq(minimap.marker_kinds_at(Vector2i(2, 2)), [
 		ModuleMinimap.MarkerKind.TELEPORTER,
 	])
-	assert_true(minimap.marker_kinds_at(Vector2i(3, 3)).is_empty())
+	assert_eq(minimap.marker_kinds_at(Vector2i(3, 3)), [
+		ModuleMinimap.MarkerKind.BEACON,
+	])
 
 
 func test_world_event_kinds_distinguish_shrines_from_beacons() -> void:
