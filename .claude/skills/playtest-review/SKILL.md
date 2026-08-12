@@ -14,7 +14,7 @@ Use this skill when reviewing a playable build, tuning session, or manual gamepl
 ## Required Context
 
 - Read the user's latest playtest notes or explicit observations first.
-- For full project work, read `docs/游戏设计文档.md`, `docs/修改建议.md`, and `docs/测试策略.md` only as needed.
+- For full project work, read `docs/游戏设计文档.md`, `docs/TODO.md`, and `docs/测试策略.md` only as needed.
 - Use `docs/TODO.md` as the backlog target when converting findings into future work.
 
 ## Review Shape
@@ -29,7 +29,7 @@ Use this skill when reviewing a playable build, tuning session, or manual gamepl
 
 - Full project changes still obey data-driven config, locale, InputMap, RNG/GameClock, and autoload rules.
 - User asks for "有没有问题 / 风险 / 看一下" require factual findings; if no issue is found, say so.
-- Design changes that settle a durable rule need ADR and memory updates.
+- Design changes update their direct authority; add an ADR only when the project threshold is met.
 
 ## Evidence Checklist
 

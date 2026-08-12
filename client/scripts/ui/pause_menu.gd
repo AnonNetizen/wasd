@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/正式项目工作规划.md F5, docs/游戏设计文档.md §9.12 / §9.16
+# Authority: docs/代码/gameplay_runtime.md, docs/游戏设计文档.md §9.12 / §9.16
 class_name PauseMenu
 extends CanvasLayer
 

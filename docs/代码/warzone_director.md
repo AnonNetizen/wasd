@@ -1,7 +1,6 @@
 # WarzoneDirector 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 F10 敌巢战区导演的代码契约权威；改导演数据 schema、阶段解释、刷怪接线、调试摘要或兴趣点生成时，必须同步 `docs/AI协作/工作包/F10-WarzoneDirector.md`、`docs/代码/gameplay_runtime.md`、`docs/代码/data_loader.md`、`client/data/README.md`、GDD 与 ADR。
+> 权威范围：敌巢战区导演的公共契约、数据 schema、阶段解释、刷怪接线和兴趣点生成边界。
 
 ## 职责
 

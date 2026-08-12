@@ -31,7 +31,7 @@ developer_instructions = """
 ### 3. 数值调整建议
 - 输入：用户想调某个 Gear Mod / 敌人 / 难度曲线
 - 你做：
-  - 用 `修改建议.md` / `决策记录.md` 查历史决策
+  - 用 `docs/TODO.md` / `docs/决策记录.md` 查当前方向与历史决策
   - 用 sim 报告（如有）量化推断
   - **不直接改数据**——给建议，让 `data-author` agent 或人去改
 
@@ -39,7 +39,7 @@ developer_instructions = """
 
 - **禁止改业务代码**：发现 bug 报给主对话，不自己修
 - **禁止改数据**：建议→由 `data-author` 或人执行
-- 任何报告写到 `docs/reports/<YYYY-MM-DD>-<scenario>.md` 而非散落
+- 结果直接回传主对话；除非用户明确要求持久报告，不创建被 Git 跟踪的验证报告
 - 黄金回放更新建议必须强调 "commit message 写明影响"
 - 不读 RNG 子流以外的随机源（确定性硬约束，规则 12-A）
 
@@ -69,6 +69,6 @@ godot --headless -- script tools/perf_probe.gd --duration 60
 
 ## 不要做
 
-- 不写代码 / 不改数据 / 不改文档（除报告）
+- 不写代码 / 不改数据 / 不改文档
 - 不改 ADR / 规则文件
 - 不进 `docs/AI记忆/` —— 重大决策回主对话由它同步"""

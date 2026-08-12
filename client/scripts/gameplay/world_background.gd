@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §3, docs/决策记录.md ADR #125
+# Authority: docs/代码/gameplay_runtime.md, docs/游戏设计文档.md §3, docs/决策记录.md ADR #125
 class_name WorldBackground
 extends Node2D
 

@@ -1,6 +1,6 @@
 # 任务模板：加一个 Gear Mod
 
-> **AI 修改说明**：修改本任务模板前先读 `docs/AI协作/文档维护指南.md`。本模板管官方与本地 Gear Mod 的数据制作流程；入口变化必须同步四平台 `/new-gear-mod`、`data-author`、规则、`docs/AI协作/README.md`、`docs/AI协作/上下文预算.md` 与 `AGENTS.md`。
+> 权威范围：本模板定义该高频任务的最小流程；只在流程本身变化时更新。
 
 ## 必读（按顺序）
 

@@ -14,7 +14,7 @@ tools: Read, Grep, Glob, Edit, Write
 
 1. `docs/游戏设计文档.md`
 2. `docs/决策记录.md`
-3. `docs/修改建议.md`
+3. `docs/TODO.md` 与 `docs/功能建议池.md`
 4. `docs/AI导航.md`
 5. 涉及数据 / 文案时读 `client/data/README.md` / `client/locale/README.md`
 

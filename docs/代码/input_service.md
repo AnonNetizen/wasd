@@ -1,6 +1,5 @@
 # InputService 模块
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
 > 权威范围：项目输入门面、规范 action 与归一化 intent、GUIDE context 生命周期、非暂停 UI gameplay capture、重绑定持久化、设备提示、Godot UI 兼容桥及 Replay v9 输入接管。插件内部架构见 [`guide.md`](guide.md)，action / binding id 白名单见 [`../词表与契约.md`](../词表与契约.md) §7，架构决策见 [`../决策记录.md`](../决策记录.md) ADR #151 / #152 / #161 / #186 / #188 / #189 / #193 / #194 / #196。
 
 ## 1. 一句话职责

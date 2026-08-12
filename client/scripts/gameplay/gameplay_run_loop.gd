@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/正式项目工作规划.md F4
+# Authority: docs/代码/gameplay_runtime.md
 class_name GameplayRunLoop
 extends Node2D
 

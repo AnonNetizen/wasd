@@ -1,7 +1,6 @@
 # ECC 工具吸收清单
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
-> 本文档记录 `affaan-m/ECC` 这类大型 agent-harness 仓库的逐项筛选、吸收和拒绝结论；改本文档时常见联动为 `docs/AI协作/AI技能资源评估.md`、三平台 `ai-resource-curator` skill、`docs/AI协作/上下文预算.md`、`docs/AI导航.md`、`docs/AI知识库索引.md`、`docs/_kb_index.json` 与 AI 记忆。
+> 权威范围：`affaan-m/ECC` 等大型 agent-harness 资源的筛选、吸收和拒绝结论。
 
 ## 1. 来源快照
 
@@ -82,7 +81,7 @@ ECC 的 271 个 skills 按目录名、README 说明和候选全文读取后归�
 | 分类 | 代表工具 | 处理 |
 |------|----------|------|
 | 已吸收的 agent-harness 核心 | `search-first`、`skill-scout`、`context-budget`、`token-budget-advisor`、`strategic-compact`、`iterative-retrieval`、`workspace-surface-audit`、`skill-stocktake`、`repo-scan`、`rules-distill`、`skill-comply`、`agent-architecture-audit`、`agent-harness-construction`、`agent-introspection-debugging`、`safety-guard`、`security-scan`、`eval-harness`、`ai-regression-testing`、`tdd-workflow` | 已改写进 `ai-resource-curator`、`docs/AI协作/上下文预算.md` 和现有验证 / 文档同步口径。 |
-| 文档 / 知识库 / onboarding | `codebase-onboarding`、`code-tour`、`documentation-lookup`、`architecture-decision-records`、`update-docs` 命令相关、`knowledge-ops`、`recursive-decision-ledger` | 吸收到 AI 导航、知识库索引、ADR 和项目记忆流程；不新增外部文档格式。 |
+| 文档 / onboarding | `codebase-onboarding`、`code-tour`、`documentation-lookup`、`architecture-decision-records`、`update-docs` 命令相关、`knowledge-ops`、`recursive-decision-ledger` | 吸收到 AI 导航、直接权威和 ADR 流程；不新增重复索引或外部文档格式。 |
 | 质量 / 工程通用 | `coding-standards`、`git-workflow`、`error-handling`、`benchmark`、`benchmark-methodology`、`production-audit`、`config-gc`、`content-hash-cache-pattern`、`terminal-ops` | 只保留通用思想；项目已有 `safe-git-commit`、`code-review-factual`、CI 和 docs health。 |
 | AI/LLM 专项但当前不装 | `agentic-engineering`、`agentic-os`、`autonomous-agent-harness`、`autonomous-loops`、`continuous-agent-loop`、`continuous-learning`、`continuous-learning-v2`、`cost-aware-llm-pipeline`、`cost-tracking`、`prompt-optimizer`、`team-agent-orchestration`、`team-builder` | 不安装外部自治/成本系统；有用原则已进入审计和上下文预算。 |
 | 前端 / Web / UI 框架 | `frontend-patterns`、`frontend-design-direction`、`frontend-a11y`、`react-patterns`、`react-performance`、`react-testing`、`vue-patterns`、`vite-patterns`、`nextjs-turbopack`、`nuxt4-patterns`、`angular-developer`、`ui-demo`、`ui-to-vue`、`browser-qa`、`click-path-audit`、`windows-desktop-e2e` | 当前不是 Web 应用；不吸收。若未来做官网 / Steam 页面可按任务再评估。 |

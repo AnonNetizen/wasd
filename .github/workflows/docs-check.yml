@@ -53,6 +53,26 @@ jobs:
       - name: Run semantic advisory lint regression tests
         run: python tools/test_semantic_rules_lint.py
 
+      - name: Detect docs health regression scope
+        id: docs-health-scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          BASE="$BASE_SHA"
+          if [ -z "$BASE" ] || [ "$BASE" = '0000000000000000000000000000000000000000' ]; then
+            BASE="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          if git -c core.quotepath=false diff --name-only "$BASE" HEAD | grep -Eq '^(tools/(docs_health_check|test_docs_health_check)\.py|docs/AI协作/(项目规则|文档维护指南|文档健康检查)\.md|docs/AI记忆/current_state\.json|\.(codebuddy|codex|opencode|claude)/rules/game-coding-rules\.md|\.pre-commit-config\.yaml|\.github/workflows/docs-check\.yml)$'; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run docs health regression tests
+        if: steps.docs-health-scope.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        run: python tools/test_docs_health_check.py
+
       - name: Run docs health check
         run: python tools/docs_health_check.py
 

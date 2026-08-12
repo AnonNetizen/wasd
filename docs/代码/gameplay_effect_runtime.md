@@ -1,7 +1,6 @@
 # GameplayEffectRuntime 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是统一玩法效果运行时、原语注册表与受控执行出口的代码契约权威；改 trigger / condition / action、队列上限、来源排序、快照或 Gateway 依赖时必须同步 GDD、词表、数据手册、Skill / Gear Mod / Save / Replay 文档与测试策略。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责
 

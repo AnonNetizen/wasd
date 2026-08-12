@@ -9,7 +9,7 @@
 
 > ADR #199 的三站式传送台网络属于跨 schema / 世界生成 / UI / Save / Replay 的功能门禁：本地交付必须追加 `teleporter-smoke`、完整与 technical module-world、save/loading/runtime/replay/replay-input、完整 GUT、headless boot，并因 assignment / map hash / data fingerprint 变化重新捕获和复跑四条 Replay v10 golden。该专项尚不自动扩入当前常规 CI；视觉、双语布局、真实手柄焦点、淡出淡入与危险传入手感只保留 L5 人工验收，性能 probe 不运行。
 >
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 CI/CD 路线图权威；改 workflow / hook / health-check 设计时，常见联动为 `docs/测试策略.md`、`docs/AI协作/实时验证回路.md`、`CONTRIBUTING.md`、规则自检清单、`docs/AI记忆/项目记忆.md`。
+> 权威范围：CI/CD 路线、hook 与 workflow 门禁。实现状态以 workflow / hook 配置和 CI 结果为准。
 
 ---
 

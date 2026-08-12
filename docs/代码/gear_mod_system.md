@@ -1,7 +1,6 @@
 # Gear Mod 局内规则服务
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 Gear Mod v6 数据、7×7 空间领域、统一效果程序、拾取事务、持久化与测试边界的代码契约权威；常见联动为 GDD §7.2、ADR #191 / #193 / #194 / #196、`docs/词表与契约.md` §13、Gameplay Effect Runtime、Gameplay Runtime 与 SaveManager 文档。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 1. 定位
 

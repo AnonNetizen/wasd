@@ -1,6 +1,6 @@
 # Developer Test Arena 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 > 本文档是正式项目内“开发者测试岛”的代码契约；改独立场景入口、运行用途、配装配置、训练靶、控制面板、伤害统计、存档隔离或 release 导出边界时，必须检查 ADR #159 / #160 / #193 / #194，并同步 GDD §9.20、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档、测试策略、AI 导航和 AI 记忆；只有重大取代既有决策时才改 ADR。
 
 ## 职责

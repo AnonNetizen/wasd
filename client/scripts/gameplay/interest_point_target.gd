@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F12-ShortLootRuns.md
+# Authority: docs/代码/gameplay_runtime.md
 class_name InterestPointTarget
 extends Node2D
 

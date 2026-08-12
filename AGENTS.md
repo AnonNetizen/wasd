@@ -1,162 +1,47 @@
-# AGENTS.md —— 给所有 AI agent 的开工说明
+# AGENTS.md —— AI agent 开工入口
 
-> 任何 AI agent 在本项目动手前，**必须先按下面顺序完成快速开工**，再开始任何任务。
-> 这是规则 14 与 ADR #15 的明文化入口；忽略此约定 = 违反项目规则。
->
-> **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command、skill 或平台入口时，必须同步 `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`.claude/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
+> 修改本文件必须有用户明确授权。本文件只定义开工顺序与平台入口；共同规则正文见 `docs/AI协作/项目规则.md`。
 
-> 🆕 **新机器 clone 后第一次开工**：先按 [`CONTRIBUTING.md` 第零节「新机器 setup」](CONTRIBUTING.md) 做一次性 git 配置（`core.quotepath` / `commit.template` / 全局身份），再回来读下面快速开工。否则中文文件名会显示为转义码、commit 模板不会生效。
->
-> 🛠️ **换 AI 工具？** `AGENTS.md` 是通用入口；Claude Code 可先读 [`CLAUDE.md`](CLAUDE.md)，Codex 可先读 [`CODEX.md`](CODEX.md)，OpenCode 可先读 [`OPENCODE.md`](OPENCODE.md)，其他工具看 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)。平台入口只做加载适配，不能放宽项目核心规则。
+## 快速开工
 
----
+任何 AI agent 在本项目动手前按顺序完成：
 
-## 🚦 快速开工 5 步（按顺序，不要跳）
+1. 读本文件；Codex / Claude Code / OpenCode 可先读各自平台入口。
+2. 读 `docs/AI协作/项目规则.md`，这是唯一共同规则正文。
+3. 读 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；当前状态不是执行授权。
+4. 读 `docs/AI导航.md` 相关段落，再按任务读取直接权威：GDD、词表、测试策略、数据 / locale 手册或模块文档。
 
-1. **本文件**（`AGENTS.md`）—— 通用入口；若从 Claude / Codex / OpenCode 进入，也可先读 `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` 再回到这里
-2. **`docs/AI协作/快速开工.md` + `docs/AI记忆/current_state.json`** —— 低 token 热路径与机器当前状态；`current_state.json` 只提供候选方向，不能覆盖用户最后明确指令
-3. **强制编码规则** —— 按当前平台读取：CodeBuddy 读 `.codebuddy/rules/game-coding-rules.md`；Codex 读 `.codex/rules/game-coding-rules.md`；OpenCode 读 `.opencode/rules/game-coding-rules.md`；其他 agent 没有专属规则入口时读 `.codebuddy/rules/game-coding-rules.md` 作为项目规则源
-4. **`docs/AI导航.md` 相关段落** —— 项目地图、扩展点速查、系统依赖图；需要全局路由或文档权威时再读 `docs/AI知识库索引.md`
-5. **按当前任务读下列其一**：
-   - 高频任务 → `docs/AI协作/任务模板/<任务>.md`
-   - 改约定字符串 → `docs/词表与契约.md`
-   - 改设计 → `docs/游戏设计文档.md`
-   - 改既定决策 → `docs/决策记录.md`
-   - 写/改测试 → `docs/测试策略.md`
+新机器 clone 后先按 `CONTRIBUTING.md` 第零节配置 `core.quotepath`、commit template 和 Git 身份。
 
-完整 `docs/AI记忆/项目记忆.md` 是长期冷存储：需要长期背景、修改记忆结构、更新 ADR 摘要或排查历史细节时再读全文；日常接手以快速开工 + `current_state.json` 为默认热路径。
+## 平台入口
 
----
+| 平台 | 入口 | 规则适配器 |
+|------|------|------------|
+| CodeBuddy | 本文件 | `.codebuddy/rules/game-coding-rules.md` |
+| Codex | `CODEX.md` | `.codex/rules/game-coding-rules.md` |
+| Claude Code | `CLAUDE.md` | `.claude/rules/game-coding-rules.md` |
+| OpenCode | `OPENCODE.md` | `.opencode/rules/game-coding-rules.md` |
 
-## ⛓️ 五条不可妥协的规则（红线节选）
+平台适配器只负责引导加载共同规则，不能复制或放宽规则正文。
 
-完整列表见当前平台的编码规则入口与 `docs/AI导航.md` 第 6 节红线。这里只抽最易踩的：
+## 任务路由
 
-1. **数据驱动**：可调数值进 `client/data/`，平表数值优先 CSV、复杂配置优先 JSON，字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv` 且多语言规则同步 `client/locale/README.md`；业务输入走生成 action 常量、`InputService` 与归一化 intent，GUIDE 只允许由 `InputService` 直接访问，`InputMap` 只用于 GUIDE / `InputService` 的 Godot UI 兼容桥和测试边界；约定字符串来自 `docs/词表与契约.md` 白名单且以**自动生成的常量**引用。
-2. **统一 autoload**：随机 `RNG.<stream>` / 时间 `GameClock` / 流程 `GameState` / UI 弹窗 `UIManager` / 高频实体 `PoolManager` / 伤害 `Combat.apply_damage` / 持续效果 `StatusEffect` / 存档 `SaveManager` / 音频 `AudioManager`。`SaveManager` 必须支持 `meta` 局外成长和 `run` 暂停退出续局，并具备标准头字段（含 `data_hash`）、版本迁移、原子写入、备份回退和损坏隔离。**禁止**绕过这些走原始 API。
-3. **改完同步文档**：新规则 → 规则文件；设计变更 → 对应 GDD / 模块文档 / AI 导航 / 词表；只有达到下述门槛的重大决策才新增 ADR；重要对话 → `docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json` + 当日会话日志（见规则 14-B）。
-4. **`draft/` 人工草稿禁区**：`draft/`（含大小写变体如 `DRAFT/`）内是用户人工草稿，AI 默认不得读取、搜索、修改、整理、格式化或引用；只有用户明确点名授权处理该目录时才可进入。遵守此规则是默认行为，AI 不需要在每次回复中主动声明。
-5. **人工检查只由人工执行**：计划、工作包、测试策略、checklist 或验收说明中凡明确标为“人工检查 / 人工验收 / 手动检查 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收”的项目，AI 不得执行、不得用 GUI 自动化或截图自审替代、不得宣称通过；只能完成其余自动化验证，整理人工 checklist，并将这些项目保留为“待人工验收”。
+- 高频数据内容任务先看 `docs/AI协作/任务模板/`。
+- 普通代码修改先从目标脚本的 `# Doc:` 或 `docs/代码/README.md` 定位模块文档。
+- 设计、schema、契约、测试政策和 AI 工作流分别只改各自直接权威来源。
+- 非模板任务按 `docs/AI协作/上下文预算.md` 控制读取范围；禁止盲目全仓搜索。
 
-## 📝 ADR 收录门槛
+## 项目能力入口
 
-ADR 是重大决策的例外记录，不是每次功能修改的默认交付物。只有决策同时具有**长期影响**，并且涉及核心玩法方向、跨系统架构 / 所有权 / 依赖边界、存档 / 回放 / 数据协议断代、项目级红线，或难以回滚且代价较高的工具链 / 工作流策略时，才新增 ADR。
+- Subagents：各平台 `agents/` 目录；复杂或专业任务按角色说明使用。
+- Slash commands：各平台 `commands/` 目录。
+- Project skills：各平台 `skills/<name>/SKILL.md`。
+- 若平台不支持原生能力，读取同名文件作为流程模板，不降低项目规则。
 
-普通功能、局部行为或 UI 调整、bugfix、数值与内容条目、本地化、测试补强、文档澄清、内部实现细节和不改变公共边界的重构，**不得为了留痕而新增 ADR**；按影响更新 GDD、模块文档、数据 / locale README、词表或测试策略即可，重要过程写当日会话日志。拿不准是否达到门槛时默认不建 ADR；只有不记录会让后续维护者可能合理地做出相反的重大架构选择时，才升级为 ADR。历史 ADR 保留，不因本规则批量删除或重编号。
+## 不可越过的边界
 
-## 🗣️ 沟通语言
-
-AI 面向用户的回复、计划、总结、提问与变更说明默认使用中文。仅在用户明确要求其他语言、引用代码 / API / 命令 / 日志 / 错误原文、编辑目标文件已有语言要求、或对外发布文本需要其他语言时，才使用对应语言。
-
-## 🧪 Godot UI 测试项目
-
-- 快速 UI / 素材 / 交互小实验默认放在 `output/test_lab`，不要直接塞进正式 `client/`，除非用户明确要求落地到正式项目。
-- 位图 UI 素材测试时，`.tscn` 应保持轻量；不要把生成 PNG、`ImageTexture` 或大段 `PackedByteArray` 直接保存进场景文件。
-- 不要默认依赖 `.godot/imported` 缓存作为首次预览的唯一来源；测试场景可用脚本从 `assets/` 读取 PNG 做预览 / 截图兜底。
-- 如果某个 Godot 测试场景突然变得很大，先检查是否出现 `sub_resource type="Image"`、`PackedByteArray` 或嵌入式纹理数据，再继续改美术效果。
-- `output/test_lab/README.md` 是该测试项目的本地说明；新增测试场景、截图脚本或素材约定时同步更新它。
-
-## 🙋 人工检查专属边界
-
-- 任何文档或当前任务明确写明由“人工 / 用户”检查、验收、试玩或确认的项目，都只由人工执行。AI 不得操作 GUI、浏览器、真实设备、模拟输入、截图或录像来冒充人工验收，也不得把自身观察记录成该项目的通过 / 失败结论。
-- AI 必须继续完成同一任务中未标为人工的自动化检查；人工项不会成为跳过 L0~L4、smoke、headless、schema、lint、Replay 或其他机器验证的理由。
-- AI 对人工项只负责给出前置条件、可复现步骤、预期现象和已知风险，并明确标记“待人工验收”。人工提供结果或证据后，AI 可以整理、分析和修复问题，但验收结论必须注明来自人工；修复后仍需人工复验的项目继续交回人工。
-- 本规则约束的是人工检查 / 验收，不限制文档中普通的“手动运行命令”操作；是否属于人工专属项，以其是否要求人类体验、观察、真实设备或明确指定人工签字为准。
-
-## 🧭 沟通与需求评估
-
-- 用户问“有没有问题 / 风险 / 看一下”时，必须基于事实审查；没有发现实际问题就明确说没有问题或未发现问题，禁止为了显得有用而硬找问题、过度优化或提出无必要改动。
-- 用户提出新需求后，先简短反馈该需求在本项目里的落地前景：价值、性价比、实现复杂度和主要风险；如果需求明显有问题、与既定 ADR 冲突、性价比低或存在重大隐患，必须先直接说明并给替代建议，不要闷声实现到最后。
-- 当需求、术语、验收标准、授权边界或上下文含义不清，且无法从项目权威文档或当前对话中可靠确认时，必须先问一个简短澄清问题；禁止为了显得推进快而自行脑补、替用户做高风险假设。只有低风险、可撤销且已明说假设的细节，才可边做边标注假设。
-- 发生上下文总结 / 压缩 / 恢复后，必须先以用户最后一条明确指令重新对齐当前任务；`current_state.json`、会话摘要或 `Next Steps` 只作候选参考，不能被当作授权执行。若恢复摘要与用户最后指令冲突或授权边界不清，先问一句再动手。
-
-## 🪟 PowerShell 稳定执行
-
-当前 shell 是 PowerShell 时，必须遵守当前平台编码规则的「PowerShell 稳定执行」条款；可复制模板见 `docs/AI协作/工具适配指南.md`。
-
-- 文本搜索默认使用 `rg -F`；确需正则时把 pattern 放进单引号字符串或变量，禁止套用 Bash 的 `\"` 引号转义。`rg` 的全部选项必须写在 `--` 前。
-- PowerShell cmdlet 处理路径时使用 `-LiteralPath`；动态参数走数组 / 参数传递，禁止 `Invoke-Expression` 或拼接可执行命令字符串。
-- cmdlet 失败用 `-ErrorAction Stop` / `try-catch`；原生程序执行后立即读取 `$LASTEXITCODE`。`rg` 的 `1` 表示无匹配；`git diff --no-index` 只有在两个输入已用 `Get-Item -LiteralPath ... -ErrorAction Stop` 校验为文件后，`1` 才表示存在差异，不得把缺失输入等真实错误归一化为成功。
-- 允许非零退出码的命令必须先归一化，再进入并行或 fail-fast 调度；一次 shell 调用只承载一个语义操作，不跨 PowerShell / `cmd` / Bash 混搭。
-- 仓库文件修改优先使用当前平台的结构化 patch / edit 工具；PowerShell 主要负责只读检查、运行工具和验证结果。
-
-## 🧩 AI Git 提交策略
-
-- **大更改自动 commit**：完成跨多文件功能 / 工具 / CI / 规则 / ADR / 数据 schema / 代码模块 / 重要文档同步等“可独立回滚”的变更后，AI 默认自行创建一次 git commit，无需用户再次提醒。
-- **细微改动不 commit**：拼写、单行措辞、小范围说明、只读诊断、临时验证或用户明确说“先别提交”的改动，不自动 commit；最终回复说明“未提交，原因是细微改动/用户要求”。
-- **大型代码改动自动 review**：完成跨多文件功能、代码模块、数据 schema、工具或 CI 等大型代码改动后，提交前必须追加一次事实型 code review（可用 `code-review-factual` skill 或 Reviewer 角色）检查 bug、回归风险和缺测试；细微改动不触发正式 review。
-- **提交前强制检查**：自动 commit 前必须先看 `git status --short`、`git diff`、`git log --oneline -10`，跑本次变更对应验证，且只 stage AI 本次任务明确修改的文件。
-- **禁止带入无关改动**：不得提交用户已有脏改动、其他 agent 的改动、`draft/` / `DRAFT/` 内容、未确认的临时文件或本机私有配置；若无法干净拆分，应停止并询问用户。
-- **提交信息**：使用 Conventional Commits（见 `.gitmessage` / `CONTRIBUTING.md`），简洁说明范围；不得使用 `--no-verify`，除非用户明确批准且 commit message 写明原因。
-
----
-
-## 🛠️ 高频任务直通车
-
-如果你的任务是下面这些之一，直接套对应模板（不必重新摸索）：
-
-| 任务 | 模板 |
-|------|------|
-| 加 Gear Mod | `docs/AI协作/任务模板/加GearMod.md`（或用 `/new-gear-mod` 命令） |
-| 加敌人 | `docs/AI协作/任务模板/加敌人.md` |
-| 加效果原语 | `docs/AI协作/任务模板/加效果原语.md` |
-| 加设置项 | `docs/AI协作/任务模板/加设置项.md` |
-| 加埋点 | `docs/AI协作/任务模板/加埋点.md` |
-| 调数值 | `docs/AI协作/任务模板/调数值.md` |
-| 加本地化文本 | `docs/AI协作/任务模板/加本地化文本.md` |
-
-任务不在模板里 → 按 `docs/AI协作/上下文预算.md` 决定读取范围（**禁止盲目全仓搜索**）。
-
-## 🤝 子智能体（Subagents，可主动调用）
-
-复杂或专业任务直接转给对应 subagent，避免主对话被污染：
-
-> **项目默认授权**：项目维护者已授权支持 subagent 的平台在复杂、专业或可并行的任务中主动启用对应 subagent，无需每次再次确认；只读小任务或直接实现更高效时不必强行拆分。若当前运行平台没有原生 subagent、或外层工具策略临时限制调度，则读取同名 `.md` 作为 prompt 模板执行同等角色流程，并在回复中简要说明降级。
-
-| Subagent | 何时调用 | 定义位置 |
-|----------|---------|---------|
-| `data-author` | 加 / 改数据条目（Gear Mod / 敌人 / locale / 设置 / 埋点） | `.codebuddy/agents/data-author.md` / `.codex/agents/data-author.md` / `.opencode/agents/data-author.md` |
-| `contract-validator` | 改了词表、想检查代码常量 / 裸字符串 / id 同步 | `.codebuddy/agents/contract-validator.md` / `.codex/agents/contract-validator.md` / `.opencode/agents/contract-validator.md` |
-| `balancer` | 跑回放回归 / sim / 数值平衡建议 | `.codebuddy/agents/balancer.md` / `.codex/agents/balancer.md` / `.opencode/agents/balancer.md` |
-| `game-designer` | 评估玩法 / 系统 / 机制设计的优缺点、参考对象、风险和落地路径 | `.codebuddy/agents/game-designer.md` / `.codex/agents/game-designer.md` / `.opencode/agents/game-designer.md` |
-| `numeric-designer` | 设计生命、伤害、成长曲线、掉落、局外成长成本、难度波次等数值模型 | `.codebuddy/agents/numeric-designer.md` / `.codex/agents/numeric-designer.md` / `.opencode/agents/numeric-designer.md` |
-| `ip-designer` | 设计世界观、主题、角色、阵营、怪物生态和长期 IP 内容框架 | `.codebuddy/agents/ip-designer.md` / `.codex/agents/ip-designer.md` / `.opencode/agents/ip-designer.md` |
-| `copywriter-packager` | 包装 UI / Gear Mod / 道具 / 商店页 / 宣传语文案，输出中英文草案与 locale 建议 | `.codebuddy/agents/copywriter-packager.md` / `.codex/agents/copywriter-packager.md` / `.opencode/agents/copywriter-packager.md` |
-| `ui-art-designer` | 设计 HUD、菜单、升级选择、局外成长界面、图标、信息层级和 UI 美术 brief | `.codebuddy/agents/ui-art-designer.md` / `.codex/agents/ui-art-designer.md` / `.opencode/agents/ui-art-designer.md` |
-| `game-art-designer` | 设计角色、敌人、场景、子弹、特效、图标、调色板和资产 brief | `.codebuddy/agents/game-art-designer.md` / `.codex/agents/game-art-designer.md` / `.opencode/agents/game-art-designer.md` |
-| `marketing-strategist` | 设计定位、卖点、Steam 页面、预告片、截图、Demo、节日投放和传播优势 | `.codebuddy/agents/marketing-strategist.md` / `.codex/agents/marketing-strategist.md` / `.opencode/agents/marketing-strategist.md` |
-
-> Claude Code 的同名 subagent 定义见 `.claude/agents/<name>.md`（与上表 `.codebuddy/agents/` 同源，ADR #87）。
-
-支持 subagent 的平台用原生 agent/task 调度；不支持时，把对应 `.md` 当 prompt 模板读，不要跳过角色流程。
-
-## ⚡ 项目级斜杠命令（Slash Commands）
-
-| 命令 | 用途 | 定义位置 |
-|------|------|---------|
-| `/sync-contracts` | 跑词表→代码常量同步流水线 | `.codebuddy/commands/sync-contracts.md` / `.codex/commands/sync-contracts.md` / `.opencode/commands/sync-contracts.md` |
-| `/new-gear-mod <概念>` | 交互式加官方或本地 Gear Mod | `.codebuddy/commands/new-gear-mod.md` / `.codex/commands/new-gear-mod.md` / `.opencode/commands/new-gear-mod.md` |
-| `/run-replay-regression` | 跑黄金回放回归 | `.codebuddy/commands/run-replay-regression.md` / `.codex/commands/run-replay-regression.md` / `.opencode/commands/run-replay-regression.md` |
-| `/health-check` | 项目健康度报告 | `.codebuddy/commands/health-check.md` / `.codex/commands/health-check.md` / `.opencode/commands/health-check.md` |
-| `/update-memory` | 显式兜底触发记忆更新 | `.codebuddy/commands/update-memory.md` / `.codex/commands/update-memory.md` / `.opencode/commands/update-memory.md` |
-
-OpenCode 命令由 `.opencode/opencode.json` 的 `command` 字段注册；Claude Code 的同名命令见 `.claude/commands/<name>.md`（ADR #87）；不支持 slash command 的平台按对应 `.md` 步骤手动执行即可。
-
-## 🧠 项目级 Skills（三平台同步）
-
-项目级 skills 必须在 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md` 与 `.claude/skills/<name>/SKILL.md` 四处同步；OpenCode 由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，Codex / CodeBuddy / Claude 读取各自目录下同名 skill 作为项目级 prompt 模板。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`playtest-review`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。
-
-外部 AI 库（GodotPrompter、headless-godot-skill-kit、Claude-Code-Game-Studios）中对本项目有用的 Godot、headless 验证与试玩复盘经验已吸收到上述项目级 skills；不再保留 `.agents/skills` 适配层或 `.opencode/vendor/ai-resources/` submodule。外部建议若与本项目 GDD / ADR / 规则冲突，以本项目为准。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
-
----
-
-## 📝 改完之后
-
-按编码规则末尾的「自检清单」逐条核对；按 `docs/测试策略.md` §7 表履行测试义务；改了重要内容就更新 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与当日会话日志（按项目记忆第 9 节维护）。
-
-不确定写什么？参照本目录最近的 ADR 风格（`docs/决策记录.md`）：**一句话决策 + 一句话理由**。
-
----
-
-> 本文件由项目维护者人为定义；AI agent 不得未经允许修改。
-> 若在新平台/新 IDE 中此文件未被自动加载，请用户在对话开始时显式提示："先读 `AGENTS.md`"。
+- `draft/` / `DRAFT/` 未经当前任务明确授权不得读取、搜索、修改或提交。
+- 人工检查、L5、真实设备及视觉 / 听觉 / 手感验收只由人工执行。
+- 默认中文沟通；需求或授权边界不清时先澄清。
+- 用户最后指令高于 TODO、当前状态和历史摘要。
+- 代码、验证、文档和 Git 具体规则统一见 `docs/AI协作/项目规则.md`。

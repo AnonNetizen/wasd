@@ -3,8 +3,7 @@
   "instructions": [
     "AGENTS.md",
     "OPENCODE.md",
-    ".opencode/rules/game-coding-rules.md",
-    ".codebuddy/rules/game-coding-rules.md"
+    ".opencode/rules/game-coding-rules.md"
   ],
   "skills": {
     "paths": [".opencode/skills"]
@@ -23,12 +22,8 @@
       "template": "按 `.opencode/commands/run-replay-regression.md` 的步骤执行，并输出回归报告摘要。"
     },
     "health-check": {
-      "description": "跑项目健康度与 AI 知识库健康检查。",
-      "template": "按 `.opencode/commands/health-check.md` 的步骤执行，运行 Stage 1 contract/data/schema/lint/docs health 检查，并列出健康度风险与 semantic advisory 处理结果。"
-    },
-    "update-memory": {
-      "description": "显式触发 AI 项目记忆更新。",
-      "template": "按 `.opencode/commands/update-memory.md` 的步骤检查并更新项目记忆、current_state.json 与会话日志。"
+      "description": "跑项目静态健康检查。",
+      "template": "按 `.opencode/commands/health-check.md` 的步骤执行，按当前范围运行相关静态门禁，并列出健康度风险与 semantic advisory 处理结果。"
     }
   }
 }

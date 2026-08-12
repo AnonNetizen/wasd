@@ -1,5 +1,5 @@
 # Doc: docs/代码/formal_client_boot.md
-# Authority: docs/正式项目工作规划.md F1, docs/游戏设计文档.md §9
+# Authority: docs/代码/formal_client_boot.md, docs/游戏设计文档.md §9
 class_name FormalClientBoot
 extends Node
 

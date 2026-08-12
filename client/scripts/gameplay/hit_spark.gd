@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F9-ContentDemoPolish.md
+# Authority: docs/代码/gameplay_runtime.md
 class_name HitSpark
 extends Node2D
 

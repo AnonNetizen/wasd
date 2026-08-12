@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md
+# Authority: docs/代码/gameplay_runtime.md
 class_name TitleMenu
 extends CanvasLayer
 

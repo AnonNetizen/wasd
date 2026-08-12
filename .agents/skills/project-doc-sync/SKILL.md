@@ -1,40 +1,31 @@
 ---
 name: project-doc-sync
-description: Synchronize long-lived docs, ADRs, AI memory, and knowledge indexes. Use when changing rules, AI tooling, data schema, design decisions, or documentation structure.
+description: Keep project documentation minimal, authoritative, and free of duplicate maintenance surfaces.
 license: MIT
 compatibility: agent-skills
-metadata:
-  source: project-adapted from ADR/documentation skill patterns and this repo's doc maintenance guide
 ---
 
 # Project Doc Sync
 
-Use this skill for any durable project knowledge change: rules, ADRs, AI tooling, data schema, design, tests, CI, or docs structure.
+Use for rules, documentation structure, public module contracts, design, schema, test policy, ADRs, or current project state.
 
 ## Required Reads
 
+- `docs/AI协作/项目规则.md`
 - `docs/AI协作/文档维护指南.md`
-- The target document's AI 修改说明
-- `docs/AI导航.md`
-- `docs/AI记忆/current_state.json`
+- The direct authority document for the requested change
 
 ## Workflow
 
-1. Classify the change type using `docs/AI协作/文档维护指南.md` §3.
-2. Update the authority document first, then indexes and references.
-3. Add an ADR when a new durable rule, tool, architecture decision, or workflow policy is established.
-4. Update `docs/AI记忆/项目记忆.md`, `docs/AI记忆/current_state.json`, and the current session log for important changes.
-5. Update `docs/AI知识库索引.md` and `docs/_kb_index.json` when long-lived docs or task routes change.
-6. Run `py -3 tools/docs_health_check.py` and JSON validation for changed JSON.
+1. Classify the change with the minimum-change matrix in the maintenance guide.
+2. For private implementation, tests, or behavior-preserving refactoring, do not update documentation.
+3. Otherwise update the single direct authority; use a module document only for a public contract.
+4. Add an ADR only for major, long-lived, cross-system, protocol, red-line, or costly hard-to-reverse decisions.
+5. Do not create project memory, session logs, verification reports, or knowledge-index entries; Git / PR / CI hold history.
+6. Run `python tools/docs_health_check.py` for document paths, links, ADR, current-state, adapter, or `# Doc:` changes.
 
 ## Keep It Lean
 
-- Prefer one clear sentence for ADR decision and one for reason.
-- Do not duplicate full history in `项目记忆.md`; put details in the session log.
-- Keep new docs human-maintainable and path-stable.
-
-## Red Lines
-
-- Do not modify AI entry/rule docs without checking platform counterparts.
-- Do not add a long-lived doc without AI 修改说明.
-- Do not leave `current_state.json.latest_adr` behind `docs/决策记录.md`.
+- Do not duplicate task routes, validation matrices, or status across navigation, TODO, current state, and module docs.
+- Module docs describe public contracts, not private file inventories or individual test cases.
+- Current state stays under 8 KiB and contains only present-tense navigation.

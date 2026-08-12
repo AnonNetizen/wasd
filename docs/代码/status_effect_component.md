@@ -1,7 +1,6 @@
 # StatusEffectComponent 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是状态效果运行时首片的代码契约权威；改 `StatusEffect` 字段、叠加规则、ability tag 授予 / 移除、tick / 过期、run 快照或技能状态注入时，必须同步 SkillSystem、Gameplay Runtime、DataLoader、GDD、词表、测试策略和 AI 导航。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责
 

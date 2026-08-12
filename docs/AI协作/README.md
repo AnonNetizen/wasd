@@ -1,132 +1,43 @@
-# AI 协作（工程化目录）
+# AI 协作目录
 
-> 本目录把"AI 怎么协作"沉淀为可复用工程，配合 `游戏设计文档.md` 9.11 节落地。
-> 与 `docs/AI记忆/` 的区别：
-> - `AI记忆/` 是**项目状态的长期记忆**（项目快照 / ADR / 待决策 / 近期脉络）。
-> - `AI协作/` 是**协作方式的工程模板**（任务模板 / 上下文预算 / 角色分工 / 引擎接入 / 实时验证）。
->
-> 协作默认规则以 `AGENTS.md` 和当前平台规则入口为准：默认中文、事实审查、需求前置评估、需求不明先问、上下文恢复对齐最后明确指令、人工检查只交给人工、AI Git 提交策略与 `draft/` 禁区都必须遵守。
->
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 AI 协作目录索引；新增模板、agent、command、skill、工具适配或协作规则时，必须同步 `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`docs/AI导航.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`。
+> 权威范围：本页只说明协作资产的位置和用途。共同规则正文在 `项目规则.md`；平台入口不复制规则。
 
-## 文件结构
+## 核心入口
 
-```
-AGENTS.md                  # 所有 AI agent 的通用开工入口
-CLAUDE.md                  # Claude Code 入口适配
-CODEX.md                   # OpenAI Codex CLI 入口适配
-OPENCODE.md                # OpenCode 入口适配
+| 文件 | 用途 |
+|---|---|
+| `项目规则.md` | 跨平台唯一共同规则正文 |
+| `快速开工.md` | 低 token 启动顺序 |
+| `文档维护指南.md` | 0～1 文档更新契约 |
+| `文档健康检查.md` | 健康检查范围与失败说明 |
+| `上下文预算.md` | 按任务控制读取范围 |
+| `工具适配指南.md` | 平台差异与能力发现 |
+| `角色分工.md` | 专业角色的职责边界 |
+| `代码审核流程.md` | 工具先行的事实型 review |
+| `实时验证回路.md` | hook、CI 与本地反馈 |
 
-docs/AI协作/
-├── README.md             # 本文件
-├── 快速开工.md           # 日常接手的低 token 热路径
-├── 文档维护指南.md       # 长期文档修改的联动规则
-├── 文档健康检查.md       # docs 知识库健康检查命令与失败解释
-├── 任务模板/             # 高频任务的标准 prompt + 文件操作清单
-│   ├── 加GearMod.md
-│   ├── 加敌人.md
-│   ├── 加效果原语.md
-│   ├── 加设置项.md
-│   ├── 加埋点.md
-│   ├── 调数值.md
-│   └── 加本地化文本.md
-├── 工作包/               # 正式项目阶段任务的低 token 工作包
-│   ├── F3-DataLoader.md
-│   ├── F4-MinPlayableLoop.md
-│   ├── F6-MetaProgression.md
-│   ├── F7-SettingsLocalizationUI.md
-│   ├── F8-ReplayTestingBalance.md
-│   ├── F9-ContentDemoPolish.md
-│   ├── F10-WarzoneDirector.md
-│   ├── F11-GearModLoadout.md
-│   ├── F12-ShortLootRuns.md
-│   ├── F13-ModularGridWorld.md
-│   └── F13-HandcraftedRooms.md  # superseded 历史
-├── 上下文预算.md         # 不同任务该读哪些文件、读多少；含 GUIDE/InputService 与 Phantom Camera 专用路由
-├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
-├── 代码审核流程.md       # 工具先行、LLM 聚焦 diff 的 review SOP
-├── 引擎集成.md           # Godot/Unity MCP 等接入指南
-├── 实时验证回路.md       # pre-commit hook + watch 脚本设计
-├── AI技能资源评估.md     # 外部 skills / agents / MCP / rules 资源筛选与安装清单
-├── ECC工具吸收清单.md    # ECC 全工具面逐项筛选、吸收和拒绝结论
-└── 工具适配指南.md       # 各 AI 工具的接入配法
+## 可复用资产
 
-tools/
-├── check_staged_whitespace.py # pre-commit staged whitespace 检查，排除 draft / DRAFT
-├── sync_contracts.py      # 词表 → _contracts.json + GDScript 常量
-├── validate_data.py       # 正式数据 / locale 校验
-├── test_data_loader_schema.py # DataLoader schema 回归坏样例测试
-├── lint_gdscript_rules.py # 第一档 GDScript 项目规则 lint
-├── lint_project_rules.py  # 第二档项目规则 lint：数据字段文档、locale 双语、release debug 资源边界
-├── test_project_rules_lint.py # 项目规则 lint 坏样例回归测试
-├── lint_semantic_rules.py # 第三档非阻塞语义 advisory lint：特殊 id 分支、autoload 绕过、类型 / Doc / contract 常量风险
-├── test_semantic_rules_lint.py # 语义 advisory lint 坏样例回归测试
-├── docs_health_check.py   # 文档知识库健康检查
-├── godot_bridge.py        # 正式 client 场景树导出 / headless boot / runtime / Settings / Meta / Save / F8 runner / input playback / input smoke / golden capture 轻量 Bridge
-├── steamworks_lab_toolchain.py # Steamworks Lab setup / verify / export / 隔离 smoke 权威 runner
-└── test_steamworks_lab_toolchain.py # runner、成功协议、超时、隔离、动态端口与 App ID 保护回归
+- `任务模板/`：Gear Mod、敌人、效果原语、设置、埋点、数值和本地化等高频数据任务。
+- 各平台 `agents/`：数据作者、契约校验、平衡、设计、数值、IP、文案、美术和宣发角色。
+- 各平台 `commands/`：契约同步、新 Gear Mod、回放回归和健康检查。
+- 各平台 `skills/`：Godot 实现 / 验证 / 诊断、文档治理、安全提交、事实 review 和外部资源评估。
 
-.codebuddy/agents/        # 项目级 subagents（codebuddy 平台；.codex/.opencode 下同名同步）
-├── balancer.md              # 平衡测试 / 回放回归 / 数值建议
-├── contract-validator.md    # 词表↔常量同步 / 裸字符串扫描
-├── data-author.md           # 数据驱动内容创作（不动 .gd）
-├── game-designer.md         # 玩法 / 系统设计评审，优缺点与参考对象
-├── numeric-designer.md      # 数值模型、曲线、成本、难度节奏
-├── ip-designer.md           # 世界观、主题、阵营、怪物生态、长期 IP
-├── copywriter-packager.md   # UI / 道具 / 宣传语文案包装，中英文草案
-├── ui-art-designer.md       # HUD、菜单、界面层级、UI 美术 brief
-├── game-art-designer.md     # 角色、敌人、场景、特效、资产 brief
-└── marketing-strategist.md  # 宣发定位、卖点、Steam 页面、预告片策略
+平台目录为 `.codebuddy/`、`.codex/`、`.opencode/` 和 `.claude/`。支持原生能力的平台直接调用；不支持时读取同名文件作为流程模板。
 
-.codebuddy/commands/      # 项目级 slash commands（codebuddy 平台）
-├── sync-contracts.md     # /sync-contracts
-├── new-gear-mod.md       # /new-gear-mod <概念>
-├── run-replay-regression.md
-├── health-check.md
-└── update-memory.md
+## 使用顺序
 
-.codex/                   # Codex CLI 平台配置；核心语义一致，可按 Codex 优化
-├── agents/
-├── commands/
-└── rules/
+1. 按 `AGENTS.md` 完成快速开工。
+2. 从 `docs/AI导航.md` 找到任务的直接权威。
+3. 有专属模板、命令或 skill 时再加载；不要把整个目录塞进上下文。
+4. 复杂专业任务按平台能力使用对应 agent；简单只读或直接修改无需强拆。
+5. 按变更风险选择验证；人工验收始终交给人工。
+6. 文档只按 `文档维护指南.md` 更新直接权威，Git / PR / CI 保存过程历史。
 
-.opencode/                # OpenCode 平台配置；核心语义一致，可按 OpenCode 优化
-├── opencode.json          # 指令加载 + command 注册
-├── agents/
-├── commands/
-├── skills/                # 项目级 skills（按需加载的可复用流程）
-└── rules/
-```
+## 维护原则
 
-关联根目录文档：`docs/AI知识库索引.md` 与 `docs/_kb_index.json` 管理知识库元数据，`docs/术语表.md` 管理术语别名，`docs/AI记忆/current_state.json` 管理机器可读当前状态，`docs/AI记忆/项目记忆.md` 作为长期冷存储，`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期详细模块文档。
-
-Windows / PowerShell 环境的命令稳定执行入口是当前平台编码规则第 29 节；固定字符串搜索、正则、合法退出码、中文路径与外部可执行文件的可复制模板统一放在 `docs/AI协作/工具适配指南.md` 的「Windows PowerShell 稳定执行」节，其他文档不重复维护完整正文。
-
-## 触发约定
-
-AI agent 接到任务时优先按以下顺序：
-
-1. **先完成快速开工**：读 `快速开工.md`、`current_state.json`、当前平台规则入口和 `AI导航.md` 相关段落。
-2. **是不是有专属 slash command**？是 → 直接用（如 `/new-gear-mod`）。
-3. **是不是该转给 subagent**？项目默认授权支持 subagent 的平台主动调度复杂、专业或可并行任务；只读小任务或直接实现更高效时不必拆分；平台不支持或外层工具策略限制时，把对应 `.md` 当 prompt 模板读。数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
-4. **是不是正式项目阶段任务**？优先读 `工作包/`；当前 F13 默认地图与 AI 编辑期 JSON 模块流程用 `工作包/F13-ModularGridWorld.md`，`F13-HandcraftedRooms.md` 只作 superseded 历史；F12 开放战区是非默认回归路径。其余 F11–F3 仍按对应阶段工作包路由。
-5. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
-6. **不是高频任务**？读 `上下文预算.md`，先按 S/M/L/XL 判断复杂度，再按任务类型决定读取范围；改输入先读 `docs/代码/input_service.md`，只有维护 GUIDE 内部才追加 `docs/代码/guide.md` 和目标源码；相机也走 Phantom Camera 专用路由，不默认扫描整个 addon。
-7. **任务复杂或专业**？L / XL 任务参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选与协作面审计 / MCP 评估；其中 `godot-test-diagnostics` 固化了 Steamworks Lab 隔离 runner 与精确成功协议。外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
-9. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API；自动门禁优先走 Godot Bridge，ADR #198 后只读命令用私有项目快照可并行，源码写入命令由 Bridge 自动独占。
-10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/lint_project_rules.py` 与非阻塞 `python tools/lint_semantic_rules.py`；改输入 / GUIDE / 重绑定先跑 `input-smoke`，再按影响追加 `settings-smoke`、`replay-input-smoke`、runtime 与四条黄金回放；改 F4 运行时追加 `runtime-smoke`；改 Settings 持久化 / 回退 / 设置面板追加 `settings-smoke`，改标题 / 暂停设置入口再追加 `runtime-smoke`；改 F11 Gear Mod 实现追加对应 `gear-mod-smoke` 或等价 L1 / runtime smoke；改 SaveManager / run 存档 / 续局 schema 追加 `save-smoke`；改 F8 测试 / 回放入口追加 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-runner --rerun-runtime-summary`、`replay-input-smoke`、`capture-golden-replay` 和四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`；`startup-probe` / `perf-probe` 只有用户当次明确要求性能测试时才运行；改 DataLoader、项目规则 lint 或语义 lint schema 时追加对应 `test_*.py` 回归。改 Steamworks Lab 时先跑 `py -3 tools\steamworks_lab_toolchain.py smoke --suite <目标>`，完成前跑 `--suite all`，禁止手写 Godot / ENet 编排或碰真实 `user://` 文件。
-11. **出现人工检查 / 人工验收项**？不要执行，也不要用 GUI、截图、录屏或模拟输入替代；继续完成非人工自动化项，整理人工 checklist，并把状态保留为“待人工验收”。
-12. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规；大型代码改动提交前按 `代码审核流程.md` 追加一次工具先行的事实型 code review，小改动不触发正式 review。
-
-## 维护
-
-- 新高频任务出现 → 在 `任务模板/` 加一份。
-- 新正式项目阶段反复消耗上下文 → 在 `工作包/` 加一份短工作包。
-- 新长期文档 / 术语 / 知识库路径变化 → 同步 `docs/AI知识库索引.md`、`docs/_kb_index.json`、`docs/术语表.md`，并运行 `python tools/docs_health_check.py`。
-- 引擎工具链变化 → 更新 `引擎集成.md`。
-- AI skills / MCP / plugin / rules / agent-harness 资源变化 → 更新 `AI技能资源评估.md`、必要时更新来源专属清单（如 `ECC工具吸收清单.md`）、`.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`CODEX.md`、`OPENCODE.md` 与工具适配指南；新增或吸收资源后用 `ai-resource-curator` 的 AI surface audit 检查重复、上下文成本、验证门禁和安全边界。
-- 角色分工经验积累 → 微调 `角色分工.md`。
-- 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步详细的 `docs/代码/` 模块文档；数值字段同步 `client/data/README.md`，文案 / 语言 / 占位符同步 `client/locale/README.md`。
-- 平台入口变化 → 同步 `AGENTS.md` / `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。
-- 重大、长期、跨边界或高代价难回滚的决策 → 同步进 `决策记录.md` + `AI记忆/项目记忆.md`；普通功能、局部行为 / UI、bugfix、数值、内容、本地化、测试和实现细节不新增 ADR。
+- 共同规则只改 `项目规则.md`；平台文件仅在加载方式变化时修改。
+- 新高频任务确有重复价值时才加模板；已完成阶段不建立工作包归档。
+- 模块公共契约进入 `docs/代码/`，私有文件和单个测试用例不登记。
+- 项目当前状态只保留在 `docs/AI记忆/current_state.json`，大小不超过 8 KiB。
+- 改协作结构、文档路径或健康检查时运行 `python tools/test_docs_health_check.py` 和 `python tools/docs_health_check.py`。

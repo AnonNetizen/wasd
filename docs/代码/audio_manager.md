@@ -1,7 +1,6 @@
 # AudioManager 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 `AudioManager` 的代码契约权威；改公共 API、signal、音频 id 校验、Bus 路由、播放生命周期或测试义务时必须同步本文档、`docs/AI导航.md`、`client/README.md` 与 `docs/测试策略.md`。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责
 

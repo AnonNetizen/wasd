@@ -1,7 +1,6 @@
 # 数值配置手册
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/游戏设计文档.md`、`docs/词表与契约.md` 与 `docs/代码文档规范.md`。
-> 本文档是完整项目 `client/data/` 的人工调参数值手册；新增 / 修改数据文件、字段、单位、取值范围或 schema 时，必须同步 GDD、AI导航、词表、对应 `docs/代码/` 模块文档与测试义务。
+> 权威范围：正式客户端数据 schema、字段、默认值与引用约束。
 
 ---
 
@@ -1587,7 +1586,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ## `gear_mods.json`
 
-> Gear Mod 系统见 `docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`。这里的 Gear Mod 是本局构筑系统，不是 `ModLoader` 读取的本地数据包 mod。
+> Gear Mod 系统见 `docs/代码/gear_mod_system.md`。这里的 Gear Mod 是本局构筑系统，不是 `ModLoader` 读取的本地数据包 mod。
 
 ```json
 {

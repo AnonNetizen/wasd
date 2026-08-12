@@ -1,7 +1,6 @@
 # Enemy AI 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/代码文档规范.md`、`docs/游戏设计文档.md` 与 `client/data/README.md`。
-> 本文档是敌人 AI 的代码契约；改敌人感知、效用评分、动作状态机、敌方友伤护栏、AI profile schema 或 run 快照字段时，必须同步本文档、`docs/代码/gameplay_runtime.md`、`client/data/README.md`、`docs/AI导航.md`、GDD 和测试策略。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责
 
@@ -322,7 +321,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 
 - `docs/游戏设计文档.md` §5.3
 - `docs/决策记录.md` ADR #144 / #145 / #170 / #171 / #172
-- `docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md`
+- `docs/游戏设计文档.md`
 - `docs/词表与契约.md`
 - `docs/代码/gameplay_runtime.md`
 - `docs/测试策略.md`

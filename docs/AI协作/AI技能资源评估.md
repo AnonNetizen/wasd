@@ -1,6 +1,6 @@
 # AI 技能资源评估
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档记录外部 AI skills / agents / MCP / rules 资源的筛选结论和项目安装清单；改已安装 skill、引入新资源平台或调整筛选标准时，必须同步 `.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`.claude/skills/`、`.opencode/opencode.json`、`OPENCODE.md`、`CLAUDE.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/current_state.json`。
+> 权威范围：本文档只维护标题所述主题的长期事实，不登记实现过程或完成历史。
 
 ## 1. 筛选原则
 

@@ -1,7 +1,6 @@
 # WorldEventSystem 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/游戏设计文档.md`、`docs/决策记录.md` 与 `client/data/README.md`。
-> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v20 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略；只有达到重大决策门槛时才同步 ADR。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责
 

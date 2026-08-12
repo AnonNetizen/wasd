@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §4
+# Authority: docs/代码/gameplay_runtime.md, docs/游戏设计文档.md §4
 class_name Bullet
 extends Node2D
 

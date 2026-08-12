@@ -84,6 +84,6 @@ tools: Read, Grep, Edit, Write, Glob, Bash
 ## 不要做
 
 - 不修任何 `.gd` 文件
-- 不改 ADR / 规则 / 项目记忆
+- 不改 ADR / 规则 / 当前状态
 - 不跑回放回归（那是 `balancer` 的活，主对话会调）
 - 不擅自创造 id（先登记再用）

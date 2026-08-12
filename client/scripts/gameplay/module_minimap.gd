@@ -1,5 +1,5 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F13-ModularGridWorld.md
+# Authority: docs/代码/module_world_manager.md
 class_name ModuleMinimap
 extends Control
 

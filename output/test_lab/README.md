@@ -1,6 +1,6 @@
 # WASD Test Lab
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 `output/test_lab` 实验入口与本地素材约定的权威说明；新增或重做实验时同步对应 `scenes/`、`scripts/`、`tools/` 与预览截图。
+> 权威范围：`output/test_lab` 的实验入口、场景、脚本与本地素材约定。
 
 这是一个 Godot 小实验沙盒，用来快速测试 UI、素材、交互和截图流程。它不是正式 `client/` 项目。
 

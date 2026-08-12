@@ -1,7 +1,6 @@
 # Credits
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
-> 本文档是代码库级致谢与第三方来源清单；新增 / 移除外部资源、外部库、工具或工作人员时，必须同步 `client/data/credits.json`、`client/locale/strings.csv`、`client/data/README.md`、`docs/AI导航.md` 与必要的发行许可说明。
+> 权威范围：仓库级第三方来源、许可证与致谢记录。
 
 This project keeps two credits records in sync:
 

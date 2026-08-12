@@ -1,5 +1,5 @@
 # Doc: docs/代码/warzone_director.md
-# Authority: docs/AI协作/工作包/F10-WarzoneDirector.md, docs/游戏设计文档.md §7.3
+# Authority: docs/代码/warzone_director.md, docs/游戏设计文档.md §7.3
 class_name WarzoneDirector
 extends RefCounted
 

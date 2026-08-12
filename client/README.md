@@ -1,7 +1,6 @@
 # 正式客户端（client）
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
-> 本文档是正式 Godot 客户端入口与运行说明；改项目启动方式、目录结构或验证命令时，必须同步 `README.md`、`docs/AI导航.md`、`docs/正式项目工作规划.md`、`docs/AI记忆/current_state.json`。
+> 权威范围：正式 Godot 客户端入口、运行方式、目录结构和客户端验证命令。
 
 `client/` 是完整项目的 Godot 4.7.1 stable 项目根，即 Godot 内的 `res://`。
 

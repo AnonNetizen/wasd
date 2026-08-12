@@ -1,7 +1,6 @@
 # EnemyRewardResolver 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/代码文档规范.md`、GDD §7.1 与 ADR #175。
-> 本文档是敌人生成时金币公式、随机消费边界和奖励快照的代码契约；改公式、数据字段、取整、上限、生成时机或恢复语义时必须同步数据手册、DifficultyProgression、Gameplay Runtime、EnemyAI、RNG、SaveManager 与测试策略。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责与边界
 

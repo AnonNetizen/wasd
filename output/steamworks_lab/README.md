@@ -1,6 +1,6 @@
 # Steamworks Slime Lab —— 雷电式竖版卷轴射击
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是独立 Steamworks Slime Lab 的运行、Steam App ID、联机测试与发布边界权威；改 App ID、GodotSteam adapter、Lobby 协议、导出方式或自动 smoke 时，必须同步本项目配置 / 测试、`docs/AI导航.md`、`docs/测试策略.md`、ADR 与 AI 记忆。
+> 权威范围：独立 Steamworks Slime Lab 的运行、App ID、联机测试、导出与 smoke 边界。
 
 独立 Godot 4.7.1 stable Steam 应用项目（固定 540×960 设计画布，窗口可选 540×960 / 720×1280 / 1080×1920），使用专属 Steam App ID **`4955670`**，验证 Steamworks / GodotSteam 联机链路并承载一个可联机的雷电式竖版卷轴射击玩法。它是仓库内长期维护的独立应用，仍不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
 

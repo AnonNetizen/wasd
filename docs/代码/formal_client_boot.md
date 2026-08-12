@@ -1,7 +1,6 @@
 # FormalClientBoot 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是正式客户端 F1 启动骨架的代码契约权威；改启动场景、项目入口、节点结构或验证方式时必须同步本文档、`client/README.md`、`docs/AI导航.md` 与 `docs/AI记忆/current_state.json`。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责
 
@@ -19,7 +18,7 @@
 |------------|----------|
 | 改正式项目启动场景 | `client/project.godot` 与 `client/scenes/boot/main.tscn` |
 | 改启动脚本行为 | `client/scripts/boot/formal_client_boot.gd` |
-| 推进下一阶段 autoload | `docs/正式项目工作规划.md` F2 |
+| 推进下一阶段 autoload | `docs/TODO.md` 与目标模块文档 |
 | 调试 F4 启动 | `docs/代码/gameplay_runtime.md` |
 | 调试开始 / 继续 / 重开加载 | `docs/代码/gameplay_loading.md` |
 
@@ -213,7 +212,7 @@ FormalClientBoot
 
 ## 相关文档
 
-- `docs/正式项目工作规划.md`
+- `docs/TODO.md`
 - `docs/代码文档规范.md`
 - `docs/测试策略.md`
 - `docs/AI导航.md`

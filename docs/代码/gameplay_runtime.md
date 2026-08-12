@@ -1,7 +1,6 @@
 # Gameplay Runtime 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是正式客户端 gameplay runtime 的聚合模块契约；拆分 Player、WeaponSystem、Enemy、Spawner、HUD 等长期模块或改变公共行为时必须同步本文档、AI 导航、代码索引和相关阶段工作包。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 > 玩家相机的项目适配行为归本文档；Phantom Camera vendored 内部架构、公共 API、编辑器工具和升级补丁归 `docs/代码/phantom_camera.md`。
 > gameplay 的输入消费行为归本文档；GUIDE 插件内部归 `docs/代码/guide.md`，action / context / 重绑定 / 回放输入边界归 `docs/代码/input_service.md`。
 
@@ -527,9 +526,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 相关文档
 
-- `docs/AI协作/工作包/F4-MinPlayableLoop.md`
-- `docs/AI协作/工作包/F13-ModularGridWorld.md`
-- `docs/正式项目工作规划.md` F4
+- `docs/游戏设计文档.md`
+- `docs/代码/module_world_manager.md`
+- `docs/TODO.md`
 - `docs/代码/phantom_camera.md`
 - `docs/代码/gameplay_loading.md`
 - `docs/代码/debug_tools.md`

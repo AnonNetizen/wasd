@@ -1,7 +1,6 @@
 # DebugTools 模块文档
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是调试控制台与 GM 指令的代码契约；改 `DebugConsole`、`GMCommandRegistry`、debug action、GM 命令或 release 调试资源边界时必须同步本文档、`docs/测试策略.md`、`docs/AI导航.md` 与 `docs/AI记忆/current_state.json`。
+> 权威范围：本页只记录该模块的公共契约、可观察行为、schema、所有权与依赖边界；私有实现和逐测试记录不进入本文档。
 
 ## 职责
 
