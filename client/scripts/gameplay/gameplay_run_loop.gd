@@ -673,6 +673,20 @@ func create_run_snapshot() -> Dictionary:
 	return _run_snapshot_coordinator.capture(state)
 
 
+func save_run_snapshot() -> bool:
+	var payload: Dictionary = create_run_snapshot()
+	if payload.is_empty():
+		push_error("[GameplayRunLoop] cannot save an empty run snapshot")
+		return false
+	if not SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, payload):
+		push_error(
+			"[GameplayRunLoop] failed to save run snapshot: %s"
+			% SaveManager.last_error()
+		)
+		return false
+	return true
+
+
 func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	GameClock.reset()
 	_content_progress_delta = _empty_content_progress_delta()
@@ -7300,9 +7314,7 @@ func _on_pause_resume_requested() -> void:
 
 
 func _on_pause_save_and_quit_requested() -> void:
-	var payload: Dictionary = create_run_snapshot()
-	if not SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, payload):
-		push_error("[GameplayRunLoop] failed to save run snapshot: %s" % SaveManager.last_error())
+	if not save_run_snapshot():
 		_on_pause_resume_requested()
 		return
 	quit_to_title_requested.emit()

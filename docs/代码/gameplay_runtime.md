@@ -280,6 +280,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `GameplayRunLoop.request_reward_choice(pool_id, trigger_id, candidate_count)` | 奖励池、触发 id、2–5 | `Dictionary` | 只允许 `PLAYING` 且无未完成请求；失败不消耗 RNG、不改状态、不显示 UI |
 | `GearModPickup.configure()` / `mod_id()` / `can_player_interact()` / `snapshot()` / `restore_snapshot()` | Mod id、统一配置或快照 | `bool` / `String` / `Dictionary` | 配置必须在池取得后完成；快照严格只含 `mod_id` 与有限数值位置，未知 / 锁定内容由 RunLoop 在恢复前拒绝 |
 | `GameplayRunLoop.create_run_snapshot()` | 无 | `Dictionary` | 生成 Run v20 gameplay payload；在原确定性状态上保存传送选择 / 暂停叠加的 `ui_restore` |
+| `GameplayRunLoop.save_run_snapshot()` | 无 | `bool` | 复用 `create_run_snapshot()` 并通过 `SaveManager` 原子写入默认 Run；空快照或写入失败返回 `false`，供暂停菜单与应用关闭统一使用 |
 | `GameplayRunLoop.configure_restore_snapshot(snapshot)` | `Dictionary` | `void` | 在节点入树前由 `FormalClientBoot` 调用；要求 schema v20，按 `RunSnapshotCoordinator` 固定顺序恢复确定性状态，并在激活后以原来源站重建传送面板 / underlying pause |
 | `GameplayRunLoop.apply_replay_teleport_choice(payload)` | 严格 `teleport_choice` payload | `bool` | 要求当前选择面板来源 ID 一致；取消只接受 `{outcome,source_station_id}`，成功只接受额外 `destination_station_id`，并走正式二次校验 / 传送事务；不匹配返回 `false` 供 runner 报 divergence |
 | `GameplayRunLoop.configure_difficulty_profile_id(profile_id)` | profile id | `void` | 只能在入树前调用；空值使用 mode 默认。当前玩家 UI 总是传标准 profile，接口为未来选择保留 |

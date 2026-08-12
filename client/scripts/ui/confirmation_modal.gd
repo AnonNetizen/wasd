@@ -6,7 +6,7 @@ extends CanvasLayer
 signal cancelled()
 signal confirmed()
 
-var pauses_game: bool = false
+@export var pauses_game: bool = false
 
 var _body_label: Label = null
 var _cancel_button: Button = null

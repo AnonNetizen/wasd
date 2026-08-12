@@ -25,6 +25,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/ui_manager.gd` | `UIManager` autoload 脚本 |
+| `client/scenes/ui/confirmation_modal.tscn` / `application_quit_modal.tscn` | 通用双选项确认框；应用关闭变体声明 `pauses_game=true` |
 | `client/project.godot` | autoload 注册 |
 | `client/scenes/ui/settings_panel.tscn` | F7 设置面板，通过标题菜单和暂停菜单压栈 |
 | `client/scenes/ui/codex_panel.tscn` | 标题图鉴，通过 `FormalClientBoot` 压栈并以 `request_close()` / `ui_back` 返回 |
@@ -106,6 +107,8 @@ UI 根节点可用两种方式声明暂停请求：
 
 `SettingsPanel` 本身不声明 `pauses_game`：从标题菜单打开时保持 `MAIN_MENU`，从暂停菜单打开时依靠下层 `PauseMenu.pauses_game=true` 维持 `PAUSED`。关闭时只弹出设置面板，下面的标题或暂停菜单保持可见。
 
+`ApplicationQuitModal` 继承通用 `ConfirmationModal` 并声明 `pauses_game=true`。它只由 `FormalClientBoot` 经 `UIManager.push()` 创建；确认与取消均通过受管移除恢复底层状态。若已有通用确认框在栈顶，启动层先按其取消语义等待完整移除，再压入退出确认，避免两个确认事务重叠。
+
 `CodexPanel` 本身不声明 `pauses_game`，且只允许从标题菜单压栈；关闭按钮与 `ui_back` 都发出同一关闭请求，由 `FormalClientBoot` 使用 `pop_expected()` 弹出。它实现分类与条目焦点恢复，锁定信息隐私由 `codex-smoke` 守门。
 
 `LoadingScreen` 本身也不声明 `pauses_game`：`FormalClientBoot` 在压栈前显式进入 `GameState.LOADING`。其全屏根 `Control` 使用 `mouse_filter=STOP`，且不提供 `request_close()`；玩家不能取消加载。准备成功时启动层 `pop_expected()` 并等待对应 `ui_removed` 后才激活 gameplay；失败 / 回标题硬切使用 `clear(true)`。
@@ -158,6 +161,7 @@ UI 根节点可用两种方式声明暂停请求：
 
 - 当前切片必跑 L0 和 L2 headless boot，确认 autoload 和空栈启动无错。
 - `ui-manager-smoke` 覆盖异步 push/pop、重复 pop、非栈顶 `remove_expected()`、意外 `tree_exited` 自愈、串行 replace 与 immediate clear；`runtime-smoke` 覆盖暂停、设置、保存续局和焦点交互链。
+- `loading-smoke` 覆盖标题退出可重复取消、窗口关闭通知、已有确认框替换、退出确认暂停 / 状态恢复及统一 Run 保存入口；真实点击窗口关闭按钮仍保留为 L5 待人工验收。
 - 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；自动覆盖包括标题 / 暂停设置入口、`ui_back` 只关闭栈顶、键鼠不显示常驻焦点、手柄导航焦点、context 隔离和 UI bridge 不双触发。
 - 修改 `LoadingScreen` 或玩家加载 UI 栈行为时，追加 `python tools/godot_bridge.py --project client loading-smoke`，并手动检查 `zh_CN` / `en` 文案和旋转动画。
 - 修改 `CodexPanel`、标题图鉴入口、锁定条目或焦点 / 返回时，追加 `python tools/godot_bridge.py --project client codex-smoke`、`ui-manager-smoke` 与 headless boot；中英文 16:9 布局和真实手柄导航保留待人工验收。

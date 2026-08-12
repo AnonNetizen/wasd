@@ -4,6 +4,9 @@ class_name FormalClientBoot
 extends Node
 
 
+const APPLICATION_QUIT_MODAL_SCENE := preload(
+	"res://scenes/ui/application_quit_modal.tscn"
+)
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const GEAR_MOD_PICKUP_CAPTURE_SCRIPT_PATH: String = (
@@ -26,12 +29,18 @@ const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const SMOKE_COMMAND_CATALOG_PATH: String = "res://tools/smoke_commands.json"
 const SMOKE_COMMAND_CATALOG_SCHEMA_VERSION: int = 1
 const STARTUP_PROBE_SCRIPT_PATH: String = "res://tools/startup_probe.gd"
+const UI_QUIT_CONFIRM_BODY: String = "ui_quit_confirm_body"
+const UI_QUIT_SAVE_FAILED_BODY: String = "ui_quit_save_failed_body"
 
 enum PlayerLoadMode {
 	NEW_RUN,
 	CONTINUE_RUN,
 }
 
+var _application_quit_body_key: String = UI_QUIT_CONFIRM_BODY
+var _application_quit_deferred_for_loading: bool = false
+var _application_quit_modal: ConfirmationModal = null
+var _application_quit_waiting_for_confirmation: bool = false
 var _run_loop: Node = null
 var _open_warzone_launch: bool = false
 var _module_world_technical_slice_launch: bool = false
@@ -49,6 +58,7 @@ var _active_difficulty_profile_id: String = ""
 
 
 func _ready() -> void:
+	get_tree().auto_accept_quit = false
 	if _is_startup_probe_enabled():
 		print("[StartupProbe] BOOT_BEGIN")
 	_module_world_technical_slice_launch = _is_module_world_technical_slice_launch_enabled()
@@ -157,6 +167,11 @@ func _ready() -> void:
 		_show_title_menu()
 
 	_install_debug_console()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and is_inside_tree():
+		call_deferred("_request_application_quit")
 
 
 func debug_tools_enabled() -> bool:
@@ -409,7 +424,8 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
 	_title_menu.connect("codex_requested", Callable(self, "_on_title_codex_requested"))
 	_title_menu.connect("mods_requested", Callable(self, "_on_title_mods_requested"))
-	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
+	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"))
+	_request_deferred_application_quit_after_loading()
 
 
 func _start_gameplay_run(
@@ -732,6 +748,8 @@ func _on_player_run_prepared() -> void:
 		or not bool(_run_loop.call("activate_prepared_run"))
 	):
 		_abort_player_gameplay_load("ui_loading_failed")
+		return
+	_request_deferred_application_quit_after_loading()
 
 
 func _on_player_run_prepare_failed(reason: String, restoring: bool) -> void:
@@ -852,7 +870,112 @@ func _run_save_unavailable_notice_key(payload: Dictionary) -> String:
 
 
 func _on_title_quit_requested() -> void:
+	_request_application_quit()
+
+
+func _request_application_quit() -> void:
+	if _player_load_in_progress:
+		_application_quit_deferred_for_loading = true
+		return
+	if _application_quit_modal != null and is_instance_valid(_application_quit_modal):
+		return
+	if _application_quit_waiting_for_confirmation:
+		return
+	var top_node: Node = UIManager.top()
+	if top_node is ConfirmationModal:
+		_application_quit_waiting_for_confirmation = true
+		(top_node as ConfirmationModal).request_cancel()
+		_wait_for_confirmation_then_request_application_quit(
+			top_node as ConfirmationModal
+		)
+		return
+	_application_quit_modal = UIManager.push(
+		APPLICATION_QUIT_MODAL_SCENE,
+		{"source": "application_quit"}
+	) as ConfirmationModal
+	if _application_quit_modal == null:
+		return
+	_application_quit_modal.configure(
+		tr("ui_quit_confirm_title"),
+		tr(_application_quit_body_key),
+		tr("ui_save_and_quit"),
+		tr("ui_cancel")
+	)
+	_application_quit_body_key = UI_QUIT_CONFIRM_BODY
+	_application_quit_modal.confirmed.connect(
+		_on_application_quit_confirmed,
+		CONNECT_ONE_SHOT
+	)
+	_application_quit_modal.cancelled.connect(
+		_on_application_quit_cancelled,
+		CONNECT_ONE_SHOT
+	)
+
+
+func _request_deferred_application_quit_after_loading() -> void:
+	if not _application_quit_deferred_for_loading:
+		return
+	_application_quit_deferred_for_loading = false
+	call_deferred("_request_application_quit")
+
+
+func _wait_for_confirmation_then_request_application_quit(
+		modal: ConfirmationModal
+	) -> void:
+	while (
+		modal != null
+		and is_instance_valid(modal)
+		and UIManager.ui_state(modal) != UIManager.UIState.REMOVED
+	):
+		var removed_node: Node = await UIManager.ui_removed
+		if not is_instance_valid(self):
+			return
+		if removed_node == modal:
+			break
+	_application_quit_waiting_for_confirmation = false
+	_request_application_quit()
+
+
+func _active_run_can_save_for_application_quit() -> bool:
+	if _run_loop == null or not is_instance_valid(_run_loop):
+		return false
+	match GameState.current():
+		GameState.PLAYING, GameState.PAUSED, GameState.REWARD_CHOICE:
+			return true
+		_:
+			return false
+
+
+func _on_application_quit_confirmed() -> void:
+	var modal: ConfirmationModal = _application_quit_modal
+	_application_quit_modal = null
+	if modal != null and is_instance_valid(modal):
+		UIManager.remove_expected(modal, true)
+	var should_save_run: bool = _active_run_can_save_for_application_quit()
+	if should_save_run and not _save_active_run_for_application_quit():
+		_application_quit_body_key = UI_QUIT_SAVE_FAILED_BODY
+		_request_application_quit()
+		return
 	get_tree().quit()
+
+
+func _on_application_quit_cancelled() -> void:
+	var modal: ConfirmationModal = _application_quit_modal
+	_application_quit_modal = null
+	_application_quit_body_key = UI_QUIT_CONFIRM_BODY
+	if modal != null and is_instance_valid(modal):
+		UIManager.remove_expected(modal)
+
+
+func _save_active_run_for_application_quit() -> bool:
+	if (
+		_run_loop == null
+		or not is_instance_valid(_run_loop)
+		or not _run_loop.has_method("save_run_snapshot")
+	):
+		push_error("[FormalClientBoot] active run cannot create a quit save")
+		return false
+	return bool(_run_loop.call("save_run_snapshot"))
 
 
 func _on_title_codex_requested() -> void:

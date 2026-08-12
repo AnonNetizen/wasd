@@ -8,7 +8,7 @@
 - `SaveManager` 负责完整项目的游戏内进度存档，统一管理 `meta`、`run` 与 `replay_index` 三类 save kind。
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`。主文件缺失时允许尝试 `.bak`；普通损坏主文件只有成功隔离到 `user://saves/.broken/` 并广播 / 埋点后才能尝试备份，隔离失败必须保留主 / 备文件并立即失败，避免静默绕过仍在原位的坏档。主文件若是需保留的不兼容 Run（版本或 mod environment 不匹配），同样立即失败并保留主 / 备文件，禁止用兼容备份偷偷覆盖该诊断。已实际尝试的备份若普通损坏则隔离，若需保留则原字节保留；最终失败的 `last_error()` 采用已存在且被尝试的备份错误。
-- 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load_envelope()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
+- 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”和应用关闭确认共用 `GameplayRunLoop.save_run_snapshot()` → `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load_envelope()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
 - 当前 `meta` 为 v4、`run` 为 v20：Meta 保存上次确认的主／副智能碎片和稀疏横向内容进度，不含本地或局内 Gear Mod 实例；Run 保存精确 `mod_environment`、GameplayEffectRuntime 状态、完整 7×7 assignment、Gear Mod placements、带实例 ID 的地面物、冻结内容池、玩家、经济、敌人、世界事件、RNG 状态及传送选择 `ui_restore`。旧 Run v19 原文件保留但不显示继续入口、不迁移。
 - `GameplayRunLoop + GearModBoard` 是空间 Mod 状态权威，`GearModSystem` 不读写 SaveManager；Meta v4 中只允许 `content_progression.unlocked.gear_mod` 保存内容可用资格。Meta v3→v4 保留英雄组合并初始化空进度。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。

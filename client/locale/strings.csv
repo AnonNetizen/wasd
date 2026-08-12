@@ -103,6 +103,9 @@ ui_resume,继续,Resume
 ui_pause,暂停,Pause
 ui_pause_title,已暂停,Paused
 ui_save_and_quit,保存并退出,Save and Quit
+ui_quit_confirm_title,退出游戏,Quit Game
+ui_quit_confirm_body,确定要退出游戏吗？如有进行中的对局，将先保存当前进度。,Quit the game? Any active run will be saved first.
+ui_quit_save_failed_body,保存失败，游戏没有退出。请重试或取消。,"Saving failed, so the game was not closed. Retry or cancel."
 ui_quit,退出,Quit
 ui_restart,重新开始,Restart
 ui_quit_to_title,返回标题,Back to Title

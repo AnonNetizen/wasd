@@ -38,6 +38,33 @@ func _run() -> void:
 	if not _expect_node(title_menu, "title menu should be visible before loading smoke"):
 		_finish()
 		return
+	var boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
+	_expect(
+		not get_tree().auto_accept_quit,
+		"FormalClientBoot should intercept window close requests"
+	)
+	var original_quit_locale: String = Localization.current_locale()
+	await _expect_application_quit_cancellation(title_menu, boot, false)
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	await _expect_application_quit_cancellation(title_menu, boot, false)
+	Localization.set_locale(original_quit_locale)
+	await get_tree().process_frame
+	_expect(
+		UIManager.show_confirmation(
+			tr("ui_settings_input_conflict_title"),
+			tr("ui_settings_input_conflict_body").format({
+				"action": "A",
+				"other": "B",
+			}),
+			tr("ui_settings_input_conflict_replace"),
+			tr("ui_cancel"),
+			Callable(),
+			Callable()
+		),
+		"window close setup should show an existing confirmation modal"
+	)
+	await _expect_application_quit_cancellation(title_menu, boot, true)
 	var start_button: Button = title_menu.get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/StartButton"
 	) as Button
@@ -51,7 +78,6 @@ func _run() -> void:
 		and composition_panel.name == "HeroCompositionPanel",
 		"start should show HeroCompositionPanel before loading"
 	)
-	var boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
 	if boot != null:
 		boot.call("_on_title_start_requested")
 	_expect(
@@ -136,16 +162,35 @@ func _run() -> void:
 	confirm_button.pressed.emit()
 	await _expect_loading_visible("start")
 	if boot != null:
+		boot.call("_request_application_quit")
+		_expect(
+			bool(boot.get("_application_quit_deferred_for_loading"))
+			and _find_node_by_name(get_tree().root, "ApplicationQuitModal") == null,
+			"application quit request should wait without covering an active loading screen"
+		)
 		boot.call("_on_title_continue_requested")
 	_expect(
 		_count_nodes_by_name(get_tree().root, "LoadingScreen") == 1,
 		"duplicate load request should keep one loading screen"
+	)
+	var deferred_quit_modal: Node = await _wait_for_node("ApplicationQuitModal")
+	if not _expect_node(
+		deferred_quit_modal,
+		"deferred application quit prompt should appear after loading finishes"
+	):
+		_finish()
+		return
+	deferred_quit_modal.call("request_cancel")
+	_expect(
+		await _wait_for_node_absent("ApplicationQuitModal"),
+		"cancelling deferred application quit should remove its prompt"
 	)
 	var first_run: Node = await _wait_for_playing_run()
 	if not _expect_node(first_run, "start should finish with one playable run"):
 		_finish()
 		return
 	_expect(_count_nodes_by_name(get_tree().root, "GameplayRunLoop") == 1, "start should mount one GameplayRunLoop")
+	await _expect_application_quit_save_failure(boot, first_run)
 
 	var teleport_source_id: String = await _prepare_teleporter_choice(first_run)
 	_expect(
@@ -155,8 +200,9 @@ func _run() -> void:
 	)
 	var first_snapshot: Dictionary = first_run.call("create_run_snapshot")
 	_expect(
-		SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, first_snapshot),
-		"loading smoke should save a valid teleport-choice run for continue"
+		boot != null
+		and bool(boot.call("_save_active_run_for_application_quit")),
+		"application quit save path should persist a valid teleport-choice run"
 	)
 	first_run.emit_signal("quit_to_title_requested")
 	title_menu = await _wait_for_node("TitleMenu")
@@ -832,6 +878,124 @@ func _wait_for_node(node_name: String) -> Node:
 	return null
 
 
+func _wait_for_node_absent(node_name: String) -> bool:
+	for _frame: int in range(MAX_WAIT_FRAMES):
+		await get_tree().process_frame
+		if _find_node_by_name(get_tree().root, node_name) == null:
+			return true
+	return false
+
+
+func _expect_application_quit_cancellation(
+		title_menu: Node,
+		boot: Node,
+		use_window_notification: bool
+	) -> void:
+	if not _expect_node(boot, "application quit prompt requires FormalClientBoot"):
+		return
+	if use_window_notification:
+		boot.notification(NOTIFICATION_WM_CLOSE_REQUEST)
+	else:
+		var quit_button: Button = title_menu.get_node_or_null(
+			"Root/Center/Panel/Margin/Layout/QuitButton"
+		) as Button
+		if not _expect_node(quit_button, "title menu should expose QuitButton"):
+			return
+		quit_button.pressed.emit()
+	var modal: Node = await _wait_for_node("ApplicationQuitModal")
+	if not _expect_node(modal, "application quit should show a confirmation modal"):
+		return
+	_expect(
+		GameState.is_state(GameState.PAUSED),
+		"application quit confirmation should pause the current state"
+	)
+	var confirm_button: Button = modal.get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/Buttons/ConfirmButton"
+	) as Button
+	var cancel_button: Button = modal.get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/Buttons/CancelButton"
+	) as Button
+	var title_label: Label = modal.get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/TitleLabel"
+	) as Label
+	var body_label: Label = modal.get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/BodyLabel"
+	) as Label
+	_expect(
+		title_label != null and title_label.text == tr("ui_quit_confirm_title"),
+		"application quit confirmation should localize its title"
+	)
+	_expect(
+		body_label != null and body_label.text == tr("ui_quit_confirm_body"),
+		"application quit confirmation should localize its body"
+	)
+	_expect(
+		confirm_button != null and confirm_button.text == tr("ui_save_and_quit"),
+		"application quit confirmation should expose Save and Quit"
+	)
+	_expect(
+		cancel_button != null and cancel_button.text == tr("ui_cancel"),
+		"application quit confirmation should expose Cancel"
+	)
+	modal.call("request_cancel")
+	_expect(
+		await _wait_for_node_absent("ApplicationQuitModal"),
+		"cancelling application quit should remove the confirmation modal"
+	)
+	_expect(
+		GameState.is_state(GameState.MAIN_MENU),
+		"cancelling application quit should restore MAIN_MENU"
+	)
+
+
+func _expect_application_quit_save_failure(
+		boot: Node,
+		active_run: Node
+	) -> void:
+	var failing_run: Node = FailingQuitSaveRun.new()
+	add_child(failing_run)
+	boot.set("_run_loop", failing_run)
+	boot.call("_request_application_quit")
+	var original_modal: Node = await _wait_for_node("ApplicationQuitModal")
+	if not _expect_node(
+		original_modal,
+		"save failure setup should show application quit confirmation"
+	):
+		boot.set("_run_loop", active_run)
+		failing_run.queue_free()
+		return
+	original_modal.call("_on_confirm_pressed")
+	await get_tree().process_frame
+	var retry_modal: Node = _find_node_by_name(
+		get_tree().root,
+		"ApplicationQuitModal"
+	)
+	_expect(
+		retry_modal != null and retry_modal != original_modal,
+		"save failure should keep the game open and show a fresh confirmation"
+	)
+	var body_label: Label = (
+		retry_modal.get_node_or_null(
+			"Root/Center/Panel/Margin/Layout/BodyLabel"
+		) as Label
+		if retry_modal != null
+		else null
+	)
+	_expect(
+		body_label != null and body_label.text == tr("ui_quit_save_failed_body"),
+		"save failure should explain that the game was not closed"
+	)
+	if retry_modal != null:
+		retry_modal.call("request_cancel")
+		await _wait_for_node_absent("ApplicationQuitModal")
+	_expect(
+		GameState.is_state(GameState.PLAYING),
+		"cancelling after save failure should restore PLAYING"
+	)
+	boot.set("_run_loop", active_run)
+	failing_run.queue_free()
+
+
 func _find_node_by_name(root: Node, node_name: String) -> Node:
 	if root.name == node_name:
 		return root
@@ -921,3 +1085,10 @@ func _finish() -> void:
 	for failure: String in _failures:
 		push_error("[loading-smoke] %s" % failure)
 	get_tree().quit(1)
+
+
+class FailingQuitSaveRun:
+	extends Node
+
+	func save_run_snapshot() -> bool:
+		return false

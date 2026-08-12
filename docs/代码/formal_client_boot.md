@@ -67,6 +67,7 @@ FormalClientBoot (Node)
 UIManager
 └── UIRoot
     ├── TitleMenu (scene; normal boot after data schema passes; shows continue when run.save exists)
+    ├── ApplicationQuitModal (scene; title / window close confirmation, pauses and restores prior state)
     ├── LoadingScreen (scene; start / continue / restart preparation, always-process, input-blocking)
     ├── CodexPanel (scene; title-only, pushed above title menu)
     └── SettingsPanel (scene; pushed above title menu when requested)
@@ -109,7 +110,8 @@ FormalClientBoot
 | 玩家加载 smoke | Bridge command `loading-smoke` 通过通用测试钩子走真实标题按钮与重开信号，验证加载界面 / `LOADING`、跨帧旋转、输入阻断、重复请求、唯一 RunLoop、续局、重开；四类缺必需节点分别走完整玩家加载，验证失败信号一次、回标题、无残留 LoadingScreen / RunLoop / runtime activity / run-owned pool | `client/tools/loading_smoke.gd` |
 | DebugTools smoke | Bridge command `debug-tools-smoke` 通过通用测试钩子挂载 `GameplayRunLoop` 与 `DebugToolsSmoke`；debug 模式验证 `DebugConsole` / `GMCommandRegistry`、help/stats/spawn/gold/hp/damage/heal/dust/kill/clear 命令，release descriptor 额外传入 `--force-release-debug-tools-off`，确认没有调试节点或 debug action | `client/tools/debug_tools_smoke.gd` |
 | 重开 / 回标题 | `GameplayRunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 gameplay 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
-| 存档拒绝 | Run v19 的内容池 / 未结算进度 / Gear Mod 棋盘 / 效果程序状态 / 带 ID 未拾取 Mod / gold / reward choice / difficulty / enemy reward / 7×7 assignment / 目标角落 / map hash / 世界事件 / 显式攻击状态不一致时恢复失败。缺包、包版本或 gameplay hash 不匹配会保留源文件并隐藏继续入口；旧 Run v18 也保留但不显示为可继续，不迁移为 v19。读取返回空 envelope 时 Boot 不调用 `delete()`，以免删除 SaveManager 判定需保留的主档或备份 | `SaveManager.save_status()`、`SaveManager.last_error()`、`restore_failed` |
+| 应用关闭 | `_ready()` 关闭 Godot 自动接受退出；标题 `quit_requested` 与 `NOTIFICATION_WM_CLOSE_REQUEST` 统一压入暂停型 `ApplicationQuitModal`。加载中的请求先排队，待成功激活 Run 或失败回到标题后再显示；取消恢复原状态；确认先移除自身，再按恢复后的底层状态判断是否调用 `save_run_snapshot()`，失败重新提示且不退出 | `_request_application_quit()` / `GameplayRunLoop.save_run_snapshot()` |
+| 存档拒绝 | Run v20 的内容池 / 未结算进度 / Gear Mod 棋盘 / 效果程序状态 / 带 ID 未拾取 Mod / gold / reward choice / difficulty / enemy reward / 7×7 assignment / 目标角落 / map hash / 世界事件 / 传送选择或显式攻击状态不一致时恢复失败。缺包、包版本或 gameplay hash 不匹配会保留源文件并隐藏继续入口；旧 Run v19 也保留但不显示为可继续，不迁移为 v20。读取返回空 envelope 时 Boot 不调用 `delete()`，以免删除 SaveManager 判定需保留的主档或备份 | `SaveManager.save_status()`、`SaveManager.last_error()`、`restore_failed` |
 
 ## 公共 API
 
@@ -129,6 +131,7 @@ FormalClientBoot
 - `client/project.godot` 的默认 viewport 为 1920×1080；当前只设计 / 验收 16:9，窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在非 16:9 屏幕上等比缩放并补上下或左右黑边。设置页只应暴露经过验证的 16:9 固定分辨率预设，不接受任意宽高输入；16:10、4:3、21:9 等比例留作未来按独立固定预设接入的优化项，当前不做连续响应式适配。
 - 启动日志输出 `data_schema_ok`、`mods`、`player_stats`、`characters`、`weapons`、`skills`、`enemies`、`gear_mods`、`content_unlock_rules`、`hazards`、`map_layouts`、`module_worlds`、`module_templates`、`warzone_directors`、`spawn_waves`、`active_items`、`consumables`、`locale_keys`、`level_progression_profiles`、`reward_choice_pools`、`game_modes`、`mod_environment`、`platform_provider`、`platform_available` 等 smoke 计数 / 状态。
 - 启动脚本不硬编码玩家可见文本；标题、加载、HUD、设置、失败页和装备 Mod 面板文案见 `client/locale/strings.csv`。加载界面只显示 `ui_loading`，通用准备失败回标题显示 `ui_loading_failed`。
+- 退出确认使用 `ui_quit_confirm_title`、`ui_quit_confirm_body`、`ui_quit_save_failed_body`、`ui_save_and_quit` 与 `ui_cancel`；若其他正式确认框在栈顶，先按取消语义完整移除，再显示退出确认。
 - 标题菜单的“继续游戏”只在存在当前版本且 `mod_environment` 精确匹配的 Run v19 时可见；标题页提供图鉴和只读 Mod 面板，但不提供 Gear Mod 局外配置。开始新局和重开会删除当前可继续 Run、建立初始棋盘与效果 Runtime、冻结内容 / 本地玩法环境并生成新 seed。继续游戏先显示加载界面，再读取和校验 Run v19；成功时恢复同一世界、棋盘、效果程序状态及带 ID 未拾取 Mod。读取失败返回空 envelope 时回标题并保留 SaveManager 的错误与需保留文件；旧 Run v18、环境不匹配主档或在坏主档之后发现的不兼容备份均保持原位，不作为损坏档隔离。
 - DebugTools 只在 `OS.is_debug_build()` 或 `OS.has_feature("dev_tools")` 为真时动态加载；release 构建不应启用 `dev_tools`，也不应包含 `res://scripts/debug/*` 调试资源。
 - 正式 boot 与标题菜单不得包含开发者测试岛节点、路径、signal 或 `--debug-test-arena` 参数处理；该零耦合边界由项目 lint 守门。
@@ -191,6 +194,7 @@ FormalClientBoot
 - F1 必跑 headless 启动验证：`tools/godot_bridge.py --project client headless-boot`。
 - 修改普通新局 / 重开 seed 策略时，追加 `python tools/godot_bridge.py --project client l1-smoke`、`runtime-smoke`、`save-smoke`，并用至少一条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary` 确认工具固定 seed 路径未漂移。
 - 修改玩家开始 / 继续 / 重开加载编排时，必跑 `python tools/godot_bridge.py --project client loading-smoke`、`runtime-smoke`、`save-smoke`，并按 Gameplay Loading 文档追加 actor / module-world / golden 回归。
+- 修改应用关闭拦截、退出确认或 `save_run_snapshot()` 接线时，必跑 `loading-smoke`、`ui-manager-smoke`、`runtime-smoke`、`save-smoke` 与 headless boot；真实窗口关闭、双语布局和焦点为 L5 待人工验收。
 - 修改 `save-smoke` descriptor / 挂载或 SaveManager 启动诊断时，追加 `python tools/godot_bridge.py --project client save-smoke`。
 - 修改 `settings-smoke` descriptor / 挂载或 Settings 持久化启动诊断时，追加 `python tools/godot_bridge.py --project client settings-smoke`。
 - 修改 `content-progression-smoke` / `codex-smoke` descriptor、标题图鉴或内容池注入时，追加 `python tools/godot_bridge.py --project client content-progression-smoke`、`python tools/godot_bridge.py --project client codex-smoke`、`runtime-smoke` 与 headless boot。
