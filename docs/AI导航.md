@@ -108,8 +108,8 @@
 | `docs/AI协作/工作包/` | F13 默认关卡工作包是 `F13-ModularGridWorld.md`；当前后续 EnemyAI 里程碑读 `F14-EnemyNavigationAndPerception.md`。`F13-HandcraftedRooms.md` 仅作 superseded 历史 |
 | `docs/AI协作/上下文预算.md` | 不同复杂度 / 任务类型该读哪些文件 |
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
-| `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
-| `docs/AI协作/实时验证回路.md` | 目标秒级快检 + 分钟级完整 pre-commit + Godot 串行 / 超时收尾设计 |
+| `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南；ADR #198 的只读项目快照并行与源码写入命令独占规则 |
+| `docs/AI协作/实时验证回路.md` | 目标秒级快检 + 分钟级完整 pre-commit + Bridge 隔离并行 / writer 互斥 / 超时收尾设计 |
 | `docs/AI协作/文档健康检查.md` | 文档健康检查范围、命令和失败解释 |
 | `docs/AI协作/工具适配指南.md` | 各 AI 工具（Codex / OpenCode / Claude Code / Aider / Cursor / Windsurf / ChatGPT 等）的接入配法 |
 | `docs/AI协作/ECC工具吸收清单.md` | ECC 全工具面逐项筛选、吸收和拒绝结论；同类外部 agent-harness 大仓扫库参考 |

@@ -157,6 +157,8 @@ python tools/test_steamworks_lab_toolchain.py
 python tools/docs_health_check.py
 ```
 
+需要运行 Godot 自动门禁时，统一使用 `python tools/godot_bridge.py --project client <command>`。ADR #198 后只读 Bridge 命令使用私有项目快照，可安全并行；`vfx-bake`、`module-bake`、`capture-golden-replay`、`capture-gear-mod-pickup` 会写回项目并由 Bridge 自动互斥。不要用裸 Godot 并发访问同一个 `client/`。
+
 - [ ] 没有硬编码可调数值（都在 `res://data/`）？
 - [ ] 没有硬编码玩家可见文本（都用 `tr()` 文本键）？
 - [ ] 玩家偏好都走 `Settings` 单例？

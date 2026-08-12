@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-11",
+  "updated_at": "2026-08-12",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #197 架构治理已完成前三阶段，并完成 EnemySpawnService、RunSnapshotCoordinator、DataFingerprintBuilder、DataSourceReader、DataReferenceIndexBuilder、PlayerDataValidator、CharacterCatalogValidator、HazardCatalogValidator、ActiveItemCatalogValidator、ConsumableCatalogValidator、HeroPassiveCatalogValidator、ElementCatalogValidator、SpawnWaveCatalogValidator、EnemyAiProfileValidator、WeaponCatalogValidator、GearModDropTableValidator、LevelProgressionValidator、RewardChoicePoolValidator、DifficultyProfileValidator、EnemyRewardModelValidator、CameraFeedbackValidator、CreditsValidator、ModuleSlotStateCodec、ModifierStack、ModuleChunkStreamingController、GameplayFeedback / Player 表现门面、ModuleWorldState、GameplayDebugFacade、EnemyBrain、EnemyActionRuntime、EnemyNavigationRuntime、EnemyStatusHostRuntime、EnemyRangedAttackHandler / EnemyProjectileMaterializer、EnemyMeleeAttackHandler、EnemyChargeAttackHandler、EnemyExplosionAttackHandler、EnemyDamageHandler 与 ModuleWorldLayout 三十八个渐进提取点。第二档项目规则 lint 已阻断 InputService→UIManager 反向依赖、RunLoop 表现节点直访与测试默认用户环境；Run v19、data / map hash、玩法结果与四条 Replay v9 golden 摘要不变。Enemy 与 DataLoader 的自动拆分均已在 meaningful-value audit 后停止；剩余 Skills / GearMods / ContentUnlock / GameModes / WorldEvents / ModuleWorld 等内联域属于高耦合大块，若继续必须作为独立架构任务整体设计，不再按行数微切。人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
-  "latest_adr": 197,
+  "current_status": "ADR #198 已解决 Godot Bridge 并行安全：只读 Godot 命令默认使用逐进程临时项目快照并隔离 `.godot`、`user://` 与 JUnit，四个源码写入 bake / capture 命令继续使用原项目且自动全程独占；真实并发 GUT unit 与 headless boot 已共同通过，不再需要人工单进程槽。ADR #197 架构治理已完成前三阶段及三十八个有独立领域语义的渐进提取点；Enemy 与 DataLoader 的自动拆分均已在 meaningful-value audit 后停止，剩余高耦合域若继续必须作为独立架构任务整体设计，不再按行数微切。Meta v4、Run v19、Replay v9、game v1.18、data / map hash、玩法结果与四条 golden 摘要不变。人工视觉、听觉与手感项待用户验收，性能 probe 未运行。",
+  "latest_adr": 198,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #198 / Godot Bridge 并行项目隔离：只读 Godot 命令默认在逐进程临时项目快照中运行，短锁保护 snapshot 建立并以前后 source manifest 检测并发写入；`.godot` 仅复用安全 cache seed，child 同时隔离 user 环境与测试结果。vfx-bake、module-bake、capture-golden-replay、capture-gear-mod-pickup 保留原项目写入并自动全程独占；裸 Godot 不承诺并行安全。",
     "ADR #197 / DataLoader 角色目录校验切片：新增纯 CharacterCatalogValidator 与 typed ValidationResult，保持 schema v4、角色字段、palette、starting loadout、skill resources、base stats 的完整 source-order、局部短路、跨引用与历史 aggregate-bool 缺口；DataLoader 保留表现引用→schema→引用索引三次独立 Mod-aware 读取、PackedScene / locale / contract / stat adapters 与 Dictionary-root count。",
     "ADR #197 / DataLoader 武器目录校验切片：新增纯 WeaponCatalogValidator 与 typed ValidationResult，保持 exact int-like schema v5、recoil model、weapon exact-key、base stats、projectile 的完整 source-order、局部短路、数值关系与 root / recoil / projectile extra-key、presentation value 兼容面；DataLoader 保留表现引用→schema→引用索引三次独立 Mod-aware 读取、共享 WEAPON_STATS、路径 / callback adapters 与 Dictionary-root count。",
     "ADR #197 / DataLoader 敌人 AI profile 校验切片：新增纯 EnemyAiProfileValidator 与 typed ValidationResult，保持 schema v5、profile / perception / targeting / movement / actions / 四类 attack 的完整 source-order、exact-key、局部短路及未知非攻击 action 只诊断不降低总 bool 的历史缺口；DataLoader 保留单次 Mod-aware 读取、路径 / contract adapters、EnemyRewardModel 前调用位置与 Dictionary root count。",
@@ -227,6 +228,7 @@
   ],
   "next_actions": [
     "ADR #197 的协议不变渐进治理已完成三十八个有独立领域语义的提取点。Enemy 与 DataLoader 的自动拆分均已停止；剩余 Skills / GearMods / ContentUnlock / GameModes / WorldEvents / ModuleWorld 等高耦合域若要继续，必须由用户另行授权为独立架构任务，先整体设计所有权、协议与验证矩阵，不为行数或提交数量微切。",
+    "运行 Godot 自动门禁时优先统一走 `python tools/godot_bridge.py --project client <command>`：ADR #198 后只读命令可并行；四个源码写入 bake / capture 命令由 Bridge 自动互斥。裸 Godot、新增但未分类的写入命令或绕过 Bridge 的工具仍按不具备并行安全处理。",
     "ADR #194 Gear Mod 空间棋盘待用户人工验收：在正式 1920×1080 对局中分别使用 zh_CN / en、键鼠和真实手柄；检查 Tab 按住 / 松开、地图与棋盘同向同步高亮、核心 / 三类 Mod 详情、Attributes 页面、拾取默认焦点、确认 / 取消、战斗中角色输入完整锁定，以及世界持续运行时的可读性与配置手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #190 地图人工验收待用户执行：在正式 1920×1080 对局中确认左下出生、出生房西 / 南封闭且北 / 东各一个居中出口、小地图方向正确；用多组 seed 确认意识核只出现在左上 / 右上 / 右下，保存退出续局后目标不改变，并体验 6 次与 12 次跨越路线节奏。AI 不用 GUI、截图、模拟输入或自动 seed 遍历替代人工视觉 / 手感结论；性能 probe 未获授权，不运行。",
     "内容解锁与图鉴待用户人工验收：在 1920×1080 下分别切换 zh_CN / en，从标题打开图鉴，使用键鼠与真实手柄浏览英雄 / Gear Mod / 敌人；确认锁定条目不泄露真实名称、图像、描述或属性，结果页新解锁提示只在死亡 / 通关出现，且新敌人 / Mod 只从下一局入池。AI 不用 GUI、截图或模拟输入代验；自动门禁结果见 last_verified。",
@@ -274,6 +276,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-12",
+      "command": "tools/test_godot_bridge.py; two same-source Bridge processes launched concurrently: gut --test-dir unit and headless-boot; JSON/docs/project lint and scoped pre-commit checks",
+      "result": "passed for ADR #198 Godot Bridge parallel isolation. Bridge unit regression covers read-only snapshot routing, source-writing exclusive routing, project argument replacement, safe .godot cache seeds, source-manifest retry, private environment re-exec and console encoding fallback. A real concurrent GUT unit run and formal headless editor/boot run both created private project snapshots without caller-side copies; GUT JUnit passed, FormalClientBoot marker passed, and neither process produced a bridge fatal or traceback. Source-writing commands remain serialized on the original project. No gameplay code, data, Meta v4, Run v19, Replay v9, game v1.18, golden replay, performance probe or manual acceptance changed."
+    },
     {
       "date": "2026-08-11",
       "command": "targeted GDScript, project and semantic lint; CharacterCatalogValidator unit and shared full GUT; contracts; validate_data; test_data_loader_schema --jobs 1; isolated mod-loader, L1, actor-scene, content-progression, Codex, runtime, save, loading and Replay smokes; Godot 4.7.1 formal headless boot; four checked-in Replay v9 golden regression; docs health and scoped diff checks; factual code review",
@@ -1077,10 +1084,11 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #198：统一经 Godot Bridge 运行的只读 boot / smoke / GUT / replay / check 使用逐进程临时项目快照，可安全并行；四个源码写入 bake / capture 命令继续使用原项目并自动独占。裸 Godot、绕过 Bridge 或新增但未分类的 writer 仍不承诺并行安全。",
     "ADR #197：Replay 丢弃事件、Save preserve 主 / 备份、四类玩家 Run 准备失败和世界事件奖励投放统一 fail closed；UIManager 单向推送栈事实给 InputService。后续架构提取必须保持 Meta v4 / Run v19 / Replay v9 / 游戏 v1.18、公开 API、快照字典与黄金回放等价。",
     "ADR #196 延续 #194 的空间放置事务：带 instance_id 的地面 Mod 必须先原子放到 7×7 合法四邻格，随后 modifier components 进入属性层、program components 注册到 GameplayEffectRuntime、board_rule 只承载棋盘语义。当前 Meta v4、Run v19、Replay v9、游戏 v1.18；旧 Run v18 / Replay v8 保留拒绝且不迁移。",
     "ADR #193：Gear Mod 当前只有可重复的无等级实例；固定 damage ×1.20、recoil / spread cap ×0.80，每次拾取追加一份并逐份相乘。Meta v4、Run v17、Replay v7、游戏 v1.16；旧 Run v16 与 Replay v6 明确拒绝且不迁移 ranks。升级、满阶、溢出、批量授予和测试岛等级 / 数量入口均不得恢复。",
-    "ADR #192：AI 不得沿用上一项任务的验证矩阵；简单已有数值字段调整走 L0 快路径与一次 file-scoped pre-commit。昂贵门禁去重，同项目 Godot 默认串行，超时先清理本次子进程；golden 只有在真实覆盖变量且稳定语义或 data fingerprint 改变时才重录。",
+    "ADR #192：AI 不得沿用上一项任务的验证矩阵；简单已有数值字段调整走 L0 快路径与一次 file-scoped pre-commit。昂贵门禁去重，超时先清理本次子进程；golden 只有在真实覆盖变量且稳定语义或 data fingerprint 改变时才重录。其‘同项目 Godot 默认串行’当前口径已由 ADR #198 的 Bridge 私有项目快照 / writer 独占规则取代。",
     "ADR #191 的手动拾取与跨模块未拾取实体继续有效，但成功授予语义已先由 ADR #193 去等级、再由 ADR #194 改为空间配置，并由 ADR #196 统一到 components / programs；当前交互只建立带 instance_id 的预占事务，确认合法棋盘位置后才添加并生效。ADR #190 的 7×7 角落世界继续有效。",
     "ADR #189：英雄、Gear Mod、敌人使用默认开放稀疏规则；ContentUnlockSystem 是规则、Meta 状态与图鉴查询唯一门面。当前版本以 ADR #196 为准：Meta v4、Run v19、Replay v9；本地 Gear Mod 安装即开放且不写 Meta，已发布默认开放内容不得无显式 Meta 迁移改为锁定。",
     "ADR #187 将两个内置主智能碎片的基础 max_shield 设为 0；超量护盾容量统一为 max_life + max_shield，并由 Player 所有外部写入 / 重建路径与 HUD 共同遵守。",

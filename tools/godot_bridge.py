@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -71,6 +73,31 @@ SUPPORTED_FORMAL_BOOT_SETUPS = frozenset(
 )
 SUPPORTED_SMOKE_PREFLIGHTS = frozenset({"release_debug_resource_exclusion"})
 SMOKE_ISOLATION_POLICY = "temporary_user_environment"
+PROJECT_EXECUTION_MODE_ENV = "WASD_GODOT_BRIDGE_PROJECT_MODE"
+PROJECT_EXECUTION_MODE_ISOLATED = "isolated"
+PROJECT_EXECUTION_MODE_EXCLUSIVE = "exclusive"
+PROJECT_SNAPSHOT_ATTEMPTS = 3
+PROJECT_SNAPSHOT_PREFIX = "wasd-godot-project-"
+PROJECT_LOCK_ROOT_NAME = "wasd-godot-bridge-locks"
+PROJECT_LOCK_POLL_SECONDS = 0.05
+PROJECT_LOCK_TIMEOUT_SECONDS = 300.0
+PROJECT_MUTATING_COMMAND_IDS = frozenset(
+    {
+        "capture-gear-mod-pickup",
+        "capture-golden-replay",
+        "module-bake",
+        "vfx-bake",
+    }
+)
+PROJECT_CACHE_SEED_ENTRIES = frozenset(
+    {
+        ".gdignore",
+        "global_script_class_cache.cfg",
+        "imported",
+        "scene_groups_cache.cfg",
+        "uid_cache.bin",
+    }
+)
 
 NODE_RE = re.compile(r"^\[node\s+(.+)\]$")
 EXT_RESOURCE_RE = re.compile(r"^\[ext_resource\s+(?P<attrs>.+)\]$")
@@ -437,6 +464,16 @@ def main() -> int:
         return 1
     if args.command == "godot-version":
         return _run_command([str(godot), "--version"], cwd=ROOT)
+    if not os.environ.get(PROJECT_EXECUTION_MODE_ENV):
+        if args.command in PROJECT_MUTATING_COMMAND_IDS:
+            return _run_exclusive_project_command(
+                sys.argv[1:],
+                project,
+            )
+        return _run_isolated_project_command(
+            sys.argv[1:],
+            project,
+        )
     if args.command == "gut":
         return _run_gut(
             godot,
@@ -724,6 +761,239 @@ def _run_python_tool(script_name: str) -> int:
     return _run_command(command, cwd=ROOT)
 
 
+def _run_isolated_project_command(
+    arguments: list[str],
+    project: Path,
+) -> int:
+    if not (project / "project.godot").is_file():
+        print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+        return 1
+    with tempfile.TemporaryDirectory(
+        prefix=PROJECT_SNAPSHOT_PREFIX,
+        ignore_cleanup_errors=True,
+    ) as directory:
+        root = Path(directory)
+        snapshot = root / "project"
+        try:
+            with _ProjectCommandLock(project):
+                _copy_project_snapshot(project, snapshot)
+        except OSError as error:
+            print(
+                "[godot-bridge] could not create isolated project "
+                f"snapshot: {error}",
+                file=sys.stderr,
+            )
+            return 1
+        isolated_env = _isolated_user_environment(root / "user")
+        isolated_env[PROJECT_EXECUTION_MODE_ENV] = (
+            PROJECT_EXECUTION_MODE_ISOLATED
+        )
+        isolated_env["PYTHONIOENCODING"] = "utf-8"
+        isolated_env["PYTHONUTF8"] = "1"
+        print(
+            "[godot-bridge] isolated project snapshot ready; "
+            "read-only Godot commands may run concurrently."
+        )
+        return _run_command(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                *_replace_project_argument(arguments, snapshot),
+            ],
+            cwd=ROOT,
+            env=isolated_env,
+        )
+
+
+def _run_exclusive_project_command(
+    arguments: list[str],
+    project: Path,
+) -> int:
+    if not (project / "project.godot").is_file():
+        print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+        return 1
+    with tempfile.TemporaryDirectory(
+        prefix="wasd-godot-exclusive-user-",
+        ignore_cleanup_errors=True,
+    ) as directory:
+        isolated_env = _isolated_user_environment(Path(directory))
+        isolated_env[PROJECT_EXECUTION_MODE_ENV] = (
+            PROJECT_EXECUTION_MODE_EXCLUSIVE
+        )
+        isolated_env["PYTHONIOENCODING"] = "utf-8"
+        isolated_env["PYTHONUTF8"] = "1"
+        try:
+            with _ProjectCommandLock(project):
+                print(
+                    "[godot-bridge] acquired exclusive project access for "
+                    "a source-writing command."
+                )
+                return _run_command(
+                    [
+                        sys.executable,
+                        str(Path(__file__).resolve()),
+                        *_replace_project_argument(arguments, project),
+                    ],
+                    cwd=ROOT,
+                    env=isolated_env,
+                )
+        except OSError as error:
+            print(
+                "[godot-bridge] could not acquire exclusive project "
+                f"access: {error}",
+                file=sys.stderr,
+            )
+            return 1
+
+
+def _replace_project_argument(
+    arguments: list[str],
+    project: Path,
+) -> list[str]:
+    rewritten = ["--project", str(project.resolve())]
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--project":
+            index += 2
+            continue
+        if argument.startswith("--project="):
+            index += 1
+            continue
+        rewritten.append(argument)
+        index += 1
+    return rewritten
+
+
+def _copy_project_snapshot(source: Path, destination: Path) -> None:
+    source = source.resolve()
+    for attempt in range(1, PROJECT_SNAPSHOT_ATTEMPTS + 1):
+        before = _project_source_manifest(source)
+        if destination.exists():
+            shutil.rmtree(destination)
+        shutil.copytree(
+            source,
+            destination,
+            ignore=_project_snapshot_ignore,
+        )
+        after = _project_source_manifest(source)
+        if before == after:
+            return
+        if attempt < PROJECT_SNAPSHOT_ATTEMPTS:
+            print(
+                "[godot-bridge] project changed while snapshotting; "
+                f"retrying ({attempt}/{PROJECT_SNAPSHOT_ATTEMPTS})."
+            )
+    raise OSError(
+        "project kept changing while the isolated snapshot was created"
+    )
+
+
+def _project_source_manifest(project: Path) -> tuple[tuple[str, int, int], ...]:
+    entries: list[tuple[str, int, int]] = []
+    cache_root = project / ".godot"
+    for path in project.rglob("*"):
+        if not path.is_file():
+            continue
+        if _is_ignored_project_cache_path(path, cache_root):
+            continue
+        stat = path.stat()
+        entries.append(
+            (
+                path.relative_to(project).as_posix(),
+                stat.st_size,
+                stat.st_mtime_ns,
+            )
+        )
+    return tuple(sorted(entries))
+
+
+def _project_snapshot_ignore(
+    directory: str,
+    names: list[str],
+) -> set[str]:
+    path = Path(directory)
+    if path.name == ".godot":
+        return set(names) - PROJECT_CACHE_SEED_ENTRIES
+    return {name for name in names if name in {".git", "__pycache__"}}
+
+
+def _is_ignored_project_cache_path(path: Path, cache_root: Path) -> bool:
+    try:
+        relative = path.relative_to(cache_root)
+    except ValueError:
+        return False
+    return (
+        not relative.parts
+        or relative.parts[0] not in PROJECT_CACHE_SEED_ENTRIES
+    )
+
+
+class _ProjectCommandLock:
+    def __init__(self, project: Path) -> None:
+        digest = hashlib.sha256(
+            os.path.normcase(str(project.resolve())).encode("utf-8")
+        ).hexdigest()
+        lock_root = Path(tempfile.gettempdir()) / PROJECT_LOCK_ROOT_NAME
+        lock_root.mkdir(parents=True, exist_ok=True)
+        self._path = lock_root / f"{digest}.lock"
+        self._handle: Any = None
+
+    def __enter__(self) -> "_ProjectCommandLock":
+        self._handle = self._path.open("a+b")
+        self._handle.seek(0, os.SEEK_END)
+        if self._handle.tell() == 0:
+            self._handle.write(b"\0")
+            self._handle.flush()
+        self._handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            deadline = time.monotonic() + PROJECT_LOCK_TIMEOUT_SECONDS
+            while True:
+                try:
+                    msvcrt.locking(
+                        self._handle.fileno(),
+                        msvcrt.LK_NBLCK,
+                        1,
+                    )
+                    break
+                except OSError as error:
+                    if time.monotonic() >= deadline:
+                        self._handle.close()
+                        self._handle = None
+                        raise TimeoutError(
+                            "timed out waiting for Godot project access"
+                        ) from error
+                    time.sleep(PROJECT_LOCK_POLL_SECONDS)
+                    self._handle.seek(0)
+        else:
+            import fcntl
+
+            fcntl.flock(self._handle.fileno(), fcntl.LOCK_EX)
+        return self
+
+    def __exit__(
+        self,
+        _exc_type: object,
+        _exc_value: object,
+        _traceback: object,
+    ) -> None:
+        if self._handle is None:
+            return
+        self._handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(self._handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
+        self._handle.close()
+        self._handle = None
+
+
 def _run_gut(
     godot: Path,
     project: Path,
@@ -984,9 +1254,9 @@ def _run_command(
         check=False,
     )
     if completed.stdout and print_output:
-        print(completed.stdout, end="")
+        _write_process_output(completed.stdout, stream=sys.stdout)
     if completed.stderr and print_output:
-        print(completed.stderr, end="", file=sys.stderr)
+        _write_process_output(completed.stderr, stream=sys.stderr)
     combined_output = completed.stdout + completed.stderr
     validation_output = combined_output
     for pattern in ignored_failure_patterns:
@@ -996,9 +1266,9 @@ def _run_command(
     ):
         if not print_output:
             if completed.stdout:
-                print(completed.stdout, end="")
+                _write_process_output(completed.stdout, stream=sys.stdout)
             if completed.stderr:
-                print(completed.stderr, end="", file=sys.stderr)
+                _write_process_output(completed.stderr, stream=sys.stderr)
         print("[godot-bridge] command output contained a fatal validation marker.", file=sys.stderr)
         return 1
     if completed.returncode == 0 and any(
@@ -1006,9 +1276,9 @@ def _run_command(
     ):
         if not print_output:
             if completed.stdout:
-                print(completed.stdout, end="")
+                _write_process_output(completed.stdout, stream=sys.stdout)
             if completed.stderr:
-                print(completed.stderr, end="", file=sys.stderr)
+                _write_process_output(completed.stderr, stream=sys.stderr)
         print(
             "[godot-bridge] command output missed a required success marker.",
             file=sys.stderr,
@@ -1016,10 +1286,20 @@ def _run_command(
         return 1
     if completed.returncode != 0 and not print_output:
         if completed.stdout:
-            print(completed.stdout, end="")
+            _write_process_output(completed.stdout, stream=sys.stdout)
         if completed.stderr:
-            print(completed.stderr, end="", file=sys.stderr)
+            _write_process_output(completed.stderr, stream=sys.stderr)
     return completed.returncode
+
+
+def _write_process_output(text: str, *, stream: Any) -> None:
+    try:
+        stream.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, "encoding", None) or "utf-8"
+        stream.write(
+            text.encode(encoding, errors="replace").decode(encoding)
+        )
 
 
 def _run_smoke_command(

@@ -121,13 +121,13 @@
 ### 2.G Godot Headless 启动验证 ⭐⭐⭐（已启用）
 - workflow：`.github/workflows/godot-runtime.yml`
 - 直接下载 Godot 官方 `4.7.1-stable` Linux 二进制并核对官方 SHA-512；随后要求 `--version` 精确等于 `4.7.1.stable.official.a13da4feb`
-- 通过 `python tools/godot_bridge.py --project client headless-boot` 串行执行 headless editor 扫描与正式客户端启动，且把 XDG data / config / cache 映射到 runner 临时目录
+- 通过 `python tools/godot_bridge.py --project client headless-boot` 在同一私有项目快照内依次执行 headless editor 扫描与正式客户端启动，并把 XDG data / config / cache 映射到 runner 临时目录；ADR #198 后不与仓库 `client/.godot` 共享可写缓存
 - 任一脚本编译、autoload、场景引用、成功标记或致命日志门禁失败即中止
 
 ### 2.H GUT 单元测试 ⭐⭐（已启用首片）
 - 固定 [GUT `v9.7.1`](https://github.com/bitwes/Gut/releases/tag/v9.7.1)（commit `aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605`），vendoring 官方 `addons/gut/`；插件代码使用 MIT，随包 Anonymous Pro、Courier Prime、Lobster Two、Adobe Source Code Pro 四个字体族使用 SIL OFL 1.1，保留 Anonymous Pro / Lobster 的 Reserved Font Name 约束以及 Source Code Pro 的 Reserved Font Name `Source`。完整离线 copyright notice 见 `client/addons/GUT_THIRD_PARTY_NOTICES.md`，OFL 文本与原始 metadata 按 `client/addons/README.md`、`CREDITS.md` 保留。发布归档 SHA-256 记录在 `client/addons/README.md`
 - `client/.gutconfig.json` 扫描 `tests/unit` 与 `tests/integration`；`tests/support/smoke_harness.gd` 只经公开 API 恢复确定性 fixture。首个真实用例覆盖 `RNG` 同 seed 序列与 snapshot restore
-- 本地与 CI 统一调用 `python tools/godot_bridge.py --project client gut`。Bridge 默认运行 unit + integration，在临时 `APPDATA` / XDG / `HOME` 下隔离 `user://`，拒绝 GUT / Godot fatal 与 GDScript 解析 / 加载错误，并要求 JUnit 文件存在、可解析且 `tests > 0 / failures = 0 / errors = 0`；不能把 Godot / GUT 退出码 0 单独当成通过
+- 本地与 CI 统一调用 `python tools/godot_bridge.py --project client gut`。Bridge 默认运行 unit + integration，在临时项目快照和临时 `APPDATA` / XDG / `HOME` 下隔离 `.godot`、`user://` 与 JUnit，拒绝 GUT / Godot fatal 与 GDScript 解析 / 加载错误，并要求 JUnit 文件存在、可解析且 `tests > 0 / failures = 0 / errors = 0`；不能把 Godot / GUT 退出码 0 单独当成通过。CI 仍可按 workflow 顺序串行，本地多个只读 Bridge 命令则可安全并行
 - `l1-smoke` 与 `effect-runtime-smoke` 作为稳定隔离 L1 补充串行运行；其他旧 smoke 按测试策略继续保留，不因 GUT 首片立刻删除
 - 优先覆盖：
   - `ModifierEngine`：属性聚合 `(基础+加法)×乘法` 公式

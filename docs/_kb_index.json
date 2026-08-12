@@ -107,7 +107,7 @@
       "authority": "Human-readable map for docs as an AI knowledge base",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-08-08",
+      "last_reviewed": "2026-08-12",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
       "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/在线服务规划.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/guide.md", "docs/代码/input_service.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/gear_mod_system.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #150", "ADR #151", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "ADR #174", "ADR #178", "ADR #179", "ADR #181", "ADR #183", "ADR #186", "ADR #187", "ADR #188", "ADR #189", "ADR #190", "ADR #191", "ADR #192", "ADR #193", "ADR #194", "ADR #195", "ADR #196", "Meta v4", "Run v19", "old Run v18 rejected", "Replay v9", "old Replay v8 rejected", "game v1.18", "Gear Mod v6", "skills v3", "GameplayEffectRuntime", "EffectPrimitiveRegistry", "EffectExecutionGateway", "manifest v2", "local Gear Mod", "components", "programs", "7x7 spatial Gear Mod board", "GearModBoard", "gear_mod_placement", "7x7 module world", "WASD", "集体无意识", "清理智能", "人工检查", "人工验收", "待人工验收", "world events", "explicit enemy attacks", "F14", "模块大地图", "ModuleWorldManager", "WarzoneDirector", "Gear Mod", "Godot editor plugin", "Phantom Camera", "G.U.I.D.E", "InputService", "性能测试按需", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #150", "ADR #151", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "ADR #174", "ADR #178", "ADR #179", "ADR #181", "ADR #183", "ADR #186", "ADR #187", "ADR #188", "ADR #189", "ADR #190", "ADR #191", "ADR #192", "ADR #193", "ADR #194", "ADR #195", "ADR #196", "ADR #197", "ADR #198", "Meta v4", "Run v19", "old Run v18 rejected", "Replay v9", "old Replay v8 rejected", "game v1.18", "Gear Mod v6", "skills v3", "GameplayEffectRuntime", "EffectPrimitiveRegistry", "EffectExecutionGateway", "manifest v2", "local Gear Mod", "components", "programs", "7x7 spatial Gear Mod board", "GearModBoard", "gear_mod_placement", "7x7 module world", "WASD", "集体无意识", "清理智能", "人工检查", "人工验收", "待人工验收", "world events", "explicit enemy attacks", "F14", "模块大地图", "ModuleWorldManager", "WarzoneDirector", "Gear Mod", "Godot editor plugin", "Phantom Camera", "G.U.I.D.E", "InputService", "性能测试按需", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "project snapshot", "parallel Godot", "exclusive writer", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -751,13 +751,13 @@
       "authority": "Godot editor integration and MCP/bridge usage guidance",
       "status": "active",
       "owner_scope": "tooling",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["engine_integration", "godot_bridge"],
-      "must_read_for": ["godot_mcp_change", "engine_tooling_change"],
-      "related_docs": ["docs/AI协作/README.md", "docs/CICD规划.md"],
-      "related_code": ["client/", "tools/godot_bridge.py"],
-      "update_triggers": ["Godot MCP changes", "engine bridge changes", "editor validation changes"],
-      "keywords": ["Godot", "MCP", "Bridge", "引擎集成", "godot_bridge", "headless"]
+      "last_reviewed": "2026-08-12",
+      "canonical_for": ["engine_integration", "godot_bridge", "godot_project_isolation", "parallel_godot_validation"],
+      "must_read_for": ["godot_mcp_change", "engine_tooling_change", "parallel_godot_command", "source_writing_godot_command"],
+      "related_docs": ["docs/AI协作/README.md", "docs/AI协作/实时验证回路.md", "docs/CICD规划.md", "docs/测试策略.md", "docs/决策记录.md"],
+      "related_code": ["client/", "tools/godot_bridge.py", "tools/test_godot_bridge.py"],
+      "update_triggers": ["Godot MCP changes", "engine bridge changes", "editor validation changes", "project snapshot policy changes", "new source-writing Godot command"],
+      "keywords": ["Godot", "MCP", "Bridge", "引擎集成", "godot_bridge", "headless", "ADR #198", "project snapshot", "isolated .godot", "parallel Godot", "exclusive writer", "manifest retry"]
     },
     {
       "path": "docs/AI协作/工具适配指南.md",

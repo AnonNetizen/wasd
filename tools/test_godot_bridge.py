@@ -127,6 +127,13 @@ class GodotBridgeTests(unittest.TestCase):
                         "argv",
                         ["godot_bridge.py", command_id],
                     ),
+                    mock.patch.dict(
+                        os.environ,
+                        {
+                            godot_bridge.PROJECT_EXECUTION_MODE_ENV:
+                            godot_bridge.PROJECT_EXECUTION_MODE_ISOLATED,
+                        },
+                    ),
                     mock.patch.object(
                         godot_bridge,
                         "_resolve_godot",
@@ -306,6 +313,13 @@ class GodotBridgeTests(unittest.TestCase):
                 "_resolve_godot",
                 return_value=fake_godot,
             ),
+            mock.patch.dict(
+                os.environ,
+                {
+                    godot_bridge.PROJECT_EXECUTION_MODE_ENV:
+                    godot_bridge.PROJECT_EXECUTION_MODE_ISOLATED,
+                },
+            ),
             mock.patch.object(
                 godot_bridge,
                 "_run_gut",
@@ -321,6 +335,266 @@ class GodotBridgeTests(unittest.TestCase):
             godot_bridge.DEFAULT_PROJECT.resolve(),
             requested_test_dirs=None,
         )
+
+    def test_read_only_main_command_routes_through_project_snapshot(self) -> None:
+        fake_godot = ROOT / "fake-godot.exe"
+        with (
+            mock.patch.object(
+                sys,
+                "argv",
+                ["godot_bridge.py", "gut", "--test-dir", "unit"],
+            ),
+            mock.patch.object(
+                godot_bridge,
+                "_resolve_godot",
+                return_value=fake_godot,
+            ),
+            mock.patch.object(
+                godot_bridge,
+                "_run_isolated_project_command",
+                return_value=0,
+            ) as run_isolated,
+            mock.patch.object(
+                godot_bridge,
+                "_run_gut",
+            ) as run_gut,
+        ):
+            result = godot_bridge.main()
+
+        self.assertEqual(result, 0)
+        run_isolated.assert_called_once_with(
+            ["gut", "--test-dir", "unit"],
+            godot_bridge.DEFAULT_PROJECT.resolve(),
+        )
+        run_gut.assert_not_called()
+
+    def test_source_writing_main_command_routes_through_exclusive_lock(self) -> None:
+        fake_godot = ROOT / "fake-godot.exe"
+        with (
+            mock.patch.object(
+                sys,
+                "argv",
+                ["godot_bridge.py", "vfx-bake"],
+            ),
+            mock.patch.object(
+                godot_bridge,
+                "_resolve_godot",
+                return_value=fake_godot,
+            ),
+            mock.patch.object(
+                godot_bridge,
+                "_run_exclusive_project_command",
+                return_value=0,
+            ) as run_exclusive,
+        ):
+            result = godot_bridge.main()
+
+        self.assertEqual(result, 0)
+        run_exclusive.assert_called_once_with(
+            ["vfx-bake"],
+            godot_bridge.DEFAULT_PROJECT.resolve(),
+        )
+
+    def test_source_writing_command_set_is_explicit(self) -> None:
+        self.assertEqual(
+            godot_bridge.PROJECT_MUTATING_COMMAND_IDS,
+            {
+                "capture-gear-mod-pickup",
+                "capture-golden-replay",
+                "module-bake",
+                "vfx-bake",
+            },
+        )
+
+    def test_project_argument_rewrite_is_stable_and_deduplicated(self) -> None:
+        project = Path("C:/isolated/project")
+        self.assertEqual(
+            godot_bridge._replace_project_argument(
+                [
+                    "--godot",
+                    "C:/Godot/godot.exe",
+                    "--project=old-project",
+                    "gut",
+                    "--test-dir",
+                    "unit",
+                ],
+                project,
+            ),
+            [
+                "--project",
+                str(project.resolve()),
+                "--godot",
+                "C:/Godot/godot.exe",
+                "gut",
+                "--test-dir",
+                "unit",
+            ],
+        )
+
+    def test_project_snapshot_keeps_only_reusable_cache_seed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "source"
+            destination = root / "destination"
+            (source / "scripts").mkdir(parents=True)
+            (source / "scripts" / "example.gd").write_text(
+                "extends Node\n",
+                encoding="utf-8",
+            )
+            (source / "project.godot").write_text(
+                "[application]\n",
+                encoding="utf-8",
+            )
+            (source / ".godot" / "imported").mkdir(parents=True)
+            (source / ".godot" / "imported" / "asset.ctex").write_bytes(
+                b"asset"
+            )
+            (source / ".godot" / "editor").mkdir()
+            (source / ".godot" / "editor" / "volatile.cfg").write_text(
+                "volatile",
+                encoding="utf-8",
+            )
+            (source / ".godot" / "global_script_class_cache.cfg").write_text(
+                "cache",
+                encoding="utf-8",
+            )
+            (source / ".godot" / "export_credentials.cfg").write_text(
+                "secret",
+                encoding="utf-8",
+            )
+
+            godot_bridge._copy_project_snapshot(source, destination)
+
+            self.assertTrue((destination / "project.godot").is_file())
+            self.assertTrue((destination / "scripts" / "example.gd").is_file())
+            self.assertTrue(
+                (destination / ".godot" / "imported" / "asset.ctex").is_file()
+            )
+            self.assertTrue(
+                (
+                    destination
+                    / ".godot"
+                    / "global_script_class_cache.cfg"
+                ).is_file()
+            )
+            self.assertFalse((destination / ".godot" / "editor").exists())
+            self.assertFalse(
+                (destination / ".godot" / "export_credentials.cfg").exists()
+            )
+
+    def test_project_snapshot_retries_when_source_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "source"
+            destination = root / "destination"
+            _create_gut_project(source)
+            first = (("project.godot", 1, 1),)
+            changed = (("project.godot", 2, 2),)
+            stable = (("project.godot", 3, 3),)
+
+            with mock.patch.object(
+                godot_bridge,
+                "_project_source_manifest",
+                side_effect=[first, changed, stable, stable],
+            ) as manifest:
+                godot_bridge._copy_project_snapshot(source, destination)
+
+            self.assertEqual(manifest.call_count, 4)
+            self.assertTrue((destination / "project.godot").is_file())
+
+    def test_isolated_project_command_reexecutes_with_private_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = Path(temporary_directory) / "source"
+            _create_gut_project(project)
+            captured: dict[str, object] = {}
+
+            def fake_run(
+                command: list[str],
+                **kwargs: object,
+            ) -> int:
+                captured["command"] = command
+                captured["env"] = kwargs["env"]
+                return 0
+
+            with mock.patch.object(
+                godot_bridge,
+                "_run_command",
+                side_effect=fake_run,
+            ):
+                result = godot_bridge._run_isolated_project_command(
+                    ["--project", str(project), "gut"],
+                    project,
+                )
+
+        self.assertEqual(result, 0)
+        command = captured["command"]
+        self.assertEqual(command[0], sys.executable)
+        project_index = command.index("--project")
+        self.assertNotEqual(
+            Path(command[project_index + 1]),
+            project.resolve(),
+        )
+        environment = captured["env"]
+        self.assertEqual(
+            environment[godot_bridge.PROJECT_EXECUTION_MODE_ENV],
+            godot_bridge.PROJECT_EXECUTION_MODE_ISOLATED,
+        )
+        self.assertEqual(environment["PYTHONIOENCODING"], "utf-8")
+        self.assertEqual(environment["PYTHONUTF8"], "1")
+
+    def test_exclusive_project_command_keeps_source_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project = Path(temporary_directory) / "source"
+            _create_gut_project(project)
+            captured: dict[str, object] = {}
+
+            def fake_run(
+                command: list[str],
+                **kwargs: object,
+            ) -> int:
+                captured["command"] = command
+                captured["env"] = kwargs["env"]
+                return 0
+
+            with mock.patch.object(
+                godot_bridge,
+                "_run_command",
+                side_effect=fake_run,
+            ):
+                result = godot_bridge._run_exclusive_project_command(
+                    ["--project", str(project), "vfx-bake"],
+                    project,
+                )
+
+        self.assertEqual(result, 0)
+        command = captured["command"]
+        project_index = command.index("--project")
+        self.assertEqual(
+            Path(command[project_index + 1]),
+            project.resolve(),
+        )
+        environment = captured["env"]
+        self.assertEqual(
+            environment[godot_bridge.PROJECT_EXECUTION_MODE_ENV],
+            godot_bridge.PROJECT_EXECUTION_MODE_EXCLUSIVE,
+        )
+
+    def test_process_output_falls_back_for_console_encoding(self) -> None:
+        class AsciiStream:
+            encoding = "ascii"
+
+            def __init__(self) -> None:
+                self.value = ""
+
+            def write(self, text: str) -> None:
+                text.encode(self.encoding)
+                self.value += text
+
+        stream = AsciiStream()
+
+        godot_bridge._write_process_output("Godot \ufffd output", stream=stream)
+
+        self.assertEqual(stream.value, "Godot ? output")
 
     def test_gut_runner_isolates_user_data_and_runs_default_suites(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
