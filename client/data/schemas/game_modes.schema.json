@@ -1,0 +1,235 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "modes"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "modes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "modes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "difficulty_profile_id",
+          "participants",
+          "teams",
+          "resource_pools",
+          "blocklists",
+          "overrides"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "difficulty_profile_id",
+          "participants",
+          "teams",
+          "resource_pools",
+          "blocklists",
+          "overrides"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "default_unlocked": {
+            "type": "boolean"
+          },
+          "difficulty_profile_id": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "kind",
+                "team_id",
+                "control"
+              ],
+              "x-wasd-order": [
+                "id",
+                "kind",
+                "team_id",
+                "control"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "team_id": {
+                  "type": "string"
+                },
+                "control": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "friendly_fire"
+              ],
+              "x-wasd-order": [
+                "id",
+                "friendly_fire"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "friendly_fire": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          },
+          "resource_pools": {
+            "type": "object",
+            "required": [
+              "characters",
+              "weapons",
+              "enemies",
+              "hazards",
+              "active_items",
+              "skills",
+              "consumables"
+            ],
+            "x-wasd-order": [
+              "characters",
+              "weapons",
+              "enemies",
+              "hazards",
+              "active_items",
+              "skills",
+              "consumables"
+            ],
+            "properties": {
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              },
+              "weapons": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              },
+              "enemies": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              },
+              "hazards": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              },
+              "active_items": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              },
+              "consumables": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              }
+            },
+            "additionalProperties": false
+          },
+          "blocklists": {
+            "type": "object",
+            "required": [
+              "content_tags"
+            ],
+            "x-wasd-order": [
+              "content_tags"
+            ],
+            "properties": {
+              "content_tags": {
+                "type": "array",
+                "items": {}
+              }
+            },
+            "additionalProperties": false
+          },
+          "overrides": {
+            "type": "object",
+            "required": [
+              "player_base_stats"
+            ],
+            "x-wasd-order": [
+              "player_base_stats"
+            ],
+            "properties": {
+              "player_base_stats": {
+                "type": "object",
+                "required": [],
+                "x-wasd-order": [],
+                "properties": {},
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "game_modes"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "game_modes.json"
+}

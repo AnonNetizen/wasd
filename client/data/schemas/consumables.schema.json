@@ -1,0 +1,114 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "consumables"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "consumables"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "consumables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "stack",
+          "use_effects"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "stack",
+          "use_effects"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "default_unlocked": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stack": {
+            "type": "object",
+            "required": [
+              "max_stack",
+              "start_count",
+              "pickup_count"
+            ],
+            "x-wasd-order": [
+              "max_stack",
+              "start_count",
+              "pickup_count"
+            ],
+            "properties": {
+              "max_stack": {
+                "type": "integer"
+              },
+              "start_count": {
+                "type": "integer"
+              },
+              "pickup_count": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "use_effects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "effect",
+                "params"
+              ],
+              "x-wasd-order": [
+                "effect",
+                "params"
+              ],
+              "properties": {
+                "effect": {
+                  "type": "string"
+                },
+                "params": {
+                  "type": "object"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "consumables"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "consumables.json"
+}

@@ -1,0 +1,390 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "worlds"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "worlds"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 6
+    },
+    "worlds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "columns",
+          "rows",
+          "module_columns",
+          "module_rows",
+          "cell_size",
+          "active_radius",
+          "seal_outer_edges",
+          "teleporter_transition",
+          "start_slot",
+          "objective_spawn",
+          "route_budget",
+          "fixed_slots",
+          "template_pool",
+          "limited_template_groups",
+          "fallback_assignment",
+          "technical_slice_assignment",
+          "first_visit_enemy_spawn"
+        ],
+        "x-wasd-order": [
+          "id",
+          "columns",
+          "rows",
+          "module_columns",
+          "module_rows",
+          "cell_size",
+          "active_radius",
+          "seal_outer_edges",
+          "teleporter_transition",
+          "start_slot",
+          "objective_spawn",
+          "route_budget",
+          "fixed_slots",
+          "template_pool",
+          "limited_template_groups",
+          "fallback_assignment",
+          "technical_slice_assignment",
+          "first_visit_enemy_spawn"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "integer"
+          },
+          "rows": {
+            "type": "integer"
+          },
+          "module_columns": {
+            "type": "integer"
+          },
+          "module_rows": {
+            "type": "integer"
+          },
+          "cell_size": {
+            "type": "integer"
+          },
+          "active_radius": {
+            "type": "integer"
+          },
+          "seal_outer_edges": {
+            "type": "boolean"
+          },
+          "teleporter_transition": {
+            "type": "object",
+            "required": [
+              "fade_out_duration",
+              "fade_in_duration"
+            ],
+            "x-wasd-order": [
+              "fade_out_duration",
+              "fade_in_duration"
+            ],
+            "properties": {
+              "fade_out_duration": {
+                "type": "number"
+              },
+              "fade_in_duration": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "start_slot": {
+            "type": "object",
+            "required": [
+              "x",
+              "y"
+            ],
+            "x-wasd-order": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "objective_spawn": {
+            "type": "object",
+            "required": [
+              "template_id",
+              "rotation",
+              "candidate_slots"
+            ],
+            "x-wasd-order": [
+              "template_id",
+              "rotation",
+              "candidate_slots"
+            ],
+            "properties": {
+              "template_id": {
+                "type": "string"
+              },
+              "rotation": {
+                "type": "integer"
+              },
+              "candidate_slots": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "route_budget": {
+            "type": "object",
+            "required": [
+              "start_to_objective",
+              "main_route_modules",
+              "optional_exploration_modules"
+            ],
+            "x-wasd-order": [
+              "start_to_objective",
+              "main_route_modules",
+              "optional_exploration_modules"
+            ],
+            "properties": {
+              "start_to_objective": {
+                "type": "object",
+                "required": [
+                  "min_crossings",
+                  "max_crossings"
+                ],
+                "x-wasd-order": [
+                  "min_crossings",
+                  "max_crossings"
+                ],
+                "properties": {
+                  "min_crossings": {
+                    "type": "integer"
+                  },
+                  "max_crossings": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "main_route_modules": {
+                "type": "object",
+                "required": [
+                  "min",
+                  "max"
+                ],
+                "x-wasd-order": [
+                  "min",
+                  "max"
+                ],
+                "properties": {
+                  "min": {
+                    "type": "integer"
+                  },
+                  "max": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "optional_exploration_modules": {
+                "type": "object",
+                "required": [
+                  "max"
+                ],
+                "x-wasd-order": [
+                  "max"
+                ],
+                "properties": {
+                  "max": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "fixed_slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "slot",
+                "template_id",
+                "rotation"
+              ],
+              "x-wasd-order": [
+                "slot",
+                "template_id",
+                "rotation"
+              ],
+              "properties": {
+                "slot": {
+                  "type": "object"
+                },
+                "template_id": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "template_pool": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limited_template_groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "pick_distinct",
+                "minimum_manhattan_distance",
+                "entries"
+              ],
+              "x-wasd-order": [
+                "id",
+                "pick_distinct",
+                "minimum_manhattan_distance",
+                "entries"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "pick_distinct": {
+                  "type": "integer"
+                },
+                "minimum_manhattan_distance": {
+                  "type": "integer"
+                },
+                "entries": {
+                  "type": "array"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          },
+          "fallback_assignment": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "slot",
+                "template_id",
+                "rotation"
+              ],
+              "x-wasd-order": [
+                "slot",
+                "template_id",
+                "rotation"
+              ],
+              "properties": {
+                "slot": {
+                  "type": "object"
+                },
+                "template_id": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "technical_slice_assignment": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "slot",
+                "template_id",
+                "rotation"
+              ],
+              "x-wasd-order": [
+                "slot",
+                "template_id",
+                "rotation"
+              ],
+              "properties": {
+                "slot": {
+                  "type": "object"
+                },
+                "template_id": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "first_visit_enemy_spawn": {
+            "type": "object",
+            "required": [
+              "count_min",
+              "count_max",
+              "telegraph_duration",
+              "enemy_pool"
+            ],
+            "x-wasd-order": [
+              "count_min",
+              "count_max",
+              "telegraph_duration",
+              "enemy_pool"
+            ],
+            "properties": {
+              "count_min": {
+                "type": "integer"
+              },
+              "count_max": {
+                "type": "integer"
+              },
+              "telegraph_duration": {
+                "type": "number"
+              },
+              "enemy_pool": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "module_worlds"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "module_worlds.json"
+}

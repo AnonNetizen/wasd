@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from sync_contracts import CONTRACTS_JSON, ROOT, extract_contracts
+from project_schema_catalog import validate_catalog
 
 
 CLIENT_DATA = ROOT / "client" / "data"
@@ -191,6 +192,15 @@ def main() -> int:
         world_event_ids,
         module_tile_catalog,
     )
+
+    if not ctx.errors:
+        declarative_result = validate_catalog(CLIENT_DATA)
+        for issue in declarative_result["errors"]:
+            ctx.error(
+                Path(issue["path"]),
+                issue["field"],
+                issue["expected"],
+            )
 
     if ctx.errors:
         for error in ctx.errors:

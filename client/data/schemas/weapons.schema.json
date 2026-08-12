@@ -1,0 +1,220 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "recoil_model",
+    "weapons"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "recoil_model",
+    "weapons"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 5
+    },
+    "recoil_model": {
+      "type": "object",
+      "required": [
+        "recoil_max",
+        "spread_exponent",
+        "base_spread_cap",
+        "kickback_max_distance",
+        "kickback_duration",
+        "kickback_velocity_cap",
+        "runtime_spread_cap"
+      ],
+      "x-wasd-order": [
+        "recoil_max",
+        "spread_exponent",
+        "base_spread_cap",
+        "kickback_max_distance",
+        "kickback_duration",
+        "kickback_velocity_cap",
+        "runtime_spread_cap"
+      ],
+      "properties": {
+        "recoil_max": {
+          "type": "number"
+        },
+        "spread_exponent": {
+          "type": "number"
+        },
+        "base_spread_cap": {
+          "type": "number"
+        },
+        "kickback_max_distance": {
+          "type": "number"
+        },
+        "kickback_duration": {
+          "type": "number"
+        },
+        "kickback_velocity_cap": {
+          "type": "number"
+        },
+        "runtime_spread_cap": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "weapons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "fire_mode",
+          "fire_audio_id",
+          "presentation_profile_id",
+          "base_stats",
+          "projectile"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "fire_mode",
+          "fire_audio_id",
+          "presentation_profile_id",
+          "base_stats",
+          "projectile"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "default_unlocked": {
+            "type": "boolean"
+          },
+          "fire_mode": {
+            "type": "string"
+          },
+          "fire_audio_id": {
+            "type": "string"
+          },
+          "presentation_profile_id": {
+            "type": "string"
+          },
+          "base_stats": {
+            "type": "object",
+            "required": [
+              "damage",
+              "fire_rate",
+              "bullet_speed",
+              "bullet_range",
+              "bullet_count",
+              "pierce_count",
+              "wall_pierce",
+              "crit_chance",
+              "crit_mult",
+              "recoil",
+              "spread_angle_max"
+            ],
+            "x-wasd-order": [
+              "damage",
+              "fire_rate",
+              "bullet_speed",
+              "bullet_range",
+              "bullet_count",
+              "pierce_count",
+              "wall_pierce",
+              "crit_chance",
+              "crit_mult",
+              "recoil",
+              "spread_angle_max"
+            ],
+            "properties": {
+              "damage": {
+                "type": "number"
+              },
+              "fire_rate": {
+                "type": "number"
+              },
+              "bullet_speed": {
+                "type": "number"
+              },
+              "bullet_range": {
+                "type": "number"
+              },
+              "bullet_count": {
+                "type": "integer"
+              },
+              "pierce_count": {
+                "type": "integer"
+              },
+              "wall_pierce": {
+                "type": "number"
+              },
+              "crit_chance": {
+                "type": "number"
+              },
+              "crit_mult": {
+                "type": "number"
+              },
+              "recoil": {
+                "type": "number"
+              },
+              "spread_angle_max": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "projectile": {
+            "type": "object",
+            "required": [
+              "pool_id",
+              "element_id",
+              "hit_radius",
+              "muzzle_distance",
+              "lifetime"
+            ],
+            "x-wasd-order": [
+              "pool_id",
+              "element_id",
+              "hit_radius",
+              "muzzle_distance",
+              "lifetime"
+            ],
+            "properties": {
+              "pool_id": {
+                "type": "string"
+              },
+              "element_id": {
+                "type": "string"
+              },
+              "hit_radius": {
+                "type": "number"
+              },
+              "muzzle_distance": {
+                "type": "number"
+              },
+              "lifetime": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "weapons"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "weapons.json"
+}

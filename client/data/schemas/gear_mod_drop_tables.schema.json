@@ -1,0 +1,57 @@
+{
+  "type": "array",
+  "x-wasd-csv": {
+    "source": "gear_mod_drop_tables.csv",
+    "headers": [
+      "source_enemy_id",
+      "mod_id",
+      "drop_chance",
+      "min_enemy_level",
+      "max_enemy_level"
+    ],
+    "columns": {
+      "source_enemy_id": "string",
+      "mod_id": "string",
+      "drop_chance": "number",
+      "min_enemy_level": "integer",
+      "max_enemy_level": "integer"
+    }
+  },
+  "items": {
+    "type": "object",
+    "required": [
+      "source_enemy_id",
+      "mod_id",
+      "drop_chance",
+      "min_enemy_level",
+      "max_enemy_level"
+    ],
+    "x-wasd-order": [
+      "source_enemy_id",
+      "mod_id",
+      "drop_chance",
+      "min_enemy_level",
+      "max_enemy_level"
+    ],
+    "properties": {
+      "source_enemy_id": {
+        "type": "string"
+      },
+      "mod_id": {
+        "type": "string"
+      },
+      "drop_chance": {
+        "type": "number"
+      },
+      "min_enemy_level": {
+        "type": "integer"
+      },
+      "max_enemy_level": {
+        "type": "integer"
+      }
+    },
+    "additionalProperties": false
+  },
+  "x-wasd-count-key": "gear_mod_drop_rows",
+  "$id": "gear_mod_drop_tables.csv"
+}

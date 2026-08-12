@@ -1,0 +1,148 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "aim_look",
+    "player_damage_shake",
+    "weapon_recoil_shake"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "aim_look",
+    "player_damage_shake",
+    "weapon_recoil_shake"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "aim_look": {
+      "type": "object",
+      "required": [
+        "pointer_offset_ratio",
+        "max_offset_px",
+        "pointer_dead_zone_px",
+        "smoothing_time_seconds"
+      ],
+      "x-wasd-order": [
+        "pointer_offset_ratio",
+        "max_offset_px",
+        "pointer_dead_zone_px",
+        "smoothing_time_seconds"
+      ],
+      "properties": {
+        "pointer_offset_ratio": {
+          "type": "number"
+        },
+        "max_offset_px": {
+          "type": "number"
+        },
+        "pointer_dead_zone_px": {
+          "type": "number"
+        },
+        "smoothing_time_seconds": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "player_damage_shake": {
+      "type": "object",
+      "required": [
+        "amplitude",
+        "frequency",
+        "growth_time",
+        "duration",
+        "decay_time",
+        "positional_multiplier_x",
+        "positional_multiplier_y"
+      ],
+      "x-wasd-order": [
+        "amplitude",
+        "frequency",
+        "growth_time",
+        "duration",
+        "decay_time",
+        "positional_multiplier_x",
+        "positional_multiplier_y"
+      ],
+      "properties": {
+        "amplitude": {
+          "type": "number"
+        },
+        "frequency": {
+          "type": "number"
+        },
+        "growth_time": {
+          "type": "number"
+        },
+        "duration": {
+          "type": "number"
+        },
+        "decay_time": {
+          "type": "number"
+        },
+        "positional_multiplier_x": {
+          "type": "number"
+        },
+        "positional_multiplier_y": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "weapon_recoil_shake": {
+      "type": "object",
+      "required": [
+        "amplitude",
+        "amplitude_exponent",
+        "frequency",
+        "growth_time",
+        "duration",
+        "decay_time",
+        "positional_multiplier_x",
+        "positional_multiplier_y"
+      ],
+      "x-wasd-order": [
+        "amplitude",
+        "amplitude_exponent",
+        "frequency",
+        "growth_time",
+        "duration",
+        "decay_time",
+        "positional_multiplier_x",
+        "positional_multiplier_y"
+      ],
+      "properties": {
+        "amplitude": {
+          "type": "number"
+        },
+        "amplitude_exponent": {
+          "type": "number"
+        },
+        "frequency": {
+          "type": "number"
+        },
+        "growth_time": {
+          "type": "number"
+        },
+        "duration": {
+          "type": "number"
+        },
+        "decay_time": {
+          "type": "number"
+        },
+        "positional_multiplier_x": {
+          "type": "number"
+        },
+        "positional_multiplier_y": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$id": "camera_feedback.json"
+}

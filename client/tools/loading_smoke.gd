@@ -222,8 +222,11 @@ func _run() -> void:
 	if not _expect_node(continued_run, "continue should restore the teleport choice"):
 		_finish()
 		return
+	var continued_teleport_runtime: Node = continued_run.get_node(
+		"TeleportRuntimeCoordinator"
+	)
 	_expect(
-		String(continued_run.get("_teleport_source_station_id"))
+		String(continued_teleport_runtime.get("source_station_id"))
 		== teleport_source_id
 		and _find_node_by_name(get_tree().root, "TeleportChoicePanel") != null,
 		"continue should rebuild the original source station choice panel"
@@ -798,13 +801,18 @@ func _wait_for_teleporter_choice() -> Node:
 			get_tree().root,
 			"GameplayRunLoop"
 		)
+		var teleport_runtime: Node = (
+			run_loop.get_node("TeleportRuntimeCoordinator")
+			if run_loop != null
+			else null
+		)
 		if (
 			run_loop != null
 			and GameState.is_state(GameState.PLAYING)
 			and not String(
-				run_loop.get("_teleport_source_station_id")
+				teleport_runtime.get("source_station_id")
 			).is_empty()
-			and run_loop.get("_teleport_choice_panel") != null
+			and teleport_runtime.get("choice_panel") != null
 			and _count_nodes_by_name(
 				get_tree().root,
 				"LoadingScreen"
@@ -833,7 +841,10 @@ func _prepare_teleporter_choice(run_loop: Node) -> String:
 	if manager == null or player == null:
 		return ""
 	var stations: Array[Dictionary] = []
-	var raw_stations: Dictionary = run_loop.get("_teleporter_stations") as Dictionary
+	var teleport_runtime: Node = run_loop.get_node(
+		"TeleportRuntimeCoordinator"
+	)
+	var raw_stations: Dictionary = teleport_runtime.get("stations") as Dictionary
 	for raw_station: Variant in raw_stations.values():
 		if raw_station is Dictionary:
 			stations.append((raw_station as Dictionary).duplicate(true))

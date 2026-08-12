@@ -1,0 +1,97 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "sections"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "sections"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title_key",
+          "entries"
+        ],
+        "x-wasd-order": [
+          "id",
+          "title_key",
+          "entries"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title_key": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "name",
+                "role_key"
+              ],
+              "x-wasd-order": [
+                "kind",
+                "name",
+                "role_key",
+                "url",
+                "license",
+                "included_in_build",
+                "requires_notice",
+                "review_required",
+                "copyright"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "role_key": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "license": {
+                  "type": "string"
+                },
+                "included_in_build": {
+                  "type": "boolean"
+                },
+                "requires_notice": {
+                  "type": "boolean"
+                },
+                "review_required": {
+                  "type": "boolean"
+                },
+                "copyright": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "credits.json"
+}

@@ -1,0 +1,120 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "neutral_element_id",
+    "unmatched_result",
+    "elements",
+    "combinations"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "neutral_element_id",
+    "unmatched_result",
+    "elements",
+    "combinations"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "neutral_element_id": {
+      "type": "string",
+      "x-wasd-ref": {
+        "source": "contract:elements"
+      }
+    },
+    "unmatched_result": {
+      "type": "string"
+    },
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "kind",
+          "components"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "kind",
+          "components"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "x-wasd-ref": {
+              "source": "contract:elements"
+            }
+          },
+          "name_key": {
+            "type": "string",
+            "x-wasd-ref": {
+              "source": "locale",
+              "expected": "must reference a locale key"
+            }
+          },
+          "kind": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-wasd-ref": {
+                "source": "contract:elements"
+              }
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "elements"
+    },
+    "combinations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "left",
+          "right",
+          "result"
+        ],
+        "x-wasd-order": [
+          "left",
+          "right",
+          "result"
+        ],
+        "properties": {
+          "left": {
+            "type": "string",
+            "x-wasd-ref": {
+              "source": "contract:elements"
+            }
+          },
+          "right": {
+            "type": "string",
+            "x-wasd-ref": {
+              "source": "contract:elements"
+            }
+          },
+          "result": {
+            "type": "string",
+            "x-wasd-ref": {
+              "source": "contract:elements"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-count-key": "element_combinations"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "elements.json"
+}

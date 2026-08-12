@@ -1,0 +1,246 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "characters"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "characters"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 4
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "scene_path",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "capabilities",
+          "control_profile",
+          "presentation_profile_id",
+          "palette",
+          "element_id",
+          "passive_id",
+          "hero_skill_ids",
+          "starting_loadout",
+          "skill_resources",
+          "base_stats"
+        ],
+        "x-wasd-order": [
+          "id",
+          "scene_path",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "capabilities",
+          "control_profile",
+          "presentation_profile_id",
+          "palette",
+          "element_id",
+          "passive_id",
+          "hero_skill_ids",
+          "starting_loadout",
+          "skill_resources",
+          "base_stats"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "scene_path": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "default_unlocked": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {}
+          },
+          "control_profile": {
+            "type": "string"
+          },
+          "presentation_profile_id": {
+            "type": "string"
+          },
+          "palette": {
+            "type": "object",
+            "required": [
+              "primary"
+            ],
+            "x-wasd-order": [
+              "primary"
+            ],
+            "properties": {
+              "primary": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "element_id": {
+            "type": "string"
+          },
+          "passive_id": {
+            "type": "string"
+          },
+          "hero_skill_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "starting_loadout": {
+            "type": "object",
+            "required": [
+              "weapon_id",
+              "active_item_id",
+              "consumable_ids"
+            ],
+            "x-wasd-order": [
+              "weapon_id",
+              "active_item_id",
+              "consumable_ids"
+            ],
+            "properties": {
+              "weapon_id": {
+                "type": "string"
+              },
+              "active_item_id": {
+                "type": "string"
+              },
+              "consumable_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "skill_resources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "max_stat",
+                "start_ratio",
+                "regen_per_second"
+              ],
+              "x-wasd-order": [
+                "id",
+                "max_stat",
+                "start_ratio",
+                "regen_per_second"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "max_stat": {
+                  "type": "string"
+                },
+                "start_ratio": {
+                  "type": "number"
+                },
+                "regen_per_second": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          },
+          "base_stats": {
+            "type": "object",
+            "required": [
+              "max_hp",
+              "max_shield",
+              "max_energy",
+              "health_regen",
+              "move_speed",
+              "armor",
+              "ability_strength",
+              "ability_range",
+              "ability_efficiency",
+              "ability_duration"
+            ],
+            "x-wasd-order": [
+              "max_hp",
+              "max_shield",
+              "max_energy",
+              "health_regen",
+              "move_speed",
+              "armor",
+              "ability_strength",
+              "ability_range",
+              "ability_efficiency",
+              "ability_duration"
+            ],
+            "properties": {
+              "max_hp": {
+                "type": "number"
+              },
+              "max_shield": {
+                "type": "number"
+              },
+              "max_energy": {
+                "type": "number"
+              },
+              "health_regen": {
+                "type": "number"
+              },
+              "move_speed": {
+                "type": "number"
+              },
+              "armor": {
+                "type": "number"
+              },
+              "ability_strength": {
+                "type": "number"
+              },
+              "ability_range": {
+                "type": "number"
+              },
+              "ability_efficiency": {
+                "type": "number"
+              },
+              "ability_duration": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "characters"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "characters.json"
+}

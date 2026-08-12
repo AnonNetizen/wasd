@@ -315,11 +315,14 @@ func _apply_scenario_runtime_events(run_loop: Node, frame_number: int) -> void:
 			"GoldenReplayCapture should prepare the teleporter replay fixture"
 		)
 	elif _scenario == DEFAULT_SCENARIO and frame_number == TELEPORT_CHOICE_FRAME:
+		var teleport_runtime: Node = run_loop.get_node(
+			"TeleportRuntimeCoordinator"
+		)
 		_expect(
 			GameState.is_state(GameState.PLAYING)
-			and run_loop.get("_teleport_choice_panel") != null
+			and teleport_runtime.get("choice_panel") != null
 			and not String(
-				run_loop.get("_teleport_source_station_id")
+				teleport_runtime.get("source_station_id")
 			).is_empty(),
 			"GoldenReplayCapture interact input should open the PLAYING teleport overlay"
 		)

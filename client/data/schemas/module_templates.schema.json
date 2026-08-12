@@ -1,0 +1,77 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "templates"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "templates"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 2
+    },
+    "templates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "allowed_rotations",
+          "id",
+          "path",
+          "review_status",
+          "role",
+          "source",
+          "tags"
+        ],
+        "x-wasd-order": [
+          "allowed_rotations",
+          "approved_gameplay_hash",
+          "id",
+          "path",
+          "review_status",
+          "role",
+          "source",
+          "tags"
+        ],
+        "properties": {
+          "allowed_rotations": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "approved_gameplay_hash": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "review_status": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {}
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "module_templates"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "module_templates.json"
+}

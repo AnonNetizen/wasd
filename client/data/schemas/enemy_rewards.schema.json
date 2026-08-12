@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "base_coefficient",
+    "time_growth_per_tier",
+    "random_multiplier_min",
+    "random_multiplier_max"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "base_coefficient",
+    "time_growth_per_tier",
+    "random_multiplier_min",
+    "random_multiplier_max"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "base_coefficient": {
+      "type": "number"
+    },
+    "time_growth_per_tier": {
+      "type": "number"
+    },
+    "random_multiplier_min": {
+      "type": "number"
+    },
+    "random_multiplier_max": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "enemy_rewards.json"
+}

@@ -1,0 +1,90 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "pools"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "pools"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "pools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "entries"
+        ],
+        "x-wasd-order": [
+          "id",
+          "entries"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name_key",
+                "desc_key",
+                "kind",
+                "weight",
+                "min_level",
+                "modifiers"
+              ],
+              "x-wasd-order": [
+                "id",
+                "name_key",
+                "desc_key",
+                "kind",
+                "weight",
+                "min_level",
+                "modifiers"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name_key": {
+                  "type": "string"
+                },
+                "desc_key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": "integer"
+                },
+                "min_level": {
+                  "type": "integer"
+                },
+                "modifiers": {
+                  "type": "array"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "reward_choice_pools"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "reward_choice_pools.json"
+}

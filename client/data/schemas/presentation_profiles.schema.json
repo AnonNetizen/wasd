@@ -1,0 +1,744 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "profiles"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "profiles"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "editor_name",
+          "parent_profile_id",
+          "bindings"
+        ],
+        "x-wasd-order": [
+          "id",
+          "editor_name",
+          "parent_profile_id",
+          "bindings"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "editor_name": {
+            "type": "string"
+          },
+          "parent_profile_id": {
+            "type": "string"
+          },
+          "bindings": {
+            "type": "object",
+            "required": [],
+            "x-wasd-order": [
+              "hit",
+              "hurt",
+              "defeat",
+              "enemy_attack_telegraph",
+              "enemy_attack_impact",
+              "skill_cast",
+              "skill_failed",
+              "modifier_started",
+              "modifier_refreshed",
+              "modifier_expired",
+              "weapon_fire",
+              "status_applied",
+              "status_expired",
+              "pickup_collect",
+              "pickup_spawn",
+              "pickup_attract",
+              "hazard_telegraph",
+              "hazard_activated",
+              "enemy_spawn_telegraph"
+            ],
+            "properties": {
+              "hit": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "hurt": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "defeat": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "enemy_attack_telegraph": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "enemy_attack_impact": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "skill_cast": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "skill_failed": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "modifier_started": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "modifier_refreshed": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "modifier_expired": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "weapon_fire": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "status_applied": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "status_expired": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "pickup_collect": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "pickup_spawn": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "pickup_attract": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "hazard_telegraph": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "hazard_activated": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "enemy_spawn_telegraph": {
+                "type": "object",
+                "required": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "x-wasd-order": [
+                  "effects",
+                  "audio_id",
+                  "camera_feedback_id",
+                  "screen_effect_id",
+                  "hit_stop_profile_id"
+                ],
+                "properties": {
+                  "effects": {
+                    "type": "array"
+                  },
+                  "audio_id": {
+                    "type": "string"
+                  },
+                  "camera_feedback_id": {
+                    "type": "string"
+                  },
+                  "screen_effect_id": {
+                    "type": "string"
+                  },
+                  "hit_stop_profile_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "presentation_profiles"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "presentation_profiles.json"
+}

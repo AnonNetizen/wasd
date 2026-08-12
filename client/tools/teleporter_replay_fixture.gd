@@ -8,7 +8,10 @@ static func prepare(run_loop: Node) -> Dictionary:
 	if manager == null or player == null:
 		return {}
 	var stations: Array[Dictionary] = []
-	var raw_stations: Dictionary = run_loop.get("_teleporter_stations") as Dictionary
+	var teleport_runtime: Node = run_loop.get_node(
+		"TeleportRuntimeCoordinator"
+	)
+	var raw_stations: Dictionary = teleport_runtime.get("stations") as Dictionary
 	for raw_station: Variant in raw_stations.values():
 		if raw_station is Dictionary:
 			stations.append((raw_station as Dictionary).duplicate(true))

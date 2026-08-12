@@ -1,0 +1,92 @@
+{
+  "type": "array",
+  "x-wasd-csv": {
+    "source": "hazards.csv",
+    "headers": [
+      "id",
+      "name_key",
+      "tags",
+      "pool_id",
+      "presentation_profile_id",
+      "damage",
+      "element_id",
+      "trigger_interval",
+      "radius_tiles",
+      "duration"
+    ],
+    "columns": {
+      "id": "string",
+      "name_key": "string",
+      "tags": "string",
+      "pool_id": "string",
+      "presentation_profile_id": "string",
+      "damage": "integer",
+      "element_id": "string",
+      "trigger_interval": "number",
+      "radius_tiles": "integer",
+      "duration": "number"
+    }
+  },
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "name_key",
+      "tags",
+      "pool_id",
+      "presentation_profile_id",
+      "damage",
+      "element_id",
+      "trigger_interval",
+      "radius_tiles",
+      "duration"
+    ],
+    "x-wasd-order": [
+      "id",
+      "name_key",
+      "tags",
+      "pool_id",
+      "presentation_profile_id",
+      "damage",
+      "element_id",
+      "trigger_interval",
+      "radius_tiles",
+      "duration"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name_key": {
+        "type": "string"
+      },
+      "tags": {
+        "type": "string"
+      },
+      "pool_id": {
+        "type": "string"
+      },
+      "presentation_profile_id": {
+        "type": "string"
+      },
+      "damage": {
+        "type": "integer"
+      },
+      "element_id": {
+        "type": "string"
+      },
+      "trigger_interval": {
+        "type": "number"
+      },
+      "radius_tiles": {
+        "type": "integer"
+      },
+      "duration": {
+        "type": "number"
+      }
+    },
+    "additionalProperties": false
+  },
+  "x-wasd-count-key": "hazards",
+  "$id": "hazards.csv"
+}

@@ -1,0 +1,527 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source",
+    "generated_by",
+    "contracts"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "source",
+    "generated_by",
+    "contracts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "source": {
+      "type": "string"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "contracts": {
+      "type": "object",
+      "required": [
+        "stats",
+        "effects",
+        "events",
+        "analytics_events",
+        "settings_keys",
+        "actions",
+        "input_binding_ids",
+        "pool_ids",
+        "gold_transaction_reasons",
+        "reward_choice_triggers",
+        "elements",
+        "status_effects",
+        "status_stack_rules",
+        "damage_target_groups",
+        "audio_prefixes",
+        "rng_streams",
+        "character_ids",
+        "capabilities",
+        "content_tags",
+        "game_modes",
+        "enemy_ai_actions",
+        "enemy_defeat_causes",
+        "skill_ids",
+        "skill_resources",
+        "skill_targeting",
+        "effect_triggers",
+        "effect_conditions",
+        "effect_actions",
+        "ability_tags",
+        "skill_slots",
+        "hero_passive_ids",
+        "gear_mod_ids",
+        "gear_mod_slots",
+        "gear_mod_rarities",
+        "gear_mod_component_types",
+        "gear_mod_board_rules",
+        "gear_mod_placement_outcomes",
+        "save_kinds",
+        "module_roles",
+        "module_cell_tokens",
+        "module_placement_types",
+        "module_edge_directions",
+        "module_review_statuses",
+        "module_tile_ids",
+        "teleporter_network_ids",
+        "teleport_choice_outcomes",
+        "world_event_ids",
+        "world_event_kinds",
+        "world_event_states",
+        "world_event_reward_types",
+        "world_event_mod_pool_ids",
+        "vfx_domains",
+        "vfx_kinds",
+        "vfx_spaces",
+        "vfx_lifecycles",
+        "vfx_cues",
+        "vfx_anchors",
+        "content_unlock_types",
+        "content_unlock_rule_modes",
+        "content_unlock_progress_counters",
+        "locale_prefixes"
+      ],
+      "x-wasd-order": [
+        "stats",
+        "effects",
+        "events",
+        "analytics_events",
+        "settings_keys",
+        "actions",
+        "input_binding_ids",
+        "pool_ids",
+        "gold_transaction_reasons",
+        "reward_choice_triggers",
+        "elements",
+        "status_effects",
+        "status_stack_rules",
+        "damage_target_groups",
+        "audio_prefixes",
+        "rng_streams",
+        "character_ids",
+        "capabilities",
+        "content_tags",
+        "game_modes",
+        "enemy_ai_actions",
+        "enemy_defeat_causes",
+        "skill_ids",
+        "skill_resources",
+        "skill_targeting",
+        "effect_triggers",
+        "effect_conditions",
+        "effect_actions",
+        "ability_tags",
+        "skill_slots",
+        "hero_passive_ids",
+        "gear_mod_ids",
+        "gear_mod_slots",
+        "gear_mod_rarities",
+        "gear_mod_component_types",
+        "gear_mod_board_rules",
+        "gear_mod_placement_outcomes",
+        "save_kinds",
+        "module_roles",
+        "module_cell_tokens",
+        "module_placement_types",
+        "module_edge_directions",
+        "module_review_statuses",
+        "module_tile_ids",
+        "teleporter_network_ids",
+        "teleport_choice_outcomes",
+        "world_event_ids",
+        "world_event_kinds",
+        "world_event_states",
+        "world_event_reward_types",
+        "world_event_mod_pool_ids",
+        "vfx_domains",
+        "vfx_kinds",
+        "vfx_spaces",
+        "vfx_lifecycles",
+        "vfx_cues",
+        "vfx_anchors",
+        "content_unlock_types",
+        "content_unlock_rule_modes",
+        "content_unlock_progress_counters",
+        "locale_prefixes"
+      ],
+      "properties": {
+        "stats": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "analytics_events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "input_binding_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pool_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gold_transaction_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward_choice_triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status_effects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status_stack_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "damage_target_groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "audio_prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rng_streams": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "character_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "game_modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enemy_ai_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enemy_defeat_causes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skill_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skill_resources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skill_targeting": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effect_triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effect_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effect_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ability_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skill_slots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hero_passive_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gear_mod_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gear_mod_slots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gear_mod_rarities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gear_mod_component_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gear_mod_board_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gear_mod_placement_outcomes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "save_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_cell_tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_placement_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_edge_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_review_statuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_tile_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "teleporter_network_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "teleport_choice_outcomes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "world_event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "world_event_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "world_event_states": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "world_event_reward_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "world_event_mod_pool_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vfx_domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vfx_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vfx_spaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vfx_lifecycles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vfx_cues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vfx_anchors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content_unlock_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content_unlock_rule_modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content_unlock_progress_counters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "locale_prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$id": "_contracts.json"
+}

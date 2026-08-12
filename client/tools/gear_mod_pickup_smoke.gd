@@ -590,7 +590,8 @@ func _expect_interaction_contract(
 	run_loop.set("_content_availability", original_availability)
 	_release_active_pickups(run_loop)
 
-	var board: RefCounted = run_loop.get("_gear_mod_board") as RefCounted
+	var coordinator: Node = run_loop.get_node("GearModPlacementCoordinator")
+	var board: RefCounted = coordinator.get("board") as RefCounted
 	if board != null:
 		while true:
 			var legal_rocks: Array[Vector2i] = board.call(

@@ -1,0 +1,162 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "events"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 2
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name_key",
+          "desc_key",
+          "interaction_radius"
+        ],
+        "x-wasd-order": [
+          "id",
+          "kind",
+          "name_key",
+          "desc_key",
+          "interaction_radius",
+          "duration",
+          "waves",
+          "target_max_health",
+          "target_hit_radius",
+          "completion_reward",
+          "capture_radius",
+          "entry_delay",
+          "entry_delay_decay",
+          "capture_duration",
+          "timeout",
+          "base_cost",
+          "cost_multiplier",
+          "success_chance",
+          "max_successes",
+          "mod_pool_id",
+          "sacrifice_ratios",
+          "gold_ratio"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "interaction_radius": {
+            "type": "number"
+          },
+          "duration": {
+            "type": "number"
+          },
+          "waves": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "trigger",
+                "count"
+              ],
+              "x-wasd-order": [
+                "trigger",
+                "count"
+              ],
+              "properties": {
+                "trigger": {
+                  "type": "number"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "target_max_health": {
+            "type": "number"
+          },
+          "target_hit_radius": {
+            "type": "number"
+          },
+          "completion_reward": {
+            "type": "object",
+            "required": [
+              "mod_pool_id"
+            ],
+            "x-wasd-order": [
+              "mod_pool_id"
+            ],
+            "properties": {
+              "mod_pool_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "capture_radius": {
+            "type": "number"
+          },
+          "entry_delay": {
+            "type": "number"
+          },
+          "entry_delay_decay": {
+            "type": "number"
+          },
+          "capture_duration": {
+            "type": "number"
+          },
+          "timeout": {
+            "type": "number"
+          },
+          "base_cost": {
+            "type": "integer"
+          },
+          "cost_multiplier": {
+            "type": "number"
+          },
+          "success_chance": {
+            "type": "number"
+          },
+          "max_successes": {
+            "type": "integer"
+          },
+          "mod_pool_id": {
+            "type": "string"
+          },
+          "sacrifice_ratios": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "gold_ratio": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "world_events"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "world_events.json"
+}

@@ -1,0 +1,193 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "columns",
+    "rows",
+    "terrain_rows",
+    "placements",
+    "visual_layers"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "id",
+    "columns",
+    "rows",
+    "terrain_rows",
+    "placements",
+    "visual_layers"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 5
+    },
+    "id": {
+      "type": "string"
+    },
+    "columns": {
+      "type": "integer"
+    },
+    "rows": {
+      "type": "integer"
+    },
+    "terrain_rows": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "placements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "cell"
+        ],
+        "x-wasd-order": [
+          "type",
+          "cell",
+          "hazard_id",
+          "target_hp",
+          "target_hit_radius",
+          "gold_reward_amount",
+          "claim_radius",
+          "network_id",
+          "interaction_radius",
+          "world_event_id"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "cell": {
+            "type": "object",
+            "required": [
+              "x",
+              "y"
+            ],
+            "x-wasd-order": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "hazard_id": {
+            "type": "string"
+          },
+          "target_hp": {
+            "type": "integer"
+          },
+          "target_hit_radius": {
+            "type": "integer"
+          },
+          "gold_reward_amount": {
+            "type": "integer"
+          },
+          "claim_radius": {
+            "type": "integer"
+          },
+          "network_id": {
+            "type": "string"
+          },
+          "interaction_radius": {
+            "type": "integer"
+          },
+          "world_event_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "visual_layers": {
+      "type": "object",
+      "required": [
+        "ground",
+        "obstacles",
+        "decoration"
+      ],
+      "x-wasd-order": [
+        "ground",
+        "obstacles",
+        "decoration"
+      ],
+      "properties": {
+        "ground": {
+          "type": "object",
+          "required": [
+            "default_tile_id",
+            "overrides"
+          ],
+          "x-wasd-order": [
+            "default_tile_id",
+            "overrides"
+          ],
+          "properties": {
+            "default_tile_id": {
+              "type": "string"
+            },
+            "overrides": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        "obstacles": {
+          "type": "object",
+          "required": [
+            "default_tile_id",
+            "overrides"
+          ],
+          "x-wasd-order": [
+            "default_tile_id",
+            "overrides"
+          ],
+          "properties": {
+            "default_tile_id": {
+              "type": "string"
+            },
+            "overrides": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        "decoration": {
+          "type": "object",
+          "required": [
+            "cells"
+          ],
+          "x-wasd-order": [
+            "cells"
+          ],
+          "properties": {
+            "cells": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$id": "modules/*.json"
+}

@@ -96,6 +96,9 @@ const DIFFICULTY_PROFILE_VALIDATOR := preload(
 const DATA_FINGERPRINT_BUILDER := preload(
 	"res://scripts/data/data_fingerprint_builder.gd"
 )
+const DECLARATIVE_DATA_CATALOG := preload(
+	"res://scripts/data/declarative_data_catalog.gd"
+)
 
 signal data_reloaded()
 
@@ -404,6 +407,18 @@ func validate_project_data() -> bool:
 		world_event_ids,
 		module_tile_catalog
 	) and is_valid
+	if is_valid:
+		var declarative_result: Dictionary = (
+			DECLARATIVE_DATA_CATALOG.validate_project_sources()
+		)
+		for raw_issue: Variant in declarative_result.get("errors", []) as Array:
+			if raw_issue is Dictionary:
+				var issue: Dictionary = raw_issue as Dictionary
+				is_valid = _schema_fail(
+					String(issue.get("path", "res://data/schemas/catalog.json")),
+					String(issue.get("field", "root")),
+					String(issue.get("expected", "valid schema value"))
+				) and is_valid
 
 	return is_valid
 
@@ -3341,16 +3356,6 @@ func _report_gear_mod_drop_table_failure(
 	return _schema_fail(GEAR_MOD_DROP_TABLES_PATH, field_path, expected)
 
 
-func _status_params_has_damage_tick(status_params: Dictionary) -> bool:
-	var magnitude_value: Variant = status_params.get("magnitude", 0.0)
-	var tick_interval_value: Variant = status_params.get("tick_interval", 0.0)
-	if not (magnitude_value is int or magnitude_value is float):
-		return false
-	if not (tick_interval_value is int or tick_interval_value is float):
-		return false
-	return float(magnitude_value) > 0.0 and float(tick_interval_value) > 0.0
-
-
 func _validate_consumables_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(CONSUMABLES_PATH)
 	var result: CONSUMABLE_CATALOG_VALIDATOR.ValidationResult = (
@@ -4759,23 +4764,6 @@ func _validate_weighted_consumable_entries(field: String, data: Variant, consuma
 	return is_valid
 
 
-func _validate_weighted_contract_entries(field: String, data: Variant, contract_key: String) -> bool:
-	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
-	var is_valid: bool = true
-	if entries.is_empty():
-		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
-	for index: int in range(entries.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var entry: Variant = entries[index]
-		if not entry is Dictionary:
-			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var entry_dict: Dictionary = entry as Dictionary
-		is_valid = _require_registered(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id"), contract_key) != "" and is_valid
-		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
-	return is_valid
-
-
 func _validate_mode_blocklists(field: String, data: Variant) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, field, "Dictionary")
@@ -4933,23 +4921,6 @@ func _is_effect_modifier_stat_supported_for_slot(
 	if slot == "weapon":
 		return WEAPON_STATS.has(stat)
 	return HERO_GEAR_STATS.has(stat) or WEAPON_STATS.has(stat)
-
-
-func _validate_behaviors(resource_path: String, field: String, data: Variant) -> bool:
-	var behaviors: Array = _require_array(resource_path, field, data)
-	var is_valid: bool = true
-	for index: int in range(behaviors.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var behavior: Variant = behaviors[index]
-		if not behavior is Dictionary:
-			is_valid = _schema_fail(resource_path, item_field, "Dictionary") and is_valid
-			continue
-		var behavior_dict: Dictionary = behavior as Dictionary
-		is_valid = _require_registered(resource_path, "%s.event" % item_field, behavior_dict.get("event"), "events") != "" and is_valid
-		is_valid = _require_registered(resource_path, "%s.effect" % item_field, behavior_dict.get("effect"), "effects") != "" and is_valid
-		if not behavior_dict.get("params") is Dictionary:
-			is_valid = _schema_fail(resource_path, "%s.params" % item_field, "Dictionary") and is_valid
-	return is_valid
 
 
 func _validate_registered_string_array(resource_path: String, field: String, data: Variant, contract_key: String, allow_empty: bool) -> bool:
@@ -7335,12 +7306,6 @@ func _validate_actor_scene_path(
 	var actor_scene: Resource = ResourceLoader.load(scene_path, "PackedScene")
 	if not actor_scene is PackedScene:
 		return _schema_fail(resource_path, field, "PackedScene")
-	return true
-
-
-func _require_html_color(resource_path: String, field: String, value: Variant) -> bool:
-	if not value is String or not Color.html_is_valid(String(value)):
-		return _schema_fail(resource_path, field, "HTML color string")
 	return true
 
 

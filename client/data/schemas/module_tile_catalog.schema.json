@@ -1,0 +1,80 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tile_set_path",
+    "tiles"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "tile_set_path",
+    "tiles"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "tile_set_path": {
+      "type": "string"
+    },
+    "tiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "layer",
+          "source_id",
+          "atlas_coords",
+          "alternative_id"
+        ],
+        "x-wasd-order": [
+          "id",
+          "layer",
+          "source_id",
+          "atlas_coords",
+          "alternative_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "layer": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "integer"
+          },
+          "atlas_coords": {
+            "type": "object",
+            "required": [
+              "x",
+              "y"
+            ],
+            "x-wasd-order": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "alternative_id": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "module_tile_catalog.json"
+}

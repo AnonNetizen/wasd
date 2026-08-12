@@ -1,0 +1,147 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "layouts"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "layouts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "layouts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "mode_id",
+          "bounds",
+          "grid",
+          "player_start",
+          "safe_radius",
+          "enemy_spawn_margin",
+          "pcg",
+          "manual_hazards"
+        ],
+        "x-wasd-order": [
+          "id",
+          "mode_id",
+          "bounds",
+          "grid",
+          "player_start",
+          "safe_radius",
+          "enemy_spawn_margin",
+          "pcg",
+          "manual_hazards"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "mode_id": {
+            "type": "string"
+          },
+          "bounds": {
+            "type": "object",
+            "required": [
+              "width",
+              "height"
+            ],
+            "x-wasd-order": [
+              "width",
+              "height"
+            ],
+            "properties": {
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "grid": {
+            "type": "object",
+            "required": [
+              "cell_width",
+              "cell_height"
+            ],
+            "x-wasd-order": [
+              "cell_width",
+              "cell_height"
+            ],
+            "properties": {
+              "cell_width": {
+                "type": "number"
+              },
+              "cell_height": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "player_start": {
+            "type": "object",
+            "required": [
+              "x",
+              "y"
+            ],
+            "x-wasd-order": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "safe_radius": {
+            "type": "number"
+          },
+          "enemy_spawn_margin": {
+            "type": "number"
+          },
+          "pcg": {
+            "type": "object",
+            "required": [
+              "hazards"
+            ],
+            "x-wasd-order": [
+              "hazards"
+            ],
+            "properties": {
+              "hazards": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "x-wasd-unique-by": "id"
+              }
+            },
+            "additionalProperties": false
+          },
+          "manual_hazards": {
+            "type": "array",
+            "items": {}
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "map_layouts"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "map_layouts.json"
+}

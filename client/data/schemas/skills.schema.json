@@ -1,0 +1,240 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "skills"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "skills"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "presentation_profile_id",
+          "ability_tags",
+          "activation",
+          "cooldown",
+          "costs",
+          "targeting",
+          "scaling",
+          "programs"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "presentation_profile_id",
+          "ability_tags",
+          "activation",
+          "cooldown",
+          "costs",
+          "targeting",
+          "scaling",
+          "programs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "default_unlocked": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "presentation_profile_id": {
+            "type": "string"
+          },
+          "ability_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "activation": {
+            "type": "object",
+            "required": [
+              "required_tags",
+              "blocked_tags",
+              "granted_tags"
+            ],
+            "x-wasd-order": [
+              "required_tags",
+              "blocked_tags",
+              "granted_tags"
+            ],
+            "properties": {
+              "required_tags": {
+                "type": "array",
+                "items": {}
+              },
+              "blocked_tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "granted_tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "cooldown": {
+            "type": "number"
+          },
+          "costs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "resource",
+                "amount"
+              ],
+              "x-wasd-order": [
+                "resource",
+                "amount"
+              ],
+              "properties": {
+                "resource": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "targeting": {
+            "type": "object",
+            "required": [
+              "type",
+              "radius",
+              "max_targets"
+            ],
+            "x-wasd-order": [
+              "type",
+              "radius",
+              "max_targets"
+            ],
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "radius": {
+                "type": "number"
+              },
+              "max_targets": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "scaling": {
+            "type": "object",
+            "required": [
+              "cost_stat"
+            ],
+            "x-wasd-order": [
+              "cost_stat",
+              "radius_stat",
+              "strength_stat",
+              "duration_stat"
+            ],
+            "properties": {
+              "cost_stat": {
+                "type": "string"
+              },
+              "radius_stat": {
+                "type": "string"
+              },
+              "strength_stat": {
+                "type": "string"
+              },
+              "duration_stat": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "programs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "program_id",
+                "trigger",
+                "conditions",
+                "actions",
+                "proc_chance",
+                "internal_cooldown"
+              ],
+              "x-wasd-order": [
+                "program_id",
+                "trigger",
+                "conditions",
+                "actions",
+                "proc_chance",
+                "internal_cooldown"
+              ],
+              "properties": {
+                "program_id": {
+                  "type": "string"
+                },
+                "trigger": {
+                  "type": "string"
+                },
+                "conditions": {
+                  "type": "array"
+                },
+                "actions": {
+                  "type": "array"
+                },
+                "proc_chance": {
+                  "type": "number"
+                },
+                "internal_cooldown": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "skills"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "skills.json"
+}

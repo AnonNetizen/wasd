@@ -1,0 +1,122 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "effects"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "effects"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "editor_name",
+          "domain",
+          "kind",
+          "resource_path",
+          "space",
+          "lifecycle",
+          "duration",
+          "high_frequency",
+          "tags",
+          "preview"
+        ],
+        "x-wasd-order": [
+          "id",
+          "editor_name",
+          "domain",
+          "kind",
+          "resource_path",
+          "space",
+          "lifecycle",
+          "duration",
+          "pool_id",
+          "prewarm",
+          "high_frequency",
+          "tags",
+          "preview"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "editor_name": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "resource_path": {
+            "type": "string"
+          },
+          "space": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "number"
+          },
+          "pool_id": {
+            "type": "string"
+          },
+          "prewarm": {
+            "type": "integer"
+          },
+          "high_frequency": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preview": {
+            "type": "object",
+            "required": [
+              "background",
+              "checkpoint",
+              "scale"
+            ],
+            "x-wasd-order": [
+              "background",
+              "checkpoint",
+              "scale"
+            ],
+            "properties": {
+              "background": {
+                "type": "string"
+              },
+              "checkpoint": {
+                "type": "string"
+              },
+              "scale": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "visual_effects"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "visual_effects.json"
+}

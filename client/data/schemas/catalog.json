@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "source": "_contracts.json",
+      "format": "json",
+      "schema": "_contracts.schema.json"
+    },
+    {
+      "source": "player.json",
+      "format": "json",
+      "schema": "player.schema.json"
+    },
+    {
+      "source": "camera_feedback.json",
+      "format": "json",
+      "schema": "camera_feedback.schema.json"
+    },
+    {
+      "source": "visual_effects.json",
+      "format": "json",
+      "schema": "visual_effects.schema.json"
+    },
+    {
+      "source": "presentation_profiles.json",
+      "format": "json",
+      "schema": "presentation_profiles.schema.json"
+    },
+    {
+      "source": "elements.json",
+      "format": "json",
+      "schema": "elements.schema.json"
+    },
+    {
+      "source": "hero_passives.json",
+      "format": "json",
+      "schema": "hero_passives.schema.json"
+    },
+    {
+      "source": "weapons.json",
+      "format": "json",
+      "schema": "weapons.schema.json"
+    },
+    {
+      "source": "enemy_ai_profiles.json",
+      "format": "json",
+      "schema": "enemy_ai_profiles.schema.json"
+    },
+    {
+      "source": "enemy_rewards.json",
+      "format": "json",
+      "schema": "enemy_rewards.schema.json"
+    },
+    {
+      "source": "enemies.csv",
+      "format": "csv",
+      "schema": "enemies.schema.json"
+    },
+    {
+      "source": "gear_mods.json",
+      "format": "json",
+      "schema": "gear_mods.schema.json"
+    },
+    {
+      "source": "world_events.json",
+      "format": "json",
+      "schema": "world_events.schema.json"
+    },
+    {
+      "source": "gear_mod_drop_tables.csv",
+      "format": "csv",
+      "schema": "gear_mod_drop_tables.schema.json"
+    },
+    {
+      "source": "hazards.csv",
+      "format": "csv",
+      "schema": "hazards.schema.json"
+    },
+    {
+      "source": "active_items.json",
+      "format": "json",
+      "schema": "active_items.schema.json"
+    },
+    {
+      "source": "consumables.json",
+      "format": "json",
+      "schema": "consumables.schema.json"
+    },
+    {
+      "source": "skills.json",
+      "format": "json",
+      "schema": "skills.schema.json"
+    },
+    {
+      "source": "credits.json",
+      "format": "json",
+      "schema": "credits.schema.json"
+    },
+    {
+      "source": "characters.json",
+      "format": "json",
+      "schema": "characters.schema.json"
+    },
+    {
+      "source": "level_progression.json",
+      "format": "json",
+      "schema": "level_progression.schema.json"
+    },
+    {
+      "source": "reward_choice_pools.json",
+      "format": "json",
+      "schema": "reward_choice_pools.schema.json"
+    },
+    {
+      "source": "difficulty_profiles.json",
+      "format": "json",
+      "schema": "difficulty_profiles.schema.json"
+    },
+    {
+      "source": "game_modes.json",
+      "format": "json",
+      "schema": "game_modes.schema.json"
+    },
+    {
+      "source": "content_unlock_rules.json",
+      "format": "json",
+      "schema": "content_unlock_rules.schema.json"
+    },
+    {
+      "source": "map_layouts.json",
+      "format": "json",
+      "schema": "map_layouts.schema.json"
+    },
+    {
+      "source": "spawn_waves.csv",
+      "format": "csv",
+      "schema": "spawn_waves.schema.json"
+    },
+    {
+      "source": "warzone_directors.json",
+      "format": "json",
+      "schema": "warzone_directors.schema.json"
+    },
+    {
+      "source": "module_tile_catalog.json",
+      "format": "json",
+      "schema": "module_tile_catalog.schema.json"
+    },
+    {
+      "source": "module_worlds.json",
+      "format": "json",
+      "schema": "module_worlds.schema.json"
+    },
+    {
+      "source": "module_templates.json",
+      "format": "json",
+      "schema": "module_templates.schema.json"
+    },
+    {
+      "source": "modules/*.json",
+      "format": "json-glob",
+      "schema": "module.schema.json"
+    }
+  ]
+}

@@ -50,6 +50,15 @@ const GAMEPLAY_DEBUG_FACADE_SCRIPT := preload(
 const RUN_SNAPSHOT_COORDINATOR_SCRIPT := preload(
 	"res://scripts/gameplay/run_snapshot_coordinator.gd"
 )
+const TELEPORT_RUNTIME_COORDINATOR_SCRIPT := preload(
+	"res://scripts/gameplay/teleport_runtime_coordinator.gd"
+)
+const GEAR_MOD_PLACEMENT_COORDINATOR_SCRIPT := preload(
+	"res://scripts/gameplay/gear_mod_placement_coordinator.gd"
+)
+const WORLD_EVENT_RUNTIME_COORDINATOR_SCRIPT := preload(
+	"res://scripts/gameplay/world_event_runtime_coordinator.gd"
+)
 const ENEMY_DEFEAT_CAUSES := preload(
 	"res://scripts/contracts/enemy_defeat_causes.gd"
 )
@@ -239,8 +248,7 @@ var _energy_drop_config: Dictionary = {}
 var _effect_gateway: EffectExecutionGateway = null
 var _effect_registry: EffectPrimitiveRegistry = null
 var _effect_runtime: GameplayEffectRuntime = null
-var _gear_mod_board: RefCounted = null
-var _gear_mod_board_panel: Node = null
+var _gear_mod_runtime: GEAR_MOD_PLACEMENT_COORDINATOR_SCRIPT = null
 var _gear_mod_pickup_config: Dictionary = {}
 var _gold_drop_config: Dictionary = {}
 var _gold_progression: GoldProgression = null
@@ -258,16 +266,9 @@ var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
 var _main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _reward_choice_panel: CanvasLayer = null
-var _teleport_choice_panel: CanvasLayer = null
-var _teleport_fade_overlay: CanvasLayer = null
-var _teleport_source_station_id: String = ""
-var _teleport_transaction_active: bool = false
-var _teleporter_module_station_ids: Dictionary = {}
-var _teleporter_nodes: Dictionary = {}
-var _teleporter_stations: Dictionary = {}
+var _teleport_runtime: TELEPORT_RUNTIME_COORDINATOR_SCRIPT = null
 var _run_gear_mod_ids: Array[String] = []
 var _pending_restore_snapshot: Dictionary = {}
-var _pending_gear_mod_placement: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
 var _player_host: Node2D = null
@@ -304,19 +305,193 @@ var _run_prepared: bool = false
 var _run_start_failed: bool = false
 var _sub_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 var _pending_ui_restore: Dictionary = {}
-var _world_event_controller: WorldEventController = null
-var _world_event_host: Node2D = null
-var _world_event_nodes: Dictionary = {}
-var _world_event_module_coords: Dictionary = {}
-var _world_event_wave_plans: Dictionary = {}
+var _world_event_runtime: WORLD_EVENT_RUNTIME_COORDINATOR_SCRIPT = null
 
 
 func _ready() -> void:
+	_configure_runtime_coordinators()
 	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.connect(_on_input_action_pressed)
 	if not GameState.state_changed.is_connected(_on_game_state_changed):
 		GameState.state_changed.connect(_on_game_state_changed)
 	_start_run(_pending_restore_snapshot)
+
+
+func _configure_runtime_coordinators() -> void:
+	_teleport_runtime = get_node("TeleportRuntimeCoordinator") as TELEPORT_RUNTIME_COORDINATOR_SCRIPT
+	_gear_mod_runtime = get_node("GearModPlacementCoordinator") as GEAR_MOD_PLACEMENT_COORDINATOR_SCRIPT
+	_world_event_runtime = get_node("WorldEventRuntimeCoordinator") as WORLD_EVENT_RUNTIME_COORDINATOR_SCRIPT
+	var teleport_bindings: TELEPORT_RUNTIME_COORDINATOR_SCRIPT.Bindings = (
+		TELEPORT_RUNTIME_COORDINATOR_SCRIPT.Bindings.new()
+	)
+	teleport_bindings.player_port = Callable(self, "_coordinator_player")
+	teleport_bindings.module_world_port = Callable(self, "_coordinator_module_world")
+	teleport_bindings.ui_port = Callable(self, "_show_teleporter_feedback")
+	teleport_bindings.record_port = Callable(
+		self,
+		"_coordinator_record_teleport_choice"
+	)
+	teleport_bindings.active_world_port = Callable(self, "get").bind("_active_world")
+	teleport_bindings.camera_port = Callable(self, "get").bind("_camera_controller")
+	teleport_bindings.hud_port = Callable(self, "get").bind("_hud")
+	teleport_bindings.module_definition_port = Callable(self, "get").bind("_module_world_definition")
+	teleport_bindings.technical_slice_port = Callable(self, "get").bind("_module_world_technical_slice")
+	teleport_bindings.pause_menu_port = Callable(self, "get").bind("_pause_menu")
+	teleport_bindings.stream_change_port = Callable(self, "_handle_module_stream_change")
+	teleport_bindings.encounter_vfx_port = Callable(self, "_restore_module_encounter_vfx")
+	teleport_bindings.refresh_hud_port = Callable(self, "_refresh_module_world_hud")
+	teleport_bindings.module_slot_key_port = Callable(self, "_module_slot_key")
+	teleport_bindings.interaction_refresh_port = Callable(self, "_update_combined_interaction_prompt")
+	teleport_bindings.pause_port = Callable(self, "_show_pause_menu")
+	teleport_bindings.active_entity_port = Callable(self, "_is_active_world_entity")
+	teleport_bindings.dictionary_port = Callable(self, "_dictionary_or_empty")
+	teleport_bindings.array_port = Callable(self, "_array_or_empty")
+	teleport_bindings.vector_port = Callable(self, "_dict_to_vector")
+	teleport_bindings.vector2i_port = Callable(self, "_dict_to_vector2i")
+	teleport_bindings.coord_dictionary_port = Callable(self, "_coord_to_dict")
+	teleport_bindings.vector_dictionary_port = Callable(self, "_vector_to_dict")
+	_teleport_runtime.configure(teleport_bindings)
+	var gear_mod_bindings: GEAR_MOD_PLACEMENT_COORDINATOR_SCRIPT.Bindings = (
+		GEAR_MOD_PLACEMENT_COORDINATOR_SCRIPT.Bindings.new()
+	)
+	gear_mod_bindings.player_port = Callable(self, "_coordinator_player")
+	gear_mod_bindings.module_world_port = Callable(self, "_coordinator_module_world")
+	gear_mod_bindings.spawn_port = Callable(self, "_spawn_gear_mod_pickup")
+	gear_mod_bindings.reward_port = Callable(self, "_show_placed_gear_mod_feedback")
+	gear_mod_bindings.ui_port = Callable(self, "_show_gear_mod_placement_panel")
+	gear_mod_bindings.record_port = Callable(
+		self,
+		"_coordinator_record_gear_mod_placement"
+	)
+	gear_mod_bindings.requested_port = Callable(
+		self,
+		"_coordinator_emit_gear_mod_requested"
+	)
+	gear_mod_bindings.resolved_port = Callable(
+		self,
+		"_coordinator_emit_gear_mod_resolved"
+	)
+	gear_mod_bindings.failed_port = Callable(
+		self,
+		"_coordinator_emit_gear_mod_failed"
+	)
+	gear_mod_bindings.hero_composition_port = Callable(self, "get").bind("_hero_composition")
+	gear_mod_bindings.hud_port = Callable(self, "get").bind("_hud")
+	gear_mod_bindings.interaction_refresh_port = Callable(self, "_update_combined_interaction_prompt")
+	gear_mod_bindings.interaction_label_port = Callable(self, "_interaction_binding_label")
+	gear_mod_bindings.feedback_port = Callable(self, "_play_feedback")
+	gear_mod_bindings.active_entity_port = Callable(self, "_is_active_world_entity")
+	gear_mod_bindings.run_snapshot_port = Callable(self, "_run_gear_mod_snapshot")
+	gear_mod_bindings.sync_ids_port = Callable(self, "_sync_run_gear_mod_ids_from_board")
+	gear_mod_bindings.apply_modifiers_port = Callable(self, "_apply_run_gear_modifiers")
+	gear_mod_bindings.dictionary_port = Callable(self, "_dictionary_or_empty")
+	gear_mod_bindings.array_port = Callable(self, "_array_or_empty")
+	gear_mod_bindings.coord_dictionary_port = Callable(self, "_coord_to_dict")
+	gear_mod_bindings.load_array_port = Callable(self, "_load_array")
+	gear_mod_bindings.find_item_port = Callable(self, "_find_item")
+	gear_mod_bindings.stats_snapshot_port = Callable(self, "_stats_panel_snapshot")
+	gear_mod_bindings.format_stat_port = Callable(self, "_format_stat_value")
+	gear_mod_bindings.content_available_port = Callable(self, "_is_content_available")
+	gear_mod_bindings.debug_result_port = Callable(self, "_debug_result")
+	_gear_mod_runtime.configure(gear_mod_bindings)
+	var world_event_bindings: WORLD_EVENT_RUNTIME_COORDINATOR_SCRIPT.Bindings = (
+		WORLD_EVENT_RUNTIME_COORDINATOR_SCRIPT.Bindings.new()
+	)
+	world_event_bindings.player_port = Callable(self, "_coordinator_player")
+	world_event_bindings.module_world_port = Callable(self, "_coordinator_module_world")
+	world_event_bindings.spawn_port = Callable(self, "_on_world_event_wave_requested")
+	world_event_bindings.reward_port = Callable(self, "_deliver_world_event_reward")
+	world_event_bindings.ui_port = Callable(self, "_refresh_world_event_hud")
+	world_event_bindings.chance_roll_port = Callable(
+		self,
+		"_coordinator_roll_world_event_chance"
+	)
+	world_event_bindings.random_index_port = Callable(
+		self,
+		"_coordinator_world_event_random_index"
+	)
+	world_event_bindings.weighted_pick_port = Callable(
+		self,
+		"_coordinator_world_event_weighted_pick"
+	)
+	world_event_bindings.active_world_port = Callable(self, "get").bind("_active_world")
+	world_event_bindings.hud_port = Callable(self, "get").bind("_hud")
+	world_event_bindings.module_definition_port = Callable(self, "get").bind("_module_world_definition")
+	world_event_bindings.controller_port = Callable(self, "get_node_or_null").bind("WorldEventController")
+	world_event_bindings.difficulty_elapsed_port = Callable(self, "_difficulty_elapsed")
+	world_event_bindings.spawn_difficulty_port = Callable(self, "_enemy_spawn_difficulty")
+	world_event_bindings.eligible_enemy_pool_port = Callable(self, "_eligible_first_visit_enemy_pool")
+	world_event_bindings.spawn_enemy_port = Callable(self, "_spawn_enemy_at")
+	world_event_bindings.module_slot_key_port = Callable(self, "_module_slot_key")
+	world_event_bindings.spawn_gear_mod_port = Callable(self, "_spawn_gear_mod_pickup")
+	world_event_bindings.gear_mod_positions_port = Callable(self, "_gear_mod_reward_positions")
+	world_event_bindings.dictionary_port = Callable(self, "_dictionary_or_empty")
+	world_event_bindings.array_port = Callable(self, "_array_or_empty")
+	world_event_bindings.vector_port = Callable(self, "_dict_to_vector")
+	world_event_bindings.vector_dictionary_port = Callable(self, "_vector_to_dict")
+	world_event_bindings.dictionary_array_port = Callable(self, "_typed_dictionary_array")
+	world_event_bindings.content_ids_port = Callable(self, "_available_content_ids")
+	world_event_bindings.add_gold_port = Callable(self, "add_gold")
+	world_event_bindings.spend_gold_port = Callable(self, "try_spend_gold")
+	_world_event_runtime.configure(world_event_bindings)
+
+
+func _coordinator_player() -> CharacterBody2D:
+	return _player
+
+
+func _coordinator_module_world() -> Node2D:
+	return _module_world_manager
+
+
+func _coordinator_emit_gear_mod_requested(payload: Dictionary) -> void:
+	gear_mod_placement_requested.emit(payload)
+
+
+func _coordinator_emit_gear_mod_resolved(payload: Dictionary) -> void:
+	gear_mod_placement_resolved.emit(payload)
+
+
+func _coordinator_emit_gear_mod_failed(payload: Dictionary) -> void:
+	gear_mod_placement_failed.emit(payload)
+
+
+func _coordinator_record_teleport_choice(payload: Dictionary) -> void:
+	if Replay.is_recording():
+		Replay.record_decision(
+			ANALYTICS_EVENTS.TELEPORT_CHOICE,
+			payload
+		)
+	Analytics.track_event(ANALYTICS_EVENTS.TELEPORT_CHOICE, payload)
+
+
+func _coordinator_record_gear_mod_placement(payload: Dictionary) -> void:
+	if Replay.is_recording():
+		Replay.record_decision(
+			ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT,
+			payload
+		)
+	Analytics.track_event(
+		ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT,
+		payload
+	)
+
+
+func _coordinator_roll_world_event_chance(chance: float) -> bool:
+	return RNG.world_event.randf() < clampf(chance, 0.0, 1.0)
+
+
+func _coordinator_world_event_random_index(count: int) -> int:
+	if count <= 0:
+		return 0
+	return int(RNG.world_event.randi() % count)
+
+
+func _coordinator_world_event_weighted_pick(
+	values: Array,
+	weights: Array
+) -> Variant:
+	return RNG.world_event.weighted_pick(values, weights)
 
 
 func _exit_tree() -> void:
@@ -326,17 +501,17 @@ func _exit_tree() -> void:
 	if GameState.state_changed.is_connected(_on_game_state_changed):
 		GameState.state_changed.disconnect(_on_game_state_changed)
 	if (
-		_gear_mod_board_panel != null
-		and is_instance_valid(_gear_mod_board_panel)
-		and _gear_mod_board_panel.tree_exited.is_connected(
+		_gear_mod_runtime.panel != null
+		and is_instance_valid(_gear_mod_runtime.panel)
+		and _gear_mod_runtime.panel.tree_exited.is_connected(
 			_on_gear_mod_panel_tree_exited
 		)
 	):
-		_gear_mod_board_panel.tree_exited.disconnect(
+		_gear_mod_runtime.panel.tree_exited.disconnect(
 			_on_gear_mod_panel_tree_exited
 		)
-	_gear_mod_board_panel = null
-	_pending_gear_mod_placement.clear()
+	_gear_mod_runtime.panel = null
+	_gear_mod_runtime.pending.clear()
 	_clear_teleporters()
 	_clear_interest_point_caches()
 	_clear_world_events()
@@ -359,8 +534,8 @@ func _process(delta: float) -> void:
 		_update_module_world(delta)
 	else:
 		_advance_difficulty(delta)
-	if _world_event_controller != null:
-		_world_event_controller.tick(
+	if _world_event_runtime.controller != null:
+		_world_event_runtime.controller.tick(
 			delta,
 			_player,
 			_world_event_context()
@@ -395,8 +570,8 @@ func _on_input_action_pressed(action_id: StringName, participant_id: String) -> 
 			return
 		if action_id == StringName(ACTIONS.PAUSE):
 			if (
-				_teleport_choice_panel != null
-				and is_instance_valid(_teleport_choice_panel)
+				_teleport_runtime.choice_panel != null
+				and is_instance_valid(_teleport_runtime.choice_panel)
 			):
 				return
 			_show_pause_menu()
@@ -418,16 +593,16 @@ func _on_game_state_changed(
 
 func _cleanup_teleport_choice_for_state_exit() -> void:
 	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
+		_teleport_runtime.choice_panel != null
+		and is_instance_valid(_teleport_runtime.choice_panel)
 	):
-		UIManager.remove_expected(_teleport_choice_panel, true)
-	_teleport_choice_panel = null
-	_teleport_source_station_id = ""
+		UIManager.remove_expected(_teleport_runtime.choice_panel, true)
+	_teleport_runtime.choice_panel = null
+	_teleport_runtime.source_station_id = ""
 
 
 func _prepare_gear_mod_ui_for_playing_exit() -> void:
-	if _pending_gear_mod_placement.is_empty():
+	if _gear_mod_runtime.pending.is_empty():
 		_close_gear_mod_board_panel(true)
 		return
 	if InputService.playback_active():
@@ -971,8 +1146,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 			not restore_snapshot.is_empty()
 		)
 		return
-	_gear_mod_board = GEAR_MOD_BOARD_SCRIPT.new()
-	if not bool(_gear_mod_board.call(
+	_gear_mod_runtime.board = GEAR_MOD_BOARD_SCRIPT.new()
+	if not bool(_gear_mod_runtime.board.call(
 		"configure",
 		GearModSystem.board_config(),
 		GearModSystem.mod_definitions()
@@ -1929,33 +2104,13 @@ func debug_module_world_state() -> Dictionary:
 
 
 func debug_world_event_summary() -> Dictionary:
-	if _world_event_controller == null:
-		return {}
-	var summary: Dictionary = (
-		_world_event_controller.debug_summary()
-	)
-	summary["registered_node_count"] = (
-		_world_event_nodes.size()
-	)
-	summary["wave_plan_count"] = (
-		_world_event_wave_plans.size()
-	)
-	return summary
+	return _world_event_runtime.debug_world_event_summary()
 
 
 func debug_interact_world_event(
 	instance_id: String
 ) -> Dictionary:
-	if _world_event_controller == null:
-		return {
-			"accepted": false,
-			"reason": "controller_unavailable",
-		}
-	return _world_event_controller.interact(
-		instance_id,
-		_player,
-		_world_event_context()
-	)
+	return _world_event_runtime.debug_interact_world_event(instance_id)
 
 
 func debug_module_world_tick() -> Dictionary:
@@ -2348,203 +2503,44 @@ func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
 
 
 func _configure_world_event_controller() -> bool:
-	_clear_world_events()
-	_world_event_host = (
-		_active_world.get_node_or_null("WorldEventHost") as Node2D
-	)
-	_world_event_controller = (
-		get_node_or_null("WorldEventController")
-		as WorldEventController
-	)
-	if _world_event_host == null or _world_event_controller == null:
-		return false
-	_world_event_controller.configure(
-		_dictionary_or_empty(
-			DataLoader.load_json(DataLoader.WORLD_EVENTS_PATH)
-		)
-	)
-	_world_event_controller.set_reward_delivery_handler(
-		_deliver_world_event_reward
-	)
-	_world_event_controller.wave_requested.connect(
-		_on_world_event_wave_requested
-	)
-	_world_event_controller.prompt_requested.connect(
-		_on_world_event_prompt_requested
-	)
-	_world_event_controller.state_changed.connect(
-		_on_world_event_state_changed
-	)
-	_world_event_controller.module_pin_requested.connect(
-		_on_world_event_module_pin_requested
-	)
-	_world_event_controller.terminal_cleanup_requested.connect(
-		_on_world_event_terminal_cleanup_requested
-	)
-	for event_id: String in WORLD_EVENT_IDS.VALUES:
-		if _world_event_controller.definition(event_id).is_empty():
-			return false
-	return true
+	return _world_event_runtime._configure_world_event_controller()
 
 
 func _clear_world_events() -> void:
-	_world_event_nodes.clear()
-	_world_event_module_coords.clear()
-	_world_event_wave_plans.clear()
-	if _world_event_host != null and is_instance_valid(_world_event_host):
-		for child: Node in _world_event_host.get_children():
-			child.queue_free()
-	_world_event_controller = null
-	_world_event_host = null
+	_world_event_runtime._clear_world_events()
 
 
 func _register_all_module_world_events() -> void:
-	if (
-		_module_world_manager == null
-		or _world_event_controller == null
-		or _world_event_host == null
-		or not _world_event_nodes.is_empty()
-	):
-		return
-	for row_index: int in range(9):
-		for column_index: int in range(9):
-			var module_coord := Vector2i(
-				column_index,
-				row_index
-			)
-			var placements: Array[Dictionary] = (
-				_module_world_manager.call(
-					"placements_at",
-					module_coord
-				)
-			)
-			for placement: Dictionary in placements:
-				if (
-					String(placement.get("type", ""))
-					!= MODULE_PLACEMENT_TYPES
-					.MODULE_PLACE_WORLD_EVENT
-				):
-					continue
-				_register_module_world_event(
-					module_coord,
-					placement
-				)
+	_world_event_runtime._register_all_module_world_events()
 
 
 func _register_module_world_event(
 	module_coord: Vector2i,
 	placement: Dictionary
 ) -> void:
-	var event_id: String = String(
-		placement.get("world_event_id", "")
-	)
-	var scene: PackedScene = _world_event_scene(event_id)
-	if scene == null:
-		push_error(
-			"[GameplayRunLoop] missing world-event scene: %s"
-			% event_id
-		)
-		return
-	var instance_id: String = "world_event_%d_%d_%s" % [
-		module_coord.x,
-		module_coord.y,
-		event_id,
-	]
-	var raw_node: Node = scene.instantiate()
-	if not raw_node is WorldEventInteractable:
-		raw_node.queue_free()
-		push_error(
-			"[GameplayRunLoop] world-event scene root is invalid: %s"
-			% event_id
-		)
-		return
-	var interactable: WorldEventInteractable = (
-		raw_node as WorldEventInteractable
-	)
-	_world_event_host.add_child(interactable)
-	interactable.global_position = _dict_to_vector(
-		placement.get("world_position", {}),
-		Vector2.ZERO
-	)
-	var slot_key: String = _module_slot_key(module_coord)
-	if not _world_event_controller.register_instance(
-		instance_id,
-		event_id,
-		interactable,
-		slot_key,
-		interactable.defense_target()
-	):
-		interactable.queue_free()
-		return
-	_world_event_nodes[instance_id] = interactable
-	_world_event_module_coords[instance_id] = module_coord
+	_world_event_runtime._register_module_world_event(module_coord, placement)
 
 
 func _world_event_scene(event_id: String) -> PackedScene:
-	match event_id:
-		WORLD_EVENT_IDS.WORLD_EVENT_DEFENSE:
-			return WORLD_EVENT_DEFENSE_SCENE
-		WORLD_EVENT_IDS.WORLD_EVENT_SURVIVAL:
-			return WORLD_EVENT_SURVIVAL_SCENE
-		WORLD_EVENT_IDS.WORLD_EVENT_CAPTURE:
-			return WORLD_EVENT_CAPTURE_SCENE
-		WORLD_EVENT_IDS.WORLD_EVENT_GOLD_SHRINE:
-			return WORLD_EVENT_GOLD_SHRINE_SCENE
-		WORLD_EVENT_IDS.WORLD_EVENT_BLOOD_SHRINE:
-			return WORLD_EVENT_BLOOD_SHRINE_SCENE
-		_:
-			return null
+	return _world_event_runtime._world_event_scene(event_id)
 
 
 func _world_event_context() -> Dictionary:
-	return {
-		"try_spend_gold": Callable(
-			self,
-			"_world_event_try_spend_gold"
-		),
-		"roll_world_event_chance": Callable(
-			self,
-			"_roll_world_event_chance"
-		),
-		"choose_world_event_mod": Callable(
-			self,
-			"_choose_world_event_mod"
-		),
-		"try_sacrifice_combined_health": Callable(
-			self,
-			"_world_event_try_sacrifice"
-		),
-		"prepare_world_event_reward": Callable(
-			self,
-			"_prepare_world_event_reward"
-		),
-		"player_is_alive": Callable(
-			self,
-			"_world_event_player_is_alive"
-		),
-	}
+	return _world_event_runtime._world_event_context()
 
 
 func _world_event_try_spend_gold(
 	_instance_id: String,
 	amount: int
 ) -> bool:
-	return bool(
-		try_spend_gold(
-			amount,
-			GOLD_TRANSACTION_REASONS.EVENT_COST
-		).get("ok", false)
-	)
+	return _world_event_runtime._world_event_try_spend_gold(_instance_id, amount)
 
 
 func _roll_world_event_chance(
 	_instance_id: String,
 	chance: float
 ) -> bool:
-	return (
-		RNG.world_event.randf()
-		< clampf(chance, 0.0, 1.0)
-	)
+	return _world_event_runtime._roll_world_event_chance(_instance_id, chance)
 
 
 func _choose_world_event_mod(
@@ -2552,61 +2548,18 @@ func _choose_world_event_mod(
 	pool_id: String,
 	excluded: Array[String]
 ) -> String:
-	var candidates: Array[String] = []
-	for mod_id: String in GearModSystem.reward_pool_ids(
-		pool_id,
-		_available_content_ids(CONTENT_UNLOCK_TYPES.GEAR_MOD)
-	):
-		if not excluded.has(mod_id):
-			candidates.append(mod_id)
-	if candidates.is_empty():
-		return ""
-	return candidates[
-		int(RNG.world_event.randi() % candidates.size())
-	]
+	return _world_event_runtime._choose_world_event_mod(_instance_id, pool_id, excluded)
 
 
 func _world_event_try_sacrifice(
 	_instance_id: String,
 	ratio: float
 ) -> Dictionary:
-	if (
-		_player == null
-		or not _player.has_method(
-			"try_sacrifice_combined_health"
-		)
-	):
-		return {
-			"accepted": false,
-			"reason": "player_unavailable",
-		}
-	var sacrifice_amount: float = (
-		float(_player.call("max_life"))
-		+ float(_player.call("max_shield"))
-	) * clampf(ratio, 0.0, 1.0)
-	var result: Dictionary = _player.call(
-		"try_sacrifice_combined_health",
-		sacrifice_amount,
-		1.0
-	) as Dictionary
-	return {
-		"accepted": bool(result.get("ok", false)),
-		"reason": String(
-			result.get(
-				"reason",
-				"insufficient_combined_health"
-			)
-		),
-		"actual_spent": float(result.get("spent", 0.0)),
-	}
+	return _world_event_runtime._world_event_try_sacrifice(_instance_id, ratio)
 
 
 func _world_event_player_is_alive(_target: Node = null) -> bool:
-	return (
-		_player != null
-		and _player.has_method("is_alive")
-		and bool(_player.call("is_alive"))
-	)
+	return _world_event_runtime._world_event_player_is_alive(_target)
 
 
 func _prepare_world_event_reward(
@@ -2614,121 +2567,14 @@ func _prepare_world_event_reward(
 	event_id: String,
 	reward_config: Dictionary
 ) -> Dictionary:
-	if not _world_event_wave_plans.has(instance_id):
-		_world_event_wave_plans[instance_id] = (
-			_build_world_event_wave_plan(
-				instance_id,
-				event_id
-			)
-		)
-	var pool_id: String = String(
-		reward_config.get("mod_pool_id", "")
-	)
-	var mod_id: String = _choose_world_event_mod(
-		instance_id,
-		pool_id,
-		[]
-	)
-	if mod_id.is_empty():
-		return {}
-	return {
-		"kind": (
-			WORLD_EVENT_REWARD_TYPES
-			.WORLD_EVENT_REWARD_GEAR_MOD
-		),
-		"mod_id": mod_id,
-		"pending": false,
-	}
+	return _world_event_runtime._prepare_world_event_reward(instance_id, event_id, reward_config)
 
 
 func _build_world_event_wave_plan(
 	instance_id: String,
 	event_id: String
 ) -> Dictionary:
-	if (
-		_world_event_controller == null
-		or not _world_event_module_coords.has(instance_id)
-	):
-		return {}
-	var definition: Dictionary = (
-		_world_event_controller.definition(event_id)
-	)
-	var module_coord: Vector2i = (
-		_world_event_module_coords[instance_id] as Vector2i
-	)
-	var event_node: Node2D = (
-		_world_event_nodes.get(instance_id) as Node2D
-	)
-	if event_node == null:
-		return {}
-	var all_positions: Array[Vector2] = []
-	var raw_positions: Variant = _module_world_manager.call(
-		"empty_floor_positions_at",
-		module_coord
-	)
-	var exclusion_radius: float = maxf(
-		float(definition.get("interaction_radius", 0.0)),
-		1.0
-	) * 1.5
-	if raw_positions is Array:
-		for raw_position: Variant in raw_positions as Array:
-			if (
-				raw_position is Vector2
-				and (
-					raw_position as Vector2
-				).distance_to(event_node.global_position)
-				> exclusion_radius
-			):
-				all_positions.append(raw_position as Vector2)
-	var waves: Array[Dictionary] = _typed_dictionary_array(
-		definition.get("waves", [])
-	)
-	var planned_waves: Array[Array] = []
-	var enemy_pool: Dictionary = (
-		_eligible_first_visit_enemy_pool(
-			_dictionary_or_empty(
-				_module_world_definition.get(
-					"first_visit_enemy_spawn",
-					{}
-				)
-			),
-			_difficulty_elapsed()
-		)
-	)
-	var enemy_ids: Array = enemy_pool.get("enemy_ids", []) as Array
-	var weights: Array = enemy_pool.get("weights", []) as Array
-	for wave: Dictionary in waves:
-		var wave_spawns: Array = []
-		var count: int = maxi(int(wave.get("count", 0)), 0)
-		for _spawn_index: int in range(count):
-			if all_positions.is_empty() or enemy_ids.is_empty():
-				break
-			var position_index: int = int(
-				RNG.world_event.randi() % all_positions.size()
-			)
-			var spawn_position: Vector2 = all_positions[
-				position_index
-			]
-			all_positions.remove_at(position_index)
-			var enemy_id: String = String(
-				RNG.world_event.weighted_pick(
-					enemy_ids,
-					weights
-				)
-			)
-			wave_spawns.append({
-				"enemy_id": enemy_id,
-				"world_position": _vector_to_dict(
-					spawn_position
-				),
-			})
-		planned_waves.append(wave_spawns)
-	return {
-		"event_id": event_id,
-		"module_slot": _module_slot_key(module_coord),
-		"difficulty": _enemy_spawn_difficulty(),
-		"waves": planned_waves,
-	}
+	return _world_event_runtime._build_world_event_wave_plan(instance_id, event_id)
 
 
 func _on_world_event_wave_requested(
@@ -2740,103 +2586,22 @@ func _on_world_event_wave_requested(
 	_primary_target: Node,
 	_context: Dictionary
 ) -> void:
-	var plan: Dictionary = _dictionary_or_empty(
-		_world_event_wave_plans.get(instance_id, {})
-	)
-	var planned_waves: Array = _array_or_empty(
-		plan.get("waves", [])
-	)
-	if wave_index < 0 or wave_index >= planned_waves.size():
-		return
-	var module_slot: String = String(
-		plan.get("module_slot", "")
-	)
-	var spawn_context: Dictionary = (
-		_world_event_spawn_context(instance_id)
-	)
-	var fixed_difficulty: Dictionary = _dictionary_or_empty(
-		plan.get("difficulty", {})
-	)
-	var wave_key: String = "world_event_%s_%d" % [
-		instance_id,
-		wave_index,
-	]
-	for raw_spawn: Variant in _array_or_empty(
-		planned_waves[wave_index]
-	):
-		if not raw_spawn is Dictionary:
-			continue
-		var spawn: Dictionary = raw_spawn as Dictionary
-		_spawn_enemy_at(
-			String(spawn.get("enemy_id", "")),
-			_dict_to_vector(
-				spawn.get("world_position", {}),
-				Vector2.ZERO
-			),
-			wave_key,
-			module_slot,
-			spawn_context,
-			fixed_difficulty
-		)
+	_world_event_runtime._on_world_event_wave_requested(instance_id, _event_id, wave_index, _enemy_count, _world_position, _primary_target, _context)
 
 
 func _world_event_spawn_context(
 	instance_id: String,
 	use_event_primary: bool = true
 ) -> Dictionary:
-	if instance_id.is_empty():
-		return {}
-	var result: Dictionary = {
-		"event_instance_id": instance_id,
-		"reward_specialization_multiplier": 1.0,
-		"primary_target": _player,
-		"damage_target_groups": [
-			DAMAGE_TARGET_GROUPS
-			.ACTIVE_PROJECTILE_BLOCKERS,
-			DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
-		],
-	}
-	if _world_event_controller == null or not use_event_primary:
-		return result
-	var event_node: WorldEventInteractable = (
-		_world_event_nodes.get(instance_id)
-		as WorldEventInteractable
-	)
-	if event_node == null:
-		return result
-	var definition: Dictionary = (
-		_world_event_controller.definition(
-			event_node.event_id()
-		)
-	)
-	if (
-		String(definition.get("kind", ""))
-		== WORLD_EVENT_KINDS.WORLD_EVENT_KIND_DEFENSE
-	):
-		var defense_target: WorldEventDefenseTarget = (
-			event_node.defense_target()
-		)
-		if (
-			defense_target != null
-			and is_instance_valid(defense_target)
-		):
-			result["primary_target"] = defense_target
-			result["damage_target_groups"] = [
-				DAMAGE_TARGET_GROUPS
-				.ACTIVE_PROJECTILE_BLOCKERS,
-				DAMAGE_TARGET_GROUPS
-				.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS,
-				DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
-			]
-	return result
+	return _world_event_runtime._world_event_spawn_context(instance_id, use_event_primary)
 
 
 func debug_gear_mod_board_snapshot() -> Dictionary:
-	return _run_gear_mod_snapshot()
+	return _gear_mod_runtime.debug_gear_mod_board_snapshot()
 
 
 func debug_pending_gear_mod_placement() -> Dictionary:
-	return _pending_gear_mod_placement_snapshot()
+	return _gear_mod_runtime.debug_pending_gear_mod_placement()
 
 
 func debug_tick_effect_runtime(delta: float) -> void:
@@ -2848,18 +2613,7 @@ func request_gear_mod_relocation(
 	target: Vector2i,
 	cost_authorizer: Callable = Callable()
 ) -> Dictionary:
-	if _gear_mod_board == null:
-		return _debug_result(false, "board_unavailable")
-	var result: Dictionary = _gear_mod_board.call(
-		"request_relocation",
-		instance_id,
-		target,
-		cost_authorizer
-	) as Dictionary
-	if bool(result.get("ok", false)):
-		_sync_run_gear_mod_ids_from_board()
-		_apply_run_gear_modifiers()
-	return result
+	return _gear_mod_runtime.request_gear_mod_relocation(instance_id, target, cost_authorizer)
 
 
 func _deliver_world_event_reward(
@@ -2867,102 +2621,7 @@ func _deliver_world_event_reward(
 	event_id: String,
 	reward: Dictionary
 ) -> Dictionary:
-	var reward_kind: String = String(reward.get("kind", ""))
-	var source_kind: String = String(reward.get("source", ""))
-	var feedback_key: String = ""
-	var feedback_context: Dictionary = {
-		"name": tr(_world_event_name_key(event_id)),
-	}
-	if (
-		reward_kind
-		== WORLD_EVENT_REWARD_TYPES.WORLD_EVENT_REWARD_GOLD
-	):
-		var amount: int = maxi(
-			int(reward.get("amount", 0)),
-			0
-		)
-		if amount <= 0:
-			return {
-				"ok": false,
-				"reason": "invalid_gold_amount",
-			}
-		var gold_result: Dictionary = add_gold(
-			amount,
-			GOLD_TRANSACTION_REASONS.EVENT_REWARD
-		)
-		if not bool(gold_result.get("ok", false)):
-			return {
-				"ok": false,
-				"reason": String(gold_result.get(
-					"reason",
-					"gold_delivery_failed"
-				)),
-			}
-		feedback_context["amount"] = amount
-		feedback_key = (
-			"ui_world_event_blood_shrine_success"
-			if source_kind
-			== WORLD_EVENT_KINDS
-			.WORLD_EVENT_KIND_BLOOD_SHRINE
-			else "ui_world_event_completed_gold"
-		)
-	elif (
-		reward_kind
-		== WORLD_EVENT_REWARD_TYPES
-		.WORLD_EVENT_REWARD_GEAR_MOD
-	):
-		var mod_id: String = String(reward.get("mod_id", ""))
-		if mod_id.is_empty():
-			return {
-				"ok": false,
-				"reason": "missing_gear_mod_id",
-			}
-		var spawn_result: Dictionary = _spawn_gear_mod_pickup(
-			mod_id,
-			_world_event_gear_mod_drop_position(
-				instance_id,
-				source_kind,
-				int(reward.get("success_index", 0))
-			)
-		)
-		if not bool(spawn_result.get("ok", false)):
-			push_error(
-				"[GameplayRunLoop] world-event Gear Mod pickup spawn failed: %s"
-				% String(spawn_result.get("reason", "unknown"))
-			)
-			return {
-				"ok": false,
-				"reason": String(spawn_result.get(
-					"reason",
-					"gear_mod_pickup_spawn_failed"
-				)),
-			}
-		feedback_key = (
-			"ui_world_event_gold_shrine_success"
-			if source_kind
-			== WORLD_EVENT_KINDS
-			.WORLD_EVENT_KIND_GOLD_SHRINE
-			else "ui_world_event_completed_mod"
-		)
-	else:
-		return {
-			"ok": false,
-			"reason": "unsupported_reward_kind:%s" % reward_kind,
-		}
-	if (
-		not feedback_key.is_empty()
-		and _hud != null
-		and _hud.has_method("show_world_event_feedback")
-	):
-		_hud.call(
-			"show_world_event_feedback",
-			feedback_key,
-			feedback_context
-		)
-	return {
-		"ok": true,
-		"reason": "delivered",
-	}
+	return _world_event_runtime._deliver_world_event_reward(instance_id, event_id, reward)
 
 
 func _world_event_gear_mod_drop_position(
@@ -2970,30 +2629,7 @@ func _world_event_gear_mod_drop_position(
 	source_kind: String,
 	success_index: int = 0
 ) -> Vector2:
-	var event_node: Node2D = _world_event_nodes.get(
-		instance_id,
-		null
-	) as Node2D
-	var source_position: Vector2 = (
-		event_node.global_position
-		if event_node != null and is_instance_valid(event_node)
-		else Vector2.ZERO
-	)
-	if (
-		source_kind
-		!= WORLD_EVENT_KINDS.WORLD_EVENT_KIND_GOLD_SHRINE
-	):
-		return _gear_mod_reward_positions(source_position, 1)[0]
-	var positions: Array[Vector2] = _gear_mod_reward_positions(
-		source_position,
-		2
-	)
-	var successes: int = success_index
-	if successes <= 0:
-		successes = int(
-			_world_event_runtime_summary(instance_id).get("successes", 0)
-		) + 1
-	return positions[clampi(successes - 1, 0, positions.size() - 1)]
+	return _world_event_runtime._world_event_gear_mod_drop_position(instance_id, source_kind, success_index)
 
 
 func _on_world_event_prompt_requested(
@@ -3002,34 +2638,7 @@ func _on_world_event_prompt_requested(
 	reason: String,
 	context: Dictionary
 ) -> void:
-	var feedback_key: String = ""
-	match reason:
-		"continuous_event_busy":
-			feedback_key = "ui_world_event_busy"
-		"exhausted", "not_available":
-			feedback_key = "ui_world_event_exhausted"
-		"insufficient_gold":
-			feedback_key = "ui_world_event_insufficient_gold"
-		"shrine_failed":
-			feedback_key = (
-				"ui_world_event_gold_shrine_failure"
-			)
-		"insufficient_combined_health", "not_alive":
-			feedback_key = (
-				"ui_world_event_insufficient_health"
-			)
-		_:
-			pass
-	if (
-		not feedback_key.is_empty()
-		and _hud != null
-		and _hud.has_method("show_world_event_feedback")
-	):
-		_hud.call(
-			"show_world_event_feedback",
-			feedback_key,
-			context
-		)
+	_world_event_runtime._on_world_event_prompt_requested(_instance_id, _event_id, reason, context)
 
 
 func _on_world_event_state_changed(
@@ -3038,20 +2647,7 @@ func _on_world_event_state_changed(
 	state: String,
 	_context: Dictionary
 ) -> void:
-	if (
-		state == WORLD_EVENT_STATES.WORLD_EVENT_STATE_FAILED
-		and _hud != null
-		and _hud.has_method("show_world_event_feedback")
-	):
-		_hud.call(
-			"show_world_event_feedback",
-			"ui_world_event_failed",
-			{
-				"name": tr(
-					_world_event_name_key(event_id)
-				),
-			}
-		)
+	_world_event_runtime._on_world_event_state_changed(_instance_id, event_id, state, _context)
 
 
 func _on_world_event_module_pin_requested(
@@ -3059,20 +2655,7 @@ func _on_world_event_module_pin_requested(
 	_module_slot_id: String,
 	pinned: bool
 ) -> void:
-	if (
-		_module_world_manager == null
-		or not _world_event_module_coords.has(instance_id)
-		or not _module_world_manager.has_method(
-			"set_slot_pinned"
-		)
-	):
-		return
-	_module_world_manager.call(
-		"set_slot_pinned",
-		_world_event_module_coords[instance_id]
-		as Vector2i,
-		pinned
-	)
+	_world_event_runtime._on_world_event_module_pin_requested(instance_id, _module_slot_id, pinned)
 
 
 func _on_world_event_terminal_cleanup_requested(
@@ -3080,150 +2663,35 @@ func _on_world_event_terminal_cleanup_requested(
 	_event_id: String,
 	_context: Dictionary
 ) -> void:
-	for raw_enemy: Node in get_tree().get_nodes_in_group(
-		"active_enemies"
-	):
-		if (
-			not raw_enemy.has_method("event_instance_id")
-			or String(raw_enemy.call("event_instance_id"))
-			!= instance_id
-		):
-			continue
-		if raw_enemy.has_method("convert_to_player_target"):
-			raw_enemy.call(
-				"convert_to_player_target",
-				_player
-			)
-	_try_release_world_event_background_pin(instance_id)
+	_world_event_runtime._on_world_event_terminal_cleanup_requested(instance_id, _event_id, _context)
 
 
 func _world_event_name_key(event_id: String) -> String:
-	if _world_event_controller == null:
-		return ""
-	return String(
-		_world_event_controller.definition(event_id).get(
-			"name_key",
-			""
-		)
-	)
+	return _world_event_runtime._world_event_name_key(event_id)
 
 
 func _update_world_event_background_pins() -> void:
-	if _world_event_controller == null:
-		return
-	for summary: Dictionary in _typed_dictionary_array(
-		_world_event_controller.debug_summary().get(
-			"instances",
-			[]
-		)
-	):
-		if not bool(summary.get("pinned", false)):
-			continue
-		var state: String = String(summary.get("state", ""))
-		if state not in [
-			WORLD_EVENT_STATES.WORLD_EVENT_STATE_SUCCEEDED,
-			WORLD_EVENT_STATES.WORLD_EVENT_STATE_FAILED,
-		]:
-			continue
-		_try_release_world_event_background_pin(
-			String(summary.get("instance_id", ""))
-		)
+	_world_event_runtime._update_world_event_background_pins()
 
 
 func _try_release_world_event_background_pin(
 	instance_id: String
 ) -> void:
-	if (
-		instance_id.is_empty()
-		or _world_event_controller == null
-		or _module_world_manager == null
-		or not _world_event_module_coords.has(instance_id)
-	):
-		return
-	var origin_coord: Vector2i = (
-		_world_event_module_coords[instance_id] as Vector2i
-	)
-	var has_enemy_inside_origin: bool = false
-	for raw_enemy: Node in get_tree().get_nodes_in_group(
-		"active_enemies"
-	):
-		if (
-			not raw_enemy.has_method("event_instance_id")
-			or String(raw_enemy.call("event_instance_id"))
-			!= instance_id
-			or not raw_enemy is Node2D
-		):
-			continue
-		var enemy_coord: Vector2i = (
-			_world_event_module_coord_for_position(
-				(raw_enemy as Node2D).global_position
-			)
-		)
-		if enemy_coord == origin_coord:
-			has_enemy_inside_origin = true
-			continue
-		if raw_enemy.has_meta("module_slot"):
-			raw_enemy.remove_meta("module_slot")
-	if not has_enemy_inside_origin:
-		_world_event_controller.release_background_pin(instance_id)
+	_world_event_runtime._try_release_world_event_background_pin(instance_id)
 
 
 func _world_event_module_coord_for_position(
 	world_position: Vector2
 ) -> Vector2i:
-	if _module_world_manager == null:
-		return Vector2i(-1, -1)
-	var global_cell: Vector2i = _module_world_manager.call(
-		"world_to_global_cell",
-		world_position
-	) as Vector2i
-	var module_and_local: Dictionary = (
-		_module_world_manager.call(
-			"global_cell_to_module_and_local",
-			global_cell
-		) as Dictionary
-	)
-	return module_and_local.get(
-		"module_coord",
-		Vector2i(-1, -1)
-	) as Vector2i
+	return _world_event_runtime._world_event_module_coord_for_position(world_position)
 
 
 func _world_events_snapshot() -> Dictionary:
-	if _world_event_controller == null:
-		return {}
-	return {
-		"controller": _world_event_controller.snapshot(),
-		"wave_plans": _world_event_wave_plans.duplicate(true),
-	}
+	return _world_event_runtime._world_events_snapshot()
 
 
 func _restore_world_events(snapshot_data: Dictionary) -> bool:
-	if (
-		_world_event_controller == null
-		or snapshot_data.is_empty()
-	):
-		return false
-	_world_event_wave_plans = _dictionary_or_empty(
-		snapshot_data.get("wave_plans", {})
-	).duplicate(true)
-	var result: Dictionary = (
-		_world_event_controller.restore_snapshot(
-			_dictionary_or_empty(
-				snapshot_data.get("controller", {})
-			)
-		)
-	)
-	if not _array_or_empty(result.get("rejected", [])).is_empty():
-		return false
-	var active_instance_id: String = (
-		_world_event_controller
-		.active_continuous_instance_id()
-	)
-	return (
-		active_instance_id.is_empty()
-		or _world_event_wave_plans.has(active_instance_id)
-	)
+	return _world_event_runtime._restore_world_events(snapshot_data)
 
 
 func _configure_module_world(
@@ -4191,184 +3659,35 @@ func _register_all_module_interest_points() -> void:
 
 
 func _register_all_module_teleporters() -> void:
-	if _module_world_manager == null or not _teleporter_stations.is_empty():
-		return
-	var stations: Array[Dictionary] = []
-	for row_index: int in range(7):
-		for column_index: int in range(7):
-			var module_coord := Vector2i(column_index, row_index)
-			var placements: Array[Dictionary] = _module_world_manager.call(
-				"placements_at",
-				module_coord
-			)
-			for placement: Dictionary in placements:
-				if (
-					String(placement.get("type", ""))
-					!= MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER
-				):
-					continue
-				var local_cell: Vector2i = _dict_to_vector2i(
-					placement.get("cell", {})
-				)
-				var station_id: String = _teleporter_station_id(
-					module_coord,
-					local_cell
-				)
-				stations.append({
-					"station_id": station_id,
-					"network_id": String(
-						placement.get("network_id", "")
-					),
-					"module_coord": _coord_to_dict(module_coord),
-					"cell": _coord_to_dict(local_cell),
-					"world_position": _dictionary_or_empty(
-						placement.get("world_position", {})
-					),
-					"interaction_radius": float(
-						placement.get("interaction_radius", 0.0)
-					),
-				})
-	stations.sort_custom(_teleporter_station_less)
-	for station_index: int in range(stations.size()):
-		var station: Dictionary = stations[station_index]
-		station["station_number"] = station_index + 1
-		var station_id: String = String(station.get("station_id", ""))
-		var module_coord: Vector2i = _dict_to_vector2i(
-			station.get("module_coord", {})
-		)
-		var slot_key: String = _module_slot_key(module_coord)
-		var module_station_ids: Array = _array_or_empty(
-			_teleporter_module_station_ids.get(slot_key, [])
-		).duplicate()
-		module_station_ids.append(station_id)
-		_teleporter_module_station_ids[slot_key] = module_station_ids
-		_teleporter_stations[station_id] = station
-	if stations.size() != 3:
-		# The checked-in technical slice is a compact combat/streaming fixture and
-		# intentionally does not model the formal world's three-station network.
-		if _module_world_technical_slice:
-			_teleporter_stations.clear()
-			_teleporter_module_station_ids.clear()
-			return
-		push_error(
-			"[GameplayRunLoop] teleporter network must contain exactly 3 stations"
-		)
+	_teleport_runtime._register_all_module_teleporters()
 
 
 func _activate_module_teleporter_visuals(module_coord: Vector2i) -> void:
-	if _active_world == null:
-		return
-	var station_ids: Array = _array_or_empty(
-		_teleporter_module_station_ids.get(
-			_module_slot_key(module_coord),
-			[]
-		)
-	)
-	for raw_station_id: Variant in station_ids:
-		var station_id: String = String(raw_station_id)
-		if _teleporter_nodes.has(station_id):
-			continue
-		var station: Dictionary = _dictionary_or_empty(
-			_teleporter_stations.get(station_id, {})
-		)
-		var raw_node: Node = TELEPORTER_INTERACTABLE_SCENE.instantiate()
-		if not raw_node is Node2D:
-			raw_node.queue_free()
-			push_error(
-				"[GameplayRunLoop] teleporter interactable scene root is invalid"
-			)
-			continue
-		var interactable: Node2D = raw_node as Node2D
-		_active_world.add_child(interactable)
-		interactable.global_position = _dict_to_vector(
-			station.get("world_position", {}),
-			Vector2.ZERO
-		)
-		if interactable.has_method("configure"):
-			interactable.call(
-				"configure",
-				station_id,
-				float(station.get("interaction_radius", 0.0))
-			)
-		if interactable.has_method("set_station_number"):
-			interactable.call(
-				"set_station_number",
-				int(station.get("station_number", 0))
-			)
-		_teleporter_nodes[station_id] = interactable
+	_teleport_runtime._activate_module_teleporter_visuals(module_coord)
 
 
 func _deactivate_module_teleporter_visuals(
 	module_coord: Vector2i
 ) -> void:
-	for raw_station_id: Variant in _array_or_empty(
-		_teleporter_module_station_ids.get(
-			_module_slot_key(module_coord),
-			[]
-		)
-	):
-		var station_id: String = String(raw_station_id)
-		var node: Node = _teleporter_nodes.get(station_id) as Node
-		_teleporter_nodes.erase(station_id)
-		if node != null and is_instance_valid(node):
-			node.queue_free()
+	_teleport_runtime._deactivate_module_teleporter_visuals(module_coord)
 
 
 func _clear_teleporters() -> void:
-	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
-	):
-		UIManager.remove_expected(_teleport_choice_panel, true)
-	_teleport_choice_panel = null
-	if (
-		_teleport_fade_overlay != null
-		and is_instance_valid(_teleport_fade_overlay)
-	):
-		UIManager.remove_expected(_teleport_fade_overlay, true)
-	_teleport_fade_overlay = null
-	_teleport_source_station_id = ""
-	_teleport_transaction_active = false
-	for raw_node: Variant in _teleporter_nodes.values():
-		var interactable: Node = raw_node as Node
-		if interactable != null and is_instance_valid(interactable):
-			interactable.queue_free()
-	_teleporter_nodes.clear()
-	_teleporter_stations.clear()
-	_teleporter_module_station_ids.clear()
+	_teleport_runtime._clear_teleporters()
 
 
 func _teleporter_station_id(
 	module_coord: Vector2i,
 	local_cell: Vector2i
 ) -> String:
-	return "teleporter_%d_%d_%d_%d" % [
-		module_coord.x,
-		module_coord.y,
-		local_cell.x,
-		local_cell.y,
-	]
+	return _teleport_runtime._teleporter_station_id(module_coord, local_cell)
 
 
 func _teleporter_station_less(
 	left: Dictionary,
 	right: Dictionary
 ) -> bool:
-	var left_module: Vector2i = _dict_to_vector2i(
-		left.get("module_coord", {})
-	)
-	var right_module: Vector2i = _dict_to_vector2i(
-		right.get("module_coord", {})
-	)
-	if left_module.y != right_module.y:
-		return left_module.y < right_module.y
-	if left_module.x != right_module.x:
-		return left_module.x < right_module.x
-	var left_cell: Vector2i = _dict_to_vector2i(left.get("cell", {}))
-	var right_cell: Vector2i = _dict_to_vector2i(right.get("cell", {}))
-	if left_cell.y != right_cell.y:
-		return left_cell.y < right_cell.y
-	return left_cell.x < right_cell.x
+	return _teleport_runtime._teleporter_station_less(left, right)
 
 
 func _register_module_interest_point(module_coord: Vector2i, placement: Dictionary) -> void:
@@ -4558,8 +3877,8 @@ func _module_minimap_interactable_markers() -> Array[Dictionary]:
 				if placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT:
 					var event_id: String = String(placement.get("world_event_id", ""))
 					var event_definition: Dictionary = (
-						_world_event_controller.definition(event_id)
-						if _world_event_controller != null
+						_world_event_runtime.controller.definition(event_id)
+						if _world_event_runtime.controller != null
 						else {}
 					)
 					marker["world_event_kind"] = String(
@@ -4689,10 +4008,10 @@ func _try_interact_nearest() -> bool:
 		"interest_point":
 			return _try_interact_interest_point()
 		"world_event":
-			if _world_event_controller == null:
+			if _world_event_runtime.controller == null:
 				return false
 			var result: Dictionary = (
-				_world_event_controller.interact(
+				_world_event_runtime.controller.interact(
 					String(candidate.get("id", "")),
 					_player,
 					_world_event_context()
@@ -4768,679 +4087,128 @@ func _nearest_interaction_candidate() -> Dictionary:
 
 
 func _nearest_teleporter_candidate() -> Dictionary:
-	if _player == null:
-		return {}
-	var best: Dictionary = {}
-	for raw_station_id: Variant in _teleporter_nodes.keys():
-		var station_id: String = String(raw_station_id)
-		var node: Node2D = _teleporter_nodes.get(station_id) as Node2D
-		if node == null or not is_instance_valid(node):
-			continue
-		if (
-			node.has_method("can_player_interact")
-			and not bool(node.call("can_player_interact", _player))
-		):
-			continue
-		var distance: float = _player.global_position.distance_to(
-			node.global_position
-		)
-		if (
-			best.is_empty()
-			or distance < float(best.get("distance", INF))
-		):
-			best = {
-				"kind": "teleporter",
-				"id": station_id,
-				"distance": distance,
-			}
-	return best
+	return _teleport_runtime._nearest_teleporter_candidate()
 
 
 func _try_interact_teleporter(station_id: String) -> bool:
-	if (
-		station_id.is_empty()
-		or _teleport_transaction_active
-		or (
-			_teleport_choice_panel != null
-			and is_instance_valid(_teleport_choice_panel)
-		)
-	):
-		return false
-	var station: Dictionary = _dictionary_or_empty(
-		_teleporter_stations.get(station_id, {})
-	)
-	if station.is_empty() or not _is_station_current(station):
-		return false
-	var source_coord: Vector2i = _dict_to_vector2i(
-		station.get("module_coord", {})
-	)
-	if _module_slot_has_hostile_pressure(source_coord):
-		_show_teleporter_feedback("show_teleporter_unsafe_feedback")
-		return false
-	var visited_stations: Array[Dictionary] = (
-		_visited_teleporter_stations(station_id)
-	)
-	if visited_stations.size() <= 1:
-		_show_teleporter_feedback(
-			"show_teleporter_no_destination_feedback"
-		)
-		return false
-	return _show_teleport_choice_panel(station_id)
+	return _teleport_runtime._try_interact_teleporter(station_id)
 
 
 func _show_teleport_choice_panel(station_id: String) -> bool:
-	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
-	):
-		return _teleport_source_station_id == station_id
-	var source: Dictionary = _dictionary_or_empty(
-		_teleporter_stations.get(station_id, {})
-	)
-	if source.is_empty() or not _is_station_current(source):
-		return false
-	if _module_slot_has_hostile_pressure(
-		_dict_to_vector2i(source.get("module_coord", {}))
-	):
-		return false
-	var stations: Array[Dictionary] = _visited_teleporter_stations(
-		station_id
-	)
-	if stations.size() <= 1:
-		return false
-	_teleport_choice_panel = UIManager.push(
-		TELEPORT_CHOICE_PANEL_SCENE,
-		{
-			"source": "teleport_choice",
-			"source_station_id": station_id,
-		}
-	) as CanvasLayer
-	if _teleport_choice_panel == null:
-		return false
-	_teleport_source_station_id = station_id
-	if not bool(
-		_teleport_choice_panel.call(
-			"configure",
-			station_id,
-			stations
-		)
-	):
-		UIManager.remove_expected(_teleport_choice_panel, true)
-		_teleport_choice_panel = null
-		_teleport_source_station_id = ""
-		return false
-	_teleport_choice_panel.connect(
-		"destination_selected",
-		Callable(self, "_on_teleport_destination_selected")
-	)
-	_teleport_choice_panel.connect(
-		"cancelled",
-		Callable(self, "_on_teleport_choice_cancelled"),
-		CONNECT_ONE_SHOT
-	)
-	_teleport_choice_panel.connect(
-		"pause_requested",
-		Callable(self, "_on_teleport_choice_pause_requested")
-	)
-	_teleport_choice_panel.tree_exited.connect(
-		Callable(self, "_on_teleport_choice_panel_tree_exited"),
-		CONNECT_ONE_SHOT
-	)
-	return true
+	return _teleport_runtime._show_teleport_choice_panel(station_id)
 
 
 func _on_teleport_destination_selected(
 	destination_station_id: String
 ) -> void:
-	_begin_teleport_choice(destination_station_id, true)
+	_teleport_runtime._on_teleport_destination_selected(destination_station_id)
 
 
 func _begin_teleport_choice(
 	destination_station_id: String,
 	record_event: bool
 ) -> bool:
-	if _teleport_transaction_active:
-		return false
-	var transaction: Dictionary = _prepare_teleport_transaction(
-		_teleport_source_station_id,
-		destination_station_id
-	)
-	if transaction.is_empty():
-		_show_teleport_choice_failure()
-		return false
-	if not InputService.begin_non_pausing_ui_capture(self):
-		_show_teleport_choice_failure()
-		return false
-	_teleport_transaction_active = true
-	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
-		and _teleport_choice_panel.has_method("set_input_locked")
-	):
-		_teleport_choice_panel.call("set_input_locked", true)
-	_execute_teleport_transition(transaction, record_event)
-	return true
+	return _teleport_runtime._begin_teleport_choice(destination_station_id, record_event)
 
 
 func _prepare_teleport_transaction(
 	source_station_id: String,
 	destination_station_id: String
 ) -> Dictionary:
-	if (
-		not GameState.is_state(GameState.PLAYING)
-		or _teleport_choice_panel == null
-		or not is_instance_valid(_teleport_choice_panel)
-		or source_station_id.is_empty()
-		or destination_station_id.is_empty()
-		or source_station_id == destination_station_id
-		or _player == null
-		or not _player.has_method("teleport_to")
-		or (
-			_player.has_method("is_alive")
-			and not bool(_player.call("is_alive"))
-		)
-		or _camera_controller == null
-		or not _camera_controller.has_method("snap_to_target")
-	):
-		return {}
-	var source: Dictionary = _dictionary_or_empty(
-		_teleporter_stations.get(source_station_id, {})
-	)
-	var destination: Dictionary = _dictionary_or_empty(
-		_teleporter_stations.get(destination_station_id, {})
-	)
-	if (
-		source.is_empty()
-		or destination.is_empty()
-		or String(source.get("network_id", ""))
-		!= String(destination.get("network_id", ""))
-		or not _is_station_current(source)
-	):
-		return {}
-	var source_coord: Vector2i = _dict_to_vector2i(
-		source.get("module_coord", {})
-	)
-	var destination_coord: Vector2i = _dict_to_vector2i(
-		destination.get("module_coord", {})
-	)
-	if (
-		_module_slot_has_hostile_pressure(source_coord)
-		or not bool(
-			_module_world_manager.call(
-				"is_module_visited",
-				destination_coord
-			)
-		)
-		or not _station_placement_still_exists(source)
-		or not _station_placement_still_exists(destination)
-	):
-		return {}
-	var destination_position: Vector2 = _dict_to_vector(
-		destination.get("world_position", {}),
-		Vector2(INF, INF)
-	)
-	if (
-		not destination_position.is_finite()
-		or not bool(
-			_module_world_manager.call(
-				"is_world_position_walkable",
-				destination_position
-			)
-		)
-	):
-		return {}
-	return {
-		"source_station_id": source_station_id,
-		"destination_station_id": destination_station_id,
-		"destination_coord": _coord_to_dict(destination_coord),
-		"destination_position": _vector_to_dict(destination_position),
-	}
+	return _teleport_runtime._prepare_teleport_transaction(source_station_id, destination_station_id)
 
 
 func _execute_teleport_transition(
 	transaction: Dictionary,
 	record_event: bool
 ) -> void:
-	_teleport_fade_overlay = UIManager.push(
-		TELEPORT_FADE_OVERLAY_SCENE,
-		{"source": "teleport_transition", "immediate": true}
-	) as CanvasLayer
-	if _teleport_fade_overlay == null:
-		_finish_teleport_transition(false, transaction)
-		return
-	var transition_config: Dictionary = _dictionary_or_empty(
-		_module_world_definition.get("teleporter_transition", {})
-	)
-	var fade_out_duration: float = maxf(
-		float(transition_config.get("fade_out_duration", 0.2)),
-		0.0
-	)
-	var fade_in_duration: float = maxf(
-		float(transition_config.get("fade_in_duration", 0.2)),
-		0.0
-	)
-	var succeeded: bool = await _teleport_fade_overlay.call(
-		"transition",
-		Callable(self, "_commit_teleport_transaction").bind(
-			transaction,
-			record_event
-		),
-		fade_out_duration,
-		fade_in_duration
-	)
-	_finish_teleport_transition(succeeded, transaction)
+	_teleport_runtime._execute_teleport_transition(transaction, record_event)
 
 
 func _commit_teleport_transaction(
 	transaction: Dictionary,
 	record_event: bool
 ) -> bool:
-	var refreshed: Dictionary = _prepare_teleport_transaction(
-		String(transaction.get("source_station_id", "")),
-		String(transaction.get("destination_station_id", ""))
-	)
-	if refreshed.is_empty():
-		return false
-	var destination_position: Vector2 = _dict_to_vector(
-		refreshed.get("destination_position", {}),
-		Vector2(INF, INF)
-	)
-	if not bool(_player.call("teleport_to", destination_position)):
-		return false
-	var stream_change: Dictionary = _module_world_manager.call(
-		"tick",
-		destination_position
-	)
-	_handle_module_stream_change(stream_change)
-	_camera_controller.call("snap_to_target", true)
-	_refresh_module_world_hud()
-	_update_combined_interaction_prompt()
-	var destination_coord: Vector2i = _dict_to_vector2i(
-		refreshed.get("destination_coord", {})
-	)
-	_restore_module_encounter_vfx(destination_coord)
-	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
-	):
-		UIManager.remove_expected(_teleport_choice_panel, true)
-	_teleport_choice_panel = null
-	if record_event:
-		_record_teleport_choice({
-			"outcome": TELEPORT_CHOICE_OUTCOMES.TELEPORTED,
-			"source_station_id": String(
-				transaction.get("source_station_id", "")
-			),
-			"destination_station_id": String(
-				transaction.get("destination_station_id", "")
-			),
-		})
-	return true
+	return _teleport_runtime._commit_teleport_transaction(transaction, record_event)
 
 
 func _finish_teleport_transition(
 	succeeded: bool,
 	transaction: Dictionary
 ) -> void:
-	if (
-		_teleport_fade_overlay != null
-		and is_instance_valid(_teleport_fade_overlay)
-	):
-		UIManager.remove_expected(_teleport_fade_overlay, true)
-	_teleport_fade_overlay = null
-	InputService.end_non_pausing_ui_capture(self)
-	_teleport_transaction_active = false
-	if succeeded:
-		_teleport_source_station_id = ""
-		return
-	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
-		and _teleport_choice_panel.has_method("set_input_locked")
-	):
-		_teleport_choice_panel.call("set_input_locked", false)
-	if not GameState.is_state(GameState.PLAYING):
-		return
-	_show_teleport_choice_failure()
+	_teleport_runtime._finish_teleport_transition(succeeded, transaction)
 
 
 func _on_teleport_choice_cancelled() -> void:
-	if _teleport_transaction_active:
-		return
-	_cancel_teleport_choice(true)
+	_teleport_runtime._on_teleport_choice_cancelled()
 
 
 func _cancel_teleport_choice(record_event: bool) -> bool:
-	if (
-		_teleport_source_station_id.is_empty()
-		or not GameState.is_state(GameState.PLAYING)
-		or _teleport_choice_panel == null
-		or not is_instance_valid(_teleport_choice_panel)
-	):
-		return false
-	var source_station_id: String = _teleport_source_station_id
-	if record_event:
-		_record_teleport_choice({
-			"outcome": TELEPORT_CHOICE_OUTCOMES.CANCELLED,
-			"source_station_id": source_station_id,
-		})
-	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
-	):
-		UIManager.remove_expected(_teleport_choice_panel, true)
-	_teleport_choice_panel = null
-	_teleport_source_station_id = ""
-	return true
+	return _teleport_runtime._cancel_teleport_choice(record_event)
 
 
 func _on_teleport_choice_pause_requested() -> void:
-	if _pause_menu == null and not _teleport_transaction_active:
-		_show_pause_menu()
+	_teleport_runtime._on_teleport_choice_pause_requested()
 
 
 func _on_teleport_choice_panel_tree_exited() -> void:
-	_teleport_choice_panel = null
-	if _teleport_transaction_active:
-		return
-	_teleport_source_station_id = ""
+	_teleport_runtime._on_teleport_choice_panel_tree_exited()
 
 
 func _record_teleport_choice(payload: Dictionary) -> void:
-	if Replay.is_recording():
-		Replay.record_decision(
-			ANALYTICS_EVENTS.TELEPORT_CHOICE,
-			payload
-		)
-	Analytics.track_event(ANALYTICS_EVENTS.TELEPORT_CHOICE, payload)
+	_teleport_runtime._record_teleport_choice(payload)
 
 
 func apply_replay_teleport_choice(payload: Dictionary) -> bool:
-	var outcome: String = String(payload.get("outcome", ""))
-	var expected_size: int = (
-		3
-		if outcome == TELEPORT_CHOICE_OUTCOMES.TELEPORTED
-		else 2
-	)
-	if (
-		payload.size() != expected_size
-		or not payload.get("outcome") is String
-		or not payload.get("source_station_id") is String
-		or String(payload.get("source_station_id", ""))
-		!= _teleport_source_station_id
-	):
-		return false
-	if outcome == TELEPORT_CHOICE_OUTCOMES.CANCELLED:
-		return _cancel_teleport_choice(false)
-	if (
-		outcome != TELEPORT_CHOICE_OUTCOMES.TELEPORTED
-		or not payload.get("destination_station_id") is String
-	):
-		return false
-	return _begin_teleport_choice(
-		String(payload.get("destination_station_id", "")),
-		false
-	)
+	return _teleport_runtime.apply_replay_teleport_choice(payload)
 
 
 func replay_teleport_choice_pending() -> bool:
-	return _teleport_transaction_active
+	return _teleport_runtime.replay_teleport_choice_pending()
 
 
 func replay_teleport_choice_completed(payload: Dictionary) -> bool:
-	if (
-		_teleport_transaction_active
-		or not GameState.is_state(GameState.PLAYING)
-		or String(payload.get("outcome", ""))
-		!= TELEPORT_CHOICE_OUTCOMES.TELEPORTED
-	):
-		return false
-	var destination: Dictionary = _dictionary_or_empty(
-		_teleporter_stations.get(
-			String(payload.get("destination_station_id", "")),
-			{}
-		)
-	)
-	if destination.is_empty() or _player == null or _module_world_manager == null:
-		return false
-	var destination_coord: Vector2i = _dict_to_vector2i(
-		destination.get("module_coord", {})
-	)
-	var destination_position: Vector2 = _dict_to_vector(
-		destination.get("world_position", {}),
-		Vector2(INF, INF)
-	)
-	var current_coord: Vector2i = _module_world_manager.call(
-		"current_module_coord"
-	) as Vector2i
-	return (
-		destination_position.is_finite()
-		and _player.global_position.is_equal_approx(destination_position)
-		and current_coord == destination_coord
-	)
+	return _teleport_runtime.replay_teleport_choice_completed(payload)
 
 
 func _visited_teleporter_stations(
 	source_station_id: String
 ) -> Array[Dictionary]:
-	var source: Dictionary = _dictionary_or_empty(
-		_teleporter_stations.get(source_station_id, {})
-	)
-	var network_id: String = String(source.get("network_id", ""))
-	var result: Array[Dictionary] = []
-	for raw_station: Variant in _teleporter_stations.values():
-		var station: Dictionary = raw_station as Dictionary
-		var module_coord: Vector2i = _dict_to_vector2i(
-			station.get("module_coord", {})
-		)
-		if (
-			String(station.get("network_id", "")) != network_id
-			or not bool(
-				_module_world_manager.call(
-					"is_module_visited",
-					module_coord
-				)
-			)
-		):
-			continue
-		var copy: Dictionary = station.duplicate(true)
-		copy["is_current"] = (
-			String(copy.get("station_id", "")) == source_station_id
-		)
-		result.append(copy)
-	result.sort_custom(_teleporter_station_less)
-	return result
+	return _teleport_runtime._visited_teleporter_stations(source_station_id)
 
 
 func _is_station_current(station: Dictionary) -> bool:
-	if _module_world_manager == null:
-		return false
-	var current_module: Vector2i = _module_world_manager.call(
-		"current_module_coord"
-	) as Vector2i
-	return (
-		_dict_to_vector2i(station.get("module_coord", {}))
-		== current_module
-	)
+	return _teleport_runtime._is_station_current(station)
 
 
 func _station_placement_still_exists(station: Dictionary) -> bool:
-	var module_coord: Vector2i = _dict_to_vector2i(
-		station.get("module_coord", {})
-	)
-	var expected_station_id: String = String(
-		station.get("station_id", "")
-	)
-	var placements: Array[Dictionary] = _module_world_manager.call(
-		"placements_at",
-		module_coord
-	)
-	for placement: Dictionary in placements:
-		if (
-			String(placement.get("type", ""))
-			!= MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER
-		):
-			continue
-		var local_cell: Vector2i = _dict_to_vector2i(
-			placement.get("cell", {})
-		)
-		if (
-			_teleporter_station_id(module_coord, local_cell)
-			== expected_station_id
-		):
-			return true
-	return false
+	return _teleport_runtime._station_placement_still_exists(station)
 
 
 func _module_slot_has_hostile_pressure(
 	module_coord: Vector2i
 ) -> bool:
-	if _module_world_manager == null:
-		return true
-	var state: Dictionary = _module_world_manager.call(
-		"slot_state",
-		module_coord
-	) as Dictionary
-	var encounter: Dictionary = _dictionary_or_empty(
-		state.get("enemy_encounter", {})
-	)
-	if (
-		String(encounter.get("state", ""))
-		== MODULE_ENCOUNTER_STATE_TELEGRAPHING
-		and float(encounter.get("remaining_telegraph", 0.0)) > 0.0
-	):
-		return true
-	if not _array_or_empty(state.get("enemy_snapshots", [])).is_empty():
-		return true
-	var slot_key: String = _module_slot_key(module_coord)
-	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
-		if (
-			not _is_active_world_entity(enemy)
-			or String(enemy.get_meta("module_slot", "")) != slot_key
-		):
-			continue
-		if enemy.has_method("is_alive") and not bool(enemy.call("is_alive")):
-			continue
-		return true
-	return false
+	return _teleport_runtime._module_slot_has_hostile_pressure(module_coord)
 
 
 func _show_teleporter_feedback(method_name: String) -> void:
-	if _hud != null and _hud.has_method(method_name):
-		_hud.call(method_name)
+	_teleport_runtime._show_teleporter_feedback(method_name)
 
 
 func _show_teleport_choice_failure() -> void:
-	if (
-		_teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
-		and _teleport_choice_panel.has_method("show_feedback")
-	):
-		_teleport_choice_panel.call(
-			"show_feedback",
-			"ui_teleport_failed"
-		)
-		return
-	_show_teleporter_feedback("show_teleporter_failed_feedback")
+	_teleport_runtime._show_teleport_choice_failure()
 
 
 func _nearest_gear_mod_pickup_candidate() -> Dictionary:
-	if _player == null:
-		return {}
-	var best: Dictionary = {}
-	for raw_node: Node in get_tree().get_nodes_in_group(
-		"active_gear_mod_pickups"
-	):
-		if not raw_node is GearModPickup:
-			continue
-		var pickup: GearModPickup = raw_node as GearModPickup
-		if (
-			not _is_active_world_entity(pickup)
-			or not pickup.can_player_interact(_player)
-		):
-			continue
-		var distance: float = _player.global_position.distance_to(
-			pickup.global_position
-		)
-		if not best.is_empty():
-			var best_distance: float = float(
-				best.get("distance", INF)
-			)
-			var best_pickup: GearModPickup = best.get(
-				"pickup"
-			) as GearModPickup
-			if distance > best_distance:
-				continue
-			if (
-				is_equal_approx(distance, best_distance)
-				and best_pickup != null
-				and (
-					pickup.global_position
-					== best_pickup.global_position
-					and pickup.gear_mod_instance_id()
-					>= best_pickup.gear_mod_instance_id()
-					or (
-						pickup.global_position
-						!= best_pickup.global_position
-						and not _pickup_position_precedes(
-							pickup.global_position,
-							best_pickup.global_position
-						)
-					)
-				)
-			):
-				continue
-		best = {
-			"kind": "gear_mod_pickup",
-			"id": pickup.gear_mod_instance_id(),
-			"distance": distance,
-			"pickup": pickup,
-		}
-	return best
+	return _gear_mod_runtime._nearest_gear_mod_pickup_candidate()
 
 
 func _pickup_position_precedes(left: Vector2, right: Vector2) -> bool:
-	if not is_equal_approx(left.x, right.x):
-		return left.x < right.x
-	return left.y < right.y
+	return _gear_mod_runtime._pickup_position_precedes(left, right)
 
 
 func _nearest_world_event_candidate() -> Dictionary:
-	if _player == null or _world_event_controller == null:
-		return {}
-	var best: Dictionary = {}
-	for instance_id_raw: Variant in _world_event_nodes.keys():
-		var instance_id: String = String(instance_id_raw)
-		var interactable: WorldEventInteractable = (
-			_world_event_nodes.get(instance_id)
-			as WorldEventInteractable
-		)
-		if (
-			interactable == null
-			or not is_instance_valid(interactable)
-			or interactable.event_state()
-			!= WORLD_EVENT_STATES
-			.WORLD_EVENT_STATE_INACTIVE
-			or not interactable.can_player_interact(_player)
-		):
-			continue
-		var distance: float = (
-			_player.global_position.distance_to(
-				interactable.global_position
-			)
-		)
-		if (
-			not best.is_empty()
-			and distance >= float(best.get("distance", INF))
-		):
-			continue
-		best = {
-			"kind": "world_event",
-			"id": instance_id,
-			"distance": distance,
-			"event_id": interactable.event_id(),
-		}
-	return best
+	return _world_event_runtime._nearest_world_event_candidate()
 
 
 func _update_combined_interaction_prompt() -> void:
@@ -5471,7 +4239,7 @@ func _update_combined_interaction_prompt() -> void:
 	var instance_id: String = String(candidate.get("id", ""))
 	var event_id: String = String(candidate.get("event_id", ""))
 	var definition: Dictionary = (
-		_world_event_controller.definition(event_id)
+		_world_event_runtime.controller.definition(event_id)
 	)
 	var kind: String = String(definition.get("kind", ""))
 	var prompt_key: String = "ui_world_event_interact_start"
@@ -5519,140 +4287,15 @@ func _update_combined_interaction_prompt() -> void:
 func _world_event_runtime_summary(
 	instance_id: String
 ) -> Dictionary:
-	if _world_event_controller == null:
-		return {}
-	for summary: Dictionary in _typed_dictionary_array(
-		_world_event_controller.debug_summary().get(
-			"instances",
-			[]
-		)
-	):
-		if String(summary.get("instance_id", "")) == instance_id:
-			return summary
-	return {}
+	return _world_event_runtime._world_event_runtime_summary(instance_id)
 
 
 func _refresh_world_event_hud() -> void:
-	if (
-		_hud == null
-		or not _hud.has_method("set_world_event_status")
-	):
-		return
-	if _world_event_controller == null:
-		_hud.call("set_world_event_status", {"visible": false})
-		return
-	var active_instance_id: String = (
-		_world_event_controller
-		.active_continuous_instance_id()
-	)
-	if active_instance_id.is_empty():
-		_hud.call("set_world_event_status", {"visible": false})
-		return
-	var runtime: Dictionary = _world_event_runtime_summary(
-		active_instance_id
-	)
-	var event_id: String = String(runtime.get("event_id", ""))
-	var definition: Dictionary = (
-		_world_event_controller.definition(event_id)
-	)
-	var kind: String = String(definition.get("kind", ""))
-	var elapsed: float = maxf(
-		float(runtime.get("elapsed", 0.0)),
-		0.0
-	)
-	var status: Dictionary = {
-		"visible": true,
-		"name_key": String(definition.get("name_key", "")),
-		"values": {},
-	}
-	var values: Dictionary = {}
-	match kind:
-		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_DEFENSE:
-			status["detail_key"] = (
-				"ui_world_event_status_defense"
-			)
-			var defense: Dictionary = _dictionary_or_empty(
-				runtime.get("defense_target", {})
-			)
-			values = {
-				"time": _display_event_number(
-					maxf(
-						float(definition.get("duration", 0.0))
-						- elapsed,
-						0.0
-					)
-				),
-				"health": _display_event_number(
-					float(defense.get("current_health", 0.0))
-				),
-				"max_health": _display_event_number(
-					float(defense.get("max_health", 0.0))
-				),
-			}
-		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_SURVIVAL:
-			status["detail_key"] = (
-				"ui_world_event_status_survival"
-			)
-			var wave_total: int = _array_or_empty(
-				definition.get("waves", [])
-			).size()
-			values = {
-				"time": _display_event_number(
-					maxf(
-						float(definition.get("duration", 0.0))
-						- elapsed,
-						0.0
-					)
-				),
-				"wave": mini(
-					int(runtime.get("wave_cursor", 0)),
-					wave_total
-				),
-				"wave_total": wave_total,
-			}
-		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_CAPTURE:
-			status["detail_key"] = (
-				"ui_world_event_status_capture"
-			)
-			values = {
-				"progress": _display_event_number(
-					float(runtime.get("capture_progress", 0.0))
-				),
-				"required": _display_event_number(
-					float(
-						definition.get(
-							"capture_duration",
-							0.0
-						)
-					)
-				),
-				"entry": _display_event_number(
-					float(
-						runtime.get(
-							"entry_delay_progress",
-							0.0
-						)
-					)
-				),
-				"entry_required": _display_event_number(
-					float(definition.get("entry_delay", 0.0))
-				),
-				"timeout": _display_event_number(
-					maxf(
-						float(definition.get("timeout", 0.0))
-						- elapsed,
-						0.0
-					)
-				),
-			}
-		_:
-			status["visible"] = false
-	status["values"] = values
-	_hud.call("set_world_event_status", status)
+	_world_event_runtime._refresh_world_event_hud()
 
 
 func _display_event_number(value: float) -> String:
-	return "%.1f" % maxf(value, 0.0)
+	return _world_event_runtime._display_event_number(value)
 
 
 func _update_interaction_prompt(point_id: String) -> void:
@@ -5669,50 +4312,7 @@ func _update_interaction_prompt(point_id: String) -> void:
 func _try_interact_gear_mod_pickup(
 	pickup: GearModPickup
 ) -> bool:
-	if (
-		pickup == null
-		or not is_instance_valid(pickup)
-		or not pickup.can_player_interact(_player)
-		or not _pending_gear_mod_placement.is_empty()
-	):
-		return false
-	if _gear_mod_board == null:
-		_emit_gear_mod_placement_failure(
-			pickup.gear_mod_instance_id(),
-			pickup.mod_id(),
-			"board_unavailable"
-		)
-		return false
-	var mod_id: String = pickup.mod_id()
-	var instance_id: int = pickup.gear_mod_instance_id()
-	var legal_cells: Array[Vector2i] = []
-	var raw_legal_cells: Variant = _gear_mod_board.call(
-		"legal_cells",
-		mod_id
-	)
-	if raw_legal_cells is Array:
-		for raw_cell: Variant in raw_legal_cells as Array:
-			if raw_cell is Vector2i:
-				legal_cells.append(raw_cell as Vector2i)
-	if legal_cells.is_empty():
-		_emit_gear_mod_placement_failure(
-			instance_id,
-			mod_id,
-			"no_legal_cell"
-		)
-		return false
-	_pending_gear_mod_placement = {
-		"instance_id": instance_id,
-		"mod_id": mod_id,
-		"legal_cells": legal_cells,
-		"pickup": pickup,
-	}
-	var pending_snapshot: Dictionary = (
-		_pending_gear_mod_placement_snapshot()
-	)
-	gear_mod_placement_requested.emit(pending_snapshot)
-	_show_gear_mod_placement_panel(pending_snapshot)
-	return true
+	return _gear_mod_runtime._try_interact_gear_mod_pickup(pickup)
 
 
 func confirm_gear_mod_placement(
@@ -5720,69 +4320,20 @@ func confirm_gear_mod_placement(
 	mod_id: String,
 	coord: Vector2i
 ) -> Dictionary:
-	return _confirm_pending_gear_mod_placement(
-		instance_id,
-		mod_id,
-		coord,
-		true
-	)
+	return _gear_mod_runtime.confirm_gear_mod_placement(instance_id, mod_id, coord)
 
 
 func cancel_gear_mod_placement(
 	instance_id: int,
 	mod_id: String
 ) -> Dictionary:
-	if not _pending_gear_mod_matches(instance_id, mod_id):
-		return _debug_result(false, "pending_mismatch")
-	return _cancel_pending_gear_mod_placement("player_cancelled", true)
+	return _gear_mod_runtime.cancel_gear_mod_placement(instance_id, mod_id)
 
 
 func apply_replay_gear_mod_placement(
 	payload: Dictionary
 ) -> Dictionary:
-	var outcome: String = String(payload.get("outcome", ""))
-	var expected_size: int = (
-		5
-		if outcome == GEAR_MOD_PLACEMENT_OUTCOMES.PLACED
-		else 3
-	)
-	if (
-		payload.size() != expected_size
-		or not payload.get("instance_id") is int
-		or not payload.get("mod_id") is String
-		or not payload.get("outcome") is String
-	):
-		return _debug_result(false, "replay_divergence")
-	var instance_id: int = int(payload.get("instance_id", 0))
-	var mod_id: String = String(payload.get("mod_id", ""))
-	if not _pending_gear_mod_matches(instance_id, mod_id):
-		return _debug_result(false, "replay_divergence")
-	if outcome == GEAR_MOD_PLACEMENT_OUTCOMES.CANCELLED:
-		var cancel_result: Dictionary = _cancel_pending_gear_mod_placement(
-			"replay_cancelled",
-			false
-		)
-		if not bool(cancel_result.get("ok", false)):
-			return _debug_result(false, "replay_divergence")
-		return cancel_result
-	if (
-		outcome != GEAR_MOD_PLACEMENT_OUTCOMES.PLACED
-		or not payload.get("x") is int
-		or not payload.get("y") is int
-	):
-		return _debug_result(false, "replay_divergence")
-	var placement_result: Dictionary = _confirm_pending_gear_mod_placement(
-		instance_id,
-		mod_id,
-		Vector2i(
-			int(payload.get("x", -1)),
-			int(payload.get("y", -1))
-		),
-		false
-	)
-	if not bool(placement_result.get("ok", false)):
-		return _debug_result(false, "replay_divergence")
-	return placement_result
+	return _gear_mod_runtime.apply_replay_gear_mod_placement(payload)
 
 
 func _confirm_pending_gear_mod_placement(
@@ -5791,137 +4342,22 @@ func _confirm_pending_gear_mod_placement(
 	coord: Vector2i,
 	record_event: bool
 ) -> Dictionary:
-	if (
-		not GameState.is_state(GameState.PLAYING)
-		or _gear_mod_board == null
-		or not _pending_gear_mod_matches(instance_id, mod_id)
-	):
-		return _debug_result(false, "pending_mismatch")
-	var pickup: GearModPickup = _pending_gear_mod_placement.get(
-		"pickup"
-	) as GearModPickup
-	if (
-		pickup == null
-		or not is_instance_valid(pickup)
-		or not _is_active_world_entity(pickup)
-		or pickup.gear_mod_instance_id() != instance_id
-		or pickup.mod_id() != mod_id
-	):
-		return _emit_gear_mod_placement_failure(
-			instance_id,
-			mod_id,
-			"pickup_unavailable"
-		)
-	if not _is_content_available(CONTENT_UNLOCK_TYPES.GEAR_MOD, mod_id):
-		return _emit_gear_mod_placement_failure(
-			instance_id,
-			mod_id,
-			"content_unavailable"
-		)
-	var result: Dictionary = _gear_mod_board.call(
-		"request_placement",
-		instance_id,
-		mod_id,
-		coord
-	) as Dictionary
-	if not bool(result.get("ok", false)):
-		return _emit_gear_mod_placement_failure(
-			instance_id,
-			mod_id,
-			String(result.get("reason", "placement_rejected"))
-		)
-	var pickup_position: Vector2 = pickup.global_position
-	_play_feedback(
-		PRESENTATION_PICKUP_DEFAULT,
-		VFX_CUES.PICKUP_COLLECT,
-		{
-			"owner": pickup,
-			"world_position": pickup_position,
-		}
-	)
-	PoolManager.release(pickup)
-	_pending_gear_mod_placement.clear()
-	_sync_run_gear_mod_ids_from_board()
-	_apply_run_gear_modifiers()
-	_play_gear_mod_placement_sfx(mod_id)
-	_show_placed_gear_mod_feedback(mod_id)
-	_close_gear_mod_board_panel(true)
-	var resolved: Dictionary = {
-		"ok": true,
-		"instance_id": instance_id,
-		"mod_id": mod_id,
-		"outcome": GEAR_MOD_PLACEMENT_OUTCOMES.PLACED,
-		"x": coord.x,
-		"y": coord.y,
-		"placement": _dictionary_or_empty(
-			result.get("placement", {})
-		),
-	}
-	if record_event:
-		_record_gear_mod_placement(resolved)
-	gear_mod_placement_resolved.emit(resolved.duplicate(true))
-	_update_combined_interaction_prompt()
-	return resolved
+	return _gear_mod_runtime._confirm_pending_gear_mod_placement(instance_id, mod_id, coord, record_event)
 
 
 func _cancel_pending_gear_mod_placement(
 	reason: String,
 	record_event: bool
 ) -> Dictionary:
-	if _pending_gear_mod_placement.is_empty():
-		return _debug_result(false, "no_pending_placement")
-	var instance_id: int = int(
-		_pending_gear_mod_placement.get("instance_id", 0)
-	)
-	var mod_id: String = String(
-		_pending_gear_mod_placement.get("mod_id", "")
-	)
-	_pending_gear_mod_placement.clear()
-	_close_gear_mod_board_panel(false)
-	var result: Dictionary = {
-		"ok": true,
-		"instance_id": instance_id,
-		"mod_id": mod_id,
-		"outcome": GEAR_MOD_PLACEMENT_OUTCOMES.CANCELLED,
-		"reason": reason,
-	}
-	if record_event:
-		_record_gear_mod_placement(result)
-	gear_mod_placement_resolved.emit(result.duplicate(true))
-	_update_combined_interaction_prompt()
-	return result
+	return _gear_mod_runtime._cancel_pending_gear_mod_placement(reason, record_event)
 
 
 func _pending_gear_mod_matches(instance_id: int, mod_id: String) -> bool:
-	return (
-		instance_id > 0
-		and not mod_id.is_empty()
-		and int(_pending_gear_mod_placement.get("instance_id", 0))
-		== instance_id
-		and String(_pending_gear_mod_placement.get("mod_id", ""))
-		== mod_id
-	)
+	return _gear_mod_runtime._pending_gear_mod_matches(instance_id, mod_id)
 
 
 func _pending_gear_mod_placement_snapshot() -> Dictionary:
-	if _pending_gear_mod_placement.is_empty():
-		return {}
-	var legal_cells: Array[Dictionary] = []
-	for raw_cell: Variant in _array_or_empty(
-		_pending_gear_mod_placement.get("legal_cells", [])
-	):
-		if raw_cell is Vector2i:
-			legal_cells.append(_coord_to_dict(raw_cell as Vector2i))
-	return {
-		"instance_id": int(
-			_pending_gear_mod_placement.get("instance_id", 0)
-		),
-		"mod_id": String(
-			_pending_gear_mod_placement.get("mod_id", "")
-		),
-		"legal_targets": legal_cells,
-		"default_target": _current_module_coord_dict(),
-	}
+	return _gear_mod_runtime._pending_gear_mod_placement_snapshot()
 
 
 func _emit_gear_mod_placement_failure(
@@ -5929,143 +4365,35 @@ func _emit_gear_mod_placement_failure(
 	mod_id: String,
 	reason: String
 ) -> Dictionary:
-	if (
-		reason == "no_legal_cell"
-		and _hud != null
-		and _hud.has_method("show_gear_mod_no_space_feedback")
-	):
-		_hud.call("show_gear_mod_no_space_feedback")
-	var result: Dictionary = {
-		"ok": false,
-		"instance_id": instance_id,
-		"mod_id": mod_id,
-		"reason": reason,
-	}
-	gear_mod_placement_failed.emit(result.duplicate(true))
-	return result
+	return _gear_mod_runtime._emit_gear_mod_placement_failure(instance_id, mod_id, reason)
 
 
 func _record_gear_mod_placement(result: Dictionary) -> void:
-	var outcome: String = String(result.get("outcome", ""))
-	var event_data: Dictionary = {
-		"instance_id": int(result.get("instance_id", 0)),
-		"mod_id": String(result.get("mod_id", "")),
-		"outcome": outcome,
-	}
-	if outcome == GEAR_MOD_PLACEMENT_OUTCOMES.PLACED:
-		event_data["x"] = int(result.get("x", -1))
-		event_data["y"] = int(result.get("y", -1))
-	if Replay.is_recording():
-		Replay.record_decision(
-			ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT,
-			event_data
-		)
-	Analytics.track_event(
-		ANALYTICS_EVENTS.GEAR_MOD_PLACEMENT,
-		event_data
-	)
+	_gear_mod_runtime._record_gear_mod_placement(result)
 
 
 func _show_placed_gear_mod_feedback(mod_id: String) -> void:
-	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-	if (
-		definition.is_empty()
-		or _hud == null
-		or not _hud.has_method("show_gear_mod_drop_feedback")
-	):
-		return
-	_hud.call(
-		"show_gear_mod_drop_feedback",
-		String(definition.get("name_key", ""))
-	)
+	_gear_mod_runtime._show_placed_gear_mod_feedback(mod_id)
 
 
 func _play_gear_mod_placement_sfx(mod_id: String) -> void:
-	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-	var sfx_id: String = String(
-		definition.get("placement_sfx_id", "")
-	).strip_edges()
-	if sfx_id.is_empty() or not AudioManager.has_stream(sfx_id):
-		return
-	AudioManager.play_sfx(sfx_id)
+	_gear_mod_runtime._play_gear_mod_placement_sfx(mod_id)
 
 
 func open_gear_mod_board_inspect() -> bool:
-	if (
-		_gear_mod_board == null
-		or _gear_mod_board_panel != null
-		or not GameState.is_state(GameState.PLAYING)
-	):
-		return false
-	var panel: GearModBoardPanel = UIManager.push(
-		GEAR_MOD_BOARD_PANEL_SCENE,
-		{"source": "gear_mod_board_inspect"}
-	) as GearModBoardPanel
-	if panel == null:
-		return false
-	_gear_mod_board_panel = panel
-	_connect_gear_mod_board_panel(panel)
-	panel.configure_inspect(
-		_run_gear_mod_snapshot(),
-		_gear_mod_panel_map_snapshot(),
-		_stats_panel_snapshot(),
-		_gear_mod_panel_passive()
-	)
-	return true
+	return _gear_mod_runtime.open_gear_mod_board_inspect()
 
 
 func _show_gear_mod_placement_panel(pending: Dictionary) -> bool:
-	if _gear_mod_board == null:
-		return false
-	if (
-		_gear_mod_board_panel != null
-		and is_instance_valid(_gear_mod_board_panel)
-	):
-		return false
-	var panel: GearModBoardPanel = UIManager.push(
-		GEAR_MOD_BOARD_PANEL_SCENE,
-		{"source": "gear_mod_placement"}
-	) as GearModBoardPanel
-	if panel == null:
-		return false
-	_gear_mod_board_panel = panel
-	_connect_gear_mod_board_panel(panel)
-	panel.configure_placement(
-		_run_gear_mod_snapshot(),
-		_gear_mod_panel_map_snapshot(),
-		_stats_panel_snapshot(),
-		_gear_mod_panel_passive(),
-		pending
-	)
-	return true
+	return _gear_mod_runtime._show_gear_mod_placement_panel(pending)
 
 
 func _connect_gear_mod_board_panel(panel: GearModBoardPanel) -> void:
-	panel.placement_confirmed.connect(
-		_on_gear_mod_panel_placement_confirmed
-	)
-	panel.placement_cancelled.connect(
-		_on_gear_mod_panel_placement_cancelled
-	)
-	panel.inspect_closed.connect(_on_gear_mod_panel_inspect_closed)
-	panel.tree_exited.connect(_on_gear_mod_panel_tree_exited)
+	_gear_mod_runtime._connect_gear_mod_board_panel(panel)
 
 
 func _close_gear_mod_board_panel(committed: bool) -> void:
-	if (
-		_gear_mod_board_panel == null
-		or not is_instance_valid(_gear_mod_board_panel)
-	):
-		_gear_mod_board_panel = null
-		return
-	var panel: Node = _gear_mod_board_panel
-	_gear_mod_board_panel = null
-	if committed and panel.has_method("close_after_commit"):
-		panel.call("close_after_commit")
-	elif panel.has_method("request_close"):
-		panel.call("request_close")
-	else:
-		UIManager.pop_expected(panel)
+	_gear_mod_runtime._close_gear_mod_board_panel(committed)
 
 
 func _on_gear_mod_panel_placement_confirmed(
@@ -6073,134 +4401,54 @@ func _on_gear_mod_panel_placement_confirmed(
 	mod_id: String,
 	coord: Vector2i
 ) -> void:
-	confirm_gear_mod_placement(instance_id, mod_id, coord)
+	_gear_mod_runtime._on_gear_mod_panel_placement_confirmed(instance_id, mod_id, coord)
 
 
 func _on_gear_mod_panel_placement_cancelled(
 	instance_id: int,
 	mod_id: String
 ) -> void:
-	cancel_gear_mod_placement(instance_id, mod_id)
+	_gear_mod_runtime._on_gear_mod_panel_placement_cancelled(instance_id, mod_id)
 
 
 func _on_gear_mod_panel_inspect_closed() -> void:
-	_gear_mod_board_panel = null
+	_gear_mod_runtime._on_gear_mod_panel_inspect_closed()
 
 
 func _on_gear_mod_panel_tree_exited() -> void:
-	_gear_mod_board_panel = null
-	if not _pending_gear_mod_placement.is_empty():
-		_cancel_pending_gear_mod_placement(
-			"panel_closed",
-			true
-		)
+	_gear_mod_runtime._on_gear_mod_panel_tree_exited()
 
 
 func _gear_mod_panel_map_snapshot() -> Dictionary:
-	if _module_world_manager == null:
-		return {}
-	return {
-		"visited_slots": _module_world_manager.call(
-			"visited_module_coords"
-		),
-		"current_slot": _current_module_coord_dict(),
-		"objective_slot": _coord_to_dict(
-			_module_world_manager.call(
-				"role_module_coord",
-				MODULE_ROLES.MODULE_ROLE_OBJECTIVE
-			) as Vector2i
-		),
-	}
+	return _gear_mod_runtime._gear_mod_panel_map_snapshot()
 
 
 func _current_module_coord_dict() -> Dictionary:
-	if _module_world_manager == null:
-		return {}
-	return _coord_to_dict(
-		_module_world_manager.call("current_module_coord") as Vector2i
-	)
+	return _gear_mod_runtime._current_module_coord_dict()
 
 
 func _gear_mod_panel_passive() -> Dictionary:
-	return _find_item(
-		_load_array(DataLoader.HERO_PASSIVES_PATH, "passives"),
-		String(_hero_composition.get("passive_id", ""))
-	)
+	return _gear_mod_runtime._gear_mod_panel_passive()
 
 
 func _update_gear_mod_pickup_prompt(
 	pickup: GearModPickup
 ) -> void:
-	if (
-		_hud == null
-		or pickup == null
-		or not is_instance_valid(pickup)
-		or not _hud.has_method("show_interaction_prompt")
-	):
-		return
-	var mod_id: String = pickup.mod_id()
-	var definition: Dictionary = GearModSystem.mod_definition(mod_id)
-	if definition.is_empty():
-		return
-	var effect_text: String = tr(String(definition.get("desc_key", "")))
-	if not GearModSystem.modifier_components(mod_id).is_empty():
-		effect_text = _format_gear_mod_pickup_effect(
-			mod_id,
-			GearModSystem.modifiers(mod_id)
-		)
-	var values: Dictionary = {
-		"name": tr(String(definition.get("name_key", ""))),
-		"effect": effect_text,
-	}
-	_hud.call(
-		"show_interaction_prompt",
-		_interaction_binding_label(),
-		"ui_interact_pickup_gear_mod",
-		values
-	)
+	_gear_mod_runtime._update_gear_mod_pickup_prompt(pickup)
 
 
 func _format_gear_mod_pickup_effect(
 	mod_id: String,
 	modifiers: Array[Dictionary]
 ) -> String:
-	var parts: Array[String] = []
-	for modifier: Dictionary in modifiers:
-		var stat: String = String(modifier.get("stat", ""))
-		var stat_label: String = tr("ui_stats_%s" % stat)
-		var modifier_type: String = String(
-			modifier.get("type", "")
-		)
-		var value: float = float(modifier.get("value", 0.0))
-		if modifier_type == "mult":
-			parts.append(
-				"%s %s%%" % [
-					stat_label,
-					_format_signed_number((value - 1.0) * 100.0),
-				]
-			)
-		elif modifier_type == "add":
-			parts.append(
-				"%s %s" % [
-					stat_label,
-					_format_signed_number(value),
-				]
-			)
-	if parts.is_empty():
-		return tr(
-			String(
-				GearModSystem.mod_definition(mod_id).get(
-					"desc_key",
-					""
-				)
-			)
-		)
-	return " · ".join(parts)
+	return _gear_mod_runtime._format_gear_mod_pickup_effect(
+		mod_id,
+		modifiers
+	)
 
 
 func _format_signed_number(value: float) -> String:
-	var magnitude: String = _format_stat_value(absf(value))
-	return "%s%s" % ["+" if value >= 0.0 else "-", magnitude]
+	return _gear_mod_runtime._format_signed_number(value)
 
 
 func _nearest_interactable_interest_point() -> String:
@@ -7248,7 +5496,7 @@ func _gear_mod_reward_positions(
 
 
 func _apply_initial_gear_modifiers() -> void:
-	if _is_debug_test_arena() and _gear_mod_board != null:
+	if _is_debug_test_arena() and _gear_mod_runtime.board != null:
 		_apply_debug_test_arena_gear_mod_placements()
 	_sync_run_gear_mod_ids_from_board()
 	_apply_run_gear_modifiers()
@@ -7268,12 +5516,12 @@ func _apply_debug_test_arena_gear_mod_placements() -> void:
 				int(placement.get("y", -1))
 			)
 			var legal_cells: Array = _array_or_empty(
-				_gear_mod_board.call("legal_cells", mod_id)
+				_gear_mod_runtime.board.call("legal_cells", mod_id)
 			)
 			if not legal_cells.has(target):
 				continue
 			var instance_id: int = _allocate_gear_mod_instance_id()
-			var result: Dictionary = _gear_mod_board.call(
+			var result: Dictionary = _gear_mod_runtime.board.call(
 				"request_placement",
 				instance_id,
 				mod_id,
@@ -7385,9 +5633,9 @@ func _ui_restore_snapshot() -> Dictionary:
 		and _reward_choice_controller.is_busy()
 	)
 	var teleport_choice_active: bool = (
-		not _teleport_source_station_id.is_empty()
-		and _teleport_choice_panel != null
-		and is_instance_valid(_teleport_choice_panel)
+		not _teleport_runtime.source_station_id.is_empty()
+		and _teleport_runtime.choice_panel != null
+		and is_instance_valid(_teleport_runtime.choice_panel)
 	)
 	if _pause_menu != null and teleport_choice_active:
 		return {
@@ -7396,7 +5644,7 @@ func _ui_restore_snapshot() -> Dictionary:
 				UI_RESTORE_TELEPORT_CHOICE
 			),
 			UI_RESTORE_SOURCE_STATION_ID: (
-				_teleport_source_station_id
+				_teleport_runtime.source_station_id
 			),
 		}
 	if _pause_menu != null and reward_choice_active:
@@ -7408,7 +5656,7 @@ func _ui_restore_snapshot() -> Dictionary:
 		return {
 			"state": UI_RESTORE_TELEPORT_CHOICE,
 			UI_RESTORE_SOURCE_STATION_ID: (
-				_teleport_source_station_id
+				_teleport_runtime.source_station_id
 			),
 		}
 	if (
@@ -7661,16 +5909,6 @@ func _normalize_coordinate_entries(
 		):
 			return false
 	return true
-
-
-func _normalize_coordinate_dictionary(raw_value: Variant) -> bool:
-	if not raw_value is Dictionary:
-		return false
-	var value: Dictionary = raw_value as Dictionary
-	return (
-		_normalize_integral_field(value, "x")
-		and _normalize_integral_field(value, "y")
-	)
 
 
 func _normalize_pickup_instance_ids(raw_pickups: Variant) -> bool:
@@ -8087,10 +6325,10 @@ func _gear_mod_name_key(mod_id: String) -> String:
 
 
 func _run_gear_mod_snapshot() -> Dictionary:
-	if _gear_mod_board == null:
+	if _gear_mod_runtime.board == null:
 		return {}
 	var result: Dictionary = (
-		_gear_mod_board.call("snapshot") as Dictionary
+		_gear_mod_runtime.board.call("snapshot") as Dictionary
 	).duplicate(true)
 	result["next_instance_id"] = _next_gear_mod_instance_id
 	return result
@@ -8100,11 +6338,11 @@ func _restore_run_gear_mods(raw_value: Variant) -> bool:
 	if not raw_value is Dictionary:
 		return false
 	var saved_state: Dictionary = raw_value as Dictionary
-	if _gear_mod_board == null:
+	if _gear_mod_runtime.board == null:
 		return false
 	var board_state: Dictionary = saved_state.duplicate(true)
 	board_state.erase("next_instance_id")
-	if not bool(_gear_mod_board.call("restore_snapshot", board_state)):
+	if not bool(_gear_mod_runtime.board.call("restore_snapshot", board_state)):
 		return false
 	_sync_run_gear_mod_ids_from_board()
 	return true
@@ -8112,8 +6350,8 @@ func _restore_run_gear_mods(raw_value: Variant) -> bool:
 
 func _clear_run_gear_mods() -> void:
 	_run_gear_mod_ids.clear()
-	if _gear_mod_board != null:
-		_gear_mod_board.call(
+	if _gear_mod_runtime.board != null:
+		_gear_mod_runtime.board.call(
 			"configure",
 			GearModSystem.board_config(),
 			GearModSystem.mod_definitions()
@@ -8123,10 +6361,10 @@ func _clear_run_gear_mods() -> void:
 
 func _sync_run_gear_mod_ids_from_board() -> void:
 	_run_gear_mod_ids.clear()
-	if _gear_mod_board == null:
+	if _gear_mod_runtime.board == null:
 		return
 	for placement: Dictionary in _typed_dictionary_array(
-		_gear_mod_board.call("placements")
+		_gear_mod_runtime.board.call("placements")
 	):
 		var mod_id: String = String(placement.get("mod_id", ""))
 		if not mod_id.is_empty():
@@ -8141,8 +6379,8 @@ func _apply_run_gear_modifiers() -> void:
 	if _effect_runtime != null:
 		stale_effect_sources = _effect_runtime.source_keys_for_type("gear_mod")
 	var placements: Array[Dictionary] = []
-	if _gear_mod_board != null:
-		placements = _typed_dictionary_array(_gear_mod_board.call("placements"))
+	if _gear_mod_runtime.board != null:
+		placements = _typed_dictionary_array(_gear_mod_runtime.board.call("placements"))
 	for placement: Dictionary in placements:
 		var mod_id: String = String(placement.get("mod_id", ""))
 		for modifier: Dictionary in GearModSystem.modifiers(mod_id):

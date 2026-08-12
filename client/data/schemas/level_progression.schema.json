@@ -1,0 +1,52 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "first_level_cost",
+    "multiplier_numerator",
+    "multiplier_denominator"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "first_level_cost",
+    "multiplier_numerator",
+    "multiplier_denominator"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "first_level_cost": {
+      "type": "integer",
+      "minimum": 1,
+      "x-wasd-error": {
+        "minimum": "must be >= 1"
+      }
+    },
+    "multiplier_numerator": {
+      "type": "integer",
+      "minimum": 1,
+      "x-wasd-error": {
+        "minimum": "must be >= 1"
+      }
+    },
+    "multiplier_denominator": {
+      "type": "integer",
+      "minimum": 1,
+      "x-wasd-error": {
+        "minimum": "must be >= 1"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "x-wasd-relation": [
+    {
+      "left": "multiplier_numerator",
+      "right": "multiplier_denominator",
+      "op": "greater_than",
+      "expected": "must be greater than multiplier_denominator"
+    }
+  ],
+  "$id": "level_progression.json"
+}

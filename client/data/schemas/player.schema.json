@@ -1,0 +1,291 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "body",
+    "base_stats",
+    "defense",
+    "dash",
+    "energy_drop",
+    "gold_drop"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "body",
+    "base_stats",
+    "defense",
+    "dash",
+    "energy_drop",
+    "gold_drop"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 4
+    },
+    "body": {
+      "type": "object",
+      "required": [
+        "radius"
+      ],
+      "x-wasd-order": [
+        "radius"
+      ],
+      "properties": {
+        "radius": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "base_stats": {
+      "type": "object",
+      "required": [
+        "max_hp",
+        "health_regen",
+        "move_speed",
+        "player_separation_radius",
+        "fire_rate",
+        "damage",
+        "bullet_speed",
+        "bullet_range",
+        "bullet_count",
+        "pickup_range",
+        "luck"
+      ],
+      "x-wasd-order": [
+        "max_hp",
+        "health_regen",
+        "move_speed",
+        "player_separation_radius",
+        "fire_rate",
+        "damage",
+        "bullet_speed",
+        "bullet_range",
+        "bullet_count",
+        "pickup_range",
+        "luck"
+      ],
+      "properties": {
+        "max_hp": {
+          "type": "number"
+        },
+        "health_regen": {
+          "type": "number"
+        },
+        "move_speed": {
+          "type": "number"
+        },
+        "player_separation_radius": {
+          "type": "number"
+        },
+        "fire_rate": {
+          "type": "number"
+        },
+        "damage": {
+          "type": "number"
+        },
+        "bullet_speed": {
+          "type": "number"
+        },
+        "bullet_range": {
+          "type": "number"
+        },
+        "bullet_count": {
+          "type": "integer"
+        },
+        "pickup_range": {
+          "type": "number"
+        },
+        "luck": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false,
+      "x-wasd-removed-field": {
+        "pickup_orb_speed": "was removed in schema_version 3"
+      }
+    },
+    "defense": {
+      "type": "object",
+      "required": [
+        "shield",
+        "armor",
+        "shield_gate"
+      ],
+      "x-wasd-order": [
+        "shield",
+        "armor",
+        "shield_gate"
+      ],
+      "properties": {
+        "shield": {
+          "type": "object",
+          "required": [
+            "recharge_delay",
+            "recharge_rate",
+            "overshield_decay_ratio_per_second",
+            "overshield_snap_threshold"
+          ],
+          "x-wasd-order": [
+            "recharge_delay",
+            "recharge_rate",
+            "overshield_decay_ratio_per_second",
+            "overshield_snap_threshold"
+          ],
+          "properties": {
+            "recharge_delay": {
+              "type": "number"
+            },
+            "recharge_rate": {
+              "type": "number"
+            },
+            "overshield_decay_ratio_per_second": {
+              "type": "number"
+            },
+            "overshield_snap_threshold": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "armor": {
+          "type": "object",
+          "required": [
+            "coefficient",
+            "maximum"
+          ],
+          "x-wasd-order": [
+            "coefficient",
+            "maximum"
+          ],
+          "properties": {
+            "coefficient": {
+              "type": "number"
+            },
+            "maximum": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "shield_gate": {
+          "type": "object",
+          "required": [
+            "max_duration"
+          ],
+          "x-wasd-order": [
+            "max_duration"
+          ],
+          "properties": {
+            "max_duration": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "dash": {
+      "type": "object",
+      "required": [
+        "distance",
+        "speed",
+        "duration",
+        "cooldown",
+        "invulnerability_duration"
+      ],
+      "x-wasd-order": [
+        "distance",
+        "speed",
+        "duration",
+        "cooldown",
+        "invulnerability_duration"
+      ],
+      "properties": {
+        "distance": {
+          "type": "number"
+        },
+        "speed": {
+          "type": "number"
+        },
+        "duration": {
+          "type": "number"
+        },
+        "cooldown": {
+          "type": "number"
+        },
+        "invulnerability_duration": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "energy_drop": {
+      "type": "object",
+      "required": [
+        "chance",
+        "amount",
+        "pickup_speed",
+        "pool_id",
+        "rng_stream"
+      ],
+      "x-wasd-order": [
+        "chance",
+        "amount",
+        "pickup_speed",
+        "pool_id",
+        "rng_stream"
+      ],
+      "properties": {
+        "chance": {
+          "type": "number"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "pickup_speed": {
+          "type": "number"
+        },
+        "pool_id": {
+          "type": "string",
+          "x-wasd-ref": {
+            "source": "contract:pool_ids",
+            "expected": "must reference a registered pool id"
+          }
+        },
+        "rng_stream": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "gold_drop": {
+      "type": "object",
+      "required": [
+        "pickup_speed",
+        "pool_id"
+      ],
+      "x-wasd-order": [
+        "pickup_speed",
+        "pool_id"
+      ],
+      "properties": {
+        "pickup_speed": {
+          "type": "number"
+        },
+        "pool_id": {
+          "type": "string",
+          "x-wasd-ref": {
+            "source": "contract:pool_ids",
+            "expected": "must reference a registered pool id"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$id": "player.json"
+}

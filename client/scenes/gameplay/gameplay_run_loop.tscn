@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://bbq5dg0u4p14r"]
+[gd_scene load_steps=17 format=3 uid="uid://bbq5dg0u4p14r"]
 
 [ext_resource type="Script" uid="uid://wqmkjoq4cjb6" path="res://scripts/gameplay/gameplay_run_loop.gd" id="1_run_loop"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/world_background.tscn" id="2_background"]
@@ -13,12 +13,24 @@
 [ext_resource type="Script" path="res://scripts/gameplay/reward_choice_controller.gd" id="11_reward_choice"]
 [ext_resource type="Script" path="res://scripts/gameplay/world_events/world_event_controller.gd" id="12_world_event_controller"]
 [ext_resource type="Script" path="res://scripts/gameplay/enemy_spawn_service.gd" id="13_enemy_spawn_service"]
+[ext_resource type="Script" path="res://scripts/gameplay/teleport_runtime_coordinator.gd" id="14_teleport_runtime"]
+[ext_resource type="Script" path="res://scripts/gameplay/gear_mod_placement_coordinator.gd" id="15_gear_mod_runtime"]
+[ext_resource type="Script" path="res://scripts/gameplay/world_event_runtime_coordinator.gd" id="16_world_event_runtime"]
 
 [node name="GameplayRunLoop" type="Node2D"]
 script = ExtResource("1_run_loop")
 
 [node name="EnemySpawnService" type="Node" parent="."]
 script = ExtResource("13_enemy_spawn_service")
+
+[node name="TeleportRuntimeCoordinator" type="Node" parent="."]
+script = ExtResource("14_teleport_runtime")
+
+[node name="GearModPlacementCoordinator" type="Node" parent="."]
+script = ExtResource("15_gear_mod_runtime")
+
+[node name="WorldEventRuntimeCoordinator" type="Node" parent="."]
+script = ExtResource("16_world_event_runtime")
 
 [node name="ActiveWorld" type="Node2D" parent="."]
 

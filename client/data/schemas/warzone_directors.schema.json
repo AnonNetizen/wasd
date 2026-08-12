@@ -1,0 +1,184 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "directors"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "directors"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "directors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "mode_id",
+          "mutation_id",
+          "description",
+          "phases",
+          "interest_points"
+        ],
+        "x-wasd-order": [
+          "id",
+          "mode_id",
+          "mutation_id",
+          "description",
+          "phases",
+          "interest_points"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "mode_id": {
+            "type": "string"
+          },
+          "mutation_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "phases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "start_time",
+                "end_time",
+                "pressure_tag",
+                "wave_ids"
+              ],
+              "x-wasd-order": [
+                "id",
+                "start_time",
+                "end_time",
+                "pressure_tag",
+                "wave_ids"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "start_time": {
+                  "type": "number"
+                },
+                "end_time": {
+                  "type": "number"
+                },
+                "pressure_tag": {
+                  "type": "string"
+                },
+                "wave_ids": {
+                  "type": "array"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          },
+          "interest_points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "kind",
+                "hazard_ids",
+                "map_layout_id",
+                "min_distance_from_player",
+                "min_spacing",
+                "claim_radius",
+                "claim_start_time",
+                "notes"
+              ],
+              "x-wasd-order": [
+                "id",
+                "kind",
+                "hazard_ids",
+                "map_layout_id",
+                "min_distance_from_player",
+                "min_spacing",
+                "claim_radius",
+                "claim_start_time",
+                "target_hp",
+                "target_hit_radius",
+                "gold_reward_amount",
+                "notes",
+                "requires_interaction",
+                "gear_mod_pool_id",
+                "gear_mod_rolls",
+                "completes_run"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "hazard_ids": {
+                  "type": "array"
+                },
+                "map_layout_id": {
+                  "type": "string"
+                },
+                "min_distance_from_player": {
+                  "type": "number"
+                },
+                "min_spacing": {
+                  "type": "number"
+                },
+                "claim_radius": {
+                  "type": "number"
+                },
+                "claim_start_time": {
+                  "type": "number"
+                },
+                "target_hp": {
+                  "type": "number"
+                },
+                "target_hit_radius": {
+                  "type": "number"
+                },
+                "gold_reward_amount": {
+                  "type": "integer"
+                },
+                "notes": {
+                  "type": "string"
+                },
+                "requires_interaction": {
+                  "type": "boolean"
+                },
+                "gear_mod_pool_id": {
+                  "type": "string"
+                },
+                "gear_mod_rolls": {
+                  "type": "integer"
+                },
+                "completes_run": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "warzone_directors"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "warzone_directors.json"
+}

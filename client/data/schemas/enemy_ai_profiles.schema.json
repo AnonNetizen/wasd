@@ -1,0 +1,150 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "profiles"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "profiles"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 5
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "perception",
+          "decision_interval",
+          "targeting",
+          "movement",
+          "actions"
+        ],
+        "x-wasd-order": [
+          "id",
+          "perception",
+          "decision_interval",
+          "targeting",
+          "movement",
+          "actions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "perception": {
+            "type": "object",
+            "required": [
+              "sight_radius",
+              "path_awareness_radius",
+              "memory_duration"
+            ],
+            "x-wasd-order": [
+              "sight_radius",
+              "path_awareness_radius",
+              "memory_duration"
+            ],
+            "properties": {
+              "sight_radius": {
+                "type": "number"
+              },
+              "path_awareness_radius": {
+                "type": "number"
+              },
+              "memory_duration": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "decision_interval": {
+            "type": "number"
+          },
+          "targeting": {
+            "type": "object",
+            "required": [
+              "player_weight",
+              "territory_radius",
+              "territory_weight"
+            ],
+            "x-wasd-order": [
+              "player_weight",
+              "territory_radius",
+              "territory_weight"
+            ],
+            "properties": {
+              "player_weight": {
+                "type": "number"
+              },
+              "territory_radius": {
+                "type": "number"
+              },
+              "territory_weight": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "movement": {
+            "type": "object",
+            "required": [
+              "orbit_radius"
+            ],
+            "x-wasd-order": [
+              "orbit_radius"
+            ],
+            "properties": {
+              "orbit_radius": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "base_score",
+                "speed_scale"
+              ],
+              "x-wasd-order": [
+                "id",
+                "base_score",
+                "speed_scale",
+                "attack"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "base_score": {
+                  "type": "number"
+                },
+                "speed_scale": {
+                  "type": "number"
+                },
+                "attack": {
+                  "type": "object"
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-wasd-unique-by": "id"
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "enemy_ai_profiles"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "enemy_ai_profiles.json"
+}

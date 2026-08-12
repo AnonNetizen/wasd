@@ -1,0 +1,236 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "board",
+    "pickup",
+    "reward_pools",
+    "reward_pool_contributions",
+    "mods"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "board",
+    "pickup",
+    "reward_pools",
+    "reward_pool_contributions",
+    "mods"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 6
+    },
+    "board": {
+      "type": "object",
+      "required": [
+        "width",
+        "height",
+        "center",
+        "initial_unlocked_cells"
+      ],
+      "x-wasd-order": [
+        "width",
+        "height",
+        "center",
+        "initial_unlocked_cells"
+      ],
+      "properties": {
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "center": {
+          "type": "object",
+          "required": [
+            "x",
+            "y"
+          ],
+          "x-wasd-order": [
+            "x",
+            "y"
+          ],
+          "properties": {
+            "x": {
+              "type": "integer"
+            },
+            "y": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "initial_unlocked_cells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "x",
+              "y"
+            ],
+            "x-wasd-order": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "pickup": {
+      "type": "object",
+      "required": [
+        "pool_id",
+        "interaction_radius",
+        "spawn_vertical_offset",
+        "spawn_spread"
+      ],
+      "x-wasd-order": [
+        "pool_id",
+        "interaction_radius",
+        "spawn_vertical_offset",
+        "spawn_spread"
+      ],
+      "properties": {
+        "pool_id": {
+          "type": "string"
+        },
+        "interaction_radius": {
+          "type": "number"
+        },
+        "spawn_vertical_offset": {
+          "type": "number"
+        },
+        "spawn_spread": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reward_pools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "mod_ids"
+        ],
+        "x-wasd-order": [
+          "id",
+          "mod_ids"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "mod_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id"
+    },
+    "reward_pool_contributions": {
+      "type": "array",
+      "items": {}
+    },
+    "mods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "rarity",
+          "components"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "rarity",
+          "components"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "default_unlocked": {
+            "type": "boolean"
+          },
+          "rarity": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "component_id",
+                "type"
+              ],
+              "x-wasd-order": [
+                "component_id",
+                "type",
+                "slot",
+                "modifiers",
+                "program",
+                "rule_id"
+              ],
+              "properties": {
+                "component_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "slot": {
+                  "type": "string"
+                },
+                "modifiers": {
+                  "type": "array"
+                },
+                "program": {
+                  "type": "object"
+                },
+                "rule_id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "gear_mods"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "gear_mods.json"
+}

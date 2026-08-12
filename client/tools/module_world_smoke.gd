@@ -669,7 +669,10 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 		get_tree().root,
 		"Player"
 	) as Node2D
-	var board: RefCounted = run_loop.get("_gear_mod_board") as RefCounted
+	var gear_mod_runtime: Node = run_loop.get_node(
+		"GearModPlacementCoordinator"
+	)
+	var board: RefCounted = gear_mod_runtime.get("board") as RefCounted
 	_expect(
 		manager != null and cage_player != null and board != null,
 		"cage behavior smoke should have manager, player, and Gear Mod board"
@@ -1440,8 +1443,11 @@ func _expect_gear_mod_cage_behavior(run_loop: Node) -> void:
 
 func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 	var technical_slice: bool = OS.get_cmdline_user_args().has("--module-world-technical-slice")
-	var event_nodes: Dictionary = run_loop.get("_world_event_nodes") as Dictionary
-	var event_controller: Node = run_loop.get("_world_event_controller") as Node
+	var world_event_runtime: Node = run_loop.get_node(
+		"WorldEventRuntimeCoordinator"
+	)
+	var event_nodes: Dictionary = world_event_runtime.get("nodes") as Dictionary
+	var event_controller: Node = world_event_runtime.get("controller") as Node
 	var active_event_instance_id: String = ""
 	var event_instance_ids: Array[String] = []
 	for raw_instance_id: Variant in event_nodes.keys():
@@ -1480,9 +1486,9 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 		var event_minimap: Node = run_loop.get_node_or_null(
 			"GameplayHud/Root/ModuleMinimap"
 		)
-		var event_module_coords: Dictionary = run_loop.get(
-			"_world_event_module_coords"
-		) as Dictionary
+		var event_module_coords: Dictionary = (
+			world_event_runtime.get("module_coords") as Dictionary
+		)
 		var event_coord: Vector2i = event_module_coords.get(
 			instance_id,
 			Vector2i(-1, -1)

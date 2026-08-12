@@ -1,0 +1,106 @@
+{
+  "type": "array",
+  "x-wasd-csv": {
+    "source": "spawn_waves.csv",
+    "headers": [
+      "id",
+      "mode_id",
+      "wave_index",
+      "start_time",
+      "end_time",
+      "enemy_id",
+      "enemy_weight",
+      "spawn_interval",
+      "max_alive",
+      "spawn_budget",
+      "hazard_id",
+      "hazard_weight"
+    ],
+    "columns": {
+      "id": "string",
+      "mode_id": "string",
+      "wave_index": "integer",
+      "start_time": "number",
+      "end_time": "number",
+      "enemy_id": "string",
+      "enemy_weight": "integer",
+      "spawn_interval": "number",
+      "max_alive": "integer",
+      "spawn_budget": "integer",
+      "hazard_id": "string",
+      "hazard_weight": "integer"
+    }
+  },
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "mode_id",
+      "wave_index",
+      "start_time",
+      "end_time",
+      "enemy_id",
+      "enemy_weight",
+      "spawn_interval",
+      "max_alive",
+      "spawn_budget",
+      "hazard_id",
+      "hazard_weight"
+    ],
+    "x-wasd-order": [
+      "id",
+      "mode_id",
+      "wave_index",
+      "start_time",
+      "end_time",
+      "enemy_id",
+      "enemy_weight",
+      "spawn_interval",
+      "max_alive",
+      "spawn_budget",
+      "hazard_id",
+      "hazard_weight"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "mode_id": {
+        "type": "string"
+      },
+      "wave_index": {
+        "type": "integer"
+      },
+      "start_time": {
+        "type": "number"
+      },
+      "end_time": {
+        "type": "number"
+      },
+      "enemy_id": {
+        "type": "string"
+      },
+      "enemy_weight": {
+        "type": "integer"
+      },
+      "spawn_interval": {
+        "type": "number"
+      },
+      "max_alive": {
+        "type": "integer"
+      },
+      "spawn_budget": {
+        "type": "integer"
+      },
+      "hazard_id": {
+        "type": "string"
+      },
+      "hazard_weight": {
+        "type": "integer"
+      }
+    },
+    "additionalProperties": false
+  },
+  "x-wasd-count-key": "spawn_waves",
+  "$id": "spawn_waves.csv"
+}

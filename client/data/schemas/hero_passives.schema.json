@@ -1,0 +1,76 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "passives"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "passives"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "passives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "desc_key",
+          "effect",
+          "params"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "desc_key",
+          "effect",
+          "params"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "effect": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "required": [
+              "element_id",
+              "multiplier"
+            ],
+            "x-wasd-order": [
+              "element_id",
+              "multiplier"
+            ],
+            "properties": {
+              "element_id": {
+                "type": "string"
+              },
+              "multiplier": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "hero_passives"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "hero_passives.json"
+}

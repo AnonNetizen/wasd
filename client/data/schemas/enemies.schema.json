@@ -1,0 +1,141 @@
+{
+  "type": "array",
+  "x-wasd-csv": {
+    "source": "enemies.csv",
+    "headers": [
+      "id",
+      "name_key",
+      "desc_key",
+      "default_unlocked",
+      "unlock_rule_id",
+      "codex_icon_path",
+      "tags",
+      "pool_id",
+      "scene_path",
+      "pool_prewarm",
+      "ai_profile_id",
+      "presentation_profile_id",
+      "max_hp",
+      "move_speed",
+      "gold_value_multiplier",
+      "hit_radius",
+      "separation_radius"
+    ],
+    "columns": {
+      "id": "string",
+      "name_key": "string",
+      "desc_key": "string",
+      "default_unlocked": "boolean",
+      "unlock_rule_id": "string",
+      "codex_icon_path": "string",
+      "tags": "string",
+      "pool_id": "string",
+      "scene_path": "string",
+      "pool_prewarm": "integer",
+      "ai_profile_id": "string",
+      "presentation_profile_id": "string",
+      "max_hp": "integer",
+      "move_speed": "number",
+      "gold_value_multiplier": "number",
+      "hit_radius": "number",
+      "separation_radius": "number"
+    }
+  },
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "name_key",
+      "desc_key",
+      "default_unlocked",
+      "unlock_rule_id",
+      "codex_icon_path",
+      "tags",
+      "pool_id",
+      "scene_path",
+      "pool_prewarm",
+      "ai_profile_id",
+      "presentation_profile_id",
+      "max_hp",
+      "move_speed",
+      "gold_value_multiplier",
+      "hit_radius",
+      "separation_radius"
+    ],
+    "x-wasd-order": [
+      "id",
+      "name_key",
+      "desc_key",
+      "default_unlocked",
+      "unlock_rule_id",
+      "codex_icon_path",
+      "tags",
+      "pool_id",
+      "scene_path",
+      "pool_prewarm",
+      "ai_profile_id",
+      "presentation_profile_id",
+      "max_hp",
+      "move_speed",
+      "gold_value_multiplier",
+      "hit_radius",
+      "separation_radius"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name_key": {
+        "type": "string"
+      },
+      "desc_key": {
+        "type": "string"
+      },
+      "default_unlocked": {
+        "type": "boolean"
+      },
+      "unlock_rule_id": {
+        "type": "string"
+      },
+      "codex_icon_path": {
+        "type": "string"
+      },
+      "tags": {
+        "type": "string"
+      },
+      "pool_id": {
+        "type": "string"
+      },
+      "scene_path": {
+        "type": "string"
+      },
+      "pool_prewarm": {
+        "type": "integer"
+      },
+      "ai_profile_id": {
+        "type": "string"
+      },
+      "presentation_profile_id": {
+        "type": "string"
+      },
+      "max_hp": {
+        "type": "integer"
+      },
+      "move_speed": {
+        "type": "number"
+      },
+      "gold_value_multiplier": {
+        "type": "number"
+      },
+      "hit_radius": {
+        "type": "number"
+      },
+      "separation_radius": {
+        "type": "number"
+      }
+    },
+    "additionalProperties": false
+  },
+  "x-wasd-count-key": "enemies",
+  "$id": "enemies.csv"
+}

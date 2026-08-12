@@ -111,7 +111,7 @@ func _run() -> void:
 		bool(run_loop.call("_show_teleport_choice_panel", String(source.get("station_id", "")))),
 		"visited destinations should open the non-pausing destination panel"
 	)
-	var panel: Node = run_loop.get("_teleport_choice_panel") as Node
+	var panel: Node = _teleport_runtime(run_loop).get("choice_panel") as Node
 	for _frame: int in range(3):
 		await get_tree().physics_frame
 	_expect(GameState.is_state(GameState.PLAYING), "destination choice should remain in PLAYING")
@@ -209,12 +209,12 @@ func _run() -> void:
 		await get_tree().process_frame
 		if (
 			GameState.is_state(GameState.PLAYING)
-			and run_loop.get("_teleport_choice_panel") != null
+			and _teleport_runtime(run_loop).get("choice_panel") != null
 		):
 			break
 	_expect(
 		GameState.is_state(GameState.PLAYING)
-		and run_loop.get("_teleport_choice_panel") != null,
+		and _teleport_runtime(run_loop).get("choice_panel") != null,
 		"closing pause should reveal the PLAYING teleport choice overlay"
 	)
 	_expect(
@@ -274,7 +274,9 @@ func _wait_for_run_loop() -> Node:
 
 func _sorted_stations(run_loop: Node) -> Array[Dictionary]:
 	var stations: Array[Dictionary] = []
-	var raw_stations: Dictionary = run_loop.get("_teleporter_stations") as Dictionary
+	var raw_stations: Dictionary = (
+		_teleport_runtime(run_loop).get("stations") as Dictionary
+	)
 	for raw_station: Variant in raw_stations.values():
 		if raw_station is Dictionary:
 			stations.append((raw_station as Dictionary).duplicate(true))
@@ -283,6 +285,10 @@ func _sorted_stations(run_loop: Node) -> Array[Dictionary]:
 			return int(left.get("station_number", 0)) < int(right.get("station_number", 0))
 	)
 	return stations
+
+
+func _teleport_runtime(run_loop: Node) -> Node:
+	return run_loop.get_node("TeleportRuntimeCoordinator")
 
 
 func _stations_have_stable_ids_and_numbers(stations: Array[Dictionary]) -> bool:

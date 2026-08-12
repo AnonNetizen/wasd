@@ -1,0 +1,119 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "active_items"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "active_items"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "active_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "charge",
+          "use_effects"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "desc_key",
+          "default_unlocked",
+          "tags",
+          "charge",
+          "use_effects"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "desc_key": {
+            "type": "string"
+          },
+          "default_unlocked": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "charge": {
+            "type": "object",
+            "required": [
+              "mode",
+              "cooldown",
+              "max_charges",
+              "start_charges"
+            ],
+            "x-wasd-order": [
+              "mode",
+              "cooldown",
+              "max_charges",
+              "start_charges"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string"
+              },
+              "cooldown": {
+                "type": "number"
+              },
+              "max_charges": {
+                "type": "integer"
+              },
+              "start_charges": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "use_effects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "effect",
+                "params"
+              ],
+              "x-wasd-order": [
+                "effect",
+                "params"
+              ],
+              "properties": {
+                "effect": {
+                  "type": "string"
+                },
+                "params": {
+                  "type": "object"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "active_items"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "active_items.json"
+}

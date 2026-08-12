@@ -1,0 +1,77 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "profiles"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "profiles"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 2
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name_key",
+          "difficulty_coefficient",
+          "tier_interval_seconds",
+          "continuous_growth_per_interval",
+          "tier_step_growth",
+          "damage_growth_ratio",
+          "stage_name_keys"
+        ],
+        "x-wasd-order": [
+          "id",
+          "name_key",
+          "difficulty_coefficient",
+          "tier_interval_seconds",
+          "continuous_growth_per_interval",
+          "tier_step_growth",
+          "damage_growth_ratio",
+          "stage_name_keys"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name_key": {
+            "type": "string"
+          },
+          "difficulty_coefficient": {
+            "type": "number"
+          },
+          "tier_interval_seconds": {
+            "type": "number"
+          },
+          "continuous_growth_per_interval": {
+            "type": "number"
+          },
+          "tier_step_growth": {
+            "type": "number"
+          },
+          "damage_growth_ratio": {
+            "type": "number"
+          },
+          "stage_name_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-wasd-unique-by": "id",
+      "x-wasd-count-key": "difficulty_profiles"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "difficulty_profiles.json"
+}

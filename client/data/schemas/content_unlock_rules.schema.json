@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "rules"
+  ],
+  "x-wasd-order": [
+    "schema_version",
+    "rules"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "rules": {
+      "type": "array",
+      "items": {},
+      "x-wasd-count-key": "content_unlock_rules"
+    }
+  },
+  "additionalProperties": false,
+  "$id": "content_unlock_rules.json"
+}
