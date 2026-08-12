@@ -7,10 +7,10 @@
 
 ## 职责
 
-- 在正式 `client/` 内编排标题 → 主／子英雄组合选择 → Loading → 对局，以及继续、暂停保存退出、重开和回标题。对局包含正式 Player / Weapon / Skill / Enemy / Combat、池化实体、金币成长、显式奖励选择、7×7 Gear Mod v6 棋盘、GameplayEffectRuntime、F13 7×7 模块世界、五类世界事件、三站式传送台网络、模式级威胁时间、冻结内容池 / 本地玩法环境与 Run v20 恢复。
+- 在正式 `client/` 内编排标题 → 主／子英雄组合选择 → Loading → 对局，以及继续、暂停保存退出、重开和回标题。对局包含正式 Player / Weapon / Skill / Enemy / Combat、池化实体、金币成长、显式奖励选择、7×7 Gear Mod v6 棋盘、GameplayEffectRuntime、F13 7×7 模块世界、仅已访问可见的交互地标小地图、五类世界事件、三站式传送台网络、模式级威胁时间、冻结内容池 / 本地玩法环境与 Run v20 恢复。
 - ADR #157 后为正式玩家入口提供“准备完成、尚未激活”的边界：资源读取和分帧构建期间保持 `LOADING`，加载界面移除后才进入 `PLAYING` 并恢复保存的 UI；headless / replay / smoke 工具继续走同步准备。
 - 复用 F3/F9/F10 已建立的数据边界，并由 F13 增加 `module_worlds.json`、`module_templates.json` 与 `modules/*.json`；模块世界只引用既有敌人、机关、局内奖励和 `completes_run` 目标，不在运行时调用 AI。
-- ADR #199 / #200 后当前协议为 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19。Run v20 在完整确定性快照上保存传送选择来源站与暂停 underlying state；旧 Run v19 保留拒绝。Replay v10 记录严格 `teleport_choice` 成功 / 取消语义，旧 v9 保留拒绝；选择与淡出入采用非暂停 simulation-active 语义。
+- ADR #199 / #201 后当前协议为 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19。Run v20 在完整确定性快照上保存传送选择来源站与暂停 underlying state；旧 Run v19 保留拒绝。Replay v10 记录严格 `teleport_choice` 成功 / 取消语义，旧 v9 保留拒绝；选择与淡出入是 `PLAYING` 内非暂停 owner-captured overlay。
 
 ## 阅读方式
 
@@ -19,6 +19,7 @@
 | 改运行时启动 / 重开 | `client/scripts/gameplay/gameplay_run_loop.gd` |
 | 改玩家加载准备 / 激活边界 | `docs/代码/gameplay_loading.md`、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` |
 | 改模块大地图 / 模块模板 / 流式加载 | `docs/代码/module_world_manager.md`、`client/scripts/gameplay/module_world_manager.gd`、`client/scripts/gameplay/module_chunk.gd`、`client/data/module_worlds.json`、`client/data/module_templates.json`、`client/data/modules/*.json` |
+| 改 HUD 模块小地图 / 交互地标 | `client/scripts/gameplay/module_minimap.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`docs/代码/module_world_manager.md`、ADR #202 |
 | 改标题 / 失败面板 | `client/scripts/ui/title_menu.gd`、`client/scripts/ui/game_over_panel.gd` |
 | 改 Gear Mod 棋盘 / 拾取事务 / 类型行为 / effect 叠加 | `client/scripts/gameplay/gear_mod_board.gd`、`gameplay_run_loop.gd`、`gear_mod_pickup.gd`、`client/scripts/autoload/gear_mod_system.gd`、`client/scripts/data/modifier_stack.gd`、Player / WeaponSystem |
 | 改武器射速 / 后坐 / 扩散 / 玩家反冲 | `client/scripts/gameplay/weapon_system.gd`、`client/scripts/data/weapon_recoil_resolver.gd`、`client/scripts/gameplay/player.gd`、`client/data/weapons.json` |
@@ -61,7 +62,7 @@
 | `client/scenes/gameplay/bullet.tscn` / `gold_orb.tscn` / `hit_spark.tscn` / `damage_number.tscn` / `hazard.tscn` | 其他对象池实体场景；由 `PoolManager` 工厂实例化并复用。共享 Bullet 场景只保存一个四节点史莱姆 `Visual`，运行时按 `source_team` 切换同一几何的玩家白色系 / 敌方红色系并在池复用时完整重置；其他静态占位表现同样由可编辑 `Polygon2D` / `Line2D` 子节点承载，不走实体 `_draw()` |
 | `client/scenes/gameplay/gear_mod_pickup.tscn` / `client/scripts/gameplay/gear_mod_pickup.gd` | `gear_mod_pickup` 池化手动掉落实体；40 px CPU 固定空间星窗与 2 px 青色轮缘，根节点不动、视觉子节点轻微悬浮；无碰撞、无吸附、无超时，只在最近交互仲裁中响应 `interact` |
 | `client/scenes/gameplay/teleporter_interactable.tscn` / `client/scripts/gameplay/teleporter_interactable.gd` | 活动模块才存在的低频传送台表现；保存稳定 station id 与 180 px 交互半径，由 RunLoop 加载 / 卸载 |
-| `client/scenes/ui/teleport_choice_panel.tscn` / `teleport_destination_button.tscn` / `client/scripts/gameplay/teleport_choice_panel.gd` / `teleport_minimap.gd` | 暂停世界的 visited-only 目的地面板、编号列表与 7×7 不泄露小地图；支持鼠标、键盘、手柄焦点、`UI_BACK` 取消和暂停菜单叠加 |
+| `client/scenes/ui/teleport_choice_panel.tscn` / `teleport_destination_button.tscn` / `client/scripts/gameplay/teleport_choice_panel.gd` / `teleport_minimap.gd` | `PLAYING` 内非暂停的 visited-only 目的地面板、编号列表与 7×7 不泄露小地图；支持鼠标、键盘、手柄焦点、`UI_BACK` 取消和暂停菜单叠加 |
 | `client/scenes/ui/teleport_fade_overlay.tscn` / `client/scripts/gameplay/teleport_fade_overlay.gd` | `PROCESS_MODE_ALWAYS` 全屏黑场；淡出全黑帧调用同步 commit，无论成功失败均淡入恢复 |
 | `client/scenes/gameplay/interest_point_target.tscn` / `client/scripts/gameplay/interest_point_target.gd` | F12 低频兴趣点目标：精英巢点和小巢核可伤害占位；视觉 footprint 对齐地图矩形格，摧毁后通过 signal 触发通用兴趣点奖励 |
 | `client/scenes/gameplay/interest_point_cache.tscn` / `client/scripts/gameplay/interest_point_cache.gd` | F12 低频缓存箱：资源缓存 / Mod 缓存可见交互占位；矩形 footprint 对齐地图矩形格，主体是低矮俯视箱体，功能色只作为小嵌片，渲染在地图背景之上、机关 / 敌人 / 玩家之下，打开后保留已开启状态 |
@@ -77,7 +78,7 @@
 | `client/scripts/gameplay/module_world_manager.gd` | F13 模块世界协调器：组合 49 槽、三种限量事件模板、地图 hash / 迷雾 / 动态状态，并激活玩家 3×3 邻域及最多三个固定模块 |
 | `client/scenes/gameplay/module_chunk.tscn` / `client/scripts/gameplay/module_chunk.gd` | 12 个预置复用槽位共用的薄场景；挂载缓存生成场景，不从 JSON 建 TileMap、逐格建 Node 或重算碰撞 |
 | `client/scenes/gameplay/module_world_manager.tscn` | 预置 12 个 `ModuleChunk`：九个邻域容量与三个世界事件固定容量 |
-| `client/scripts/gameplay/module_minimap.gd` | HUD 7×7 模块级迷雾、当前位置与本局意识核目标方向标记 |
+| `client/scripts/gameplay/module_minimap.gd` | HUD 7×7 模块级迷雾、当前位置、意识核目标与 visited-only 静态交互地标；缓存 / 祭坛 / 信标 / 传送台分别使用方形 / 三角 / 圆环 / 菱形 |
 | `client/tools/module_world_smoke.gd` | 覆盖 49 槽 seed assignment/hash、三角意识核、三种不同事件、三座距离受约束传送台、12 chunk / 三 pin、无缝流式与 Run v20 恢复 |
 | `client/tools/teleporter_smoke.gd` | 三站发现、战斗门禁、visited-only 目的地、传送事务、Run v20 UI 恢复与 Replay v10 选择的专项 headless smoke |
 | `client/scripts/gameplay/world_events/` / `client/scenes/gameplay/world_events/` | 五类事件的场景化 Controller、交互物、防御目标与占点表现；详见 `docs/代码/world_event_system.md` |
@@ -220,6 +221,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
+| `ModuleMinimap.configure(state)` / `marker_kinds_at(slot)` / `interactable_markers()` | columns / rows、visited / current / objective 与交互 marker payload；模块坐标 | `void` / marker kind 列表 / marker 深拷贝 | 只保留合法且 visited 的已登记 placement；未知世界事件 kind fail closed。后两个接口用于自动诊断，不改变绘制状态 |
 | `Player.configure(base_stats)` | 合并后的玩家属性 | `void` | `move_speed` / `max_hp` / `health_regen` / `damage_invulnerability_duration` / `player_separation_radius` 来自数据 |
 | `Player.configure_runtime_rules(player_data)` / `hit_radius()` | 完整 `player.json` / 无 | `void` / `float` | 从 schema v4 `body.radius` 同步圆形碰撞、史莱姆视觉和地图边界半径；当前返回 25 px |
 | `Player.configure_visual_palette(palette)` / `apply_weapon_fire_visual_impulse(direction)` | `main_primary` / `sub_primary`；开火方向 | `bool` | Player 是 RunLoop 访问 `PlayerSlimeVisual` 的唯一公共门面；成功转发返回 `true`，缺 `Visual` 或缺接口返回 `false` 且不新增 Run 启动失败 |
@@ -324,6 +326,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - Actor 场景缓存：运行开始时按唯一 `scene_path` 一次性加载角色与本局五种敌人的 `PackedScene`。正式玩家入口使用 `ResourceLoader.load_threaded_request()` / `load_threaded_get()`，工具入口同步加载；两条路径得到同一缓存。多个内容 id 可复用同一场景路径，但角色场景不得指向 `player_base.tscn`，敌人场景不得指向 `enemy_base.tscn` 或正式 actor 目录之外。
 - 敌人池：从 `enemies.csv.pool_id` / `pool_prewarm` 读取；当前五种敌人分别使用 `enemy_chaser`、`enemy_swarm`、`enemy_stalker`、`enemy_bulwark`、`enemy_spitter` 独立对象池，预热为 `8 / 5 / 3 / 4 / 8`。factory 绑定该行 `scene_path`，首次进入计划生成与快照恢复必须取得相同专属场景，池复用不得跨敌人类型。
 - 模块首次遭遇：`module_worlds.json.first_visit_enemy_spawn` 是数量、预警时长和累计敌种解锁权重的唯一数值来源。Manager 只返回按行列排序的有效空地格心；RunLoop 消耗 `RNG.spawn`、把 `enemy_id + world_position` 与 `telegraphing/spawned` / `remaining_telegraph` 立即写入槽位，并管理预警 VFX 与池化生成。空地不检查玩家 / 动态实体，不设安全半径；恢复和重新激活只重建 VFX，不重抽计划。
+- HUD 模块小地图：RunLoop 仅遍历 `visited_module_coords()` 并读取现有 `placements_at()`，把 `module_place_reward_cache` / `module_place_world_event` / `module_place_teleporter` 组装为展示 payload；事件种类通过 `WorldEventController.definition()` 解析。`ModuleMinimap` 只解释生成的 placement / world-event kind 常量，并再次拒绝未 visited、未知或畸形标记。marker 不写 Run v20 / Replay v10，也不改变意识核全局目标圆点。
 - 敌人 AI profile：从 `enemies.csv.ai_profile_id` 引用 schema v5 `enemy_ai_profiles.json`；`perception` 配置视觉 / 路径 / 记忆，`movement` 只保留通用移动字段，攻击 action 必须携带精确 `attack`，远程攻击额外必填 `windup` / `burst_count` / `shot_interval`。派生导航缓存不进 Run v20；攻击阶段、事件归属 / target mode、剩余时间、锁向、点射、armed、生成序号、出生倍率、奖励明细和状态效果进入快照。
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
 - 玩家中心排斥：从合并后的玩家 `base_stats.player_separation_radius` 读取；当前默认 10px。敌人与玩家的最小中心距离为两者分离半径之和，碰到时只推开敌人，不改变玩家移动手感，也不造成伤害；显式攻击使用各自的范围、扇区或扫掠判定。
@@ -483,6 +486,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 测试岛进入普通模块世界 / 结算 | `configure_debug_test_arena()` 是否在入树前调用；`RunPurpose` 分支是否在准备、process、死亡、击杀和 snapshot 路径完整 guard |
 | 测试岛污染正式存档 | 测试用途是否误调用 SaveManager / GearMod profile API；跑 `debug-test-arena-smoke` 的 meta/run 哨兵断言 |
 | 固定靶移动或对象池串状态 | `Enemy.configure()` 后是否调用训练靶配置；`_pool_reset()` / `_pool_release()` 是否清掉测试 metadata 与 AI 开关 |
+| 已访问交互地标不显示或未访问内容泄露 | `_refresh_module_world_hud()` 是否只把 visited 槽传给 `_module_minimap_interactable_markers()`；placement / event kind 是否来自生成契约；`ModuleMinimap.configure()` 是否再次按 visited 过滤 |
 
 ## 测试义务
 
@@ -492,6 +496,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 修改 Run v20 顶层 payload 或恢复编排时，先跑 GUT `client/tests/unit/test_run_snapshot_coordinator.gd`，要求字段数量 / 顺序、深拷贝、`mod_environment` 所有权和 sync / staged port 顺序等价；再跑 save、runtime、loading、module-world full / technical、world-event、formal boot 和四条 Replay v10 golden。
 - 修改 `ModifierStack` 或 Player / WeaponSystem 属性层时，先跑 GUT `client/tests/unit/test_modifier_stack.gd`、`client/tests/integration/test_player_modifier_stack.gd` 与 `client/tests/integration/test_weapon_modifier_stack.gd`；unit 覆盖三层公式、gear 替换幂等、temporary 来源刷新 / 顺序 / 删除、深拷贝和层 totals roundtrip；Player integration 覆盖最大生命 / 护盾的 Run v20 恢复副作用；Weapon integration 覆盖 materialized keys、`legacy:` 空来源、畸形旧载荷、temporary 生命周期 signal 与快照插入顺序。接入变化再追加 `l1-smoke`、Gear Mod / pickup、effect-runtime、VFX、runtime、save、headless 与四条 Replay v10 golden。
 - Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`；涉及局内 Gear Mod 或标题入口删除边界时追加 `gear-mod-smoke`。
+- 修改 HUD 模块小地图或交互 marker 组装时，先跑 `client/tests/unit/test_module_minimap.gd`，再跑完整 / technical `module-world-smoke`、`teleporter-smoke`、`world-event-smoke`、`runtime-smoke` 与 `headless-boot`；未访问隐私、未知 kind 拒绝和 visited 后出现必须有机器断言。153 px HUD 内清晰度、重叠与色弱辨识仅列 L5 待用户人工验收，不运行性能 probe。
 - 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、金币球、金币成长、奖励选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 改角色挂点、表现 cue、命中 / 退场、VfxHost 或回池边界时追加 `vfx-smoke` 与 `actor-scene-smoke`；回放 summary 和 gameplay RNG 不得因纯表现变化而改变。
 - 涉及有限地图、`map_layouts.json`、PCG 摆放、WarzoneDirector 兴趣点接入、手工机关摆点、HazardSystem 或 `hazards.csv` 时追加 `python tools/godot_bridge.py --project client runtime-smoke`、`python tools/godot_bridge.py --project client f9-demo-smoke`；涉及兴趣点奖励、`GearModSystem` 资源 / Mod 发放或完成面板时追加 `gear-mod-smoke` 与 `save-smoke`；涉及 run 快照恢复时追加 `save-smoke`。

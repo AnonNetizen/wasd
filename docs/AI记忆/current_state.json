@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-08-12",
   "current_phase": "gameplay_integration",
-  "current_status": "ADR #199 三站式传送台网络保持完成；ADR #201 已删除 GameState.TELEPORT_CHOICE，选择面板与淡出 / 淡入统一为 PLAYING 内非暂停 overlay：面板与 pending 事务复用 InputService owner capture 锁 gameplay intent，暂停 action 对传送面板透传并叠加 PAUSED。Run v20 的 teleport_choice / underlying 字符串仅为 UI 恢复标记，Replay v10 同名值仅为语义事件。Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 与 module map hash 不变。完整自动门禁与事实审查已通过；视觉、双语布局、真实手柄焦点、淡出淡入观感与危险目标传入手感待用户 L5 人工验收。性能 probe 未运行。",
-  "latest_adr": 201,
+  "current_status": "ADR #202 已让 HUD 7×7 小地图只为已访问模块显示静态交互地标：缓存方形、金币 / 血量祭坛三角、防御 / 生存 / 占点信标圆环、传送台菱形；未访问模块保持隐藏，意识核继续使用既有全局目标圆点。标记不表达完成、可用或安全状态。复用现有 placement / world-event kind 契约，不改 schema、Meta v4、Run v20、Replay v10、game v1.19、data fingerprint 或 module map hash。自动回归已通过；153 px HUD 内图标清晰度、重叠与色弱辨识待用户 L5 人工验收。性能 probe 未运行。",
+  "latest_adr": 202,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #202 / HUD 模块小地图交互地标：RunLoop 只从 visited 槽现有 placements 组装 marker payload；ModuleMinimap 以缓存方形、祭坛三角、持续事件信标圆环、传送台菱形绘制，并再次拒绝未访问、未知或畸形标记。意识核目标圆点与协议版本保持不变。",
     "ADR #201 / 传送选择统一为 PLAYING overlay：删除 GameState.TELEPORT_CHOICE 与各玩法实体 simulation 特判；TeleportChoicePanel 复用 Gear Mod 的 InputService 非暂停 capture，pending 事务在面板关闭后接管至淡入完成，pause 仅对传送面板 owner 透传。Run v20 UI 恢复标记、Replay v10 语义事件、Meta v4 / Run v20 / Replay v10 / 游戏 v1.19 保持。",
     "ADR #200 / 传送选择非暂停：TELEPORT_CHOICE 与淡出入保持 SceneTree、GameClock 和 gameplay simulation 推进，只锁玩家移动 / 瞄准 / 开火 / 技能 / 冲刺 / 交互 intent；暂停菜单覆盖后才冻结。全黑帧重验玩家存活与来源安全，死亡 / 外部离态清理面板且不覆盖后续状态。Meta v4 / Run v20 / Replay v10 / 游戏 v1.19 不变。",
     "ADR #199 / 三站式传送台网络：世界 / 模块 schema 升至 v6 / v5，RNG.world 受约束组在临时 assignment 上确定性回溯并一次性提交三座，同网络首访解锁且按行优先编号；RunLoop 建立稳定站点索引、visited-only UI、来源战斗门禁与淡出 / 传送 / 流送 / 相机同步事务；新增 TELEPORT_CHOICE、Player.teleport_to、Camera.snap_to_target、Run v20 ui_restore 与 Replay v10 teleport_choice。旧 Run v19 / Replay v9 保留拒绝且不迁移。",
@@ -230,6 +231,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
+    "ADR #202 待用户 L5 人工验收：在正式 1920×1080 HUD 的 153 px 7×7 小地图上，进入包含金币 / 血量祭坛、防御 / 生存 / 占点事件和传送台的模块，确认未访问前不泄露、访问后方形 / 三角 / 圆环 / 菱形清晰可分；重点检查当前位置 / 意识核标记重叠、常见色弱辨识和拥挤战斗背景。标记只应表达地标存在，不表示完成、可用或安全。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #199 待用户 L5 人工验收：在正式 1920×1080 下分别使用 zh_CN / en、键鼠与真实手柄，检查 visited-only 站点编号 / 7×7 不泄露地图、默认焦点与返回 / 暂停叠加、约 0.2 秒淡出淡入观感，以及传入危险目标后必须清场才能离开的手感。AI 不用 GUI、截图或模拟输入代验。",
     "ADR #197 的协议不变渐进治理已完成三十八个有独立领域语义的提取点。Enemy 与 DataLoader 的自动拆分均已停止；剩余 Skills / GearMods / ContentUnlock / GameModes / WorldEvents / ModuleWorld 等高耦合域若要继续，必须由用户另行授权为独立架构任务，先整体设计所有权、协议与验证矩阵，不为行数或提交数量微切。",
     "运行 Godot 自动门禁时优先统一走 `python tools/godot_bridge.py --project client <command>`：ADR #198 后只读命令可并行；四个源码写入 bake / capture 命令由 Bridge 自动互斥。裸 Godot、新增但未分类的写入命令或绕过 Bridge 的工具仍按不具备并行安全处理。",
@@ -280,6 +282,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-12",
+      "command": "unit and full GUT; full and technical module-world; teleporter / world-event / runtime smokes; headless boot; scoped GDScript / project / semantic lint; file-scoped pre-commit; docs health and JSON checks; factual code review; git diff --check",
+      "result": "passed for ADR #202 visited-only HUD interactable markers. Final unit GUT passes 314/314 with 1909 assertions and full GUT passes 370/370 with 2733 assertions. Teleporter smoke proves one visited station is marked without leaking another and all three remain marked after discovery; module-world smoke proves a visited continuous event uses the beacon kind. Full and technical module-world, all five world events, runtime and headless boot pass. Scoped semantic lint has no advisory. Final review found Critical=0, High=0 and Medium=0. No performance probe or manual acceptance ran."
+    },
     {
       "date": "2026-08-12",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema --jobs 1; module-bake-check / module-bake-smoke / module-json-editor-smoke; full and technical module-world; teleporter / save / loading / runtime / replay / replay-input / input / UIManager smokes; integration and full GUT; GDScript / project / semantic lint plus lint self-tests; docs health and JSON checks; headless boot; four Replay v10 replay-regression; factual code review; git diff --check",
@@ -1103,6 +1110,7 @@
   ],
   "blockers": [],
   "notes": [
+    "ADR #202：HUD 模块小地图只为 visited 槽显示静态交互地标；缓存方形、金币 / 血量祭坛三角、防御 / 生存 / 占点信标圆环、传送台菱形。marker 从 assignment + visited 派生，不写 Run v20 / Replay v10，不改变意识核目标圆点或未探索隐私。",
     "ADR #201：传送选择和淡出入始终保持 PLAYING，不存在 GameState.TELEPORT_CHOICE；面板与 pending 事务使用 InputService 非暂停 owner capture，pause 对传送面板透传。Run v20 的 teleport_choice / underlying 字符串仅是 UI 恢复标记，Replay v10 同名值仅是语义事件。",
     "ADR #200：TELEPORT_CHOICE 与约 0.2 秒淡出 / 淡入不暂停 SceneTree 或 GameClock；世界模拟继续，玩家 gameplay intent 锁定。暂停菜单覆盖后才冻结；提交重验玩家存活与来源安全，死亡 / 外部离态不得被异步事务覆盖。协议和数据指纹保持 ADR #199 的 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19。",
     "ADR #199：当前 Meta v4 / Run v20 / Replay v10 / 游戏 v1.19；旧 Run v19 / Replay v9 原文件保留但拒绝继续 / 播放且不迁移。三站式传送台由 RNG.world 确定性原子回溯布置，visited-only UI 不泄露未发现站点，来源危险 fail closed，传送失败不产生部分提交。自动门禁与四条 v10 golden 已通过，L5 只由用户人工验收，性能 probe 未运行。",

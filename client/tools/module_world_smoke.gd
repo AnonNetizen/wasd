@@ -1477,6 +1477,22 @@ func _expect_objective_completion_and_restore(run_loop: Node) -> void:
 			"a selected continuous world event should activate"
 		)
 		await _wait_frames(8)
+		var event_minimap: Node = run_loop.get_node_or_null(
+			"GameplayHud/Root/ModuleMinimap"
+		)
+		var event_module_coords: Dictionary = run_loop.get(
+			"_world_event_module_coords"
+		) as Dictionary
+		var event_coord: Vector2i = event_module_coords.get(
+			instance_id,
+			Vector2i(-1, -1)
+		) as Vector2i
+		_expect(
+			event_minimap != null
+			and (event_minimap.call("marker_kinds_at", event_coord) as Array)
+			== [ModuleMinimap.MarkerKind.BEACON],
+			"a visited continuous world-event module should show a beacon minimap marker"
+		)
 		break
 	_expect(
 		not active_event_instance_id.is_empty(),

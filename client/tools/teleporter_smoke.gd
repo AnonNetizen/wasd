@@ -43,6 +43,20 @@ func _run() -> void:
 		return
 
 	await _visit_station(run_loop, manager, player, stations[0])
+	var minimap: Node = run_loop.get_node_or_null("GameplayHud/Root/ModuleMinimap")
+	_expect(minimap != null, "teleporter smoke should find the HUD minimap")
+	if minimap != null:
+		_expect(
+			(minimap.call("interactable_markers") as Array).size() == 1,
+			"only the visited teleporter module should be marked initially"
+		)
+		_expect(
+			(minimap.call(
+				"marker_kinds_at",
+				_coord(stations[1].get("module_coord", {}))
+			) as Array).is_empty(),
+			"an unvisited teleporter module should not leak onto the HUD minimap"
+		)
 	_expect(
 		not bool(run_loop.call("_show_teleport_choice_panel", String(stations[0].get("station_id", "")))),
 		"one discovered station should not open the destination panel"
@@ -50,6 +64,18 @@ func _run() -> void:
 	for station_index: int in range(1, stations.size()):
 		await _visit_station(run_loop, manager, player, stations[station_index])
 	await _visit_station(run_loop, manager, player, stations[0])
+	if minimap != null:
+		_expect(
+			(minimap.call("interactable_markers") as Array).size() == 3,
+			"all three visited teleporter modules should stay marked on the HUD minimap"
+		)
+		for station: Dictionary in stations:
+			var station_coord: Vector2i = _coord(station.get("module_coord", {}))
+			_expect(
+				(minimap.call("marker_kinds_at", station_coord) as Array)
+				== [ModuleMinimap.MarkerKind.TELEPORTER],
+				"each visited teleporter module should use the teleporter minimap marker"
+			)
 
 	var source: Dictionary = stations[0]
 	var destination: Dictionary = stations[1]

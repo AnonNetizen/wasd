@@ -1,15 +1,15 @@
 # WorldEventSystem 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/游戏设计文档.md`、`docs/决策记录.md` 与 `client/data/README.md`。
-> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v19 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略。
+> 本文档是世界事件运行时、模块摆放、敌人事件上下文、内容可用池与 Run v20 快照的代码契约；改事件规则、奖励、后台固定、敌人目标或保存字段时必须同步 GDD、ADR、Gameplay Runtime、EnemyAI、ModuleWorldManager、ContentUnlockSystem、SaveManager 与测试策略。
 
 ## 职责
 
 - 用 `world_events.json` schema v2 定义防御、生存、占点、金币祭坛和血量祭坛；公共普通 Mod 池统一来自 `gear_mods.json`。
 - 由场景化 `WorldEventController` 维护事件实例状态、持续事件全局互斥、波次游标、隐藏奖励、祭坛事务和 HUD 状态。
-- 由模块 schema v4 的 `module_place_world_event` 把可交互物摆进 approved 模块；运行时不按事件 id 临时生成模块。
+- 由模块 schema v5 的 `module_place_world_event` 把可交互物摆进 approved 模块；运行时不按事件 id 临时生成模块。HUD 小地图只在模块 visited 后显示该 placement：金币 / 血量祭坛为三角，其余三类事件为信标圆环。
 - 持续事件激活后固定所属模块并继续真实模拟；完成或失败后，残敌转为普通敌人，离开原模块或死亡后解除固定。
-- Run v19 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池、事务进度、Gear Mod 棋盘 placements、效果程序状态与带 ID 未拾取 Mod；不保存 Node 引用。
+- Run v20 保存事件、固定模块、事件波次计划、事件敌人归属、敌人金币快照、冻结内容池、事务进度、Gear Mod 棋盘 placements、效果程序状态与带 ID 未拾取 Mod；不保存 Node 引用。小地图 marker 从已恢复 assignment + visited 重新派生，不新增快照字段。
 
 ## 代码位置
 
@@ -56,7 +56,7 @@
 - RunLoop 通过 `set_reward_delivery_handler(handler)` 注册同步投放边界；handler 接收 `instance_id / event_id / reward`，返回 `{ok, reason}`。只有金币入账或 Mod 拾取物生成完成后才可回 `ok=true`；失败 reason 会保存在 pending 上下文，并由 debug summary 或祭坛交互结果暴露用于诊断。
 - Controller 先准备奖励并调用 handler，回执成功后才提交 `reward_committed`、祭坛成功 / 使用次数、`SUCCEEDED / EXHAUSTED` 终态，再发出兼容 signal `reward_requested` 供只读观察。RunLoop 不再订阅该 signal 执行投放，避免成功通知与实际交付混成无回执广播。
 - 持续事件投放失败时保持 `ACTIVE` pending，目标停止继续受击；pending 上下文保存 1 秒重试剩余时间，后续 tick 到期后只重试同一奖励，避免对象池持续满载时逐帧放大错误与埋点，且 snapshot / restore 延续剩余退避。金币 / 血量祭坛投放失败时保持可交互 pending，下一次交互只重试，不重新扣金币、重投成功率或再次献祭。祭坛 pending 不由 tick 自动完成。
-- pending 事务复用 Run v19 已有 `prepared_reward` 与 `reward_committed`：内部 `_delivery_pending` / `_delivery_context` 随现有字典 roundtrip，不新增顶层保存字段、不升级 Run schema。成功后清除内部投放元数据，公开 reward 不暴露这些内部键。
+- pending 事务复用 Run v20 已有 `prepared_reward` 与 `reward_committed`：内部 `_delivery_pending` / `_delivery_context` 随现有字典 roundtrip，不新增顶层保存字段、不升级 Run schema。成功后清除内部投放元数据，公开 reward 不暴露这些内部键。
 
 ## 敌人事件上下文
 
@@ -70,15 +70,15 @@
 
 ## 快照与幂等
 
-Run v19 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 7×7 assignment / 目标角落、`pinned_slots` 与带 `instance_id` 的非活动槽未拾取 Mod，顶层 `gear_mod_pickups` 保存活动模块未拾取 Mod，`gear_mods.placements` 保存已确认的棋盘实例，GameplayEffectRuntime 保存程序状态。Controller 保存事务游标、prepared reward、pending delivery context 与提交结果；恢复 pending 祭坛后只重试交付，不得重发波次、重复扣费 / 献祭 / 生成 Mod、引入新解锁内容或重抽既有敌人金币 / 刷怪笼计划。
+Run v20 的 `world_events` 块保存 Controller 实例状态与固定波次计划；模块快照保存 7×7 assignment / 目标角落、`pinned_slots` 与带 `instance_id` 的非活动槽未拾取 Mod，顶层 `gear_mod_pickups` 保存活动模块未拾取 Mod，`gear_mods.placements` 保存已确认的棋盘实例，GameplayEffectRuntime 保存程序状态。Controller 保存事务游标、prepared reward、pending delivery context 与提交结果；恢复 pending 祭坛后只重试交付，不得重发波次、重复扣费 / 献祭 / 生成 Mod、引入新解锁内容或重抽既有敌人金币 / 刷怪笼计划。
 
-旧 Run v18 与 Replay v8 保持源文件但拒绝继续 / 播放，不迁移。Replay v9 纳入规范化 Gear Mod v6 components、统一效果契约与 mod environment 指纹；四份黄金回放按新版本与指纹重录。
+旧 Run v19 与 Replay v9 保持源文件但拒绝继续 / 播放，不迁移。Replay v10 延续规范化 Gear Mod v6 components、统一效果契约与 mod environment 指纹，并增加传送选择语义；小地图 marker 不进入 Replay wire。
 
 ## 扩展点
 
 - 新事件先登记词表 id / kind / state / reward，再扩 `world_events.json` 严格 schema、可复用场景与 Controller 策略。
 - 新模块只通过 Module JSON 的世界事件下拉生成 `{type, cell, world_event_id}`；每模块最多一个世界事件 placement。
-- 改事件波次必须保持激活时一次性固化、先与冻结敌池求交、独立 `RNG.world_event` 和 Run v19 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
+- 改事件波次必须保持激活时一次性固化、先与冻结敌池求交、独立 `RNG.world_event` 和 Run v20 roundtrip；普通击杀金币必须按各敌人实际生成阶段走 `RNG.economy`。
 - 不得把事件复杂状态塞回兴趣点字典，不得让普通环境敌人攻击防御目标，不得直接修改金币或 Meta 背包。
 
 ## 验证
@@ -88,7 +88,7 @@ Run v19 的 `world_events` 块保存 Controller 实例状态与固定波次计�
 - 真实投放边界：`py -3 tools/godot_bridge.py gear-mod-pickup-smoke`（`client/tools/gear_mod_pickup_smoke.gd`）在 FormalBoot RunLoop 内用容量为 1 的正式 pickup pool 制造 `PoolManager.acquire()` 失败，验证 `{ok:false, reason="gear_mod_pickup_pool_exhausted"}` 让 Controller 保持 pending；释放容量后同一事务成功，且只收费、投放、通知各一次。该集成不放在 direct `--script` 的 world-event smoke 中，因为该入口不加载项目 autoload 符号表，不能预载完整 RunLoop。
 - 模块与恢复：正式 / 技术 `module-world-smoke`、`save-smoke`、`loading-smoke`。
 - 战斗：`runtime-smoke`、`l1-smoke`、`actor-scene-smoke`、`vfx-smoke`。
-- 完整变更还需三档 lint、content-progression、effect-runtime、headless boot/editor、四条 Replay v9 golden、文档健康和 pre-commit；中英文布局与局内反馈保持待人工验收并由用户执行。ADR #143 后不自动运行性能 probe。
+- 完整变更还需三档 lint、content-progression、effect-runtime、headless boot/editor、四条 Replay v10 golden、文档健康和 pre-commit；中英文布局与局内反馈保持待人工验收并由用户执行。ADR #143 后不自动运行性能 probe。
 
 ## 相关文档
 

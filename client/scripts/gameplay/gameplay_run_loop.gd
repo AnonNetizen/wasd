@@ -4507,14 +4507,51 @@ func _module_world_snapshot() -> Dictionary:
 func _refresh_module_world_hud() -> void:
 	if _hud == null or _module_world_manager == null or not _hud.has_method("set_module_world_state"):
 		return
+	var visited_slots: Array = _module_world_manager.call("visited_module_coords") as Array
 	var state: Dictionary = {
 		"columns": int(_module_world_definition.get("columns", 0)),
 		"rows": int(_module_world_definition.get("rows", 0)),
-		"visited_slots": _module_world_manager.call("visited_module_coords"),
+		"visited_slots": visited_slots,
+		"interactable_markers": _module_minimap_interactable_markers(visited_slots),
 		"current_slot": _coord_to_dict(_module_world_manager.call("current_module_coord") as Vector2i),
 		"objective_slot": _coord_to_dict(_module_world_manager.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) as Vector2i),
 	}
 	_hud.call("set_module_world_state", state)
+
+
+func _module_minimap_interactable_markers(visited_slots: Array) -> Array[Dictionary]:
+	var markers: Array[Dictionary] = []
+	for raw_slot: Variant in visited_slots:
+		if raw_slot is not Vector2i:
+			continue
+		var module_coord: Vector2i = raw_slot as Vector2i
+		for placement: Dictionary in _module_world_manager.call(
+			"placements_at",
+			module_coord
+		):
+			var placement_type: String = String(placement.get("type", ""))
+			if placement_type not in [
+				MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE,
+				MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT,
+				MODULE_PLACEMENT_TYPES.MODULE_PLACE_TELEPORTER,
+			]:
+				continue
+			var marker: Dictionary = {
+				"slot": _coord_to_dict(module_coord),
+				"type": placement_type,
+			}
+			if placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT:
+				var event_id: String = String(placement.get("world_event_id", ""))
+				var event_definition: Dictionary = (
+					_world_event_controller.definition(event_id)
+					if _world_event_controller != null
+					else {}
+				)
+				marker["world_event_kind"] = String(
+					event_definition.get("kind", "")
+				)
+			markers.append(marker)
+	return markers
 
 
 func _module_slot_key(module_coord: Vector2i) -> String:

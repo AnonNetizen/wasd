@@ -21,7 +21,7 @@
 
 `ModuleChunkStreamingController` 是另一条纯 `RefCounted` 边界：它只持有规范生成场景路径 / 已提交缓存、12 个 scene-authored `ModuleChunk` 的池和当前挂载映射，负责候选场景预加载、提交及 3×3 + pins 的卸载 / 挂载。Manager 仍独占场景候选提交、导航、pin 的 configured / assignment 资格检查和 Run v20 模块子快照顶层显式组装；`ModuleWorldLayout`、`ModuleWorldState`、`ModuleSlotStateCodec` 与 `ModuleChunkStreamingController` 都不是 Node、autoload 或新的 gameplay facade。
 
-`GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 局内 Gear Mod / `completes_run` 目标 / 世界事件 primitive 的实体生成、首次进入遭遇计划、效果 Runtime、预警、内容可用池过滤、`DifficultyProgression`、敌人生成时金币锁定、`Combat`、`PoolManager` 和 Run v20 总快照。它也从全局 placements 建立传送台索引，仅为活动模块实例化交互表现，并负责战斗门禁、选择 UI、传送事务、Replay / Analytics 和 UI 恢复点。`ModuleWorldManager` 不直接生成玩法实体，只提供严格同向 7×7 坐标 / 空地查询、组合事件 / 传送模块并维护 pin。
+`GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 局内 Gear Mod / `completes_run` 目标 / 世界事件 primitive 的实体生成、首次进入遭遇计划、效果 Runtime、预警、内容可用池过滤、`DifficultyProgression`、敌人生成时金币锁定、`Combat`、`PoolManager` 和 Run v20 总快照。它也从全局 placements 建立传送台索引，仅为活动模块实例化交互表现，并只从 visited 槽的 placements 组装 HUD 交互地标；战斗门禁、选择 UI、传送事务、Replay / Analytics 和 UI 恢复点仍归 RunLoop。`ModuleWorldManager` 不直接生成玩法实体或解释小地图图标，只提供严格同向 7×7 坐标 / 空地查询、组合事件 / 传送模块并维护 pin。
 
 ## 2. 数据边界
 
@@ -64,7 +64,7 @@
 | `navigation_query(from, target)` | 在同一静态 mask 上查询守家 / 最后已知位置的 AStar waypoint；仅由 Enemy 决策 tick 调用 |
 | `has_terrain_line_of_sight(from, target)` | 用封锁格 supercover 语义判断地形视线 |
 | `has_clear_corridor(from, target, clearance)` | 将封锁格按敌人半径扩张后判断连续直线走廊 |
-| `placements_at(module_coord)` | 返回已旋转、含 `world_position` 的内容摆放 |
+| `placements_at(module_coord)` | 返回已旋转、含 `world_position` 的内容摆放；RunLoop 可对 visited 槽读取该结果并组装不泄露未探索内容的 HUD marker payload |
 | `set_slot_pinned(module_coord, pinned)` / `pinned_module_coords()` | 固定最多三个事件模块，并把固定集合并入流式 desired set |
 | `set_slot_state()` / `slot_state()` | 保存按世界槽位隔离的动态状态 |
 | `snapshot()` / `restore_state()` | Run v20 中的 assignment（含目标角落与三站）、内容敏感 map hash、迷雾、固定模块和槽位状态 roundtrip；恢复时事务式重建场景缓存，hash / assignment / 生成场景不一致时返回失败 |
