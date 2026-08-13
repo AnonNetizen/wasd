@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "run": {
+    "duration_seconds": 600.0,
+    "arena_half_extent": 78.0,
+    "fixed_test_seed": 47013,
+    "regular_enemy_cap": 220,
+    "enemy_projectile_cap": 160,
+    "player_projectile_cap": 120,
+    "pickup_cap": 400,
+    "effect_cap": 96,
+    "spawn_min_distance": 28.0,
+    "spawn_max_distance": 48.0,
+    "elite_times": [180.0, 360.0, 510.0]
+  },
+  "player": {
+    "max_health": 100.0,
+    "move_speed": 8.5,
+    "pickup_radius": 4.0,
+    "contact_invulnerability": 0.32,
+    "model_path": "res://assets/models/player_astronaut.glb"
+  },
+  "stages": [
+    {"start": 0.0, "end": 120.0, "spawn_interval": 1.05, "batch": 2, "weights": {"enemy_small": 1.0}},
+    {"start": 120.0, "end": 240.0, "spawn_interval": 0.82, "batch": 3, "weights": {"enemy_small": 0.68, "enemy_flying": 0.32}},
+    {"start": 240.0, "end": 420.0, "spawn_interval": 0.64, "batch": 4, "weights": {"enemy_small": 0.47, "enemy_flying": 0.25, "enemy_large": 0.18, "enemy_fox_mech": 0.10}},
+    {"start": 420.0, "end": 600.0, "spawn_interval": 0.48, "batch": 5, "weights": {"enemy_small": 0.38, "enemy_flying": 0.24, "enemy_large": 0.21, "enemy_fox_mech": 0.17}}
+  ],
+  "enemies": {
+    "enemy_small": {"health": 28.0, "speed": 4.0, "damage": 9.0, "attack_cooldown": 0.85, "radius": 0.65, "xp": 2, "pool": 96, "model_path": "res://assets/models/enemy_small.glb"},
+    "enemy_flying": {"health": 20.0, "speed": 5.7, "damage": 7.0, "attack_cooldown": 0.72, "radius": 0.60, "xp": 2, "pool": 60, "flying_height": 1.8, "model_path": "res://assets/models/enemy_flying.glb"},
+    "enemy_large": {"health": 115.0, "speed": 2.45, "damage": 18.0, "attack_cooldown": 1.25, "radius": 1.15, "xp": 7, "pool": 42, "model_path": "res://assets/models/enemy_large.glb"},
+    "enemy_fox_mech": {"health": 75.0, "speed": 2.9, "damage": 11.0, "attack_cooldown": 1.75, "radius": 0.85, "xp": 6, "pool": 36, "preferred_range": 13.0, "projectile_speed": 10.0, "model_path": "res://assets/models/enemy_fox_mech.glb"},
+    "final_boss": {"health": 3200.0, "speed": 2.1, "damage": 22.0, "attack_cooldown": 2.4, "radius": 2.2, "xp": 0, "pool": 2, "preferred_range": 16.0, "projectile_speed": 11.0, "model_path": "res://assets/models/boss_ant_mech.glb"}
+  },
+  "weapons": {
+    "pulse_rifle": {"name": "脉冲步枪", "description": "自动射击最近敌人", "base_damage": 13.0, "cooldown": 0.42, "projectile_speed": 24.0, "range": 34.0, "max_level": 5, "model_path": "res://assets/models/weapon_scifi_ar.glb"},
+    "orbital_drone": {"name": "轨道无人机", "description": "环绕角色持续切割敌群", "base_damage": 10.0, "cooldown": 0.34, "radius": 4.2, "max_level": 5},
+    "ion_pulse": {"name": "离子脉冲", "description": "周期释放范围冲击", "base_damage": 22.0, "cooldown": 5.2, "radius": 7.0, "max_level": 5}
+  },
+  "passives": {
+    "passive_damage": {"name": "功率增幅", "description": "所有伤害 +12%", "per_level": 0.12, "max_level": 5},
+    "passive_cooldown": {"name": "冷却回路", "description": "武器冷却 -8%", "per_level": 0.08, "max_level": 5},
+    "passive_move_speed": {"name": "推进模块", "description": "移动速度 +8%", "per_level": 0.08, "max_level": 5},
+    "passive_max_health": {"name": "生命维持", "description": "最大生命 +15 并治疗", "per_level": 15.0, "max_level": 5},
+    "passive_pickup_range": {"name": "牵引磁场", "description": "拾取范围 +20%", "per_level": 0.20, "max_level": 5}
+  },
+  "experience": {"base_required": 8, "growth": 1.28, "flat_growth": 3}
+}
