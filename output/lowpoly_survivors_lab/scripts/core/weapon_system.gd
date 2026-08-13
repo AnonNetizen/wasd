@@ -19,12 +19,19 @@ var _ion_cooldown_left: float = 0.0
 var _pending_second_ion: float = -1.0
 var _drone_angle: float = 0.0
 var _drone_visuals: Array[MeshInstance3D] = []
+var owner_slot: int = 0
 
 
-func setup(director: Node, player: LowpolyPlayer, balance: LowpolyBalanceLoader) -> void:
+func setup(
+	director: Node,
+	player: LowpolyPlayer,
+	balance: LowpolyBalanceLoader,
+	network_owner_slot: int = 0
+) -> void:
 	_director = director
 	_player = player
 	_balance = balance
+	owner_slot = network_owner_slot
 	reset()
 
 
@@ -100,6 +107,36 @@ func get_levels() -> Dictionary:
 	return _levels.duplicate(true)
 
 
+func make_checkpoint() -> Dictionary:
+	return {
+		"levels": _levels.duplicate(true),
+		"pulse_cooldown": _pulse_cooldown_left,
+		"drone_cooldown": _drone_cooldown_left,
+		"ion_cooldown": _ion_cooldown_left,
+		"pending_second_ion": _pending_second_ion,
+		"drone_angle": _drone_angle,
+	}
+
+
+func restore_checkpoint(checkpoint: Dictionary) -> bool:
+	var restored_levels: Dictionary = checkpoint.get("levels", {})
+	for item_id: StringName in WEAPON_IDS + PASSIVE_IDS:
+		if not restored_levels.has(item_id) and not restored_levels.has(String(item_id)):
+			return false
+		var value := int(restored_levels.get(item_id, restored_levels.get(String(item_id), 0)))
+		var config := _get_upgrade_config(item_id)
+		_levels[item_id] = clampi(value, 0, int(config.get("max_level", 5)))
+	_pulse_cooldown_left = float(checkpoint.get("pulse_cooldown", 0.1))
+	_drone_cooldown_left = float(checkpoint.get("drone_cooldown", 0.0))
+	_ion_cooldown_left = float(checkpoint.get("ion_cooldown", 0.5))
+	_pending_second_ion = float(checkpoint.get("pending_second_ion", -1.0))
+	_drone_angle = float(checkpoint.get("drone_angle", 0.0))
+	_refresh_player_modifiers()
+	_refresh_drone_visuals()
+	levels_changed.emit(get_levels())
+	return true
+
+
 func get_damage_multiplier() -> float:
 	var config: Dictionary = _balance.get_passive_config(&"passive_damage")
 	return 1.0 + float(config.get("per_level", 0.12)) * int(_levels.get(&"passive_damage", 0))
@@ -140,6 +177,7 @@ func _update_pulse_rifle() -> void:
 			"damage": damage * get_damage_multiplier(),
 			"pierce": pierce,
 			"lifetime": float(config.get("range", 34.0)) / float(config.get("projectile_speed", 24.0)),
+			"owner_slot": owner_slot,
 		})
 	_pulse_cooldown_left = (
 		float(config.get("cooldown", 0.42)) * pow(0.88, level - 1) * get_cooldown_multiplier()

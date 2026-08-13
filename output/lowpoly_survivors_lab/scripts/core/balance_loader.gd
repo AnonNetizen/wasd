@@ -79,6 +79,10 @@ func get_experience_config() -> Dictionary:
 	return _section("experience")
 
 
+func get_network_config() -> Dictionary:
+	return _section("network")
+
+
 func get_errors() -> PackedStringArray:
 	return _errors.duplicate()
 
@@ -102,10 +106,11 @@ func _nested_section(section: String, key: String) -> Dictionary:
 
 func _validate() -> void:
 	_require_int("schema_version", 1, 1)
-	for section: String in ["run", "player", "enemies", "weapons", "passives", "animations", "experience"]:
+	for section: String in ["run", "player", "network", "enemies", "weapons", "passives", "animations", "experience"]:
 		_require_dictionary(section)
 	_validate_run()
 	_validate_player()
+	_validate_network()
 	_validate_stages()
 	_validate_enemies()
 	_validate_upgrades("weapons", REQUIRED_WEAPON_IDS)
@@ -149,7 +154,26 @@ func _validate_player() -> void:
 	for key: String in ["max_health", "move_speed", "pickup_radius", "contact_invulnerability"]:
 		_require_positive_number_in(player, "player", key)
 	_require_resource_in(player, "player", "model_path")
+	_require_number_range_in(player, "player", "model_yaw_degrees", -180.0, 180.0)
 	_require_animation_profile_in(player, "player")
+
+
+func _validate_network() -> void:
+	var network := _section("network")
+	_require_positive_int_in(network, "network", "max_players")
+	if int(network.get("max_players", 0)) != 4:
+		_errors.append("network.max_players must be 4")
+	for key: String in ["input_rate_hz", "snapshot_rate_hz", "checkpoint_rate_hz"]:
+		_require_positive_int_in(network, "network", key)
+	for key: String in ["reconnect_grace_seconds", "interest_radius"]:
+		_require_positive_number_in(network, "network", key)
+	for key: String in [
+		"difficulty_health_per_extra_player",
+		"difficulty_damage_per_extra_player",
+		"difficulty_spawn_rate_per_extra_player",
+	]:
+		_require_number_range_in(network, "network", key, 0.0, 2.0)
+	_require_number_range_in(network, "network", "enemy_target_lock_seconds", 0.1, 3.0)
 
 
 func _validate_stages() -> void:
@@ -198,6 +222,9 @@ func _validate_enemies() -> void:
 		_require_nonnegative_int_in(config, "enemies.%s" % enemy_id, "xp")
 		_require_positive_int_in(config, "enemies.%s" % enemy_id, "pool")
 		_require_resource_in(config, "enemies.%s" % enemy_id, "model_path")
+		_require_number_range_in(
+			config, "enemies.%s" % enemy_id, "model_yaw_degrees", -180.0, 180.0
+		)
 		_require_animation_profile_in(config, "enemies.%s" % enemy_id)
 		if enemy_id == "enemy_flying":
 			_require_positive_number_in(config, "enemies.%s" % enemy_id, "flying_height")
@@ -226,7 +253,11 @@ func _validate_upgrades(section_name: String, required_ids: Array[String]) -> vo
 			if item_id == "pulse_rifle":
 				_require_positive_number_in(config, "weapons.pulse_rifle", "projectile_speed")
 				_require_positive_number_in(config, "weapons.pulse_rifle", "range")
+				_require_positive_number_in(config, "weapons.pulse_rifle", "visual_length")
 				_require_resource_in(config, "weapons.pulse_rifle", "model_path")
+				var visual_length := float(config.get("visual_length", 0.0))
+				if visual_length < 0.25 or visual_length > 1.5:
+					_errors.append("weapons.pulse_rifle.visual_length must be within [0.25, 1.5]")
 			elif item_id == "orbital_drone" or item_id == "ion_pulse":
 				_require_positive_number_in(config, "weapons.%s" % item_id, "radius")
 		else:
@@ -280,6 +311,22 @@ func _require_nonnegative_int_in(data: Dictionary, path: String, key: String) ->
 	var value: Variant = data.get(key)
 	if not _is_integral_number(value) or int(value) < 0:
 		_errors.append("%s.%s must be a nonnegative integer" % [path, key])
+
+
+func _require_number_range_in(
+	data: Dictionary,
+	path: String,
+	key: String,
+	minimum: float,
+	maximum: float
+) -> void:
+	var value: Variant = data.get(key)
+	if (
+		not value is int and not value is float
+		or float(value) < minimum
+		or float(value) > maximum
+	):
+		_errors.append("%s.%s must be a number in [%s, %s]" % [path, key, minimum, maximum])
 
 
 func _require_nonempty_string_in(data: Dictionary, path: String, key: String) -> void:

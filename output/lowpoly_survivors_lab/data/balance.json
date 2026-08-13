@@ -11,7 +11,20 @@
     "effect_cap": 96,
     "spawn_min_distance": 28.0,
     "spawn_max_distance": 48.0,
+    "enemy_target_lock_seconds": 0.55,
     "elite_times": [180.0, 360.0, 510.0]
+  },
+  "network": {
+    "max_players": 4,
+    "input_rate_hz": 20,
+    "snapshot_rate_hz": 10,
+    "checkpoint_rate_hz": 1,
+    "reconnect_grace_seconds": 60.0,
+    "interest_radius": 56.0,
+    "difficulty_health_per_extra_player": 0.52,
+    "difficulty_damage_per_extra_player": 0.14,
+    "difficulty_spawn_rate_per_extra_player": 0.32,
+    "enemy_target_lock_seconds": 0.55
   },
   "player": {
     "max_health": 100.0,
@@ -19,6 +32,7 @@
     "pickup_radius": 4.0,
     "contact_invulnerability": 0.32,
     "model_path": "res://assets/models/player_astronaut.glb",
+    "model_yaw_degrees": 180.0,
     "animation_profile": "player"
   },
   "stages": [
@@ -28,14 +42,14 @@
     {"start": 420.0, "end": 600.0, "spawn_interval": 0.48, "batch": 5, "weights": {"enemy_small": 0.38, "enemy_flying": 0.24, "enemy_large": 0.21, "enemy_fox_mech": 0.17}}
   ],
   "enemies": {
-    "enemy_small": {"health": 28.0, "speed": 4.0, "damage": 9.0, "attack_cooldown": 0.85, "radius": 0.65, "xp": 2, "pool": 96, "model_path": "res://assets/models/enemy_small.glb", "animation_profile": "enemy_small"},
-    "enemy_flying": {"health": 20.0, "speed": 5.7, "damage": 7.0, "attack_cooldown": 0.72, "radius": 0.60, "xp": 2, "pool": 60, "flying_height": 1.8, "model_path": "res://assets/models/enemy_flying.glb", "animation_profile": "enemy_flying"},
-    "enemy_large": {"health": 115.0, "speed": 2.45, "damage": 18.0, "attack_cooldown": 1.25, "radius": 1.15, "xp": 7, "pool": 42, "model_path": "res://assets/models/enemy_large.glb", "animation_profile": "enemy_large"},
-    "enemy_fox_mech": {"health": 75.0, "speed": 2.9, "damage": 11.0, "attack_cooldown": 1.75, "radius": 0.85, "xp": 6, "pool": 36, "preferred_range": 13.0, "projectile_speed": 10.0, "model_path": "res://assets/models/enemy_fox_mech.glb", "animation_profile": "enemy_fox_mech"},
-    "final_boss": {"health": 3200.0, "speed": 2.1, "damage": 22.0, "attack_cooldown": 2.4, "radius": 2.2, "xp": 0, "pool": 2, "preferred_range": 16.0, "projectile_speed": 11.0, "model_path": "res://assets/models/boss_ant_mech.glb", "animation_profile": "final_boss"}
+    "enemy_small": {"health": 28.0, "speed": 4.0, "damage": 9.0, "attack_cooldown": 0.85, "radius": 0.65, "xp": 2, "pool": 96, "model_path": "res://assets/models/enemy_small.glb", "model_yaw_degrees": 180.0, "animation_profile": "enemy_small"},
+    "enemy_flying": {"health": 20.0, "speed": 5.7, "damage": 7.0, "attack_cooldown": 0.72, "radius": 0.60, "xp": 2, "pool": 60, "flying_height": 1.8, "model_path": "res://assets/models/enemy_flying.glb", "model_yaw_degrees": 180.0, "animation_profile": "enemy_flying"},
+    "enemy_large": {"health": 115.0, "speed": 2.45, "damage": 18.0, "attack_cooldown": 1.25, "radius": 1.15, "xp": 7, "pool": 42, "model_path": "res://assets/models/enemy_large.glb", "model_yaw_degrees": 180.0, "animation_profile": "enemy_large"},
+    "enemy_fox_mech": {"health": 75.0, "speed": 2.9, "damage": 11.0, "attack_cooldown": 1.75, "radius": 0.85, "xp": 6, "pool": 36, "preferred_range": 13.0, "projectile_speed": 10.0, "model_path": "res://assets/models/enemy_fox_mech.glb", "model_yaw_degrees": 180.0, "animation_profile": "enemy_fox_mech"},
+    "final_boss": {"health": 3200.0, "speed": 2.1, "damage": 22.0, "attack_cooldown": 2.4, "radius": 2.2, "xp": 0, "pool": 2, "preferred_range": 16.0, "projectile_speed": 11.0, "model_path": "res://assets/models/boss_ant_mech.glb", "model_yaw_degrees": 180.0, "animation_profile": "final_boss"}
   },
   "weapons": {
-    "pulse_rifle": {"name": "脉冲步枪", "description": "自动射击最近敌人", "base_damage": 13.0, "cooldown": 0.42, "projectile_speed": 24.0, "range": 34.0, "max_level": 5, "model_path": "res://assets/models/weapon_scifi_ar.glb"},
+    "pulse_rifle": {"name": "脉冲步枪", "description": "自动射击最近敌人", "base_damage": 13.0, "cooldown": 0.42, "projectile_speed": 24.0, "range": 34.0, "max_level": 5, "model_path": "res://assets/models/weapon_scifi_ar.glb", "visual_length": 0.92},
     "orbital_drone": {"name": "轨道无人机", "description": "环绕角色持续切割敌群", "base_damage": 10.0, "cooldown": 0.34, "radius": 4.2, "max_level": 5},
     "ion_pulse": {"name": "离子脉冲", "description": "周期释放范围冲击", "base_damage": 22.0, "cooldown": 5.2, "radius": 7.0, "max_level": 5}
   },

@@ -6,6 +6,7 @@ enum Kind { EXPERIENCE, HEALTH }
 var kind: Kind = Kind.EXPERIENCE
 var amount: int = 1
 var active: bool = false
+var network_entity_id: int = 0
 var attraction_speed: float = 13.0
 var _model: Node3D
 var _model_kind: int = -1
@@ -14,6 +15,7 @@ var _model_kind: int = -1
 func activate_from_pool(payload: Dictionary) -> void:
 	kind = int(payload.get("kind", Kind.EXPERIENCE)) as Kind
 	amount = int(payload.get("amount", 1))
+	network_entity_id = int(payload.get("network_entity_id", 0))
 	global_position = payload.get("position", Vector3.ZERO) as Vector3
 	global_position.y = 0.35
 	active = true
@@ -26,6 +28,7 @@ func deactivate_to_pool() -> void:
 	active = false
 	visible = false
 	process_mode = Node.PROCESS_MODE_DISABLED
+	network_entity_id = 0
 
 
 func update_pickup(delta: float, player_position: Vector3, pickup_radius: float) -> bool:
@@ -41,6 +44,27 @@ func update_pickup(delta: float, player_position: Vector3, pickup_radius: float)
 
 func is_pool_active() -> bool:
 	return active
+
+
+func make_network_state() -> Dictionary:
+	return {
+		"entity_id": network_entity_id,
+		"kind": int(kind),
+		"amount": amount,
+		"position": [global_position.x, global_position.y, global_position.z],
+	}
+
+
+func apply_network_state(snapshot: Dictionary) -> void:
+	network_entity_id = int(snapshot.get("entity_id", network_entity_id))
+	kind = int(snapshot.get("kind", int(kind))) as Kind
+	amount = int(snapshot.get("amount", amount))
+	var position_values: Array = snapshot.get("position", [])
+	if position_values.size() == 3:
+		global_position = Vector3(
+			float(position_values[0]), float(position_values[1]), float(position_values[2])
+		)
+	_ensure_model()
 
 
 func _ensure_model() -> void:

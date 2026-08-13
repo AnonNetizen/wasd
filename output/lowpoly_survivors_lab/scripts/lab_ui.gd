@@ -6,6 +6,12 @@ signal pause_requested
 signal upgrade_selected(upgrade_id: String)
 signal restart_requested
 signal menu_requested
+signal create_room_requested(display_name: String)
+signal join_room_requested(display_name: String, room_code: String)
+signal ready_requested(ready: bool)
+signal lobby_start_requested
+signal leave_room_requested
+signal touch_input_changed(value: Vector2)
 
 enum RunState {
 	MENU,
@@ -29,6 +35,7 @@ var _hud_layer: Control
 var _pause_layer: Control
 var _upgrade_layer: Control
 var _result_layer: Control
+var _lobby_layer: Control
 var _health_label: Label
 var _health_bar: ProgressBar
 var _experience_label: Label
@@ -46,6 +53,27 @@ var _status_label: Label
 var _start_button: Button
 var _resume_button: Button
 var _restart_button: Button
+var _display_name_edit: LineEdit
+var _room_code_edit: LineEdit
+var _create_room_button: Button
+var _join_room_button: Button
+var _lobby_code_label: Label
+var _lobby_players_label: Label
+var _lobby_status_label: Label
+var _ready_button: Button
+var _lobby_start_button: Button
+var _teammates_label: Label
+var _network_label: Label
+var _pause_title: Label
+var _pause_hint: Label
+var _touch_controls: Control
+var _hud_top_margin: MarginContainer
+var _boss_margin: MarginContainer
+var _touch_joystick: LowpolyTouchJoystick
+var _touch_menu_button: Button
+var _local_menu_open: bool = false
+var _online_mode: bool = false
+var _local_ready: bool = false
 
 
 func _ready() -> void:
@@ -55,13 +83,16 @@ func _ready() -> void:
 	_build_pause()
 	_build_upgrade()
 	_build_result()
+	_build_lobby()
+	get_viewport().size_changed.connect(_apply_mobile_safe_area)
+	_apply_mobile_safe_area.call_deferred()
 	show_state(RunState.MENU)
 
 
 func show_state(state: int) -> void:
-	_menu_layer.visible = state == RunState.MENU
+	_menu_layer.visible = state == RunState.MENU and not _lobby_layer.visible
 	_hud_layer.visible = state != RunState.MENU
-	_pause_layer.visible = state == RunState.PAUSED
+	_pause_layer.visible = state == RunState.PAUSED or _local_menu_open
 	_upgrade_layer.visible = state == RunState.LEVEL_UP
 	_result_layer.visible = state == RunState.VICTORY or state == RunState.DEFEAT
 	if state == RunState.MENU:
@@ -168,12 +199,97 @@ func set_status_message(message: String, is_error: bool = false) -> void:
 	_status_label.add_theme_color_override("font_color", COLOR_WARNING if is_error else COLOR_MUTED)
 
 
+func show_lobby(snapshot: Dictionary, local_user_id: String) -> void:
+	_online_mode = true
+	_lobby_layer.visible = true
+	_menu_layer.visible = false
+	_hud_layer.visible = false
+	_lobby_code_label.text = "房间码  %s" % String(snapshot.get("room_code", "------"))
+	var host_id := String(snapshot.get("host_user_id", ""))
+	var rows: Array[String] = []
+	var all_ready := true
+	_local_ready = false
+	for value: Variant in snapshot.get("members", []):
+		if not value is Dictionary:
+			continue
+		var member: Dictionary = value
+		var user_id := String(member.get("user_id", ""))
+		var ready := bool(member.get("ready", false))
+		var connected := bool(member.get("connected", true))
+		all_ready = all_ready and ready and connected
+		if user_id == local_user_id:
+			_local_ready = ready
+		rows.append("%s%s  ·  %s  ·  %s" % [
+			"★ " if user_id == host_id else "",
+			String(member.get("display_name", "幸存者")),
+			String(member.get("platform", "unknown")),
+			"已准备" if ready else "未准备",
+		])
+	_lobby_players_label.text = "\n".join(rows)
+	_ready_button.text = "取消准备" if _local_ready else "准备"
+	var local_is_host := host_id == local_user_id
+	_lobby_start_button.visible = local_is_host
+	_lobby_start_button.disabled = not all_ready or rows.is_empty()
+	_lobby_status_label.text = "全员准备后由房主开始；开局后房间锁定。"
+
+
+func hide_lobby() -> void:
+	_lobby_layer.visible = false
+
+
+func set_online_status(message: String, is_error: bool = false) -> void:
+	set_status_message(message, is_error)
+	if _lobby_status_label != null:
+		_lobby_status_label.text = message
+		_lobby_status_label.add_theme_color_override("font_color", COLOR_WARNING if is_error else COLOR_MUTED)
+
+
+func show_local_menu(visible: bool, online: bool = false) -> void:
+	_local_menu_open = visible
+	_online_mode = online
+	_pause_layer.visible = visible
+	if visible:
+		_resume_button.grab_focus.call_deferred()
+		if _pause_title != null:
+			_pause_title.text = "本地菜单" if online else "实验已暂停"
+		if _pause_hint != null:
+			_pause_hint.text = (
+				"联机战斗仍在继续，你的角色不会自动获得保护。"
+				if online
+				else "计时、敌人、弹丸与武器冷却均已冻结。"
+			)
+
+
+func is_local_menu_open() -> bool:
+	return _local_menu_open
+
+
+func set_teammates(roster: Array[Dictionary], local_slot: int) -> void:
+	var rows: Array[String] = []
+	for member: Dictionary in roster:
+		var slot := int(member.get("slot", -1))
+		if slot == local_slot:
+			continue
+		var status := "已移除" if bool(member.get("removed", false)) else "掉线" if not bool(member.get("connected", true)) else "阵亡" if float(member.get("health", 0.0)) <= 0.0 else "%d/%d" % [ceili(float(member.get("health", 0.0))), ceili(float(member.get("max_health", 1.0)))]
+		rows.append("P%d  %s" % [slot + 1, status])
+	_teammates_label.text = "队友  " + ("   ·   ".join(rows) if not rows.is_empty() else "单独行动")
+
+
+func set_latency(milliseconds: int) -> void:
+	_network_label.text = "延迟 %d ms" % milliseconds
+
+
+func show_migration(active: bool, message: String) -> void:
+	_network_label.text = message
+	_network_label.add_theme_color_override("font_color", COLOR_WARNING if active else COLOR_ACCENT)
+
+
 func _build_menu() -> void:
 	_menu_layer = _new_full_control("MenuLayer")
 	add_child(_menu_layer)
 	_add_dimmer(_menu_layer, Color(0.01, 0.025, 0.05, 0.68))
 	var center := _new_full_center(_menu_layer)
-	var panel := _new_panel(Vector2(650.0, 560.0))
+	var panel := _new_panel(Vector2(700.0, 760.0))
 	center.add_child(panel)
 	var box := _panel_vbox(panel, 16)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -196,11 +312,36 @@ func _build_menu() -> void:
 	controls.add_theme_constant_override("line_spacing", 7)
 	box.add_child(controls)
 	box.add_child(_spacer(8.0))
-	_start_button = _new_button("开始实验", Vector2(320.0, 58.0))
+	_display_name_edit = LineEdit.new()
+	_display_name_edit.placeholder_text = "昵称（最多 16 字）"
+	_display_name_edit.text = "幸存者%03d" % randi_range(1, 999)
+	_display_name_edit.max_length = 16
+	_display_name_edit.custom_minimum_size = Vector2(360.0, 48.0)
+	_display_name_edit.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_display_name_edit.add_theme_font_size_override("font_size", 18)
+	box.add_child(_display_name_edit)
+	_start_button = _new_button("单人游戏", Vector2(360.0, 56.0))
 	_start_button.pressed.connect(_on_start_pressed)
 	_start_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(_start_button)
-	_status_label = _new_label("固定斜俯视镜头 · 单人 · 约 10 分钟", 15, COLOR_MUTED)
+	_create_room_button = _new_button("创建房间", Vector2(360.0, 52.0))
+	_create_room_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_create_room_button.pressed.connect(_on_create_room_pressed)
+	box.add_child(_create_room_button)
+	var join_row := HBoxContainer.new()
+	join_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	join_row.add_theme_constant_override("separation", 10)
+	_room_code_edit = LineEdit.new()
+	_room_code_edit.placeholder_text = "六位房间码"
+	_room_code_edit.max_length = 6
+	_room_code_edit.custom_minimum_size = Vector2(210.0, 48.0)
+	_room_code_edit.add_theme_font_size_override("font_size", 18)
+	join_row.add_child(_room_code_edit)
+	_join_room_button = _new_button("加入房间", Vector2(140.0, 48.0))
+	_join_room_button.pressed.connect(_on_join_room_pressed)
+	join_row.add_child(_join_room_button)
+	box.add_child(join_row)
+	_status_label = _new_label("离线单人可直接开始；联机需要本地 EOS 配置。", 15, COLOR_MUTED)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_status_label)
 	var credit := _new_label(
@@ -216,16 +357,16 @@ func _build_hud() -> void:
 	_hud_layer = _new_full_control("HudLayer")
 	_hud_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hud_layer)
-	var top_margin := MarginContainer.new()
-	top_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top_margin.offset_left = 18.0
-	top_margin.offset_top = 16.0
-	top_margin.offset_right = -18.0
-	top_margin.offset_bottom = 128.0
-	_hud_layer.add_child(top_margin)
+	_hud_top_margin = MarginContainer.new()
+	_hud_top_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_hud_top_margin.offset_left = 18.0
+	_hud_top_margin.offset_top = 16.0
+	_hud_top_margin.offset_right = -18.0
+	_hud_top_margin.offset_bottom = 128.0
+	_hud_layer.add_child(_hud_top_margin)
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation", 8)
-	top_margin.add_child(rows)
+	_hud_top_margin.add_child(rows)
 	var top_panel := _new_panel(Vector2(0.0, 66.0))
 	rows.add_child(top_panel)
 	var top_row := _panel_hbox(top_panel, 18)
@@ -255,16 +396,26 @@ func _build_hud() -> void:
 	weapon_margin.add_theme_constant_override("margin_bottom", 8)
 	weapon_panel.add_child(weapon_margin)
 	weapon_margin.add_child(_weapon_label)
+	_teammates_label = _new_label("队友  单独行动", 15, COLOR_MUTED)
+	_teammates_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_teammates_label.position = Vector2(28.0, 142.0)
+	_hud_layer.add_child(_teammates_label)
+	_network_label = _new_label("", 15, COLOR_ACCENT)
+	_network_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_network_label.position = Vector2(-260.0, 142.0)
+	_network_label.custom_minimum_size.x = 230.0
+	_network_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hud_layer.add_child(_network_label)
 
-	var boss_margin := MarginContainer.new()
-	boss_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	boss_margin.offset_left = 300.0
-	boss_margin.offset_top = 140.0
-	boss_margin.offset_right = -300.0
-	boss_margin.offset_bottom = 206.0
-	_hud_layer.add_child(boss_margin)
+	_boss_margin = MarginContainer.new()
+	_boss_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_boss_margin.offset_left = 300.0
+	_boss_margin.offset_top = 140.0
+	_boss_margin.offset_right = -300.0
+	_boss_margin.offset_bottom = 206.0
+	_hud_layer.add_child(_boss_margin)
 	_boss_panel = _new_panel(Vector2(0.0, 62.0))
-	boss_margin.add_child(_boss_panel)
+	_boss_margin.add_child(_boss_panel)
 	var boss_box := _panel_vbox(_boss_panel, 4)
 	_boss_label = _new_label("最终目标 · 蚂蚁机甲", 16, COLOR_WARNING)
 	_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -273,6 +424,7 @@ func _build_hud() -> void:
 	_boss_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	boss_box.add_child(_boss_bar)
 	_boss_panel.visible = false
+	_build_touch_controls()
 
 
 func _build_pause() -> void:
@@ -284,12 +436,12 @@ func _build_pause() -> void:
 	center.add_child(panel)
 	var box := _panel_vbox(panel, 18)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	var title := _new_label("实验已暂停", 36, COLOR_TEXT)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
-	var hint := _new_label("计时、敌人、弹丸与武器冷却均已冻结。", 16, COLOR_MUTED)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hint)
+	_pause_title = _new_label("实验已暂停", 36, COLOR_TEXT)
+	_pause_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_pause_title)
+	_pause_hint = _new_label("计时、敌人、弹丸与武器冷却均已冻结。", 16, COLOR_MUTED)
+	_pause_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_pause_hint)
 	_resume_button = _new_button("继续实验", Vector2(260.0, 52.0))
 	_resume_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_resume_button.pressed.connect(_on_resume_pressed)
@@ -344,6 +496,103 @@ func _build_result() -> void:
 	menu.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	menu.pressed.connect(_on_menu_pressed)
 	box.add_child(menu)
+
+
+func _build_lobby() -> void:
+	_lobby_layer = _new_full_control("LobbyLayer")
+	add_child(_lobby_layer)
+	_add_dimmer(_lobby_layer, Color(0.01, 0.025, 0.05, 0.78))
+	var center := _new_full_center(_lobby_layer)
+	var panel := _new_panel(Vector2(760.0, 650.0))
+	center.add_child(panel)
+	var box := _panel_vbox(panel, 18)
+	var title := _new_label("合作大厅", 40, COLOR_TEXT)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	_lobby_code_label = _new_label("房间码  ------", 34, COLOR_ACCENT)
+	_lobby_code_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_lobby_code_label)
+	var players_panel := _new_panel(Vector2(0.0, 250.0))
+	players_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(players_panel)
+	var players_margin := MarginContainer.new()
+	players_margin.add_theme_constant_override("margin_left", 18)
+	players_margin.add_theme_constant_override("margin_right", 18)
+	players_margin.add_theme_constant_override("margin_top", 18)
+	players_margin.add_theme_constant_override("margin_bottom", 18)
+	players_panel.add_child(players_margin)
+	_lobby_players_label = _new_label("等待玩家……", 22, COLOR_TEXT)
+	_lobby_players_label.add_theme_constant_override("line_spacing", 14)
+	players_margin.add_child(_lobby_players_label)
+	_lobby_status_label = _new_label("正在连接 EOS……", 16, COLOR_MUTED)
+	_lobby_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_lobby_status_label)
+	var action_row := HBoxContainer.new()
+	action_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	action_row.add_theme_constant_override("separation", 14)
+	box.add_child(action_row)
+	_ready_button = _new_button("准备", Vector2(190.0, 54.0))
+	_ready_button.pressed.connect(_on_ready_pressed)
+	action_row.add_child(_ready_button)
+	_lobby_start_button = _new_button("开始游戏", Vector2(190.0, 54.0))
+	_lobby_start_button.pressed.connect(_on_lobby_start_pressed)
+	action_row.add_child(_lobby_start_button)
+	var leave_button := _new_button("离开房间", Vector2(190.0, 54.0))
+	leave_button.pressed.connect(_on_leave_room_pressed)
+	action_row.add_child(leave_button)
+	_lobby_layer.visible = false
+
+
+func _build_touch_controls() -> void:
+	_touch_controls = Control.new()
+	_touch_controls.name = "TouchControls"
+	_touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_touch_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_layer.add_child(_touch_controls)
+	_touch_joystick = LowpolyTouchJoystick.new()
+	_touch_joystick.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_touch_joystick.position = Vector2(42.0, -220.0)
+	_touch_joystick.vector_changed.connect(func(value: Vector2) -> void: touch_input_changed.emit(value))
+	_touch_controls.add_child(_touch_joystick)
+	_touch_menu_button = _new_button("菜单", Vector2(132.0, 58.0))
+	_touch_menu_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_touch_menu_button.position = Vector2(-160.0, 210.0)
+	_touch_menu_button.pressed.connect(_on_resume_pressed)
+	_touch_controls.add_child(_touch_menu_button)
+	_touch_controls.visible = OS.has_feature("mobile") or OS.get_name() == "Android"
+
+
+func _apply_mobile_safe_area() -> void:
+	if not (OS.has_feature("mobile") or OS.get_name() == "Android"):
+		return
+	var screen_size := Vector2(DisplayServer.screen_get_size())
+	var safe := DisplayServer.get_display_safe_area()
+	var viewport_size := get_viewport().get_visible_rect().size
+	if screen_size.x <= 0.0 or screen_size.y <= 0.0 or safe.size.x <= 0 or safe.size.y <= 0:
+		return
+	var scale := Vector2(viewport_size.x / screen_size.x, viewport_size.y / screen_size.y)
+	var left := maxf(16.0, float(safe.position.x) * scale.x)
+	var top := maxf(12.0, float(safe.position.y) * scale.y)
+	var right := maxf(16.0, (screen_size.x - float(safe.end.x)) * scale.x)
+	var bottom := maxf(12.0, (screen_size.y - float(safe.end.y)) * scale.y)
+	if _hud_top_margin != null:
+		_hud_top_margin.offset_left = 18.0 + left
+		_hud_top_margin.offset_top = 16.0 + top
+		_hud_top_margin.offset_right = -18.0 - right
+		_hud_top_margin.offset_bottom = 128.0 + top
+	if _boss_margin != null:
+		_boss_margin.offset_left = 300.0 + left
+		_boss_margin.offset_top = 140.0 + top
+		_boss_margin.offset_right = -300.0 - right
+		_boss_margin.offset_bottom = 206.0 + top
+	if _teammates_label != null:
+		_teammates_label.position = Vector2(28.0 + left, 142.0 + top)
+	if _network_label != null:
+		_network_label.position = Vector2(-260.0 - right, 142.0 + top)
+	if _touch_joystick != null:
+		_touch_joystick.position = Vector2(42.0 + left, -220.0 - bottom)
+	if _touch_menu_button != null:
+		_touch_menu_button.position = Vector2(-160.0 - right, 210.0 + top)
 
 
 func _new_full_control(node_name: String) -> Control:
@@ -470,6 +719,29 @@ func timer_label_setup(label: Label) -> void:
 
 func _on_start_pressed() -> void:
 	start_requested.emit()
+
+
+func _on_create_room_pressed() -> void:
+	create_room_requested.emit(_display_name_edit.text.strip_edges())
+
+
+func _on_join_room_pressed() -> void:
+	join_room_requested.emit(
+		_display_name_edit.text.strip_edges(),
+		_room_code_edit.text.strip_edges()
+	)
+
+
+func _on_ready_pressed() -> void:
+	ready_requested.emit(not _local_ready)
+
+
+func _on_lobby_start_pressed() -> void:
+	lobby_start_requested.emit()
+
+
+func _on_leave_room_pressed() -> void:
+	leave_room_requested.emit()
 
 
 func _on_resume_pressed() -> void:

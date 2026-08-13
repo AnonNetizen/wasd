@@ -21,7 +21,9 @@ FATAL_MARKERS = (
     "Parse Error:",
     "Failed to load script",
     "Failed loading resource:",
-    "ERROR:",
+    "Can't open dynamic library",
+    "Error loading GDExtension",
+    "Cannot open file",
 )
 TIMEOUT_SECONDS = 120.0
 COMMON_GODOT_PATHS = (
@@ -49,6 +51,7 @@ def main() -> int:
         godot = _resolve_godot(args.godot)
         _require_godot_47(godot)
         _verify_assets()
+        _verify_eos_plugin()
         with tempfile.TemporaryDirectory(prefix="wasd-lowpoly-survivors-smoke-") as temporary:
             isolated_root = Path(temporary)
             _run_import_scan(godot, isolated_root / "import")
@@ -166,6 +169,66 @@ def _verify_assets() -> None:
         if entry.get("author") != "Quaternius" or entry.get("license") != "CC0 1.0":
             raise SmokeError(f"asset {public_id} has unexpected author or license metadata")
     print("[lowpoly-survivors-smoke] PASS 15 GLB assets and SHA-256 manifest")
+
+
+def _verify_eos_plugin() -> None:
+    manifest_path = LAB_ROOT / "config" / "eos_plugin_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise SmokeError(f"cannot read EOSG manifest: {error}") from error
+    if manifest.get("version") != "2.3.0" or manifest.get("eos_sdk") != "1.19.1.2":
+        raise SmokeError("EOSG/EOS SDK version pin is invalid")
+    if manifest.get("commit") != "e84320567a3a17d305478f5796707e69d2bdac4f":
+        raise SmokeError("EOSG source commit pin is invalid")
+    release_hashes = {
+        entry.get("platform"): entry.get("sha256")
+        for entry in manifest.get("release_archives", [])
+        if isinstance(entry, dict)
+    }
+    if release_hashes != {
+        "windows-x86_64": "f8fb24b8c92cd89ce810a4052afaaa267c9d22d165407c6f908456d185baa750",
+        "android-arm64": "3919360f2e26d33c55b11e0ba6bf4dd3bd04ea3e609b07b2a027c3026a68baf3",
+    }:
+        raise SmokeError("EOSG release archive hashes are invalid")
+    installed = manifest.get("installed_files")
+    if not isinstance(installed, list) or len(installed) != 8:
+        raise SmokeError("EOSG manifest must audit eight installed binary/license files")
+    for entry in installed:
+        if not isinstance(entry, dict):
+            raise SmokeError("EOSG installed file entry must be an object")
+        project_path = entry.get("path")
+        if not isinstance(project_path, str) or not project_path.startswith("res://"):
+            raise SmokeError("EOSG installed file has invalid project path")
+        path = LAB_ROOT / project_path.removeprefix("res://")
+        try:
+            payload = path.read_bytes()
+        except OSError as error:
+            raise SmokeError(f"cannot read EOSG file {project_path}: {error}") from error
+        if len(payload) != entry.get("bytes") or hashlib.sha256(payload).hexdigest() != entry.get("sha256"):
+            raise SmokeError(f"EOSG installed file audit mismatch: {project_path}")
+    extension = (LAB_ROOT / "addons" / "epic-online-services-godot" / "eosg.gdextension").read_text(encoding="utf-8")
+    forbidden_targets = ("linux.", "macos.", "ios.", "android.debug.x86", "android.release.x86")
+    if any(target in extension for target in forbidden_targets):
+        raise SmokeError("EOSG descriptor includes an out-of-scope native target")
+    addon_root = LAB_ROOT / "addons" / "epic-online-services-godot"
+    source_files = sorted(
+        path
+        for path in addon_root.rglob("*")
+        if path.is_file() and "bin" not in path.parts and path.name != "LICENSE.md"
+    )
+    source_hash = hashlib.sha256()
+    for path in source_files:
+        relative = path.relative_to(addon_root).as_posix()
+        source_hash.update(relative.encode("utf-8"))
+        source_hash.update(b"\0")
+        source_hash.update(path.read_bytes())
+        source_hash.update(b"\0")
+    if len(source_files) != manifest.get("installed_source_file_count"):
+        raise SmokeError("EOSG installed source file count is invalid")
+    if source_hash.hexdigest() != manifest.get("installed_source_tree_sha256"):
+        raise SmokeError("EOSG installed source tree SHA-256 mismatch")
+    print("[lowpoly-survivors-smoke] PASS EOSG 2.3.0 / EOS SDK 1.19.1.2 audit")
 
 
 def _run_import_scan(godot: Path, isolated_root: Path) -> None:

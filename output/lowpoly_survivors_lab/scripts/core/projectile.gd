@@ -11,6 +11,8 @@ var hit_radius: float = 0.35
 var lifetime: float = 2.0
 var pierce_left: int = 0
 var active: bool = false
+var network_entity_id: int = 0
+var owner_slot: int = -1
 var hit_ids: Dictionary = {}
 var _mesh_instance: MeshInstance3D
 var _material: StandardMaterial3D
@@ -38,6 +40,8 @@ func activate_from_pool(payload: Dictionary) -> void:
 	hit_radius = float(payload.get("hit_radius", 0.35))
 	lifetime = float(payload.get("lifetime", 2.0))
 	pierce_left = int(payload.get("pierce", 0))
+	network_entity_id = int(payload.get("network_entity_id", 0))
+	owner_slot = int(payload.get("owner_slot", -1))
 	hit_ids.clear()
 	active = true
 	visible = true
@@ -52,6 +56,8 @@ func deactivate_to_pool() -> void:
 	visible = false
 	process_mode = Node.PROCESS_MODE_DISABLED
 	hit_ids.clear()
+	network_entity_id = 0
+	owner_slot = -1
 
 
 func advance(delta: float) -> bool:
@@ -79,3 +85,38 @@ func should_release_after_hit() -> bool:
 
 func is_pool_active() -> bool:
 	return active
+
+
+func make_network_state() -> Dictionary:
+	return {
+		"entity_id": network_entity_id,
+		"team": int(team),
+		"owner_slot": owner_slot,
+		"position": [global_position.x, global_position.y, global_position.z],
+		"direction": [direction.x, direction.y, direction.z],
+		"speed": speed,
+		"damage": damage,
+		"hit_radius": hit_radius,
+		"lifetime": lifetime,
+		"pierce": pierce_left,
+	}
+
+
+func apply_network_state(snapshot: Dictionary) -> void:
+	network_entity_id = int(snapshot.get("entity_id", network_entity_id))
+	owner_slot = int(snapshot.get("owner_slot", owner_slot))
+	var position_values: Array = snapshot.get("position", [])
+	if position_values.size() == 3:
+		global_position = Vector3(
+			float(position_values[0]), float(position_values[1]), float(position_values[2])
+		)
+	var direction_values: Array = snapshot.get("direction", [])
+	if direction_values.size() == 3:
+		direction = Vector3(
+			float(direction_values[0]), float(direction_values[1]), float(direction_values[2])
+		).normalized()
+	speed = float(snapshot.get("speed", speed))
+	damage = float(snapshot.get("damage", damage))
+	hit_radius = float(snapshot.get("hit_radius", hit_radius))
+	lifetime = float(snapshot.get("lifetime", lifetime))
+	pierce_left = int(snapshot.get("pierce", pierce_left))

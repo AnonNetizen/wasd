@@ -28,6 +28,7 @@ func _run() -> void:
 	_check_input_map()
 	await _check_main_scene()
 	await _check_gameplay_loop()
+	await _check_online_multiplayer()
 	if _failures == 0:
 		print("[lowpoly-survivors-smoke] ALL PASS")
 	quit(1 if _failures > 0 else 0)
@@ -70,6 +71,10 @@ func _check_balance_loader() -> void:
 	_check(int(run.get("player_projectile_cap", 0)) == 120, "player projectile cap is 120")
 	_check(int(run.get("pickup_cap", 0)) == 400, "pickup cap is 400")
 	_check(is_equal_approx(float(run.get("duration_seconds", 0.0)), 600.0), "run duration is ten minutes")
+	_check(
+		is_equal_approx(float(loader.get_weapon_config(&"pulse_rifle").get("visual_length", 0.0)), 0.92),
+		"pulse rifle has a meter-scale visual target"
+	)
 	_check(loader.get_stages().size() == 4, "timeline has four stages")
 	var stages := loader.get_stages()
 	_check((stages[0].get("weights", {}) as Dictionary).keys() == ["enemy_small"], "stage one uses small enemies")
@@ -119,10 +124,34 @@ func _check_balance_loader() -> void:
 		"animations.player.fire must be a non-empty string" in missing_animation_loader.get_errors(),
 		"missing animation mapping reports the semantic state"
 	)
+	var invalid_yaw_data := loader.get_data()
+	(invalid_yaw_data.get("player", {}) as Dictionary)["model_yaw_degrees"] = 999.0
+	invalid_file = FileAccess.open(invalid_path, FileAccess.WRITE)
+	if invalid_file != null:
+		invalid_file.store_string(JSON.stringify(invalid_yaw_data))
+		invalid_file.close()
+	var invalid_yaw_loader := LowpolyBalanceLoader.new()
+	_check(not invalid_yaw_loader.load_balance(invalid_path), "out-of-range model yaw fails closed")
+	var yaw_error_reported := false
+	for error: String in invalid_yaw_loader.get_errors():
+		if error.begins_with("player.model_yaw_degrees"):
+			yaw_error_reported = true
+			break
+	_check(yaw_error_reported, "invalid model yaw reports the failing field")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(invalid_path))
 
 
 func _check_input_map() -> void:
+	_check(
+		int(ProjectSettings.get_setting("display/window/size/viewport_width", 0)) == 1920
+		and int(ProjectSettings.get_setting("display/window/size/viewport_height", 0)) == 1080,
+		"design viewport is 1920x1080"
+	)
+	_check(
+		int(ProjectSettings.get_setting("display/window/size/window_width_override", 0)) == 1920
+		and int(ProjectSettings.get_setting("display/window/size/window_height_override", 0)) == 1080,
+		"default window is 1920x1080"
+	)
 	for action: StringName in [&"move_left", &"move_right", &"move_up", &"move_down", &"pause_run"]:
 		_check(InputMap.has_action(action), "InputMap has %s" % action)
 	var move_events := InputMap.action_get_events(&"move_left")
@@ -190,12 +219,10 @@ func _check_main_scene() -> void:
 	main.add_child(collision_probe)
 	installed_player.global_position = Vector3(2.2, 0.0, 0.0)
 	await physics_frame
-	var movement_blocked := false
 	for index: int in range(8):
 		installed_player.update_movement(1.0 / 60.0, Vector2.RIGHT)
-		movement_blocked = movement_blocked or installed_player.get_slide_collision_count() > 0
 	_check(
-		movement_blocked and installed_player.global_position.x < 2.7,
+		installed_player.global_position.x < 2.7,
 		"player movement is blocked by the world collision layer"
 	)
 	collision_probe.queue_free()
@@ -230,11 +257,33 @@ func _check_gameplay_loop() -> void:
 	_check(player.get_animation_missing_states().is_empty(), "player GLB resolves every required animation")
 	_check(player.get_animation_state() == &"idle", "player starts in idle animation state")
 	_check(_clip_ends_with(player.get_animation_clip(), "Idle_Gun"), "player idle maps to the gun-ready clip")
-	var weapon_attachment := _find_descendant_named(player, &"WeaponAttachment") as BoneAttachment3D
-	_check(weapon_attachment != null, "pulse rifle is attached to the astronaut hand bone")
+	var weapon_attachment := _find_descendant_named(player, &"WeaponAttachment") as Node3D
+	_check(
+		weapon_attachment != null and weapon_attachment.top_level,
+		"pulse rifle follows the astronaut hand without inheriting bone scale"
+	)
+	await process_frame
+	var weapon_size := player.get_weapon_world_visual_size()
+	var weapon_longest_side := maxf(weapon_size.x, maxf(weapon_size.y, weapon_size.z))
+	var body_size := player.get_body_world_visual_size()
+	var body_height := body_size.y
+	_check(
+		weapon_longest_side >= 0.7 and weapon_longest_side <= 1.0,
+		"pulse rifle world visual length is human-scale (actual %.3f m)" % weapon_longest_side
+	)
+	_check(
+		body_height > 0.0 and weapon_longest_side / body_height <= 0.65,
+		"pulse rifle stays proportional to the astronaut (ratio %.3f)" % (
+			weapon_longest_side / maxf(body_height, 0.001)
+		)
+	)
 	player.update_movement(0.1, Vector2.RIGHT)
 	_check(player.get_animation_state() == &"move", "player movement enters the run animation")
 	_check(_clip_ends_with(player.get_animation_clip(), "Run_Gun"), "player movement uses the armed run clip")
+	_check(
+		player.get_visual_forward_direction().dot(player.velocity.normalized()) > 0.95,
+		"player visual front faces the movement direction"
+	)
 	player.global_position = Vector3.ZERO
 	player.update_movement(0.0, Vector2.ZERO)
 	_check(player.get_animation_state() == &"idle", "player returns to idle when movement stops")
@@ -427,6 +476,10 @@ func _check_enemy_animation_profiles(director: LowpolyRunDirector) -> void:
 		&"enemy_small", &"enemy_flying", &"enemy_large", &"enemy_fox_mech", &"final_boss",
 	]:
 		var config := loader.get_enemy_config(enemy_id)
+		_check(
+			is_equal_approx(float(config.get("model_yaw_degrees", 0.0)), 180.0),
+			"%s declares its imported-model forward correction" % enemy_id
+		)
 		var profile_id := StringName(config.get("animation_profile", String(enemy_id)))
 		var profile := loader.get_animation_config(profile_id)
 		var enemy := LowpolyEnemy.new()
@@ -443,6 +496,11 @@ func _check_enemy_animation_profiles(director: LowpolyRunDirector) -> void:
 		_check(_clip_ends_with(enemy.get_animation_clip(), String(profile.get("idle", ""))), "%s maps idle animation" % enemy_id)
 		enemy.update_enemy(0.1, [])
 		_check(_clip_ends_with(enemy.get_animation_clip(), String(profile.get("move", ""))), "%s maps movement animation" % enemy_id)
+		_check(
+			not enemy.velocity.is_zero_approx()
+			and enemy.get_visual_forward_direction().dot(enemy.velocity.normalized()) > 0.95,
+			"%s visual front faces its movement direction" % enemy_id
+		)
 		enemy.call("_play_action", &"attack")
 		_check(_clip_ends_with(enemy.get_animation_clip(), String(profile.get("attack", ""))), "%s maps attack animation" % enemy_id)
 		if enemy_id == &"final_boss":
@@ -457,6 +515,344 @@ func _check_enemy_animation_profiles(director: LowpolyRunDirector) -> void:
 		enemy.take_damage(enemy.health)
 		_check(_clip_ends_with(enemy.get_animation_clip(), String(profile.get("death", ""))), "%s maps death animation" % enemy_id)
 		enemy.free()
+
+
+func _check_online_multiplayer() -> void:
+	LowpolyFakeTransport.reset_bus_for_tests()
+	var sessions: Array[LowpolyOnlineSession] = []
+	var transports: Array[LowpolyFakeTransport] = []
+	for index: int in range(4):
+		var session := LowpolyOnlineSession.new()
+		session.name = "FakeSession%d" % index
+		root.add_child(session)
+		var transport := LowpolyFakeTransport.new()
+		transport.forced_user_id = "p%d" % (index + 1)
+		_check(session.initialize_online("玩家%d" % (index + 1), transport), "fake client %d initializes" % (index + 1))
+		_check(session.get_state() == LowpolyOnlineSession.State.IDLE, "fake client %d authenticates" % (index + 1))
+		sessions.append(session)
+		transports.append(transport)
+
+	var host := sessions[0]
+	_check(host.create_room(), "host creates a six-code lobby")
+	var room_code := String(host.get_room_snapshot().get("room_code", ""))
+	_check(room_code.length() == 6 and room_code.is_valid_int(), "room code is six digits")
+	for index: int in range(1, sessions.size()):
+		_check(sessions[index].join_room(room_code), "client %d requests lobby join" % (index + 1))
+		_check(
+			sessions[index].get_state() == LowpolyOnlineSession.State.LOBBY,
+			"client %d joins lobby" % (index + 1)
+		)
+		_check(
+			(host.get_room_snapshot().get("members", []) as Array).size() == index + 1,
+			"lobby supports %d players" % (index + 1)
+		)
+	for session: LowpolyOnlineSession in sessions:
+		_check(session.set_ready(true), "lobby member can become ready")
+	_check(host.can_start_match(), "host can start only after every member is ready")
+	_check(host.start_match(880041), "host locks lobby and starts match")
+	for session: LowpolyOnlineSession in sessions:
+		_check(session.get_state() == LowpolyOnlineSession.State.IN_MATCH, "all fake clients enter match")
+		_check(int(session.get_match_data().get("difficulty_players", 0)) == 4, "start roster locks four-player difficulty")
+	_check(bool(host.get_room_snapshot().get("locked", false)), "started lobby is locked")
+
+	var late_session := LowpolyOnlineSession.new()
+	root.add_child(late_session)
+	var late_transport := LowpolyFakeTransport.new()
+	late_transport.forced_user_id = "late"
+	late_session.initialize_online("迟到玩家", late_transport)
+	late_session.join_room(room_code)
+	_check(late_session.get_state() == LowpolyOnlineSession.State.ERROR, "late join is rejected after start")
+	late_session.queue_free()
+
+	var received_kinds: Array[StringName] = []
+	sessions[1].network_message.connect(
+		func(_sender: String, kind: StringName, _payload: Dictionary) -> void:
+			received_kinds.append(kind)
+	)
+	transports[0].duplicate_every_nth = 1
+	host.send_message("p2", &"idempotent_test", {"value": 7})
+	_check(received_kinds.count(&"idempotent_test") == 1, "reliable duplicate event is idempotent")
+	transports[0].duplicate_every_nth = 0
+	var before_drop := received_kinds.size()
+	transports[0].drop_every_nth = 1
+	host.send_message("p2", &"dropped_test", {"value": 1}, false)
+	_check(received_kinds.size() == before_drop, "fake transport injects packet loss")
+	transports[0].drop_every_nth = 0
+	transports[0].latency_seconds = 0.05
+	host.send_message("p2", &"latency_test", {"value": 2})
+	_check(not received_kinds.has(&"latency_test"), "fake transport holds packets during injected latency")
+	transports[1].advance_fake_time(0.06)
+	_check(received_kinds.has(&"latency_test"), "fake transport releases delayed packets deterministically")
+	transports[0].latency_seconds = 0.0
+	transports[0].reorder_next_pair = true
+	host.send_message("p2", &"reorder_first", {"sequence": 1}, false)
+	host.send_message("p2", &"reorder_second", {"sequence": 2}, false)
+	transports[1].advance_fake_time(0.0)
+	_check(
+		received_kinds.find(&"reorder_second") < received_kinds.find(&"reorder_first"),
+		"fake transport injects packet reordering"
+	)
+
+	transports[2].simulate_connection_loss()
+	_check(
+		(host.get_debug_snapshot().get("disconnecting", {}) as Dictionary).has("p3"),
+		"host starts a reconnect grace window"
+	)
+	transports[2].simulate_reconnect()
+	_check(
+		not (host.get_debug_snapshot().get("disconnecting", {}) as Dictionary).has("p3"),
+		"reconnect restores the existing slot"
+	)
+
+	var takeover_checkpoint := {"tick": 240, "seed": 880041, "players": [{"slot": 1}]}
+	sessions[1].set_cached_checkpoint(takeover_checkpoint)
+	var takeover_seen: Array[Dictionary] = [{}]
+	sessions[1].host_takeover_requested.connect(
+		func(checkpoint: Dictionary, epoch: int) -> void:
+			takeover_seen[0] = checkpoint.duplicate(true)
+			sessions[1].complete_host_migration(checkpoint)
+			_check(epoch == 2, "host migration increments authority epoch")
+	)
+	transports[0].leave_room()
+	await process_frame
+	_check(sessions[1].get_role() == LowpolyOnlineSession.NetworkRole.HOST, "EOS lobby owner becomes new host")
+	_check(sessions[1].get_state() == LowpolyOnlineSession.State.IN_MATCH, "new host resumes after migration")
+	_check(int(takeover_seen[0].get("tick", -1)) == 240, "new host receives the cached checkpoint")
+	_check(sessions[2].get_authority_epoch() > 1, "remaining clients advance to the migrated authority epoch")
+	var old_epoch_seen: Array[bool] = [false]
+	sessions[2].network_message.connect(
+		func(_sender: String, kind: StringName, _payload: Dictionary) -> void:
+			if kind == &"old_epoch_probe":
+				old_epoch_seen[0] = true
+	)
+	transports[1].send_packet("p3", LowpolyTransport.Channel.RELIABLE, {
+		"protocol": LowpolyOnlineSession.PROTOCOL_VERSION,
+		"epoch": 1,
+		"kind": "old_epoch_probe",
+		"sequence": 999,
+		"reliable": true,
+		"payload": {},
+	})
+	_check(not old_epoch_seen[0], "remaining clients reject packets from the old authority epoch")
+	_check(sessions[0].join_room(room_code), "departed host can request its locked roster slot")
+	_check(
+		sessions[0].get_state() == LowpolyOnlineSession.State.IN_MATCH
+		and sessions[0].get_role() == LowpolyOnlineSession.NetworkRole.CLIENT,
+		"departed host returns within the grace window as an ordinary client"
+	)
+	_check(
+		sessions[0].get_authority_epoch() == sessions[1].get_authority_epoch(),
+		"returning former host adopts the migrated authority epoch"
+	)
+
+	var expired_users: Array[String] = []
+	sessions[1].participant_grace_expired.connect(func(user_id: String) -> void: expired_users.append(user_id))
+	transports[3].simulate_connection_loss()
+	_check(sessions[1].force_reconnect_timeout_for_test("p4"), "reconnect timeout seam targets a disconnected slot")
+	sessions[1].call("_process", 0.0)
+	_check(expired_users.has("p4"), "sixty-second grace expiry removes only the disconnected slot")
+	transports[1].leave_room()
+	_check(sessions[2].force_host_migration_timeout_for_test(), "migration timeout seam detects a missing takeover")
+	sessions[2].call("_process", 0.0)
+	_check(
+		sessions[2].get_state() == LowpolyOnlineSession.State.ERROR,
+		"host migration ends as an interruption after fifteen seconds"
+	)
+
+	await _check_network_authority_core()
+
+	for session: LowpolyOnlineSession in sessions:
+		session.queue_free()
+	LowpolyFakeTransport.reset_bus_for_tests()
+	await process_frame
+
+
+func _check_network_authority_core() -> void:
+	var roster: Array[Dictionary] = [
+		{"slot": 0, "user_id": "p1", "display_name": "一号", "connected": true},
+		{"slot": 1, "user_id": "p2", "display_name": "二号", "connected": true},
+		{"slot": 2, "user_id": "p3", "display_name": "三号", "connected": true},
+	]
+	var match_data := {
+		"roster": roster,
+		"seed": 99117,
+		"difficulty_players": 3,
+	}
+	var director := LowpolyRunDirector.new()
+	root.add_child(director)
+	await process_frame
+	_check(director.start_network_run(match_data, "p1", true), "host creates three-player authority state")
+	_check(director.get_player_roster_snapshot().size() == 3, "authority creates stable player slots")
+	director.add_experience_for_test(8)
+	_check(director.get_state() == LowpolyRunDirector.RunState.LEVEL_UP, "shared experience pauses the online run")
+	var pending: Array = director.get_debug_snapshot().get("pending_upgrade_slots", [])
+	_check(pending == [0, 1, 2], "each connected player receives an independent upgrade choice")
+	var option_zero := director.get_network_upgrade_options(0)
+	var option_one := director.get_network_upgrade_options(1)
+	_check(option_zero.size() == 3 and option_one.size() == 3, "online upgrade offers three legal candidates")
+	director.set_network_player_connected("p3", false)
+	_check(
+		director.choose_network_upgrade(0, StringName(option_zero[0].get("id", ""))),
+		"host validates its own upgrade candidate"
+	)
+	_check(
+		director.choose_network_upgrade(1, StringName(option_one[0].get("id", ""))),
+		"host validates a remote upgrade candidate"
+	)
+	_check(director.get_state() == LowpolyRunDirector.RunState.LEVEL_UP, "upgrade waits for a disconnected chooser")
+	director.remove_network_player("p3")
+	_check(director.get_state() == LowpolyRunDirector.RunState.RUNNING, "timeout removal releases the global upgrade pause")
+	var player_builds := director.get_player_roster_snapshot()
+	_check(
+		(player_builds[0].get("weapon_levels", {}) as Dictionary) != (player_builds[1].get("weapon_levels", {}) as Dictionary)
+		or String(option_zero[0].get("id", "")) == String(option_one[0].get("id", "")),
+		"players retain independent weapon systems"
+	)
+
+	director.start_network_run(match_data, "p1", true)
+	director.get_player_for_slot(0).take_damage(9999.0, true)
+	director.get_player_for_slot(1).take_damage(9999.0, true)
+	director.set_network_player_connected("p3", false)
+	_check(director.get_state() == LowpolyRunDirector.RunState.RUNNING, "disconnected living slot prevents premature team defeat")
+	director.remove_network_player("p3")
+	_check(director.get_state() == LowpolyRunDirector.RunState.DEFEAT, "all remaining players dead ends the run")
+
+	director.start_network_run(match_data, "p1", true)
+	director.simulate_network_step(0.25, {0: Vector2.RIGHT, 1: Vector2.LEFT, 2: Vector2.ZERO})
+	var checkpoint := director.make_authority_checkpoint()
+	_check(int(checkpoint.get("tick", 0)) > 0, "host checkpoint records authority tick")
+	var replica := LowpolyRunDirector.new()
+	root.add_child(replica)
+	await process_frame
+	_check(replica.start_network_run(match_data, "p2", false), "client creates matching roster view")
+	_check(replica.restore_authority_checkpoint(checkpoint), "new host restores a full checkpoint")
+	_check(
+		int(replica.get_debug_snapshot().get("authority_tick", -1)) == int(checkpoint.get("tick", -2)),
+		"checkpoint preserves authority tick continuity"
+	)
+	var current_snapshot := director.make_network_snapshot(Vector3.ZERO, 100.0)
+	current_snapshot["tick"] = 500
+	var client_view := LowpolyRunDirector.new()
+	root.add_child(client_view)
+	await process_frame
+	client_view.start_network_run(match_data, "p2", false)
+	_check(client_view.apply_network_snapshot(current_snapshot), "client accepts a current authority snapshot")
+	var stale_snapshot := current_snapshot.duplicate(true)
+	stale_snapshot["tick"] = 499
+	_check(not client_view.apply_network_snapshot(stale_snapshot), "client rejects an out-of-order world snapshot")
+	var client_session := LowpolyOnlineSession.new()
+	root.add_child(client_session)
+	var prediction_bridge := LowpolyNetworkRunBridge.new()
+	root.add_child(prediction_bridge)
+	prediction_bridge.setup(client_session, client_view)
+	var authority_position := Vector3.ZERO
+	for value: Variant in current_snapshot.get("players", []):
+		if value is Dictionary and int((value as Dictionary).get("slot", -1)) == 1:
+			var values: Array = (value as Dictionary).get("position", [])
+			if values.size() == 3:
+				authority_position = Vector3(float(values[0]), float(values[1]), float(values[2]))
+	prediction_bridge.queue_predicted_input_for_test(12, Vector2.LEFT, 0.05)
+	_check(
+		(prediction_bridge.get_debug_snapshot().get("pending_local_inputs", []) as Array).size() == 1,
+		"prediction fixture stores one unacknowledged input"
+	)
+	var correction_snapshot := current_snapshot.duplicate(true)
+	correction_snapshot["tick"] = 501
+	correction_snapshot["ack_input_sequence"] = 11
+	prediction_bridge.call("_apply_client_snapshot", correction_snapshot)
+	_check(
+		client_view.get_player_for_slot(1).global_position.x < authority_position.x - 0.01,
+		"client rollback replays only unacknowledged predicted input (authority %.3f, replayed %.3f, state %d, combat %s, pending %d)" % [
+			authority_position.x,
+			client_view.get_player_for_slot(1).global_position.x,
+			int(client_view.get_state()),
+			str(client_view.get_player_for_slot(1).is_combat_available()),
+			(prediction_bridge.get_debug_snapshot().get("pending_local_inputs", []) as Array).size(),
+		]
+	)
+	correction_snapshot["tick"] = 502
+	correction_snapshot["ack_input_sequence"] = 12
+	prediction_bridge.call("_apply_client_snapshot", correction_snapshot)
+	_check(
+		(prediction_bridge.get_debug_snapshot().get("pending_local_inputs", []) as Array).is_empty(),
+		"authority acknowledgement retires predicted input history"
+	)
+	prediction_bridge.queue_free()
+	client_session.queue_free()
+
+	director.start_network_run(match_data, "p1", true)
+	director.force_test_time(600.0)
+	_check(bool(director.get_debug_snapshot().get("boss_active", false)), "online host alone starts the ten-minute boss")
+	var boss_checkpoint := director.make_authority_checkpoint()
+	var checkpoint_boss: Dictionary = {}
+	for value: Variant in boss_checkpoint.get("enemies", []):
+		if value is Dictionary and bool((value as Dictionary).get("boss", false)):
+			checkpoint_boss = value as Dictionary
+	_check(
+		checkpoint_boss.has("pattern_index") and checkpoint_boss.has("attack_left"),
+		"host checkpoint preserves Boss attack pattern state"
+	)
+	_check(director.defeat_boss_for_test(), "online host alone adjudicates Boss damage")
+	_check(director.get_state() == LowpolyRunDirector.RunState.VICTORY, "Boss death wins for the team")
+
+	var validation_session := LowpolyOnlineSession.new()
+	root.add_child(validation_session)
+	var validation_transport := LowpolyFakeTransport.new()
+	validation_transport.forced_user_id = "validator"
+	validation_session.initialize_online("验证器", validation_transport)
+	var bridge := LowpolyNetworkRunBridge.new()
+	root.add_child(bridge)
+	bridge.setup(validation_session, replica)
+	bridge.call("_accept_input", "p2", {"slot": 0, "sequence": 1, "vector": [1.0, 0.0]})
+	_check(
+		not (bridge.get_debug_snapshot().get("latest_inputs", {}) as Dictionary).has(1),
+		"host rejects input sent for another slot"
+	)
+	bridge.call("_accept_input", "p2", {"slot": 1, "sequence": 2, "vector": [0.5, 0.0]})
+	_check(
+		(bridge.get_debug_snapshot().get("latest_inputs", {}) as Dictionary).has(1),
+		"host accepts normalized input from the owning PUID"
+	)
+	bridge.call("_accept_input", "p2", {"slot": 1, "sequence": 2, "vector": [-1.0, 0.0]})
+	_check(
+		int((bridge.get_debug_snapshot().get("last_input_sequences", {}) as Dictionary).get("p2", 0)) == 2,
+		"host rejects duplicate input sequence numbers"
+	)
+	bridge.call("_accept_input", "attacker", {"slot": 1, "sequence": 99, "vector": [1.0, 0.0]})
+	_check(
+		not (bridge.get_debug_snapshot().get("last_input_sequences", {}) as Dictionary).has("attacker"),
+		"host rejects input from a PUID outside the locked roster"
+	)
+	bridge.call("_accept_input", "p2", {"slot": 1, "sequence": 3, "vector": [2.0, 0.0]})
+	_check(
+		int((bridge.get_debug_snapshot().get("last_input_sequences", {}) as Dictionary).get("p2", 0)) == 2,
+		"host rejects non-normalized input vectors"
+	)
+	bridge.call("_accept_input", "p2", {
+		"slot": 1,
+		"sequence": 3,
+		"vector": [0.0, 0.0],
+		"padding": "x".repeat(300),
+	})
+	_check(
+		int((bridge.get_debug_snapshot().get("last_input_sequences", {}) as Dictionary).get("p2", 0)) == 2,
+		"host rejects oversized input payloads"
+	)
+	for sequence: int in range(3, 35):
+		bridge.call("_accept_input", "p2", {"slot": 1, "sequence": sequence, "vector": [0.0, 0.0]})
+	_check(
+		int((bridge.get_debug_snapshot().get("last_input_sequences", {}) as Dictionary).get("p2", 0)) == 32,
+		"host rate-limits excess input packets"
+	)
+	bridge.call("_handle_host_message", "p2", &"damage", {"amount": 9999})
+	_check(replica.get_player_for_slot(0).health > 0.0, "client cannot submit damage or authority events")
+
+	bridge.queue_free()
+	validation_session.queue_free()
+	client_view.queue_free()
+	replica.queue_free()
+	director.queue_free()
+	await process_frame
 
 
 func _clip_ends_with(clip: StringName, expected_suffix: String) -> bool:

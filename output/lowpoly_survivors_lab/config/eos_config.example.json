@@ -1,0 +1,10 @@
+{
+  "product_name": "Lowpoly Survivors Lab",
+  "product_version": "0.2.0",
+  "product_id": "REPLACE_IN_LOCAL_CONFIG",
+  "sandbox_id": "REPLACE_IN_LOCAL_CONFIG",
+  "deployment_id": "REPLACE_IN_LOCAL_CONFIG",
+  "client_id": "REPLACE_IN_LOCAL_CONFIG",
+  "client_secret": "REPLACE_IN_LOCAL_CONFIG",
+  "encryption_key": "REPLACE_WITH_64_HEX_CHARACTERS"
+}

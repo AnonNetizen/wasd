@@ -3,7 +3,7 @@ extends CharacterBody3D
 
 signal died(enemy: LowpolyEnemy, experience_reward: int)
 signal health_changed(current: float, maximum: float)
-signal damage_player_requested(amount: float)
+signal damage_player_requested(target: LowpolyPlayer, amount: float)
 signal projectile_volley_requested(
 	origin: Vector3,
 	direction: Vector3,
@@ -35,6 +35,9 @@ var boss: bool = false
 var active: bool = false
 var dying: bool = false
 var player: LowpolyPlayer
+var network_entity_id: int = 0
+var target_lock_seconds: float = 0.55
+var _target_lock_left: float = 0.0
 var _attack_left: float = 0.0
 var _hit_animation_cooldown: float = 0.2
 var _hit_animation_cooldown_left: float = 0.0
@@ -63,6 +66,8 @@ func activate_from_pool(payload: Dictionary) -> void:
 	var config: Dictionary = payload.get("config", {}) as Dictionary
 	var animation_config: Dictionary = payload.get("animation_config", {}) as Dictionary
 	player = payload.get("player") as LowpolyPlayer
+	network_entity_id = int(payload.get("network_entity_id", 0))
+	target_lock_seconds = float(payload.get("target_lock_seconds", 0.55))
 	elite = bool(payload.get("elite", false))
 	boss = bool(payload.get("boss", false))
 	max_health = float(config.get("health", 1.0))
@@ -87,12 +92,17 @@ func activate_from_pool(payload: Dictionary) -> void:
 	_attack_left = attack_cooldown * 0.45
 	_hit_animation_cooldown_left = 0.0
 	_pattern_index = 0
+	_target_lock_left = 0.0
 	_separation_velocity = Vector3.ZERO
 	active = true
 	dying = false
 	visible = true
 	process_mode = Node.PROCESS_MODE_INHERIT
-	_set_model(String(config.get("model_path", "")), animation_config)
+	_set_model(
+		String(config.get("model_path", "")),
+		float(config.get("model_yaw_degrees", 0.0)),
+		animation_config
+	)
 	var base_scale: float = 1.0
 	if enemy_id == &"enemy_large":
 		base_scale = 1.35
@@ -112,6 +122,8 @@ func deactivate_to_pool() -> void:
 	process_mode = Node.PROCESS_MODE_DISABLED
 	velocity = Vector3.ZERO
 	player = null
+	network_entity_id = 0
+	_target_lock_left = 0.0
 	elite = false
 	boss = false
 	scale = Vector3.ONE
@@ -122,8 +134,9 @@ func deactivate_to_pool() -> void:
 
 
 func update_enemy(delta: float, nearby: Array[Node3D]) -> void:
-	if not active or not is_instance_valid(player) or not player.active:
+	if not active or not is_instance_valid(player) or not player.is_combat_available():
 		return
+	_target_lock_left = maxf(_target_lock_left - delta, 0.0)
 	_attack_left -= delta
 	_hit_animation_cooldown_left = maxf(_hit_animation_cooldown_left - delta, 0.0)
 	var to_player: Vector3 = player.global_position - global_position
@@ -148,7 +161,7 @@ func update_enemy(delta: float, nearby: Array[Node3D]) -> void:
 		)
 	if distance_to_player <= get_collision_radius() + 0.65 and _attack_left <= 0.0:
 		_play_action(LowpolyModelAnimator.STATE_ATTACK)
-		damage_player_requested.emit(contact_damage)
+		damage_player_requested.emit(player, contact_damage)
 		_attack_left = attack_cooldown
 	if boss:
 		_update_boss_attack(distance_to_player, to_player)
@@ -178,6 +191,62 @@ func take_damage(amount: float) -> bool:
 		_animator.play_one_shot(LowpolyModelAnimator.STATE_HIT)
 		_hit_animation_cooldown_left = _hit_animation_cooldown
 	return true
+
+
+func choose_nearest_target(candidates: Array[LowpolyPlayer]) -> void:
+	if is_instance_valid(player) and player.is_combat_available() and _target_lock_left > 0.0:
+		return
+	var nearest: LowpolyPlayer
+	var nearest_distance := INF
+	for candidate: LowpolyPlayer in candidates:
+		if not is_instance_valid(candidate) or not candidate.is_combat_available():
+			continue
+		var distance := global_position.distance_squared_to(candidate.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = candidate
+	if nearest != player:
+		player = nearest
+		_target_lock_left = target_lock_seconds
+
+
+func make_network_state() -> Dictionary:
+	return {
+		"entity_id": network_entity_id,
+		"enemy_id": String(enemy_id),
+		"position": [global_position.x, global_position.y, global_position.z],
+		"rotation_y": rotation.y,
+		"health": health,
+		"max_health": max_health,
+		"elite": elite,
+		"boss": boss,
+		"active": active,
+		"target_slot": player.network_slot if is_instance_valid(player) else -1,
+		"attack_left": _attack_left,
+		"pattern_index": _pattern_index,
+		"target_lock_left": _target_lock_left,
+		"hit_animation_left": _hit_animation_cooldown_left,
+	}
+
+
+func apply_network_state(snapshot: Dictionary, interpolate_weight: float = 1.0) -> void:
+	network_entity_id = int(snapshot.get("entity_id", network_entity_id))
+	var position_values: Array = snapshot.get("position", [])
+	if position_values.size() == 3:
+		var target := Vector3(
+			float(position_values[0]), float(position_values[1]), float(position_values[2])
+		)
+		global_position = global_position.lerp(target, clampf(interpolate_weight, 0.0, 1.0))
+	rotation.y = float(snapshot.get("rotation_y", rotation.y))
+	max_health = float(snapshot.get("max_health", max_health))
+	health = clampf(float(snapshot.get("health", health)), 0.0, max_health)
+	active = bool(snapshot.get("active", active)) and health > 0.0
+	_attack_left = float(snapshot.get("attack_left", _attack_left))
+	_pattern_index = int(snapshot.get("pattern_index", _pattern_index))
+	_target_lock_left = float(snapshot.get("target_lock_left", _target_lock_left))
+	_hit_animation_cooldown_left = float(snapshot.get("hit_animation_left", _hit_animation_cooldown_left))
+	visible = active
+	health_changed.emit(health, max_health)
 
 
 func is_pool_active() -> bool:
@@ -214,6 +283,10 @@ func get_animation_position() -> float:
 
 func get_animation_missing_states() -> PackedStringArray:
 	return _animator.get_missing_states() if _animator != null else PackedStringArray(["animator"])
+
+
+func get_visual_forward_direction() -> Vector3:
+	return _model.global_basis.z.normalized() if is_instance_valid(_model) else Vector3.ZERO
 
 
 func _configure_collision_shape() -> void:
@@ -272,8 +345,9 @@ func _calculate_separation(nearby: Array[Node3D]) -> Vector3:
 	return separation * 1.35
 
 
-func _set_model(path: String, animation_config: Dictionary) -> void:
+func _set_model(path: String, model_yaw_degrees: float, animation_config: Dictionary) -> void:
 	if _model != null and path == _model_path:
+		_model.rotation_degrees.y = model_yaw_degrees
 		if _animator != null:
 			_animator.reset()
 		return
@@ -293,6 +367,7 @@ func _set_model(path: String, animation_config: Dictionary) -> void:
 		fallback.mesh = mesh
 		_model = fallback
 	_model.position.y = maxf(collision_radius, 0.45)
+	_model.rotation_degrees.y = model_yaw_degrees
 	add_child(_model)
 	_animator = LowpolyModelAnimator.new()
 	if not _animator.setup(_model, animation_config):

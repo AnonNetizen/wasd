@@ -27,6 +27,10 @@ const COLLISION_LAYER_WORLD: int = 4
 const COLLISION_PROXY_HORIZONTAL_SCALE: float = 0.9
 
 var _director: Node
+var _session: LowpolyOnlineSession
+var _network_bridge: LowpolyNetworkRunBridge
+var _pending_online_action: StringName = &""
+var _pending_room_code: String = ""
 
 @onready var _structure_root: Node3D = $World/PerimeterStructures
 @onready var _ground: StaticBody3D = $World/Ground
@@ -50,6 +54,7 @@ func _ready() -> void:
 		_ui.set_status_message("核心运行脚本尚未安装，当前只能预览场景。", true)
 		return
 	_connect_director()
+	_install_online_bridge()
 	if _director.has_method("get_state"):
 		_ui.show_state(int(_director.call("get_state")))
 
@@ -71,6 +76,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _director == null or not _director.has_method("get_state"):
 		return
 	var state := int(_director.call("get_state"))
+	if _session != null and _session.is_online_match():
+		_ui.show_local_menu(not _ui.is_local_menu_open(), true)
+		get_viewport().set_input_as_handled()
+		return
 	if state == RunState.RUNNING or state == RunState.PAUSED:
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
@@ -107,6 +116,33 @@ func _connect_ui() -> void:
 	_ui.upgrade_selected.connect(_on_upgrade_selected)
 	_ui.restart_requested.connect(_on_restart_requested)
 	_ui.menu_requested.connect(_on_menu_requested)
+	_ui.create_room_requested.connect(_on_create_room_requested)
+	_ui.join_room_requested.connect(_on_join_room_requested)
+	_ui.ready_requested.connect(_on_ready_requested)
+	_ui.lobby_start_requested.connect(_on_lobby_start_requested)
+	_ui.leave_room_requested.connect(_on_leave_room_requested)
+	_ui.touch_input_changed.connect(_on_touch_input_changed)
+
+
+func _install_online_bridge() -> void:
+	_session = OnlineSession as LowpolyOnlineSession
+	if _session == null or not _director is LowpolyRunDirector:
+		_ui.set_online_status("联机会话模块不可用；单人模式仍可用。", true)
+		return
+	_network_bridge = LowpolyNetworkRunBridge.new()
+	_network_bridge.name = "NetworkRunBridge"
+	add_child(_network_bridge)
+	_network_bridge.setup(_session, _director as LowpolyRunDirector)
+	_session.state_changed.connect(_on_session_state_changed)
+	_session.room_changed.connect(_on_online_room_changed)
+	_session.session_error.connect(_on_online_error)
+	_network_bridge.match_started.connect(_on_online_match_started)
+	_network_bridge.upgrade_offer_received.connect(_on_online_upgrade_offer)
+	_network_bridge.latency_changed.connect(_ui.set_latency)
+	_network_bridge.migration_notice.connect(_ui.show_migration)
+	_network_bridge.online_match_interrupted.connect(_on_online_interrupted)
+	if _director.has_signal("player_roster_changed"):
+		_director.connect("player_roster_changed", _on_player_roster_changed)
 
 
 func _connect_director() -> void:
@@ -130,6 +166,10 @@ func _connect_optional_signal(signal_name: StringName, callable: Callable) -> vo
 
 func _on_start_requested() -> void:
 	_audio.play_cue(&"click")
+	if _session != null and _session.get_state() != LowpolyOnlineSession.State.OFFLINE:
+		_session.leave_room()
+	if _network_bridge != null:
+		_network_bridge.stop_match()
 	if _director == null or not _director.has_method("start_run"):
 		_ui.set_status_message("无法启动：RunDirector 不可用。", true)
 		return
@@ -140,6 +180,9 @@ func _toggle_pause() -> void:
 	if _director == null or not _director.has_method("toggle_pause"):
 		return
 	_audio.play_cue(&"click")
+	if _session != null and _session.is_online_match():
+		_ui.show_local_menu(not _ui.is_local_menu_open(), true)
+		return
 	_director.call("toggle_pause")
 
 
@@ -147,22 +190,36 @@ func _on_upgrade_selected(upgrade_id: String) -> void:
 	if _director == null or not _director.has_method("choose_upgrade"):
 		return
 	_audio.play_cue(&"click")
-	_director.call("choose_upgrade", StringName(upgrade_id))
+	if _session != null and _session.is_online_match() and _network_bridge != null:
+		_network_bridge.submit_upgrade_choice(StringName(upgrade_id))
+	else:
+		_director.call("choose_upgrade", StringName(upgrade_id))
 
 
 func _on_restart_requested() -> void:
 	_audio.play_cue(&"click")
+	if _session != null and _session.is_online_match():
+		_on_menu_requested()
+		return
 	if _director != null and _director.has_method("restart_run"):
 		_director.call("restart_run")
 
 
 func _on_menu_requested() -> void:
 	_audio.play_cue(&"click")
+	_ui.show_local_menu(false, false)
+	_ui.hide_lobby()
+	if _network_bridge != null:
+		_network_bridge.stop_match()
+	if _session != null:
+		_session.leave_room()
 	if _director != null and _director.has_method("return_to_menu"):
 		_director.call("return_to_menu")
 
 
 func _on_state_changed(_previous: int, current: int) -> void:
+	if current != RunState.PAUSED:
+		_ui.show_local_menu(false, _session != null and _session.is_online_match())
 	_ui.show_state(current)
 
 
@@ -179,6 +236,124 @@ func _on_boss_spawned(enemy: Variant) -> void:
 func _on_run_finished(victory: bool, summary: Dictionary) -> void:
 	_audio.play_cue(&"victory" if victory else &"defeat")
 	_ui.show_result(victory, summary)
+
+
+func _on_create_room_requested(display_name: String) -> void:
+	_begin_online_action(&"create", display_name, "")
+
+
+func _on_join_room_requested(display_name: String, room_code: String) -> void:
+	_begin_online_action(&"join", display_name, room_code)
+
+
+func _begin_online_action(action: StringName, display_name: String, room_code: String) -> void:
+	if _session == null:
+		_ui.set_online_status("联机会话模块不可用。", true)
+		return
+	_pending_online_action = action
+	_pending_room_code = room_code
+	var state := _session.get_state()
+	if state == LowpolyOnlineSession.State.IDLE:
+		_execute_pending_online_action()
+		return
+	if state != LowpolyOnlineSession.State.OFFLINE and state != LowpolyOnlineSession.State.ERROR:
+		_ui.set_online_status("EOS 正在处理上一项操作，请稍候。", true)
+		return
+	_ui.set_online_status("正在初始化 EOS Device ID……")
+	_session.initialize_online(display_name)
+
+
+func _execute_pending_online_action() -> void:
+	if _pending_online_action == &"create":
+		_session.create_room()
+	elif _pending_online_action == &"join":
+		_session.join_room(_pending_room_code)
+	_pending_online_action = &""
+	_pending_room_code = ""
+
+
+func _on_session_state_changed(_previous: int, current: int) -> void:
+	match current:
+		LowpolyOnlineSession.State.IDLE:
+			_ui.set_online_status("EOS 已连接。")
+			if not _pending_online_action.is_empty():
+				_execute_pending_online_action()
+		LowpolyOnlineSession.State.CREATING_ROOM:
+			_ui.set_online_status("正在创建房间……")
+		LowpolyOnlineSession.State.JOINING_ROOM:
+			_ui.set_online_status("正在加入房间……")
+		LowpolyOnlineSession.State.CONNECTING:
+			_ui.set_online_status("正在建立 EOS P2P/Relay 连接……")
+		LowpolyOnlineSession.State.HOST_MIGRATING:
+			_ui.show_migration(true, "房主迁移中，战斗已冻结……")
+		_:
+			pass
+
+
+func _on_online_room_changed(snapshot: Dictionary) -> void:
+	if (
+		_session != null
+		and not snapshot.is_empty()
+		and _session.get_state() in [
+			LowpolyOnlineSession.State.CREATING_ROOM,
+			LowpolyOnlineSession.State.JOINING_ROOM,
+			LowpolyOnlineSession.State.LOBBY,
+			LowpolyOnlineSession.State.CONNECTING,
+		]
+	):
+		_ui.show_lobby(snapshot, _session.get_local_user_id())
+
+
+func _on_ready_requested(ready: bool) -> void:
+	if _session != null and not _session.set_ready(ready):
+		_ui.set_online_status("无法更新准备状态。", true)
+
+
+func _on_lobby_start_requested() -> void:
+	if _session != null and not _session.start_match():
+		_ui.set_online_status("需要房主且所有玩家均已准备。", true)
+
+
+func _on_leave_room_requested() -> void:
+	_ui.hide_lobby()
+	if _session != null:
+		_session.leave_room()
+	if _director != null and _director.has_method("return_to_menu"):
+		_director.call("return_to_menu")
+
+
+func _on_online_match_started(_local_slot: int, _role: int) -> void:
+	_ui.hide_lobby()
+	_ui.show_local_menu(false, true)
+	_ui.show_state(RunState.RUNNING)
+
+
+func _on_online_upgrade_offer(options: Array[Dictionary]) -> void:
+	_ui.show_upgrade(options)
+	_ui.show_state(RunState.LEVEL_UP)
+
+
+func _on_player_roster_changed(roster: Array[Dictionary]) -> void:
+	if _director is LowpolyRunDirector:
+		_ui.set_teammates(roster, (_director as LowpolyRunDirector).get_local_slot())
+
+
+func _on_touch_input_changed(value: Vector2) -> void:
+	if _network_bridge != null:
+		_network_bridge.set_touch_input(value)
+
+
+func _on_online_error(message: String) -> void:
+	_ui.set_online_status(message, true)
+
+
+func _on_online_interrupted(message: String) -> void:
+	if _network_bridge != null:
+		_network_bridge.stop_match()
+	if _director != null and _director.has_method("return_to_menu"):
+		_director.call("return_to_menu")
+	_ui.set_online_status("联机中断：%s" % message, true)
+	_ui.show_migration(false, "联机中断")
 
 
 func _build_perimeter_environment() -> void:

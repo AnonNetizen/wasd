@@ -1,0 +1,8 @@
+eos_config.local.json
+config/eos_config.local.json
+config/eos_config.export.json
+builds/
+android/.gradle/
+android/build/
+android/.build_version
+!export_presets.cfg
