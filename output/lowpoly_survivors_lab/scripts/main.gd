@@ -310,8 +310,13 @@ func _on_ready_requested(ready: bool) -> void:
 
 
 func _on_lobby_start_requested() -> void:
-	if _session != null and not _session.start_match():
+	if _session == null:
+		_ui.set_online_status("联机会话模块不可用。", true)
+		return
+	if not _session.can_start_match():
 		_ui.set_online_status("需要房主且所有玩家均已准备。", true)
+		return
+	_session.start_match()
 
 
 func _on_leave_room_requested() -> void:

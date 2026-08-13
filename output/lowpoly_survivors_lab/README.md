@@ -15,7 +15,7 @@ py -3 tools/godot_bridge.py --project output/lowpoly_survivors_lab headless-boot
 - Android：左侧虚拟摇杆移动，右上角打开本地菜单，升级卡可直接触控
 - 武器自动寻找目标，不需要射击输入
 
-窗口以 1920×1080 为设计与默认尺寸，可自由缩放；渲染器固定为 Compatibility。
+窗口以 1920×1080 为设计与默认尺寸，可自由缩放；Windows 与 Android 均使用 Forward+。
 
 ## 实验内容
 

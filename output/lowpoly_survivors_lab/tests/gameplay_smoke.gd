@@ -550,6 +550,10 @@ func _check_online_multiplayer() -> void:
 		_check(session.set_ready(true), "lobby member can become ready")
 	_check(host.can_start_match(), "host can start only after every member is ready")
 	_check(host.start_match(880041), "host locks lobby and starts match")
+	_check(
+		String(host.get_match_data().get("socket", "")) == "LPS%s" % room_code,
+		"match socket uses the EOS-compatible alphanumeric format"
+	)
 	for session: LowpolyOnlineSession in sessions:
 		_check(session.get_state() == LowpolyOnlineSession.State.IN_MATCH, "all fake clients enter match")
 		_check(int(session.get_match_data().get("difficulty_players", 0)) == 4, "start roster locks four-player difficulty")

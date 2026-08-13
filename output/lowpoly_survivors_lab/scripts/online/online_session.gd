@@ -193,7 +193,7 @@ func start_match(seed: int = -1) -> bool:
 		"build": BUILD_VERSION,
 		"room_code": String(_room_snapshot.get("room_code", "")),
 		"host_user_id": _local_user_id,
-		"socket": "LPS_%s" % String(_room_snapshot.get("room_code", "000000")),
+		"socket": "LPS%s" % String(_room_snapshot.get("room_code", "000000")),
 		"seed": seed if seed >= 0 else randi_range(100000, 2147483000),
 		"authority_epoch": _authority_epoch,
 		"difficulty_players": roster.size(),
