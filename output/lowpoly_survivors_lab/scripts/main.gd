@@ -22,10 +22,14 @@ const MODEL_PATHS := {
 const ARENA_HALF_EXTENT: float = 80.0
 const CENTRAL_CLEAR_RADIUS: float = 52.0
 const CAMERA_FOLLOW_OFFSET := Vector3(0.0, 58.0, 58.0)
+const CAMERA_LOOK_HEIGHT: float = 0.8
+const COLLISION_LAYER_WORLD: int = 4
+const COLLISION_PROXY_HORIZONTAL_SCALE: float = 0.9
 
 var _director: Node
 
 @onready var _structure_root: Node3D = $World/PerimeterStructures
+@onready var _ground: StaticBody3D = $World/Ground
 @onready var _vegetation: MultiMeshInstance3D = $World/VegetationMultiMesh
 @onready var _rocks: MultiMeshInstance3D = $World/RockMultiMesh
 @onready var _camera: Camera3D = $FixedCamera
@@ -35,8 +39,11 @@ var _director: Node
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_ground.collision_layer = 0
+	_ground.collision_mask = 0
 	_build_perimeter_environment()
 	_build_multimesh_scatter()
+	_camera.look_at(Vector3.UP * CAMERA_LOOK_HEIGHT, Vector3.UP)
 	_director = _install_director()
 	_connect_ui()
 	if _director == null:
@@ -55,6 +62,7 @@ func _process(delta: float) -> void:
 		return
 	var target_position := player.global_position + CAMERA_FOLLOW_OFFSET
 	_camera.global_position = _camera.global_position.lerp(target_position, minf(delta * 6.0, 1.0))
+	_camera.look_at(player.global_position + Vector3.UP * CAMERA_LOOK_HEIGHT, Vector3.UP)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -211,6 +219,52 @@ func _add_model(
 	model.rotation.y = y_rotation
 	model.scale = Vector3.ONE * uniform_scale
 	_structure_root.add_child(model)
+	_add_collision_proxy(model)
+
+
+func _add_collision_proxy(model: Node3D) -> void:
+	var bounds := _model_local_bounds(model)
+	if bounds.size.is_zero_approx():
+		push_warning("Lowpoly environment model has no mesh bounds: %s" % model.name)
+		return
+	var body := StaticBody3D.new()
+	body.name = "CollisionProxy"
+	body.collision_layer = COLLISION_LAYER_WORLD
+	body.collision_mask = 0
+	body.position = bounds.get_center()
+	body.add_to_group("lowpoly_world_obstacle")
+	model.add_child(body)
+	var collision_shape := CollisionShape3D.new()
+	collision_shape.name = "CollisionShape"
+	var box := BoxShape3D.new()
+	box.size = Vector3(
+		maxf(bounds.size.x * COLLISION_PROXY_HORIZONTAL_SCALE, 0.4),
+		maxf(bounds.size.y, 0.8),
+		maxf(bounds.size.z * COLLISION_PROXY_HORIZONTAL_SCALE, 0.4)
+	)
+	collision_shape.shape = box
+	body.add_child(collision_shape)
+
+
+func _model_local_bounds(model: Node3D) -> AABB:
+	var bounds: Array[AABB] = []
+	_collect_model_bounds(model, model, bounds)
+	if bounds.is_empty():
+		return AABB()
+	var merged: AABB = bounds[0]
+	for index: int in range(1, bounds.size()):
+		merged = merged.merge(bounds[index])
+	return merged
+
+
+func _collect_model_bounds(root: Node3D, node: Node, bounds: Array[AABB]) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance.mesh != null:
+			var relative_transform := root.global_transform.affine_inverse() * mesh_instance.global_transform
+			bounds.append(relative_transform * mesh_instance.get_aabb())
+	for child: Node in node.get_children():
+		_collect_model_bounds(root, child, bounds)
 
 
 func _add_perimeter_landing_pads() -> void:

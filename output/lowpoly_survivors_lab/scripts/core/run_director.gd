@@ -56,6 +56,7 @@ var _upgrade_options: Array[Dictionary] = []
 var _elite_spawned: Array[bool] = [false, false, false]
 var _boss: LowpolyEnemy
 var _boss_started: bool = false
+var _dying_enemies: Array[LowpolyEnemy] = []
 var _initialized: bool = false
 
 
@@ -179,6 +180,7 @@ func simulate_step(delta: float, input_vector: Vector2 = Vector2.ZERO) -> void:
 	_update_projectiles(delta)
 	_update_pickups(delta)
 	_update_effects(delta)
+	_update_dying_enemies(delta)
 	time_changed.emit(_elapsed, maxf(duration - _elapsed, 0.0))
 
 
@@ -214,6 +216,7 @@ func get_debug_snapshot() -> Dictionary:
 		"level": _level,
 		"experience": _experience,
 		"regular_enemies": _regular_enemy_count(),
+		"dying_enemies": _dying_enemies.size(),
 		"enemy_projectiles": _enemy_projectile_pool.get_active_count(),
 		"player_projectiles": _player_projectile_pool.get_active_count(),
 		"pickups": _pickup_pool.get_active_count(),
@@ -284,10 +287,13 @@ func _create_player_and_weapons() -> void:
 	_player = LowpolyPlayer.new()
 	_player.name = "Player"
 	_actors.add_child(_player)
+	var player_config: Dictionary = _balance.get_player_config()
+	var animation_profile := StringName(player_config.get("animation_profile", "player"))
 	_player.setup(
-		_balance.get_player_config(),
+		player_config,
 		float(_run_config.get("arena_half_extent", 78.0)),
-		String(_balance.get_weapon_config(&"pulse_rifle").get("model_path", ""))
+		String(_balance.get_weapon_config(&"pulse_rifle").get("model_path", "")),
+		_balance.get_animation_config(animation_profile)
 	)
 	_player.health_changed.connect(_on_player_health_changed)
 	_player.died.connect(_on_player_died)
@@ -360,6 +366,7 @@ func _set_state(next_state: RunState) -> void:
 		return
 	var previous: RunState = _state
 	_state = next_state
+	_set_actor_animations_paused(_state == RunState.LEVEL_UP or _state == RunState.PAUSED)
 	state_changed.emit(int(previous), int(_state))
 
 
@@ -404,9 +411,12 @@ func _spawn_enemy(
 	var position: Vector3 = _random_spawn_position()
 	if forced_position is Vector3:
 		position = forced_position as Vector3
+	var config: Dictionary = _balance.get_enemy_config(enemy_id)
+	var animation_profile := StringName(config.get("animation_profile", String(enemy_id)))
 	var instance: Node = pool.acquire({
 		"enemy_id": enemy_id,
-		"config": _balance.get_enemy_config(enemy_id),
+		"config": config,
+		"animation_config": _balance.get_animation_config(animation_profile),
 		"player": _player,
 		"elite": elite,
 		"boss": enemy_id == &"final_boss",
@@ -431,6 +441,20 @@ func _update_enemies(delta: float) -> void:
 	for enemy: LowpolyEnemy in _active_enemies():
 		var nearby: Array[Node3D] = _spatial_grid.query_radius(enemy.global_position, 3.0)
 		enemy.update_enemy(delta, nearby)
+
+
+func _update_dying_enemies(delta: float) -> void:
+	for index: int in range(_dying_enemies.size() - 1, -1, -1):
+		var enemy: LowpolyEnemy = _dying_enemies[index]
+		if not is_instance_valid(enemy):
+			_dying_enemies.remove_at(index)
+			continue
+		if not enemy.advance_death(delta):
+			continue
+		var pool: LowpolyObjectPool = _enemy_pools.get(enemy.enemy_id) as LowpolyObjectPool
+		if pool != null:
+			pool.release(enemy)
+		_dying_enemies.remove_at(index)
 
 
 func _update_projectiles(delta: float) -> void:
@@ -582,6 +606,7 @@ func _required_experience_for_level(level: int) -> int:
 
 
 func _release_all_entities() -> void:
+	_dying_enemies.clear()
 	for value: Variant in _enemy_pools.values():
 		var pool: LowpolyObjectPool = value as LowpolyObjectPool
 		if pool != null:
@@ -610,9 +635,8 @@ func _on_enemy_died(enemy: LowpolyEnemy, reward: int) -> void:
 		return
 	var was_boss: bool = enemy == _boss
 	var death_position: Vector3 = enemy.global_position
-	var pool: LowpolyObjectPool = _enemy_pools.get(enemy.enemy_id) as LowpolyObjectPool
-	if pool != null:
-		pool.release(enemy)
+	if not _dying_enemies.has(enemy):
+		_dying_enemies.append(enemy)
 	spawn_effect(death_position + Vector3.UP * 0.5, 1.0 if not was_boss else 3.0, Color(1.0, 0.4, 0.12), 0.3)
 	_kills += 1
 	kill_count_changed.emit(_kills)
@@ -630,6 +654,19 @@ func _on_enemy_died(enemy: LowpolyEnemy, reward: int) -> void:
 				"amount": 18,
 				"position": death_position + Vector3(0.4, 0.0, 0.0),
 			})
+
+
+func _set_actor_animations_paused(value: bool) -> void:
+	if is_instance_valid(_player):
+		_player.set_animation_paused(value)
+	for pool_value: Variant in _enemy_pools.values():
+		var pool := pool_value as LowpolyObjectPool
+		if pool == null:
+			continue
+		for node: Node in pool.get_active_nodes():
+			var enemy := node as LowpolyEnemy
+			if enemy != null:
+				enemy.set_animation_paused(value)
 
 
 func _on_enemy_damage_player_requested(amount: float) -> void:

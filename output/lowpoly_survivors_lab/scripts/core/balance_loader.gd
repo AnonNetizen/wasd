@@ -10,6 +10,9 @@ const REQUIRED_PASSIVE_IDS: Array[String] = [
 	"passive_damage", "passive_cooldown", "passive_move_speed",
 	"passive_max_health", "passive_pickup_range"
 ]
+const REQUIRED_ANIMATION_PROFILE_IDS: Array[String] = [
+	"player", "enemy_small", "enemy_flying", "enemy_large", "enemy_fox_mech", "final_boss"
+]
 
 var _data: Dictionary = {}
 var _errors: PackedStringArray = []
@@ -60,6 +63,10 @@ func get_passive_config(passive_id: StringName) -> Dictionary:
 	return _nested_section("passives", String(passive_id))
 
 
+func get_animation_config(profile_id: StringName) -> Dictionary:
+	return _nested_section("animations", String(profile_id))
+
+
 func get_stages() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in _data.get("stages", []):
@@ -95,7 +102,7 @@ func _nested_section(section: String, key: String) -> Dictionary:
 
 func _validate() -> void:
 	_require_int("schema_version", 1, 1)
-	for section: String in ["run", "player", "enemies", "weapons", "passives", "experience"]:
+	for section: String in ["run", "player", "enemies", "weapons", "passives", "animations", "experience"]:
 		_require_dictionary(section)
 	_validate_run()
 	_validate_player()
@@ -103,6 +110,7 @@ func _validate() -> void:
 	_validate_enemies()
 	_validate_upgrades("weapons", REQUIRED_WEAPON_IDS)
 	_validate_upgrades("passives", REQUIRED_PASSIVE_IDS)
+	_validate_animation_profiles()
 	var experience: Dictionary = _section("experience")
 	_require_positive_number_in(experience, "experience", "base_required")
 	_require_positive_number_in(experience, "experience", "growth")
@@ -141,6 +149,7 @@ func _validate_player() -> void:
 	for key: String in ["max_health", "move_speed", "pickup_radius", "contact_invulnerability"]:
 		_require_positive_number_in(player, "player", key)
 	_require_resource_in(player, "player", "model_path")
+	_require_animation_profile_in(player, "player")
 
 
 func _validate_stages() -> void:
@@ -189,6 +198,7 @@ func _validate_enemies() -> void:
 		_require_nonnegative_int_in(config, "enemies.%s" % enemy_id, "xp")
 		_require_positive_int_in(config, "enemies.%s" % enemy_id, "pool")
 		_require_resource_in(config, "enemies.%s" % enemy_id, "model_path")
+		_require_animation_profile_in(config, "enemies.%s" % enemy_id)
 		if enemy_id == "enemy_flying":
 			_require_positive_number_in(config, "enemies.%s" % enemy_id, "flying_height")
 		if enemy_id == "enemy_fox_mech" or enemy_id == "final_boss":
@@ -223,6 +233,26 @@ func _validate_upgrades(section_name: String, required_ids: Array[String]) -> vo
 			_require_positive_number_in(config, "%s.%s" % [section_name, item_id], "per_level")
 
 
+func _validate_animation_profiles() -> void:
+	var animations: Dictionary = _section("animations")
+	for profile_id: String in REQUIRED_ANIMATION_PROFILE_IDS:
+		var value: Variant = animations.get(profile_id)
+		if not value is Dictionary:
+			_errors.append("animations.%s must be an object" % profile_id)
+			continue
+		var profile := value as Dictionary
+		var required_states: Array[String] = ["idle", "move", "hit", "death"]
+		required_states.append("fire" if profile_id == "player" else "attack")
+		if profile_id == "final_boss":
+			required_states.append_array(["attack_aimed", "attack_radial", "summon"])
+		for state: String in required_states:
+			_require_nonempty_string_in(profile, "animations.%s" % profile_id, state)
+		for key: String in ["blend_seconds", "move_speed_scale", "hit_cooldown"]:
+			_require_positive_number_in(profile, "animations.%s" % profile_id, key)
+		if profile_id != "player":
+			_require_positive_number_in(profile, "animations.%s" % profile_id, "death_hold")
+
+
 func _require_dictionary(key: String) -> void:
 	if not _data.get(key) is Dictionary:
 		_errors.append("%s must be an object" % key)
@@ -250,6 +280,22 @@ func _require_nonnegative_int_in(data: Dictionary, path: String, key: String) ->
 	var value: Variant = data.get(key)
 	if not _is_integral_number(value) or int(value) < 0:
 		_errors.append("%s.%s must be a nonnegative integer" % [path, key])
+
+
+func _require_nonempty_string_in(data: Dictionary, path: String, key: String) -> void:
+	var value: Variant = data.get(key)
+	if not value is String or String(value).is_empty():
+		_errors.append("%s.%s must be a non-empty string" % [path, key])
+
+
+func _require_animation_profile_in(data: Dictionary, path: String) -> void:
+	var value: Variant = data.get("animation_profile")
+	if not value is String or String(value).is_empty():
+		_errors.append("%s.animation_profile must be a non-empty string" % path)
+		return
+	var animations: Dictionary = _section("animations")
+	if not animations.get(String(value)) is Dictionary:
+		_errors.append("%s.animation_profile references an unknown profile: %s" % [path, value])
 
 
 func _is_integral_number(value: Variant) -> bool:

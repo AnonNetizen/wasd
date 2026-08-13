@@ -124,6 +124,7 @@ func _update_pulse_rifle() -> void:
 	direction.y = 0.0
 	if direction.is_zero_approx():
 		return
+	_player.play_fire_animation()
 	var projectile_count: int = 1 + (1 if level >= 3 else 0) + (1 if level >= 5 else 0)
 	var pierce: int = 1 if level >= 4 else 0
 	var damage: float = float(config.get("base_damage", 13.0)) * (1.0 + 0.22 * (level - 1))
