@@ -4672,6 +4672,7 @@ func _expect_reward_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
 	await _verify_title_settings_entry(title_menu)
 	_verify_no_meta_progression_entry(title_menu)
+	_verify_local_mod_entry_hidden(title_menu)
 	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending reward-choice run")
 	if continue_button == null:
 		return {
@@ -5232,6 +5233,16 @@ func _click_button(button: Button) -> void:
 func _verify_no_meta_progression_entry(title_menu: Node) -> void:
 	_expect(_find_node_by_name(title_menu, "MetaProfileSummaryLabel") == null, "title menu should not show legacy meta summary")
 	_expect(_find_node_by_name(title_menu, "MetaProgressionButton") == null, "title menu should not expose the legacy meta progression entry")
+
+
+func _verify_local_mod_entry_hidden(title_menu: Node) -> void:
+	var mods_button: Button = _find_node_by_name(title_menu, "ModsButton") as Button
+	_expect(mods_button != null, "title menu should retain the internal local Mod button")
+	if mods_button == null:
+		return
+	_expect(not mods_button.visible, "title menu should hide the local Mod entry")
+	_expect(mods_button.disabled, "hidden local Mod entry should remain disabled")
+	_expect(mods_button.focus_mode == Control.FOCUS_NONE, "hidden local Mod entry should not accept navigation focus")
 
 
 func _verify_title_settings_entry(title_menu: Node) -> void:
