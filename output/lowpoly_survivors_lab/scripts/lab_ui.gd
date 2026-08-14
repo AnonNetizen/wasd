@@ -50,6 +50,7 @@ var _upgrade_cards: HBoxContainer
 var _result_title: Label
 var _result_summary: Label
 var _status_label: Label
+var _controls_label: Label
 var _start_button: Button
 var _resume_button: Button
 var _restart_button: Button
@@ -64,6 +65,7 @@ var _ready_button: Button
 var _lobby_start_button: Button
 var _teammates_label: Label
 var _network_label: Label
+var _connection_diagnostic_label: Label
 var _pause_title: Label
 var _pause_hint: Label
 var _touch_controls: Control
@@ -74,6 +76,8 @@ var _touch_menu_button: Button
 var _local_menu_open: bool = false
 var _online_mode: bool = false
 var _local_ready: bool = false
+var _current_state: int = RunState.MENU
+var _touch_controls_override: int = -1
 
 
 func _ready() -> void:
@@ -90,11 +94,13 @@ func _ready() -> void:
 
 
 func show_state(state: int) -> void:
+	_current_state = state
 	_menu_layer.visible = state == RunState.MENU and not _lobby_layer.visible
 	_hud_layer.visible = state != RunState.MENU
 	_pause_layer.visible = state == RunState.PAUSED or _local_menu_open
 	_upgrade_layer.visible = state == RunState.LEVEL_UP
 	_result_layer.visible = state == RunState.VICTORY or state == RunState.DEFEAT
+	_update_touch_controls_visibility()
 	if state == RunState.MENU:
 		_boss_panel.visible = false
 		_start_button.grab_focus.call_deferred()
@@ -204,6 +210,7 @@ func show_lobby(snapshot: Dictionary, local_user_id: String) -> void:
 	_lobby_layer.visible = true
 	_menu_layer.visible = false
 	_hud_layer.visible = false
+	_update_touch_controls_visibility()
 	_lobby_code_label.text = "房间码  %s" % String(snapshot.get("room_code", "------"))
 	var host_id := String(snapshot.get("host_user_id", ""))
 	var rows: Array[String] = []
@@ -235,6 +242,7 @@ func show_lobby(snapshot: Dictionary, local_user_id: String) -> void:
 
 func hide_lobby() -> void:
 	_lobby_layer.visible = false
+	_update_touch_controls_visibility()
 
 
 func set_online_status(message: String, is_error: bool = false) -> void:
@@ -244,10 +252,16 @@ func set_online_status(message: String, is_error: bool = false) -> void:
 		_lobby_status_label.add_theme_color_override("font_color", COLOR_WARNING if is_error else COLOR_MUTED)
 
 
+func set_connection_diagnostic(message: String) -> void:
+	if _connection_diagnostic_label != null:
+		_connection_diagnostic_label.text = message
+
+
 func show_local_menu(visible: bool, online: bool = false) -> void:
 	_local_menu_open = visible
 	_online_mode = online
 	_pause_layer.visible = visible
+	_update_touch_controls_visibility()
 	if visible:
 		_resume_button.grab_focus.call_deferred()
 		if _pause_title != null:
@@ -303,14 +317,15 @@ func _build_menu() -> void:
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(subtitle)
 	box.add_child(_spacer(10.0))
-	var controls := _new_label(
-		"WASD / 方向键 / 左摇杆：移动\n武器会自动锁定敌人并开火\nEsc / 手柄 Start：暂停",
+	_controls_label = _new_label(
+		"",
 		18,
 		COLOR_TEXT
 	)
-	controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	controls.add_theme_constant_override("line_spacing", 7)
-	box.add_child(controls)
+	_controls_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_controls_label.add_theme_constant_override("line_spacing", 7)
+	box.add_child(_controls_label)
+	_refresh_controls_hint()
 	box.add_child(_spacer(8.0))
 	_display_name_edit = LineEdit.new()
 	_display_name_edit.placeholder_text = "昵称（最多 16 字）"
@@ -406,6 +421,12 @@ func _build_hud() -> void:
 	_network_label.custom_minimum_size.x = 230.0
 	_network_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hud_layer.add_child(_network_label)
+	_connection_diagnostic_label = _new_label("", 14, COLOR_MUTED)
+	_connection_diagnostic_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_connection_diagnostic_label.position = Vector2(-610.0, 210.0)
+	_connection_diagnostic_label.custom_minimum_size.x = 580.0
+	_connection_diagnostic_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hud_layer.add_child(_connection_diagnostic_label)
 
 	_boss_margin = MarginContainer.new()
 	_boss_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -546,24 +567,84 @@ func _build_lobby() -> void:
 func _build_touch_controls() -> void:
 	_touch_controls = Control.new()
 	_touch_controls.name = "TouchControls"
-	_touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_touch_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_layer.add_child(_touch_controls)
+	_touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_touch_joystick = LowpolyTouchJoystick.new()
-	_touch_joystick.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_touch_joystick.position = Vector2(42.0, -220.0)
-	_touch_joystick.vector_changed.connect(func(value: Vector2) -> void: touch_input_changed.emit(value))
+	_touch_joystick.name = "MovementJoystick"
 	_touch_controls.add_child(_touch_joystick)
+	_touch_joystick.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_touch_joystick.vector_changed.connect(func(value: Vector2) -> void: touch_input_changed.emit(value))
 	_touch_menu_button = _new_button("菜单", Vector2(132.0, 58.0))
-	_touch_menu_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_touch_menu_button.position = Vector2(-160.0, 210.0)
-	_touch_menu_button.pressed.connect(_on_resume_pressed)
+	_touch_menu_button.name = "LocalMenuButton"
 	_touch_controls.add_child(_touch_menu_button)
-	_touch_controls.visible = OS.has_feature("mobile") or OS.get_name() == "Android"
+	_touch_menu_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_touch_menu_button.pressed.connect(_on_resume_pressed)
+	_layout_touch_controls(16.0, 12.0, 16.0, 12.0)
+	_update_touch_controls_visibility()
+
+
+func set_touch_controls_enabled_for_test(enabled: bool) -> void:
+	_touch_controls_override = 1 if enabled else 0
+	_refresh_controls_hint()
+	_update_touch_controls_visibility()
+
+
+func are_touch_controls_visible() -> bool:
+	return _touch_controls != null and _touch_controls.is_visible_in_tree()
+
+
+func _is_touch_device() -> bool:
+	if _touch_controls_override >= 0:
+		return _touch_controls_override == 1
+	return (
+		OS.get_name() == "Android"
+		or OS.has_feature("mobile")
+		or DisplayServer.is_touchscreen_available()
+	)
+
+
+func _refresh_controls_hint() -> void:
+	if _controls_label == null:
+		return
+	_controls_label.text = (
+		"左下虚拟摇杆：移动\n武器会自动锁定敌人并开火\n右上“菜单”：打开本地菜单"
+		if _is_touch_device()
+		else "WASD / 方向键 / 左摇杆：移动\n武器会自动锁定敌人并开火\nEsc / 手柄 Start：暂停"
+	)
+
+
+func _update_touch_controls_visibility() -> void:
+	if _touch_controls == null:
+		return
+	var should_show := (
+		_is_touch_device()
+		and _current_state == RunState.RUNNING
+		and not _local_menu_open
+		and (_lobby_layer == null or not _lobby_layer.visible)
+	)
+	_touch_controls.visible = should_show
+	if not should_show and _touch_joystick != null:
+		_touch_joystick.reset_input()
+
+
+func _layout_touch_controls(left: float, top: float, right: float, bottom: float) -> void:
+	if _touch_joystick != null:
+		var joystick_size := _touch_joystick.custom_minimum_size
+		_touch_joystick.offset_left = 42.0 + left
+		_touch_joystick.offset_top = -220.0 - bottom
+		_touch_joystick.offset_right = _touch_joystick.offset_left + joystick_size.x
+		_touch_joystick.offset_bottom = _touch_joystick.offset_top + joystick_size.y
+	if _touch_menu_button != null:
+		var menu_size := _touch_menu_button.custom_minimum_size
+		_touch_menu_button.offset_left = -160.0 - right
+		_touch_menu_button.offset_top = 210.0 + top
+		_touch_menu_button.offset_right = _touch_menu_button.offset_left + menu_size.x
+		_touch_menu_button.offset_bottom = _touch_menu_button.offset_top + menu_size.y
 
 
 func _apply_mobile_safe_area() -> void:
-	if not (OS.has_feature("mobile") or OS.get_name() == "Android"):
+	if not _is_touch_device():
 		return
 	var screen_size := Vector2(DisplayServer.screen_get_size())
 	var safe := DisplayServer.get_display_safe_area()
@@ -589,10 +670,9 @@ func _apply_mobile_safe_area() -> void:
 		_teammates_label.position = Vector2(28.0 + left, 142.0 + top)
 	if _network_label != null:
 		_network_label.position = Vector2(-260.0 - right, 142.0 + top)
-	if _touch_joystick != null:
-		_touch_joystick.position = Vector2(42.0 + left, -220.0 - bottom)
-	if _touch_menu_button != null:
-		_touch_menu_button.position = Vector2(-160.0 - right, 210.0 + top)
+	if _connection_diagnostic_label != null:
+		_connection_diagnostic_label.position = Vector2(-610.0 - right, 210.0 + top)
+	_layout_touch_controls(left, top, right, bottom)
 
 
 func _new_full_control(node_name: String) -> Control:

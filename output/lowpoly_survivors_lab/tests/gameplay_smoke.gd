@@ -24,6 +24,7 @@ func _check(condition: bool, label: String) -> void:
 
 func _run() -> void:
 	_check_assets()
+	_check_eosg_mesh_api()
 	_check_balance_loader()
 	_check_input_map()
 	await _check_main_scene()
@@ -59,6 +60,37 @@ func _check_assets() -> void:
 		_check(ResourceLoader.exists(path), "asset %s imports" % public_id)
 	for public_id: String in EXPECTED_ASSET_IDS:
 		_check(found_ids.has(public_id), "asset %s is declared" % public_id)
+
+
+func _check_eosg_mesh_api() -> void:
+	_check(
+		ClassDB.class_has_method(&"EOSGMultiplayerPeer", &"create_mesh"),
+		"bundled EOSG exposes create_mesh"
+	)
+	_check(
+		ClassDB.class_has_method(&"EOSGMultiplayerPeer", &"add_mesh_peer"),
+		"bundled EOSG exposes add_mesh_peer"
+	)
+	var star_room := {
+		"host_user_id": "host",
+		"locked": true,
+		"members": [{"user_id": "host"}, {"user_id": "client-a"}, {"user_id": "client-b"}],
+		"metadata": {"match_data": {"roster": [
+			{"user_id": "host"}, {"user_id": "client-a"}, {"user_id": "client-b"},
+		]}},
+	}
+	_check(
+		LowpolyTransport.is_star_connection_allowed(
+			"host", "host", "host", "client-a", star_room
+		),
+		"logical host accepts a locked roster member"
+	)
+	_check(
+		not LowpolyTransport.is_star_connection_allowed(
+			"client", "client-a", "host", "client-b", star_room
+		),
+		"logical client rejects a non-host mesh edge"
+	)
 
 
 func _check_balance_loader() -> void:
@@ -201,6 +233,69 @@ func _check_main_scene() -> void:
 	installed_director.start_run(47_013)
 	_check(not main.get_node("LabUI/MenuLayer").visible, "running state hides the title dimmer")
 	var installed_player := installed_director.get_player()
+	var lab_ui := main.get_node("LabUI") as LowpolyLabUI
+	lab_ui.set_touch_controls_enabled_for_test(true)
+	_check(lab_ui.are_touch_controls_visible(), "mobile gameplay shows the touch HUD")
+	var touch_joystick := main.get_node_or_null(
+		"LabUI/HudLayer/TouchControls/MovementJoystick"
+	) as LowpolyTouchJoystick
+	var touch_menu_button := main.get_node_or_null(
+		"LabUI/HudLayer/TouchControls/LocalMenuButton"
+	) as Button
+	_check(touch_joystick != null and touch_menu_button != null, "touch HUD exposes movement and menu controls")
+	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
+	if touch_joystick != null:
+		var joystick_rect := touch_joystick.get_global_rect()
+		_check(
+			viewport_rect.has_point(joystick_rect.get_center())
+			and joystick_rect.get_center().x < viewport_size.x * 0.5
+			and joystick_rect.get_center().y > viewport_size.y * 0.5,
+			"touch joystick is visibly placed in the lower-left viewport"
+		)
+	if touch_menu_button != null:
+		var menu_rect := touch_menu_button.get_global_rect()
+		_check(
+			viewport_rect.has_point(menu_rect.get_center())
+			and menu_rect.get_center().x > viewport_size.x * 0.5,
+			"touch menu button is visibly placed in the right viewport"
+		)
+	if touch_joystick != null:
+		var joystick_center := touch_joystick.get_global_rect().get_center()
+		var touch_press := InputEventScreenTouch.new()
+		touch_press.index = 3
+		touch_press.position = joystick_center + Vector2(42.0, 0.0)
+		touch_press.pressed = true
+		touch_joystick.call("_gui_input", touch_press)
+		_check(touch_joystick.get_value().x > 0.1, "screen touch coordinates drive the joystick knob")
+		var touch_drag := InputEventScreenDrag.new()
+		touch_drag.index = 3
+		touch_drag.position = joystick_center + Vector2(0.0, -42.0)
+		touch_joystick.call("_input", touch_drag)
+		_check(touch_joystick.get_value().y < -0.1, "captured finger drag updates outside GUI dispatch")
+		var touch_release := InputEventScreenTouch.new()
+		touch_release.index = 3
+		touch_release.position = touch_drag.position
+		touch_release.pressed = false
+		touch_joystick.call("_input", touch_release)
+		_check(touch_joystick.get_value().is_zero_approx(), "finger release stops touch movement")
+		var touch_start := installed_player.global_position
+		touch_joystick.set_value_for_test(Vector2(3.0, 0.0))
+		installed_director.call("_physics_process", 0.25)
+		_check(
+			installed_player.global_position.x > touch_start.x + 0.1,
+			"touch joystick drives offline single-player movement"
+		)
+		_check(touch_joystick.get_value().length() <= 1.001, "touch joystick input is normalized")
+		touch_joystick.reset_input()
+	if touch_menu_button != null:
+		touch_menu_button.pressed.emit()
+		_check(
+			installed_director.get_state() == LowpolyRunDirector.RunState.PAUSED,
+			"touch menu button pauses offline play"
+		)
+		_check(not lab_ui.are_touch_controls_visible(), "pause hides and releases the touch joystick")
+		main.call("_toggle_pause")
+		_check(lab_ui.are_touch_controls_visible(), "resuming restores the touch HUD")
 	var installed_player_shape := installed_player.get_node_or_null("CollisionShape") as CollisionShape3D
 	_check(installed_player_shape != null and installed_player_shape.shape is CapsuleShape3D, "player has a capsule collider")
 	_check(
@@ -549,15 +644,46 @@ func _check_online_multiplayer() -> void:
 	for session: LowpolyOnlineSession in sessions:
 		_check(session.set_ready(true), "lobby member can become ready")
 	_check(host.can_start_match(), "host can start only after every member is ready")
+	transports[3].drop_peer_connections_before_success = 1
 	_check(host.start_match(880041), "host locks lobby and starts match")
 	_check(
 		String(host.get_match_data().get("socket", "")) == "LPS%s" % room_code,
 		"match socket uses the EOS-compatible alphanumeric format"
 	)
+	_check(
+		sessions[3].get_state() == LowpolyOnlineSession.State.CONNECTING,
+		"slow Android-style client waits for the real P2P peer connection"
+	)
+	_check(
+		not transports[3].diagnostic_history.has(&"PEER_READY"),
+		"client does not enter the match before mesh peer-id mapping"
+	)
+	_check(sessions[3].force_initial_connect_retry_for_test(), "slow client triggers a bounded P2P retry")
+	_check(transports[3].connect_attempt_count == 2, "dropped Android-style handshake is retried once")
+	_check(transports[3].peer_reset_count == 1, "retry closes the stale mesh before rebuilding")
+	_check(
+		transports[3].diagnostic_history.has(&"MESH_CREATED")
+		and transports[3].diagnostic_history.has(&"REQUEST_SENT")
+		and transports[3].diagnostic_history.has(&"EOS_LINK_UP")
+		and transports[3].diagnostic_history.has(&"PEER_READY"),
+		"mesh handshake publishes every client diagnostic stage"
+	)
 	for session: LowpolyOnlineSession in sessions:
 		_check(session.get_state() == LowpolyOnlineSession.State.IN_MATCH, "all fake clients enter match")
 		_check(int(session.get_match_data().get("difficulty_players", 0)) == 4, "start roster locks four-player difficulty")
 	_check(bool(host.get_room_snapshot().get("locked", false)), "started lobby is locked")
+	_check(
+		not transports[0].simulate_incoming_connection_request_for_test("unknown-player"),
+		"logical host rejects an unknown PUID"
+	)
+	_check(
+		not transports[1].simulate_incoming_connection_request_for_test("p3"),
+		"logical client rejects a connection from another client"
+	)
+	_check(
+		transports[1].simulate_incoming_connection_request_for_test("p1"),
+		"logical client accepts only the current host"
+	)
 
 	var late_session := LowpolyOnlineSession.new()
 	root.add_child(late_session)
@@ -669,6 +795,39 @@ func _check_online_multiplayer() -> void:
 		session.queue_free()
 	LowpolyFakeTransport.reset_bus_for_tests()
 	await process_frame
+	await _check_mesh_timeout()
+
+
+func _check_mesh_timeout() -> void:
+	LowpolyFakeTransport.reset_bus_for_tests()
+	var host := LowpolyOnlineSession.new()
+	var client := LowpolyOnlineSession.new()
+	root.add_child(host)
+	root.add_child(client)
+	var host_transport := LowpolyFakeTransport.new()
+	host_transport.forced_user_id = "timeout-host"
+	var client_transport := LowpolyFakeTransport.new()
+	client_transport.forced_user_id = "timeout-client"
+	client_transport.drop_peer_connections_before_success = 99
+	host.initialize_online("超时房主", host_transport)
+	client.initialize_online("超时客机", client_transport)
+	host.create_room()
+	var code := String(host.get_room_snapshot().get("room_code", ""))
+	client.join_room(code)
+	host.set_ready(true)
+	client.set_ready(true)
+	_check(host.start_match(250025), "timeout fixture starts a locked match")
+	_check(client.get_state() == LowpolyOnlineSession.State.CONNECTING, "timeout client remains in CONNECTING")
+	_check(client.force_initial_connect_retry_for_test(), "timeout client performs retry two")
+	_check(client.force_initial_connect_retry_for_test(), "timeout client performs retry three")
+	_check(client.force_initial_connect_retry_for_test(), "timeout client exhausts the bounded handshake")
+	_check(client.get_state() == LowpolyOnlineSession.State.ERROR, "three failed mesh attempts end in ERROR")
+	_check(client_transport.connect_attempt_count == 3, "mesh timeout performs exactly three attempts")
+	_check(client_transport.peer_reset_count == 3, "each retry or terminal failure closes the mesh")
+	host.queue_free()
+	client.queue_free()
+	LowpolyFakeTransport.reset_bus_for_tests()
+	await process_frame
 
 
 func _check_network_authority_core() -> void:
@@ -744,6 +903,57 @@ func _check_network_authority_core() -> void:
 	var stale_snapshot := current_snapshot.duplicate(true)
 	stale_snapshot["tick"] = 499
 	_check(not client_view.apply_network_snapshot(stale_snapshot), "client rejects an out-of-order world snapshot")
+	director.simulate_network_step(1.1, {0: Vector2.ZERO, 1: Vector2.ZERO, 2: Vector2.ZERO})
+	var segmented_snapshot := director.make_network_snapshot(Vector3.ZERO, 100.0)
+	var segmented_view := LowpolyRunDirector.new()
+	root.add_child(segmented_view)
+	await process_frame
+	segmented_view.start_network_run(match_data, "p3", false)
+	var core_snapshot := segmented_snapshot.duplicate(false)
+	for category: String in ["enemies", "player_projectiles", "enemy_projectiles", "pickups"]:
+		core_snapshot.erase(category)
+	_check(
+		segmented_view.apply_network_core_snapshot(core_snapshot),
+		"mobile client accepts a small authoritative clock snapshot"
+	)
+	_check(
+		is_equal_approx(
+			float(segmented_view.get_debug_snapshot().get("elapsed", -1.0)),
+			float(segmented_snapshot.get("elapsed", -2.0))
+		),
+		"segmented clock snapshot advances client time"
+	)
+	var segmented_enemies: Array = segmented_snapshot.get("enemies", [])
+	_check(not segmented_enemies.is_empty(), "segmented replication fixture contains enemies")
+	_check(
+		segmented_view.apply_network_entity_batch(
+			&"enemies",
+			segmented_enemies,
+			int(segmented_snapshot.get("tick", 0))
+		),
+		"mobile client accepts batched enemy state"
+	)
+	_check(
+		int(segmented_view.get_debug_snapshot().get("regular_enemies", 0)) > 0,
+		"batched enemy state creates visible client enemies"
+	)
+	if not segmented_enemies.is_empty() and segmented_enemies[0] is Dictionary:
+		var removed_entity_id := int((segmented_enemies[0] as Dictionary).get("entity_id", 0))
+		var removal_tick := int(segmented_snapshot.get("tick", 0)) + 1
+		segmented_view.apply_network_entity_delta({
+			"tick": removal_tick,
+			"spawned": [],
+			"removed": [removed_entity_id],
+		})
+		segmented_view.apply_network_entity_batch(
+			&"enemies",
+			[segmented_enemies[0]],
+			int(segmented_snapshot.get("tick", 0))
+		)
+		_check(
+			not bool(segmented_view.call("_has_network_entity", removed_entity_id)),
+			"stale unordered enemy batch cannot resurrect a reliably removed entity"
+		)
 	var client_session := LowpolyOnlineSession.new()
 	root.add_child(client_session)
 	var prediction_bridge := LowpolyNetworkRunBridge.new()
@@ -853,6 +1063,7 @@ func _check_network_authority_core() -> void:
 
 	bridge.queue_free()
 	validation_session.queue_free()
+	segmented_view.queue_free()
 	client_view.queue_free()
 	replica.queue_free()
 	director.queue_free()

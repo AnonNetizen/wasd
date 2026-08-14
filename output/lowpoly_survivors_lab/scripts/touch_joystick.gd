@@ -12,8 +12,23 @@ var _value: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(radius * 2.0, radius * 2.0)
+	size = custom_minimum_size
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	queue_redraw()
+
+
+func _input(event: InputEvent) -> void:
+	if _touch_index < 0:
+		return
+	if event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if drag.index == _touch_index:
+			_update_value(_screen_to_local(drag.position))
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if not touch.pressed and touch.index == _touch_index:
+			_touch_index = -1
+			_set_value(Vector2.ZERO)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -21,16 +36,12 @@ func _gui_input(event: InputEvent) -> void:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed and _touch_index < 0:
 			_touch_index = touch.index
-			_update_value(touch.position)
-		elif not touch.pressed and touch.index == _touch_index:
-			_touch_index = -1
-			_set_value(Vector2.ZERO)
-	elif event is InputEventScreenDrag and (event as InputEventScreenDrag).index == _touch_index:
-		_update_value((event as InputEventScreenDrag).position)
+			_update_value(_screen_to_local(touch.position))
+			accept_event()
 	elif event is InputEventMouseButton:
 		var mouse_button := event as InputEventMouseButton
 		if mouse_button.button_index == MOUSE_BUTTON_LEFT:
-			if mouse_button.pressed:
+			if mouse_button.pressed and _touch_index < 0:
 				_touch_index = -2
 				_update_value(mouse_button.position)
 			elif _touch_index == -2:
@@ -38,6 +49,28 @@ func _gui_input(event: InputEvent) -> void:
 				_set_value(Vector2.ZERO)
 	elif event is InputEventMouseMotion and _touch_index == -2:
 		_update_value((event as InputEventMouseMotion).position)
+
+
+func reset_input() -> void:
+	_touch_index = -1
+	_set_value(Vector2.ZERO)
+
+
+func set_value_for_test(value: Vector2) -> void:
+	_set_value(value)
+
+
+func get_value() -> Vector2:
+	return _value
+
+
+func _screen_to_local(screen_position: Vector2) -> Vector2:
+	return get_global_transform_with_canvas().affine_inverse() * screen_position
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
+		reset_input()
 
 
 func _draw() -> void:

@@ -6,10 +6,20 @@ const DEFAULT_BORDER_WIDTH: float = 12.0
 const MIN_BORDER_WIDTH: float = 2.0
 const MAX_BORDER_WIDTH: float = 30.0
 const BORDER_WIDTH_STEP: float = 2.0
+const BORDER_PULSE_WIDTH: float = 0.9
+const BORDER_BASE_COLOR := Color(0.48, 0.82, 0.58, 1.0)
+const BORDER_HIGHLIGHT_COLOR := Color(0.72, 1.0, 0.72, 1.0)
+const BREATH_SPEED: float = 1.05
+const HORIZONTAL_SWAY: float = 34.0
+const VERTICAL_FLOAT: float = 12.0
+const MAX_TILT_DEGREES: float = 2.3
+const GROUND_SHADOW_Y: float = 645.0
+const AMBIENT_MOTE_COUNT: int = 3
 const INDEX_SCENE_PATH: String = "res://scenes/test_lab_index.tscn"
 const PEAR_SHAPE_SCRIPT := preload("res://scripts/svg_curve_outline_shape.gd")
 const VIEWPORT_SIZE := Vector2(1280.0, 760.0)
 
+var _base_border_width: float = DEFAULT_BORDER_WIDTH
 var _curve_shape: TestLabSvgCurveOutlineShape
 var _controls_button: Button
 var _motion_paused: bool = false
@@ -59,6 +69,39 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEWPORT_SIZE), Color(0.005, 0.008, 0.022, 1.0))
+	if _curve_shape == null:
+		return
+
+	var hover_height := clampf(
+		(GROUND_SHADOW_Y - _curve_shape.position.y) / 300.0,
+		0.72,
+		1.08
+	)
+	var shadow_center := Vector2(_curve_shape.position.x, GROUND_SHADOW_Y)
+	var shadow_width: float = 112.0 / hover_height
+	var shadow_height: float = 9.0 / hover_height
+	for layer_index in range(3):
+		var layer_ratio: float = 1.0 - float(layer_index) * 0.19
+		draw_set_transform(
+			shadow_center,
+			0.0,
+			Vector2(shadow_width * layer_ratio, shadow_height * layer_ratio)
+		)
+		draw_circle(
+			Vector2.ZERO,
+			1.0,
+			Color(0.24, 0.68, 0.39, 0.035 + float(layer_index) * 0.018)
+		)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	for mote_index in range(AMBIENT_MOTE_COUNT):
+		var mote_position: Vector2 = _ambient_mote_position(mote_index)
+		var mote_pulse: float = 0.5 + 0.5 * sin(_time * 1.7 + float(mote_index) * 2.1)
+		draw_circle(
+			mote_position,
+			2.2 + mote_pulse * 1.4,
+			Color(0.54, 1.0, 0.64, 0.16 + mote_pulse * 0.20)
+		)
 
 
 func debug_set_preview_time(time_seconds: float) -> void:
@@ -73,14 +116,15 @@ func debug_set_motion_paused(paused: bool) -> void:
 
 
 func debug_set_border_width(width: float) -> void:
-	if _curve_shape != null:
-		_curve_shape.set_border_width(
-			clampf(width, MIN_BORDER_WIDTH, MAX_BORDER_WIDTH) / DISPLAY_SCALE
-		)
-	_update_status()
+	_base_border_width = clampf(width, MIN_BORDER_WIDTH, MAX_BORDER_WIDTH)
+	_update_presentation()
 
 
 func debug_border_width() -> float:
+	return _base_border_width
+
+
+func debug_render_border_width() -> float:
 	return _curve_shape.border_width() * DISPLAY_SCALE if _curve_shape != null else 0.0
 
 
@@ -165,6 +209,18 @@ func debug_curve_display_size() -> Vector2:
 
 func debug_curve_shape_position() -> Vector2:
 	return _curve_shape.position if _curve_shape != null else Vector2.ZERO
+
+
+func debug_curve_shape_rotation() -> float:
+	return _curve_shape.rotation if _curve_shape != null else 0.0
+
+
+func debug_curve_shape_scale() -> Vector2:
+	return _curve_shape.scale if _curve_shape != null else Vector2.ZERO
+
+
+func debug_ambient_mote_count() -> int:
+	return AMBIENT_MOTE_COUNT
 
 
 func debug_perspective_material() -> ShaderMaterial:
@@ -252,7 +308,7 @@ func _add_header(overlay: CanvasLayer) -> void:
 
 	var subtitle := Label.new()
 	subtitle.name = "Subtitle"
-	subtitle.text = "单一 SVG 闭合曲线 · 显示锚点与 Bézier 控制柄 · Line2D 自定义边宽"
+	subtitle.text = "单一 SVG 闭合曲线 · 呼吸浮动与轮缘脉冲 · Bézier 控制柄可视化"
 	subtitle.position = Vector2(32.0, 60.0)
 	subtitle.add_theme_font_size_override("font_size", 16)
 	subtitle.add_theme_color_override("font_color", Color(0.62, 0.76, 0.66, 1.0))
@@ -298,9 +354,9 @@ func _add_info_panel(overlay: CanvasLayer) -> void:
 		+ "• 黄色锚点、青色入柄、粉色出柄\n"
 		+ "• 曲线内部三角化并填透视 Shader\n"
 		+ "• 同一细分曲线生成一个闭合 Line2D\n"
-		+ "• Line2D.width 可独立调节边缘粗细\n\n"
+		+ "• 浮动、微倾、呼吸与轮缘脉冲待机\n\n"
 		+ "没有内外双轮廓、弹簧、面积压力、\n"
-		+ "软体质点、局部形变或额外装饰线。"
+		+ "软体质点、局部曲线形变或额外轮廓。"
 	)
 	description.add_theme_font_size_override("font_size", 16)
 	description.add_theme_color_override("font_color", Color(0.72, 0.82, 0.75, 1.0))
@@ -318,7 +374,7 @@ func _add_info_panel(overlay: CanvasLayer) -> void:
 
 func _add_controls(overlay: CanvasLayer) -> void:
 	var instruction := Label.new()
-	instruction.text = "D 显示 / 隐藏 SVG 锚点与控制柄 · Q / E 调节 Line2D 边宽"
+	instruction.text = "Space 暂停待机动画 · D 显示 / 隐藏控制柄 · Q / E 调节基础边宽"
 	instruction.position = Vector2(140.0, 655.0)
 	instruction.size = Vector2(700.0, 28.0)
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -365,9 +421,25 @@ func _add_button(
 func _update_presentation() -> void:
 	if _curve_shape == null:
 		return
+	var breath_wave: float = sin(_time * BREATH_SPEED + 1.1)
+	var border_pulse: float = 0.5 + 0.5 * sin(_time * 1.4 - 0.35)
 	_curve_shape.position = BASE_POSITION + Vector2(
-		sin(_time * 0.62) * 48.0,
-		sin(_time * 0.41 + 0.6) * 14.0
+		sin(_time * 0.62) * HORIZONTAL_SWAY,
+		sin(_time * 0.82 + 0.6) * VERTICAL_FLOAT
+	)
+	_curve_shape.rotation = deg_to_rad(
+		MAX_TILT_DEGREES
+		* (sin(_time * 0.70) * 0.78 + sin(_time * 0.31) * 0.22)
+	)
+	_curve_shape.scale = Vector2(
+		DISPLAY_SCALE * (1.0 + breath_wave * 0.018),
+		DISPLAY_SCALE * (1.0 - breath_wave * 0.024)
+	)
+	_curve_shape.set_border_width(
+		(_base_border_width + border_pulse * BORDER_PULSE_WIDTH) / DISPLAY_SCALE
+	)
+	_curve_shape.set_border_color(
+		BORDER_BASE_COLOR.lerp(BORDER_HIGHLIGHT_COLOR, border_pulse * 0.72)
 	)
 	_curve_shape.set_animation_time(_time)
 	_update_status()
@@ -382,7 +454,8 @@ func _update_status() -> void:
 		+ "SVG 唯一锚点 / 控制柄  %d / %d\n"
 		+ "贝塞尔段 / 曲线锚点  %d / %d\n"
 		+ "细分点 / 内部三角形  %d / %d\n"
-		+ "当前边宽 / 填充面积匹配  %.1f px / %.2f%%"
+		+ "基础 / 动态边宽  %.1f / %.1f px\n"
+		+ "填充面积匹配 / 待机倾角  %.2f%% / %+.2f°"
 	) % [
 		"固定预览" if _motion_paused else "移动中",
 		"显示" if debug_controls_visible() else "隐藏",
@@ -396,7 +469,9 @@ func _update_status() -> void:
 		debug_tessellated_point_count(),
 		debug_triangle_count(),
 		debug_border_width(),
+		debug_render_border_width(),
 		debug_fill_area_ratio() * 100.0,
+		rad_to_deg(debug_curve_shape_rotation()),
 	]
 
 
@@ -434,6 +509,12 @@ func _to_screen_samples(local_samples: PackedVector2Array) -> PackedVector2Array
 	for local_point in local_samples:
 		screen_samples.append(_curve_shape.to_global(local_point))
 	return screen_samples
+
+
+func _ambient_mote_position(mote_index: int) -> Vector2:
+	var phase: float = _time * (0.46 + float(mote_index) * 0.07) + float(mote_index) * 2.2
+	var orbit := Vector2(cos(phase) * 246.0, sin(phase) * 174.0)
+	return _curve_shape.position + orbit.rotated(_curve_shape.rotation * 0.35)
 
 
 func _on_viewport_size_changed() -> void:

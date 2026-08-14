@@ -136,6 +136,7 @@ func _install_online_bridge() -> void:
 	_session.state_changed.connect(_on_session_state_changed)
 	_session.room_changed.connect(_on_online_room_changed)
 	_session.session_error.connect(_on_online_error)
+	_session.connection_progress.connect(_on_connection_progress)
 	_network_bridge.match_started.connect(_on_online_match_started)
 	_network_bridge.upgrade_offer_received.connect(_on_online_upgrade_offer)
 	_network_bridge.latency_changed.connect(_ui.set_latency)
@@ -344,12 +345,19 @@ func _on_player_roster_changed(roster: Array[Dictionary]) -> void:
 
 
 func _on_touch_input_changed(value: Vector2) -> void:
+	if _director != null and _director.has_method("set_touch_input"):
+		_director.call("set_touch_input", value)
 	if _network_bridge != null:
 		_network_bridge.set_touch_input(value)
 
 
 func _on_online_error(message: String) -> void:
 	_ui.set_online_status(message, true)
+
+
+func _on_connection_progress(message: String) -> void:
+	_ui.set_online_status(message)
+	_ui.set_connection_diagnostic(message)
 
 
 func _on_online_interrupted(message: String) -> void:

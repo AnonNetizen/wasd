@@ -6,8 +6,15 @@ const BUCKET_ID := "LOWPOLY_SURVIVORS_V1"
 const MAX_RPC_CHUNK_BYTES: int = 700
 const MAX_RPC_CHUNKS: int = 1024
 const MAX_UNCOMPRESSED_MESSAGE_BYTES: int = 4 * 1024 * 1024
-const MAX_ASSEMBLIES_PER_SENDER: int = 8
-const CHUNK_EXPIRY_SECONDS: float = 8.0
+const MAX_ASSEMBLIES_PER_SENDER: int = 64
+const CHUNK_EXPIRY_SECONDS: float = 1.5
+const DIAGNOSTIC_LOG_PATH := "user://eos-network.log"
+
+enum LogicalRole {
+	NONE,
+	HOST,
+	CLIENT,
+}
 
 var _local_user_id: String = ""
 var _display_name: String = ""
@@ -19,6 +26,19 @@ var _socket_name: String = ""
 var _host_user_id: String = ""
 var _next_message_id: int = 1
 var _assemblies: Dictionary = {}
+var _sent_messages: int = 0
+var _sent_chunks: int = 0
+var _received_chunks: int = 0
+var _completed_messages: int = 0
+var _rejected_assemblies: int = 0
+var _incoming_connection_requests: int = 0
+var _underlying_connections_established: int = 0
+var _underlying_connections_interrupted: int = 0
+var _underlying_connections_closed: int = 0
+var _last_connection_event: String = "idle"
+var _relay_control: int = -1
+var _logical_role: LogicalRole = LogicalRole.NONE
+var _diagnostic_file: FileAccess
 var _platform_service: Node
 var _auth_service: Node
 var _lobbies_service: Node
@@ -34,6 +54,7 @@ func _process(_delta: float) -> void:
 
 
 func initialize_transport(config: Dictionary, display_name: String) -> void:
+	_diagnostic_file = FileAccess.open(DIAGNOSTIC_LOG_PATH, FileAccess.WRITE)
 	_display_name = display_name.strip_edges().left(32)
 	_platform_name = _detect_platform()
 	if _display_name.is_empty():
@@ -52,7 +73,9 @@ func initialize_transport(config: Dictionary, display_name: String) -> void:
 
 	var credentials := HCredentials.new()
 	credentials.product_name = String(config.get("product_name", "Lowpoly Survivors Lab"))
-	credentials.product_version = String(config.get("product_version", "0.2.0"))
+	credentials.product_version = String(
+		ProjectSettings.get_setting("application/config/version", "0.2.5")
+	)
 	credentials.product_id = String(config.get("product_id", ""))
 	credentials.sandbox_id = String(config.get("sandbox_id", ""))
 	credentials.deployment_id = String(config.get("deployment_id", ""))
@@ -88,7 +111,11 @@ func initialize_transport(config: Dictionary, display_name: String) -> void:
 	if _local_user_id.is_empty():
 		transport_error.emit("EOS 登录未返回 Product User ID。")
 		return
-	_p2p_service.call("set_relay_control", EOS.P2P.RelayControl.AllowRelays)
+	# Mobile carriers and home/VM networks are frequently behind different NATs.
+	# Force EOS relay for this cross-platform lab so the initial peer-id exchange
+	# does not depend on a direct route becoming available first.
+	_relay_control = int(EOS.P2P.RelayControl.ForceRelays)
+	_p2p_service.call("set_relay_control", _relay_control)
 	authenticated.emit(_local_user_id)
 
 
@@ -196,33 +223,49 @@ func set_room_locked(locked: bool, match_data: Dictionary = {}) -> bool:
 
 
 func start_host(socket_name: String) -> bool:
-	_close_peer()
+	_close_peer(&"recreate")
 	_socket_name = socket_name.left(32)
 	_host_user_id = _local_user_id
+	_logical_role = LogicalRole.HOST
 	_peer = EOSGMultiplayerPeer.new()
-	var result := _peer.create_server(_socket_name)
+	_bind_peer()
+	_configure_peer()
+	var result := _peer.create_mesh(_socket_name)
 	if result != OK:
-		transport_error.emit("EOS P2P 房主监听失败：%s" % error_string(result))
+		transport_error.emit("EOS P2P 房主 Mesh 创建失败：%s" % error_string(result))
 		_peer = null
 		return false
-	_bind_peer()
 	multiplayer.multiplayer_peer = _peer
+	_emit_diagnostic(&"MESH_CREATED")
 	return true
 
 
 func connect_to_host(socket_name: String, host_user_id: String) -> bool:
-	_close_peer()
+	_close_peer(&"recreate")
 	_socket_name = socket_name.left(32)
 	_host_user_id = host_user_id
+	_logical_role = LogicalRole.CLIENT
 	_peer = EOSGMultiplayerPeer.new()
-	var result := _peer.create_client(_socket_name, _host_user_id)
+	_bind_peer()
+	_configure_peer()
+	var result := _peer.create_mesh(_socket_name)
 	if result != OK:
-		transport_error.emit("EOS P2P 连接房主失败：%s" % error_string(result))
+		transport_error.emit("EOS P2P 客机 Mesh 创建失败：%s" % error_string(result))
 		_peer = null
 		return false
-	_bind_peer()
 	multiplayer.multiplayer_peer = _peer
+	_emit_diagnostic(&"MESH_CREATED", {"remote_user_id": _host_user_id})
+	result = _peer.add_mesh_peer(_host_user_id)
+	if result != OK:
+		transport_error.emit("EOS P2P Mesh 请求发送失败：%s" % error_string(result))
+		_close_peer(&"request_failed")
+		return false
+	_emit_diagnostic(&"REQUEST_SENT", {"remote_user_id": _host_user_id})
 	return true
+
+
+func prepare_connection_retry() -> void:
+	_close_peer(&"retry_reset")
 
 
 func send_packet(target_user_id: String, channel: Channel, payload: Dictionary) -> bool:
@@ -246,6 +289,7 @@ func send_packet(target_user_id: String, channel: Channel, payload: Dictionary) 
 		if target_peer_id <= 0:
 			return false
 		peer_ids.append(target_peer_id)
+	_sent_messages += 1
 	for peer_id: int in peer_ids:
 		for index: int in range(total):
 			var begin := index * MAX_RPC_CHUNK_BYTES
@@ -255,6 +299,7 @@ func send_packet(target_user_id: String, channel: Channel, payload: Dictionary) 
 				rpc_id(peer_id, "_rpc_receive_reliable_chunk", message_id, index, total, raw_bytes.size(), chunk)
 			else:
 				rpc_id(peer_id, "_rpc_receive_snapshot_chunk", message_id, index, total, raw_bytes.size(), chunk)
+			_sent_chunks += 1
 	return true
 
 
@@ -269,7 +314,8 @@ func remove_member(user_id: String) -> bool:
 
 
 func leave_room() -> void:
-	_close_peer()
+	_close_peer(&"leave_room")
+	_logical_role = LogicalRole.NONE
 	if _lobby != null and _lobby.is_valid():
 		_lobby.leave_async()
 	_lobby = null
@@ -280,6 +326,7 @@ func leave_room() -> void:
 func shutdown() -> void:
 	leave_room()
 	_assemblies.clear()
+	_diagnostic_file = null
 
 
 func get_local_user_id() -> String:
@@ -321,7 +368,7 @@ func _rpc_receive_reliable_chunk(message_id: int, index: int, total: int, raw_si
 	_receive_chunk(Channel.RELIABLE, message_id, index, total, raw_size, bytes)
 
 
-@rpc("any_peer", "call_remote", "unreliable_ordered", 1)
+@rpc("any_peer", "call_remote", "unreliable", 1)
 func _rpc_receive_snapshot_chunk(message_id: int, index: int, total: int, raw_size: int, bytes: PackedByteArray) -> void:
 	_receive_chunk(Channel.SNAPSHOT, message_id, index, total, raw_size, bytes)
 
@@ -345,12 +392,14 @@ func _receive_chunk(
 		or bytes.size() > MAX_RPC_CHUNK_BYTES
 	):
 		return
+	_received_chunks += 1
 	var sender_peer_id := multiplayer.get_remote_sender_id()
 	var sender_user_id := _peer.get_peer_user_id(sender_peer_id)
 	if sender_user_id.is_empty():
 		return
 	var key := "%s:%d:%d" % [sender_user_id, int(channel), message_id]
 	if not _assemblies.has(key) and _assembly_count_for_sender(sender_user_id) >= MAX_ASSEMBLIES_PER_SENDER:
+		_rejected_assemblies += 1
 		return
 	var assembly: Dictionary = _assemblies.get(key, {
 		"total": total,
@@ -378,7 +427,30 @@ func _receive_chunk(
 		return
 	var decoded: Variant = bytes_to_var(decoded_bytes)
 	if decoded is Dictionary:
+		_completed_messages += 1
 		packet_received.emit(sender_user_id, int(channel), decoded)
+
+
+func get_debug_snapshot() -> Dictionary:
+	return {
+		"socket": _socket_name,
+		"host_user_id": _host_user_id,
+		"connection_status": int(_peer.get_connection_status()) if _peer != null else -1,
+		"relay_control": _relay_control,
+		"incoming_connection_requests": _incoming_connection_requests,
+		"underlying_connections_established": _underlying_connections_established,
+		"underlying_connections_interrupted": _underlying_connections_interrupted,
+		"underlying_connections_closed": _underlying_connections_closed,
+		"last_connection_event": _last_connection_event,
+		"logical_role": _logical_role_name(),
+		"peer_count": _peer.get_all_peers().size() if _peer != null else 0,
+		"pending_assemblies": _assemblies.size(),
+		"sent_messages": _sent_messages,
+		"sent_chunks": _sent_chunks,
+		"received_chunks": _received_chunks,
+		"completed_messages": _completed_messages,
+		"rejected_assemblies": _rejected_assemblies,
+	}
 
 
 func _assembly_count_for_sender(sender_user_id: String) -> int:
@@ -402,14 +474,139 @@ func _bind_lobby() -> void:
 func _bind_peer() -> void:
 	_peer.peer_connected.connect(_on_peer_connected)
 	_peer.peer_disconnected.connect(_on_peer_disconnected)
+	if _peer.has_signal("incoming_connection_request"):
+		_peer.connect("incoming_connection_request", _on_incoming_connection_request)
+	if _peer.has_signal("peer_connection_established"):
+		_peer.connect("peer_connection_established", _on_peer_connection_established)
+	if _peer.has_signal("peer_connection_interrupted"):
+		_peer.connect("peer_connection_interrupted", _on_peer_connection_interrupted)
+	if _peer.has_signal("peer_connection_closed"):
+		_peer.connect("peer_connection_closed", _on_peer_connection_closed)
 
 
-func _close_peer() -> void:
+func _configure_peer() -> void:
+	# EOSG's first packet carries the Godot peer id. It must be retained while
+	# EOS is still bringing up a relay route, which is measurably slower on
+	# Android than on desktop.
+	if _peer.has_method("set_allow_delayed_delivery"):
+		_peer.call("set_allow_delayed_delivery", true)
+	if _peer.has_method("set_auto_accept_connection_requests"):
+		# Both endpoints are MODE_MESH now. Keep application-level star validation
+		# authoritative instead of allowing EOSG to accept an arbitrary mesh edge.
+		_peer.call("set_auto_accept_connection_requests", false)
+
+
+func _on_incoming_connection_request(callback_data: Dictionary) -> void:
+	if _peer == null:
+		return
+	_incoming_connection_requests += 1
+	var remote_user_id := String(callback_data.get("remote_user_id", ""))
+	if remote_user_id.is_empty():
+		return
+	if not _room_allows_peer(remote_user_id):
+		_emit_diagnostic(&"CLOSED", {
+			"remote_user_id": remote_user_id,
+			"close_reason": "unauthorized_request",
+		})
+		if _peer.has_method("deny_connection_request"):
+			_peer.call("deny_connection_request", remote_user_id)
+		return
+	if _peer.has_method("accept_connection_request"):
+		_peer.call("accept_connection_request", remote_user_id)
+		_emit_diagnostic(&"REQUEST_ACCEPTED", {"remote_user_id": remote_user_id})
+
+
+func _on_peer_connection_established(callback_data: Dictionary) -> void:
+	_underlying_connections_established += 1
+	_emit_diagnostic(&"EOS_LINK_UP", {
+		"remote_user_id": String(callback_data.get("remote_user_id", "")),
+		"network_type": int(callback_data.get("network_type", -1)),
+	})
+
+
+func _on_peer_connection_interrupted(callback_data: Dictionary) -> void:
+	_underlying_connections_interrupted += 1
+	_emit_diagnostic(&"CLOSED", {
+		"remote_user_id": String(callback_data.get("remote_user_id", "")),
+		"close_reason": "interrupted",
+	})
+
+
+func _on_peer_connection_closed(callback_data: Dictionary) -> void:
+	_underlying_connections_closed += 1
+	_emit_diagnostic(&"CLOSED", {
+		"remote_user_id": String(callback_data.get("remote_user_id", "")),
+		"close_reason": str(
+			callback_data.get("reason", callback_data.get("close_reason", "unknown"))
+		).left(48),
+	})
+
+
+func _room_allows_peer(user_id: String) -> bool:
+	if _lobby == null or not _lobby.is_valid():
+		return false
+	return LowpolyTransport.is_star_connection_allowed(
+		_logical_role_name(),
+		_local_user_id,
+		_host_user_id,
+		user_id,
+		get_room_snapshot()
+	)
+
+
+static func _short_user_id(user_id: String) -> String:
+	return user_id.sha256_text().left(8) if not user_id.is_empty() else "none"
+
+
+func _close_peer(reason: StringName = &"closed") -> void:
+	_assemblies.clear()
 	if _peer != null:
+		_emit_diagnostic(&"CLOSED", {"close_reason": String(reason)})
 		if multiplayer.multiplayer_peer == _peer:
 			multiplayer.multiplayer_peer = null
 		_peer.close()
 	_peer = null
+
+
+func _emit_diagnostic(stage: StringName, raw_data: Dictionary = {}) -> void:
+	var data := {
+		"logical_role": _logical_role_name(),
+		"connected_peers": _peer.get_all_peers().size() if _peer != null else 0,
+		"expected_peers": _expected_peer_count(),
+	}
+	var remote_user_id := String(raw_data.get("remote_user_id", ""))
+	if not remote_user_id.is_empty():
+		data["peer_hash"] = _short_user_id(remote_user_id)
+	if raw_data.has("network_type"):
+		data["network_type"] = int(raw_data.get("network_type", -1))
+	if raw_data.has("close_reason"):
+		data["close_reason"] = String(raw_data.get("close_reason", "unknown")).left(48)
+	_last_connection_event = String(stage)
+	connection_diagnostic.emit(stage, data.duplicate(true))
+	if _diagnostic_file != null:
+		_diagnostic_file.store_line(JSON.stringify({
+			"time": Time.get_datetime_string_from_system(true),
+			"stage": String(stage),
+			"data": data,
+		}))
+		_diagnostic_file.flush()
+
+
+func _expected_peer_count() -> int:
+	if _lobby == null or not _lobby.is_valid():
+		return 0
+	var other_members := maxi(_lobby.members.size() - 1, 0)
+	return mini(other_members, 1) if _logical_role == LogicalRole.CLIENT else other_members
+
+
+func _logical_role_name() -> String:
+	match _logical_role:
+		LogicalRole.HOST:
+			return "host"
+		LogicalRole.CLIENT:
+			return "client"
+		_:
+			return "none"
 
 
 func _add_local_member_attributes(ready: bool) -> void:
@@ -458,7 +655,8 @@ func _enforce_locked_roster() -> void:
 
 
 func _on_kicked_from_lobby() -> void:
-	_close_peer()
+	_close_peer(&"kicked")
+	_logical_role = LogicalRole.NONE
 	_lobby = null
 	_room_code = ""
 	room_left.emit()
@@ -473,7 +671,16 @@ func _on_lobby_owner_changed() -> void:
 
 func _on_peer_connected(peer_id: int) -> void:
 	if _peer != null:
-		peer_connected.emit(_peer.get_peer_user_id(peer_id))
+		var user_id := _peer.get_peer_user_id(peer_id)
+		if user_id.is_empty() or not _room_allows_peer(user_id):
+			_emit_diagnostic(&"CLOSED", {
+				"remote_user_id": user_id,
+				"close_reason": "unauthorized_peer_ready",
+			})
+			_peer.disconnect_peer(peer_id)
+			return
+		_emit_diagnostic(&"PEER_READY", {"remote_user_id": user_id})
+		peer_connected.emit(user_id)
 
 
 func _on_peer_disconnected(peer_id: int) -> void:

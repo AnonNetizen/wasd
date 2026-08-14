@@ -14,6 +14,10 @@ const CHECKPOINT_RATE_HZ: float = 1.0
 const MAX_INPUT_PACKETS_PER_SECOND: int = 32
 const MAX_INPUT_PAYLOAD_BYTES: int = 256
 const INTEREST_RADIUS: float = 56.0
+const MOBILE_SNAPSHOT_DIVISOR: int = 2
+const ENTITY_BATCH_SIZE: int = 6
+const INITIAL_SYNC_RETRY_SECONDS: float = 2.0
+const SNAPSHOT_STALL_SECONDS: float = 3.0
 
 var _session: LowpolyOnlineSession
 var _director: LowpolyRunDirector
@@ -31,6 +35,12 @@ var _input_rate_windows: Dictionary = {}
 var _known_entities_by_user: Dictionary = {}
 var _last_checkpoint: Dictionary = {}
 var _touch_input: Vector2 = Vector2.ZERO
+var _snapshot_frame_index: int = 0
+var _authority_snapshot_received: bool = false
+var _sync_retry_accumulator: float = 0.0
+var _last_snapshot_received_msec: int = 0
+var _snapshots_received: int = 0
+var _entity_batches_received: int = 0
 var _input_rate_hz: float = INPUT_RATE_HZ
 var _snapshot_rate_hz: float = SNAPSHOT_RATE_HZ
 var _checkpoint_rate_hz: float = CHECKPOINT_RATE_HZ
@@ -74,6 +84,16 @@ func _physics_process(delta: float) -> void:
 		if _input_accumulator >= 1.0 / _input_rate_hz:
 			_input_accumulator = fmod(_input_accumulator, 1.0 / _input_rate_hz)
 			_send_local_input(local_input)
+		var snapshot_stalled := (
+			not _authority_snapshot_received
+			or Time.get_ticks_msec() - _last_snapshot_received_msec
+			> int(SNAPSHOT_STALL_SECONDS * 1000.0)
+		)
+		if snapshot_stalled:
+			_sync_retry_accumulator += delta
+			if _sync_retry_accumulator >= INITIAL_SYNC_RETRY_SECONDS:
+				_sync_retry_accumulator = 0.0
+				_session.send_to_host(&"sync_hello", {"slot": _local_slot})
 	_update_ping(delta)
 
 
@@ -104,6 +124,8 @@ func stop_match() -> void:
 	_known_entities_by_user.clear()
 	_last_input_sequences.clear()
 	_input_rate_windows.clear()
+	_authority_snapshot_received = false
+	_sync_retry_accumulator = 0.0
 
 
 func get_debug_snapshot() -> Dictionary:
@@ -115,6 +137,10 @@ func get_debug_snapshot() -> Dictionary:
 		"pending_local_inputs": _pending_local_inputs.duplicate(true),
 		"last_input_sequences": _last_input_sequences.duplicate(true),
 		"checkpoint_tick": int(_last_checkpoint.get("tick", -1)),
+		"authority_snapshot_received": _authority_snapshot_received,
+		"last_snapshot_received_msec": _last_snapshot_received_msec,
+		"snapshots_received": _snapshots_received,
+		"entity_batches_received": _entity_batches_received,
 	}
 
 
@@ -140,6 +166,12 @@ func _on_match_ready(match_data: Dictionary) -> void:
 	_input_accumulator = 0.0
 	_snapshot_accumulator = 0.0
 	_checkpoint_accumulator = 0.0
+	_snapshot_frame_index = 0
+	_authority_snapshot_received = authority
+	_sync_retry_accumulator = 0.0
+	_last_snapshot_received_msec = 0
+	_snapshots_received = 0
+	_entity_batches_received = 0
 	_latest_inputs.clear()
 	_pending_local_inputs.clear()
 	for value: Variant in match_data.get("roster", []):
@@ -180,6 +212,7 @@ func _update_host_replication(delta: float) -> void:
 
 
 func _send_tailored_snapshots() -> void:
+	_snapshot_frame_index += 1
 	var match_data := _session.get_match_data()
 	for value: Variant in match_data.get("roster", []):
 		if not value is Dictionary:
@@ -189,13 +222,35 @@ func _send_tailored_snapshots() -> void:
 		var slot := int(member.get("slot", -1))
 		if user_id.is_empty() or user_id == _session.get_local_user_id():
 			continue
+		if (
+			String(member.get("platform", "")) == "android"
+			and _snapshot_frame_index % MOBILE_SNAPSHOT_DIVISOR != 0
+		):
+			continue
 		var target_player := _director.get_player_for_slot(slot)
 		if target_player == null or target_player.network_removed:
 			continue
 		var snapshot := _director.make_network_snapshot(target_player.global_position, _interest_radius)
 		snapshot["ack_input_sequence"] = int(_last_input_sequences.get(user_id, 0))
 		_send_entity_delta(user_id, snapshot)
-		_session.send_message(user_id, &"snapshot", snapshot, false)
+		var core_snapshot := snapshot.duplicate(false)
+		for category: String in ["enemies", "player_projectiles", "enemy_projectiles", "pickups"]:
+			core_snapshot.erase(category)
+		_session.send_message(user_id, &"state_snapshot", core_snapshot, false)
+		_send_entity_batches(user_id, snapshot)
+
+
+func _send_entity_batches(user_id: String, snapshot: Dictionary) -> void:
+	var tick := int(snapshot.get("tick", 0))
+	for category: String in ["enemies", "player_projectiles", "enemy_projectiles", "pickups"]:
+		var states: Array = snapshot.get(category, [])
+		for begin: int in range(0, states.size(), ENTITY_BATCH_SIZE):
+			var batch: Array = states.slice(begin, mini(begin + ENTITY_BATCH_SIZE, states.size()))
+			_session.send_message(user_id, &"entity_snapshot", {
+				"tick": tick,
+				"category": category,
+				"states": batch,
+			}, false)
 
 
 func _send_entity_delta(user_id: String, snapshot: Dictionary) -> void:
@@ -222,12 +277,14 @@ func _send_entity_delta(user_id: String, snapshot: Dictionary) -> void:
 	for entity_value: Variant in previous.keys():
 		if not current.has(entity_value):
 			removed.append(int(entity_value))
-	_known_entities_by_user[user_id] = current
 	if not spawned.is_empty() or not removed.is_empty():
-		_session.send_message(user_id, &"entity_delta", {
+		if not _session.send_message(user_id, &"entity_delta", {
+			"tick": int(snapshot.get("tick", 0)),
 			"spawned": spawned,
 			"removed": removed,
-		})
+		}):
+			return
+	_known_entities_by_user[user_id] = current
 
 
 func _on_network_message(sender_user_id: String, kind: StringName, payload: Dictionary) -> void:
@@ -249,10 +306,10 @@ func _handle_host_message(sender_user_id: String, kind: StringName, payload: Dic
 			_session.send_message(sender_user_id, &"pong", {
 				"client_time": int(payload.get("client_time", 0)),
 			})
-		&"reconnect_hello":
+		&"sync_hello", &"reconnect_hello":
 			_session.mark_peer_reconnected(sender_user_id)
 			_director.set_network_player_connected(sender_user_id, true)
-			_session.send_message(sender_user_id, &"checkpoint", {"checkpoint": _last_checkpoint})
+			_send_initial_sync(sender_user_id)
 		_:
 			# Clients cannot submit damage, spawns, health, checkpoints or results.
 			return
@@ -264,6 +321,18 @@ func _handle_client_message(sender_user_id: String, kind: StringName, payload: D
 	match kind:
 		&"snapshot":
 			_apply_client_snapshot(payload)
+		&"initial_snapshot":
+			_apply_client_snapshot(payload)
+		&"state_snapshot":
+			if _director.apply_network_core_snapshot(payload, true):
+				_mark_authority_snapshot_received()
+		&"entity_snapshot":
+			if _director.apply_network_entity_batch(
+				StringName(payload.get("category", "")),
+				payload.get("states", []),
+				int(payload.get("tick", 0))
+			):
+				_entity_batches_received += 1
 		&"entity_delta":
 			_director.apply_network_entity_delta(payload)
 		&"upgrade_offer":
@@ -300,6 +369,7 @@ func _apply_client_snapshot(snapshot: Dictionary) -> void:
 	# inputs. This is the rollback/correction half of client-side prediction.
 	if not _director.apply_network_snapshot(snapshot, true):
 		return
+	_mark_authority_snapshot_received()
 	_pending_local_inputs = replay_inputs.duplicate(true)
 	for pending: Dictionary in replay_inputs:
 		var pending_vector: Vector2 = pending.get("vector", Vector2.ZERO)
@@ -369,7 +439,28 @@ func _on_participant_connection_changed(user_id: String, connected: bool, _remai
 		return
 	_director.set_network_player_connected(user_id, connected)
 	if connected and _session.get_role() == LowpolyOnlineSession.NetworkRole.CLIENT:
-		_session.send_to_host(&"reconnect_hello", {"slot": _local_slot})
+		_session.send_to_host(&"sync_hello", {"slot": _local_slot})
+
+
+func _send_initial_sync(user_id: String) -> void:
+	var slot := _director.get_slot_for_user(user_id)
+	var target_player := _director.get_player_for_slot(slot)
+	if slot < 0 or target_player == null or target_player.network_removed:
+		return
+	# Do not mark the entity set as known until normal replication runs. The next
+	# delta therefore repeats authoritative spawns after this reliable baseline.
+	var snapshot := _director.make_network_snapshot(target_player.global_position, _interest_radius)
+	snapshot["ack_input_sequence"] = int(_last_input_sequences.get(user_id, 0))
+	_session.send_message(user_id, &"initial_snapshot", snapshot)
+	if not _last_checkpoint.is_empty():
+		_session.send_message(user_id, &"checkpoint", {"checkpoint": _last_checkpoint})
+
+
+func _mark_authority_snapshot_received() -> void:
+	_authority_snapshot_received = true
+	_sync_retry_accumulator = 0.0
+	_last_snapshot_received_msec = Time.get_ticks_msec()
+	_snapshots_received += 1
 
 
 func _on_participant_grace_expired(user_id: String) -> void:

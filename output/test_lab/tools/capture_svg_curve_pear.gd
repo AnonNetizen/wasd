@@ -25,6 +25,7 @@ func _capture() -> void:
 	RenderingServer.force_draw(true)
 	RenderingServer.force_sync()
 	await process_frame
+	await process_frame
 
 	var viewport_texture: ViewportTexture = root.get_texture()
 	var clean_image: Image = viewport_texture.get_image()
@@ -50,6 +51,9 @@ func _capture() -> void:
 	RenderingServer.force_draw(true)
 	RenderingServer.force_sync()
 	await process_frame
+	await process_frame
+	RenderingServer.force_draw(true)
+	RenderingServer.force_sync()
 	var image: Image = viewport_texture.get_image()
 	var anchor_error: float = _closest_color_error(
 		image,

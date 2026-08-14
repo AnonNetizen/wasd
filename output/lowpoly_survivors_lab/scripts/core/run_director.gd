@@ -76,6 +76,9 @@ var _upgrade_options_by_slot: Dictionary = {}
 var _pending_upgrade_slots: Dictionary = {}
 var _next_network_entity_id: int = 1
 var _authority_tick: int = 0
+var _network_entity_ticks: Dictionary = {}
+var _network_removed_entity_ticks: Dictionary = {}
+var _touch_input: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -89,7 +92,12 @@ func _physics_process(delta: float) -> void:
 		return
 	if _network_mode:
 		return
-	var input_vector: Vector2 = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var hardware_input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var input_vector := (
+		hardware_input
+		if hardware_input.length_squared() >= _touch_input.length_squared()
+		else _touch_input
+	).limit_length(1.0)
 	simulate_step(delta, input_vector)
 
 
@@ -120,6 +128,10 @@ func start_run(seed: int = -1) -> void:
 	_reset_run(seed)
 
 
+func set_touch_input(value: Vector2) -> void:
+	_touch_input = value.limit_length(1.0)
+
+
 func start_network_run(match_data: Dictionary, local_user_id: String, authority: bool) -> bool:
 	if not initialize():
 		return false
@@ -137,10 +149,13 @@ func start_network_run(match_data: Dictionary, local_user_id: String, authority:
 
 func _reset_run(seed: int = -1) -> void:
 	_release_all_entities()
+	_touch_input = Vector2.ZERO
 	_run_seed = seed if seed >= 0 else int(_run_config.get("fixed_test_seed", 47013))
 	_rng.seed = _run_seed
 	_authority_tick = 0
 	_next_network_entity_id = 1
+	_network_entity_ticks.clear()
+	_network_removed_entity_ticks.clear()
 	_elapsed = 0.0
 	_spawn_accumulator = 0.0
 	_level = 1
@@ -185,6 +200,7 @@ func restart_run() -> void:
 
 func return_to_menu() -> void:
 	_release_all_entities()
+	_touch_input = Vector2.ZERO
 	for run_player: LowpolyPlayer in _all_players():
 		run_player.set_run_active(false)
 		run_player.visible = false
@@ -486,6 +502,67 @@ func make_network_snapshot(
 
 
 func apply_network_snapshot(snapshot: Dictionary, local_player_immediate: bool = false) -> bool:
+	if not _apply_network_snapshot_header(snapshot, local_player_immediate):
+		return false
+	_reconcile_enemy_states(snapshot.get("enemies", []))
+	_reconcile_projectile_states(snapshot.get("player_projectiles", []), _player_projectile_pool, LowpolyProjectile.Team.PLAYER)
+	_reconcile_projectile_states(snapshot.get("enemy_projectiles", []), _enemy_projectile_pool, LowpolyProjectile.Team.ENEMY)
+	_reconcile_pickup_states(snapshot.get("pickups", []))
+	_emit_network_snapshot_signals()
+	return true
+
+
+func apply_network_core_snapshot(snapshot: Dictionary, local_player_immediate: bool = false) -> bool:
+	if not _apply_network_snapshot_header(snapshot, local_player_immediate):
+		return false
+	_emit_network_snapshot_signals()
+	return true
+
+
+func apply_network_entity_batch(category: StringName, raw_states: Variant, tick: int) -> bool:
+	if not _network_mode or _network_authority or not raw_states is Array or tick < 0:
+		return false
+	if category not in [&"enemies", &"player_projectiles", &"enemy_projectiles", &"pickups"]:
+		return false
+	for value: Variant in raw_states:
+		if not value is Dictionary:
+			continue
+		var state: Dictionary = value
+		var entity_id := int(state.get("entity_id", 0))
+		if (
+			entity_id <= 0
+			or tick < int(_network_entity_ticks.get(entity_id, -1))
+			or tick <= int(_network_removed_entity_ticks.get(entity_id, -1))
+		):
+			continue
+		_network_removed_entity_ticks.erase(entity_id)
+		match category:
+			&"enemies":
+				var enemy := _find_enemy_by_network_id(entity_id)
+				if enemy == null:
+					enemy = _spawn_enemy_network_view(state)
+				if enemy != null:
+					enemy.apply_network_state(state, 0.62)
+					var target_slot := int(state.get("target_slot", -1))
+					if _players_by_slot.has(target_slot):
+						enemy.player = _players_by_slot[target_slot] as LowpolyPlayer
+					if enemy.boss:
+						_boss = enemy
+			&"player_projectiles":
+				_apply_projectile_network_update(state, _player_projectile_pool, LowpolyProjectile.Team.PLAYER)
+			&"enemy_projectiles":
+				_apply_projectile_network_update(state, _enemy_projectile_pool, LowpolyProjectile.Team.ENEMY)
+			&"pickups":
+				var pickup := _find_pickup_by_network_id(entity_id)
+				if pickup == null:
+					pickup = _spawn_pickup_network_view(state)
+				if pickup != null:
+					pickup.apply_network_state(state)
+		_network_entity_ticks[entity_id] = tick
+	return true
+
+
+func _apply_network_snapshot_header(snapshot: Dictionary, local_player_immediate: bool) -> bool:
 	if not _network_mode or _network_authority:
 		return false
 	var incoming_tick := int(snapshot.get("tick", _authority_tick))
@@ -499,24 +576,24 @@ func apply_network_snapshot(snapshot: Dictionary, local_player_immediate: bool =
 	_kills = int(snapshot.get("kills", _kills))
 	_boss_started = bool(snapshot.get("boss_started", _boss_started))
 	_apply_player_states(snapshot.get("players", []), false, local_player_immediate)
-	_reconcile_enemy_states(snapshot.get("enemies", []))
-	_reconcile_projectile_states(snapshot.get("player_projectiles", []), _player_projectile_pool, LowpolyProjectile.Team.PLAYER)
-	_reconcile_projectile_states(snapshot.get("enemy_projectiles", []), _enemy_projectile_pool, LowpolyProjectile.Team.ENEMY)
-	_reconcile_pickup_states(snapshot.get("pickups", []))
 	var next_state := int(snapshot.get("state", int(_state))) as RunState
 	if next_state != _state:
 		_set_state(next_state)
+	return true
+
+
+func _emit_network_snapshot_signals() -> void:
 	health_changed.emit(_player.health, _player.max_health)
 	experience_changed.emit(_experience, _experience_required, _level)
 	time_changed.emit(_elapsed, maxf(float(_run_config.get("duration_seconds", 600.0)) - _elapsed, 0.0))
 	kill_count_changed.emit(_kills)
 	weapon_levels_changed.emit(_weapon_system.get_levels())
-	return true
 
 
 func apply_network_entity_delta(delta: Dictionary) -> bool:
 	if not _network_mode or _network_authority:
 		return false
+	var tick := int(delta.get("tick", _authority_tick))
 	for value: Variant in delta.get("spawned", []):
 		if not value is Dictionary:
 			continue
@@ -524,7 +601,11 @@ func apply_network_entity_delta(delta: Dictionary) -> bool:
 		var category := String(entry.get("category", ""))
 		var state: Dictionary = entry.get("state", {})
 		var entity_id := int(state.get("entity_id", 0))
-		if entity_id <= 0 or _has_network_entity(entity_id):
+		if entity_id <= 0 or tick < int(_network_removed_entity_ticks.get(entity_id, -1)):
+			continue
+		_network_removed_entity_ticks.erase(entity_id)
+		_network_entity_ticks[entity_id] = maxi(tick, int(_network_entity_ticks.get(entity_id, -1)))
+		if _has_network_entity(entity_id):
 			continue
 		match category:
 			"enemies":
@@ -546,7 +627,15 @@ func apply_network_entity_delta(delta: Dictionary) -> bool:
 			"pickups":
 				_spawn_pickup_network_view(state)
 	for entity_value: Variant in delta.get("removed", []):
-		_release_network_entity(int(entity_value))
+		var entity_id := int(entity_value)
+		if (
+			entity_id <= 0
+			or tick < int(_network_removed_entity_ticks.get(entity_id, -1))
+			or tick < int(_network_entity_ticks.get(entity_id, -1))
+		):
+			continue
+		_release_network_entity(entity_id)
+		_network_removed_entity_ticks[entity_id] = tick
 	return true
 
 
@@ -1546,6 +1635,26 @@ func _projectile_payload_from_state(
 	}
 
 
+func _apply_projectile_network_update(
+	state: Dictionary,
+	pool: LowpolyObjectPool,
+	team: LowpolyProjectile.Team
+) -> void:
+	if pool == null:
+		return
+	var entity_id := int(state.get("entity_id", 0))
+	var projectile: LowpolyProjectile
+	for node: Node in pool.get_active_nodes():
+		var candidate := node as LowpolyProjectile
+		if candidate != null and candidate.network_entity_id == entity_id:
+			projectile = candidate
+			break
+	if projectile == null:
+		projectile = pool.acquire(_projectile_payload_from_state(state, team)) as LowpolyProjectile
+	if projectile != null:
+		projectile.apply_network_state(state)
+
+
 func _reconcile_pickup_states(raw_states: Variant, _immediate: bool = false) -> void:
 	if not raw_states is Array:
 		return
@@ -1588,6 +1697,16 @@ func _spawn_pickup_network_view(state: Dictionary) -> LowpolyExperiencePickup:
 	return pickup
 
 
+func _find_pickup_by_network_id(entity_id: int) -> LowpolyExperiencePickup:
+	if entity_id <= 0:
+		return null
+	for node: Node in _pickup_pool.get_active_nodes():
+		var pickup := node as LowpolyExperiencePickup
+		if pickup != null and pickup.network_entity_id == entity_id:
+			return pickup
+	return null
+
+
 func _has_network_entity(entity_id: int) -> bool:
 	if entity_id <= 0:
 		return false
@@ -1604,6 +1723,7 @@ func _has_network_entity(entity_id: int) -> bool:
 func _release_network_entity(entity_id: int) -> void:
 	if entity_id <= 0:
 		return
+	_network_entity_ticks.erase(entity_id)
 	for enemy: LowpolyEnemy in _active_enemies():
 		if enemy.network_entity_id != entity_id:
 			continue

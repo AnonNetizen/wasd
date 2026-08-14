@@ -14,6 +14,7 @@ signal host_migration_started(new_host_user_id: String, authority_epoch: int)
 signal host_takeover_requested(checkpoint: Dictionary, authority_epoch: int)
 signal host_migration_finished(authority_epoch: int)
 signal session_error(message: String)
+signal connection_progress(message: String)
 
 enum State {
 	OFFLINE,
@@ -36,11 +37,14 @@ enum NetworkRole {
 	CLIENT,
 }
 
-const PROTOCOL_VERSION := "lps-1"
-const BUILD_VERSION := "0.2.0"
+const PROTOCOL_VERSION := "lps-2"
+const BUILD_VERSION := "0.2.5"
 const MAX_PLAYERS: int = 4
 const RECONNECT_GRACE_SECONDS: float = 60.0
 const RECONNECT_ATTEMPT_SECONDS: float = 2.0
+const INITIAL_CONNECT_RETRY_SECONDS: float = 8.0
+const INITIAL_CONNECT_MAX_ATTEMPTS: int = 3
+const MESH_RECREATE_SETTLE_SECONDS: float = 0.25
 const HOST_MIGRATION_TIMEOUT_SECONDS: float = 15.0
 const CONFIG_PATHS := [
 	"res://config/eos_config.local.json",
@@ -61,9 +65,17 @@ var _reliable_send_sequence: int = 0
 var _last_reliable_sequence: Dictionary = {}
 var _disconnect_deadlines: Dictionary = {}
 var _reconnect_accumulator: float = 0.0
+var _initial_connect_accumulator: float = 0.0
+var _initial_connect_attempts: int = 0
+var _initial_retry_pending: bool = false
+var _initial_retry_settle_remaining: float = 0.0
+var _reconnect_retry_pending: bool = false
+var _reconnect_retry_settle_remaining: float = 0.0
 var _migration_deadline: float = 0.0
 var _cached_checkpoint: Dictionary = {}
 var _last_error: String = ""
+var _match_started_locally: bool = false
+var _latest_connection_diagnostic: Dictionary = {}
 
 
 func _ready() -> void:
@@ -85,10 +97,41 @@ func _process(delta: float) -> void:
 					_transport.remove_member(String(user_id))
 				participant_grace_expired.emit(String(user_id))
 	if _state == State.RECONNECTING and _role == NetworkRole.CLIENT:
-		_reconnect_accumulator += delta
-		if _reconnect_accumulator >= RECONNECT_ATTEMPT_SECONDS:
-			_reconnect_accumulator = 0.0
-			_attempt_client_reconnect()
+		if _reconnect_retry_pending:
+			_reconnect_retry_settle_remaining -= delta
+			if _reconnect_retry_settle_remaining <= 0.0:
+				_reconnect_retry_pending = false
+				_attempt_client_reconnect()
+		else:
+			_reconnect_accumulator += delta
+			if _reconnect_accumulator >= RECONNECT_ATTEMPT_SECONDS:
+				_reconnect_accumulator = 0.0
+				_transport.prepare_connection_retry()
+				_reconnect_retry_pending = true
+				_reconnect_retry_settle_remaining = MESH_RECREATE_SETTLE_SECONDS
+	if _state == State.CONNECTING and _role == NetworkRole.CLIENT:
+		if _initial_retry_pending:
+			_initial_retry_settle_remaining -= delta
+			if _initial_retry_settle_remaining <= 0.0:
+				_initial_retry_pending = false
+				_begin_initial_client_connection()
+		else:
+			_initial_connect_accumulator += delta
+			if _initial_connect_accumulator >= INITIAL_CONNECT_RETRY_SECONDS:
+				_initial_connect_accumulator = 0.0
+				if _initial_connect_attempts >= INITIAL_CONNECT_MAX_ATTEMPTS:
+					_transport.prepare_connection_retry()
+					_fail("无法连接房主：EOS Mesh/Relay 握手超时，请返回标题页后重试。")
+				else:
+					_transport.prepare_connection_retry()
+					_initial_retry_pending = true
+					_initial_retry_settle_remaining = MESH_RECREATE_SETTLE_SECONDS
+					connection_progress.emit(
+						"正在重建 EOS Mesh（%d/%d）……" % [
+							_initial_connect_attempts + 1,
+							INITIAL_CONNECT_MAX_ATTEMPTS,
+						]
+					)
 	if _state == State.HOST_MIGRATING and _migration_deadline > 0.0:
 		if Time.get_ticks_msec() * 0.001 >= _migration_deadline:
 			_migration_deadline = 0.0
@@ -208,6 +251,7 @@ func start_match(seed: int = -1) -> bool:
 		_fail("无法锁定 EOS Lobby。")
 		return false
 	_set_state(State.IN_MATCH)
+	_match_started_locally = true
 	match_ready.emit(_match_data.duplicate(true))
 	return true
 
@@ -218,6 +262,8 @@ func leave_room() -> void:
 	_room_snapshot.clear()
 	_match_data.clear()
 	_authority_epoch = 0
+	_match_started_locally = false
+	_reset_initial_connect()
 	_disconnect_deadlines.clear()
 	_last_reliable_sequence.clear()
 	_set_role(NetworkRole.OFFLINE)
@@ -228,6 +274,8 @@ func shutdown_online() -> void:
 	_reset_transport()
 	_room_snapshot.clear()
 	_match_data.clear()
+	_match_started_locally = false
+	_reset_initial_connect()
 	_set_role(NetworkRole.OFFLINE)
 	_set_state(State.OFFLINE)
 	availability_changed.emit(false, "EOS 已关闭；单人模式可用。")
@@ -359,6 +407,11 @@ func is_online_match() -> bool:
 
 
 func get_debug_snapshot() -> Dictionary:
+	var transport_debug: Dictionary = {}
+	if _transport != null and _transport.has_method("get_debug_snapshot"):
+		var value: Variant = _transport.call("get_debug_snapshot")
+		if value is Dictionary:
+			transport_debug = (value as Dictionary).duplicate(true)
 	return {
 		"state": int(_state),
 		"role": int(_role),
@@ -368,6 +421,12 @@ func get_debug_snapshot() -> Dictionary:
 		"authority_epoch": _authority_epoch,
 		"disconnecting": _disconnect_deadlines.duplicate(true),
 		"last_error": _last_error,
+		"match_started_locally": _match_started_locally,
+		"initial_connect_attempts": _initial_connect_attempts,
+		"initial_connect_elapsed": _initial_connect_accumulator,
+		"initial_retry_pending": _initial_retry_pending,
+		"latest_connection_diagnostic": _latest_connection_diagnostic.duplicate(true),
+		"transport": transport_debug,
 	}
 
 
@@ -389,6 +448,17 @@ func force_host_migration_timeout_for_test() -> bool:
 	return true
 
 
+func force_initial_connect_retry_for_test() -> bool:
+	if _state != State.CONNECTING or _role != NetworkRole.CLIENT:
+		return false
+	_initial_connect_accumulator = INITIAL_CONNECT_RETRY_SECONDS
+	_process(0.0)
+	if _initial_retry_pending:
+		_initial_retry_settle_remaining = 0.0
+		_process(0.0)
+	return true
+
+
 func _bind_transport() -> void:
 	_transport.transport_ready.connect(_on_transport_ready)
 	_transport.authenticated.connect(_on_authenticated)
@@ -401,6 +471,7 @@ func _bind_transport() -> void:
 	_transport.peer_disconnected.connect(_on_peer_disconnected)
 	_transport.packet_received.connect(_on_packet_received)
 	_transport.transport_error.connect(_on_transport_error)
+	_transport.connection_diagnostic.connect(_on_connection_diagnostic)
 
 
 func _on_transport_ready() -> void:
@@ -448,14 +519,8 @@ func _on_room_changed(snapshot: Dictionary) -> void:
 			_authority_epoch = int(_match_data.get("authority_epoch", 1))
 		if _role == NetworkRole.CLIENT and _state == State.LOBBY:
 			_set_state(State.CONNECTING)
-			if _transport.connect_to_host(
-				String(_match_data.get("socket", "")),
-				String(_match_data.get("host_user_id", ""))
-			):
-				_set_state(State.IN_MATCH)
-				match_ready.emit(_match_data.duplicate(true))
-			else:
-				_set_state(State.RECONNECTING)
+			_reset_initial_connect()
+			_begin_initial_client_connection()
 		elif _state in [State.IN_MATCH, State.RECONNECTING, State.HOST_MIGRATING]:
 			# MATCH_DATA can lag one Lobby-owner notification behind during host
 			# migration. The current Lobby owner is authoritative for host election;
@@ -470,6 +535,8 @@ func _on_room_left() -> void:
 	var departed_owner := _role == NetworkRole.HOST
 	_room_snapshot.clear()
 	_match_data.clear()
+	_match_started_locally = false
+	_reset_initial_connect()
 	_set_role(NetworkRole.OFFLINE)
 	if interrupted and not departed_owner:
 		_fail("联机中断：EOS Lobby 已关闭。")
@@ -482,8 +549,14 @@ func _on_peer_connected(user_id: String) -> void:
 		return
 	if _role == NetworkRole.HOST:
 		mark_peer_reconnected(user_id)
-	elif user_id == String(_match_data.get("host_user_id", "")) and _state == State.RECONNECTING:
-		_set_state(State.IN_MATCH)
+	elif user_id == String(_match_data.get("host_user_id", "")):
+		_reset_initial_connect()
+		var should_start_match := not _match_started_locally
+		if _state in [State.CONNECTING, State.RECONNECTING]:
+			_set_state(State.IN_MATCH)
+			if should_start_match:
+				_match_started_locally = true
+				match_ready.emit(_match_data.duplicate(true))
 	participant_connection_changed.emit(user_id, true, RECONNECT_GRACE_SECONDS)
 
 
@@ -560,6 +633,26 @@ func _on_transport_error(message: String) -> void:
 	_fail(message)
 
 
+func _on_connection_diagnostic(stage: StringName, data: Dictionary) -> void:
+	var attempt := maxi(_initial_connect_attempts, 1)
+	var enriched := data.duplicate(true)
+	enriched["stage"] = String(stage)
+	enriched["attempt"] = attempt
+	enriched["max_attempts"] = INITIAL_CONNECT_MAX_ATTEMPTS
+	_latest_connection_diagnostic = enriched
+	var connected := int(data.get("connected_peers", 0))
+	var expected := int(data.get("expected_peers", 0))
+	connection_progress.emit(
+		"EOS Mesh：%s · 尝试 %d/%d · 已连接 %d/%d" % [
+			String(stage),
+			attempt,
+			INITIAL_CONNECT_MAX_ATTEMPTS,
+			connected,
+			expected,
+		]
+	)
+
+
 func _attempt_client_reconnect() -> void:
 	if _transport == null or _match_data.is_empty():
 		return
@@ -567,6 +660,26 @@ func _attempt_client_reconnect() -> void:
 		String(_match_data.get("socket", "")),
 		String(_match_data.get("host_user_id", ""))
 	)
+
+
+func _begin_initial_client_connection() -> void:
+	if _transport == null or _match_data.is_empty() or _state != State.CONNECTING:
+		return
+	_initial_connect_attempts += 1
+	if not _transport.connect_to_host(
+		String(_match_data.get("socket", "")),
+		String(_match_data.get("host_user_id", ""))
+	) and _state != State.ERROR:
+		_fail("无法启动 EOS P2P/Relay 客机连接。")
+
+
+func _reset_initial_connect() -> void:
+	_initial_connect_accumulator = 0.0
+	_initial_connect_attempts = 0
+	_initial_retry_pending = false
+	_initial_retry_settle_remaining = 0.0
+	_reconnect_retry_pending = false
+	_reconnect_retry_settle_remaining = 0.0
 
 
 func _build_roster() -> Array[Dictionary]:

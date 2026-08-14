@@ -13,6 +13,7 @@ signal peer_connected(user_id: String)
 signal peer_disconnected(user_id: String)
 signal packet_received(sender_user_id: String, channel: int, payload: Dictionary)
 signal transport_error(message: String)
+signal connection_diagnostic(stage: StringName, data: Dictionary)
 
 enum Channel {
 	RELIABLE,
@@ -48,6 +49,10 @@ func connect_to_host(_socket_name: String, _host_user_id: String) -> bool:
 	return false
 
 
+func prepare_connection_retry() -> void:
+	pass
+
+
 func send_packet(
 	_target_user_id: String,
 	_channel: Channel,
@@ -77,4 +82,34 @@ func get_room_snapshot() -> Dictionary:
 
 
 func is_available() -> bool:
+	return false
+
+
+static func is_star_connection_allowed(
+	logical_role: String,
+	local_user_id: String,
+	host_user_id: String,
+	remote_user_id: String,
+	room_snapshot: Dictionary
+) -> bool:
+	if remote_user_id.is_empty() or remote_user_id == local_user_id:
+		return false
+	var known_member := false
+	for value: Variant in room_snapshot.get("members", []):
+		if value is Dictionary and String((value as Dictionary).get("user_id", "")) == remote_user_id:
+			known_member = true
+			break
+	if not known_member:
+		return false
+	if logical_role == "client":
+		return remote_user_id == host_user_id
+	if logical_role != "host":
+		return false
+	if local_user_id != host_user_id or not bool(room_snapshot.get("locked", false)):
+		return false
+	var metadata: Dictionary = room_snapshot.get("metadata", {})
+	var match_data: Dictionary = metadata.get("match_data", {})
+	for value: Variant in match_data.get("roster", []):
+		if value is Dictionary and String((value as Dictionary).get("user_id", "")) == remote_user_id:
+			return true
 	return false

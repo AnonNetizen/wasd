@@ -138,7 +138,10 @@ func _run_smoke() -> void:
 		return
 	scene.call("debug_set_border_width", 22.0)
 	if not is_equal_approx(float(scene.call("debug_border_width")), 22.0):
-		_fail("Runtime border-width control did not update Line2D.width.")
+		_fail("Runtime border-width control did not update the animation baseline.")
+		return
+	if float(scene.call("debug_render_border_width")) <= 22.0:
+		_fail("Animated Line2D border did not pulse above its configured baseline.")
 		return
 	if int(scene.call("debug_triangle_count")) != original_triangle_count:
 		_fail("Changing border width unexpectedly rebuilt or altered the interior fill.")
@@ -172,10 +175,32 @@ func _run_smoke() -> void:
 
 	scene.call("debug_set_preview_time", 0.0)
 	var start_position := scene.call("debug_curve_shape_position") as Vector2
+	var start_scale := scene.call("debug_curve_shape_scale") as Vector2
+	var start_render_border_width := float(scene.call("debug_render_border_width"))
+	var start_border_color := scene.call("debug_border_color") as Color
 	scene.call("debug_set_preview_time", 2.4)
 	var moved_position := scene.call("debug_curve_shape_position") as Vector2
 	if moved_position.distance_to(start_position) < 18.0:
 		_fail("Curve pear did not move far enough to expose SCREEN_UV anchoring.")
+		return
+	var moved_scale := scene.call("debug_curve_shape_scale") as Vector2
+	if moved_scale.distance_to(start_scale) < 0.02:
+		_fail("Curve pear breathing animation did not change its silhouette scale.")
+		return
+	if absf(float(scene.call("debug_curve_shape_rotation"))) < deg_to_rad(1.0):
+		_fail("Curve pear idle animation did not produce a readable gentle tilt.")
+		return
+	if absf(float(scene.call("debug_render_border_width")) - start_render_border_width) < 0.15:
+		_fail("Curve pear border-width pulse did not advance with preview time.")
+		return
+	var moved_border_color := scene.call("debug_border_color") as Color
+	var start_border_rgb := Vector3(start_border_color.r, start_border_color.g, start_border_color.b)
+	var moved_border_rgb := Vector3(moved_border_color.r, moved_border_color.g, moved_border_color.b)
+	if moved_border_rgb.distance_to(start_border_rgb) < 0.04:
+		_fail("Curve pear border-color pulse did not advance with preview time.")
+		return
+	if int(scene.call("debug_ambient_mote_count")) != 3:
+		_fail("Curve pear ambient idle animation must keep exactly three motes.")
 		return
 
 	print(

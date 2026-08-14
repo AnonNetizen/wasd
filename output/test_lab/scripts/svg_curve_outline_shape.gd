@@ -63,12 +63,17 @@ func set_border_width(width: float) -> void:
 		_border_line.width = clampf(width, MIN_BORDER_WIDTH, MAX_BORDER_WIDTH)
 
 
+func set_border_color(color: Color) -> void:
+	if _border_line != null:
+		_border_line.default_color = color
+
+
 func border_width() -> float:
 	return _border_line.width if _border_line != null else 0.0
 
 
 func border_color() -> Color:
-	return _border_color
+	return _border_line.default_color if _border_line != null else _border_color
 
 
 func border_line_count() -> int:

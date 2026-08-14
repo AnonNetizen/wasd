@@ -11,6 +11,11 @@ var drop_every_nth: int = 0
 var duplicate_every_nth: int = 0
 var reorder_next_pair: bool = false
 var forced_user_id: String = ""
+var defer_peer_connection: bool = false
+var drop_peer_connections_before_success: int = 0
+var connect_attempt_count: int = 0
+var peer_reset_count: int = 0
+var diagnostic_history: Array[StringName] = []
 
 var _local_user_id: String = ""
 var _display_name: String = ""
@@ -20,6 +25,9 @@ var _packet_serial: int = 0
 var _fake_time: float = 0.0
 var _pending_packets: Array[Dictionary] = []
 var _held_reorder_packet: Dictionary = {}
+var _pending_host_user_id: String = ""
+var _logical_host_user_id: String = ""
+var _logical_role: String = "none"
 
 
 static func reset_bus_for_tests() -> void:
@@ -127,17 +135,56 @@ func start_host(_socket_name: String) -> bool:
 	if not _rooms.has(_room_code):
 		return false
 	var room: Dictionary = _rooms[_room_code]
-	return String(room.get("host_user_id", "")) == _local_user_id
+	_logical_host_user_id = _local_user_id
+	_logical_role = "host"
+	var allowed := String(room.get("host_user_id", "")) == _local_user_id
+	if allowed:
+		_emit_connection_diagnostic(&"MESH_CREATED")
+	return allowed
 
 
 func connect_to_host(_socket_name: String, host_user_id: String) -> bool:
+	connect_attempt_count += 1
+	_logical_host_user_id = host_user_id
+	_logical_role = "client"
+	_emit_connection_diagnostic(&"MESH_CREATED", host_user_id)
+	_emit_connection_diagnostic(&"REQUEST_SENT", host_user_id)
 	if not _instances.has(host_user_id):
 		return false
+	if connect_attempt_count <= drop_peer_connections_before_success:
+		return true
+	if defer_peer_connection:
+		_pending_host_user_id = host_user_id
+		return true
+	_emit_peer_connection(host_user_id)
+	return true
+
+
+func prepare_connection_retry() -> void:
+	peer_reset_count += 1
+	_pending_host_user_id = ""
+	_emit_connection_diagnostic(&"CLOSED", _logical_host_user_id, {"close_reason": "retry_reset"})
+
+
+func complete_deferred_connection_for_test() -> bool:
+	if _pending_host_user_id.is_empty():
+		return false
+	var host_user_id := _pending_host_user_id
+	_pending_host_user_id = ""
+	_emit_peer_connection(host_user_id)
+	return true
+
+
+func _emit_peer_connection(host_user_id: String) -> void:
+	_emit_connection_diagnostic(&"EOS_LINK_UP", host_user_id, {"network_type": 1})
+	_emit_connection_diagnostic(&"PEER_READY", host_user_id)
 	peer_connected.emit(host_user_id)
 	var host := _instances[host_user_id] as LowpolyFakeTransport
 	if is_instance_valid(host):
+		host._emit_connection_diagnostic(&"REQUEST_ACCEPTED", _local_user_id)
+		host._emit_connection_diagnostic(&"EOS_LINK_UP", _local_user_id, {"network_type": 1})
+		host._emit_connection_diagnostic(&"PEER_READY", _local_user_id)
 		host.peer_connected.emit(_local_user_id)
-	return true
 
 
 func send_packet(
@@ -203,6 +250,64 @@ func get_room_snapshot() -> Dictionary:
 
 func is_available() -> bool:
 	return not _local_user_id.is_empty()
+
+
+func get_debug_snapshot() -> Dictionary:
+	return {
+		"connect_attempt_count": connect_attempt_count,
+		"peer_reset_count": peer_reset_count,
+		"deferred_host_user_id": _pending_host_user_id,
+		"logical_role": _logical_role,
+		"diagnostic_history": diagnostic_history.duplicate(),
+	}
+
+
+func simulate_incoming_connection_request_for_test(remote_user_id: String) -> bool:
+	var allowed := _star_peer_allowed(remote_user_id)
+	_emit_connection_diagnostic(
+		&"REQUEST_ACCEPTED" if allowed else &"CLOSED",
+		remote_user_id,
+		{} if allowed else {"close_reason": "unauthorized_request"}
+	)
+	return allowed
+
+
+func _star_peer_allowed(remote_user_id: String) -> bool:
+	if not _rooms.has(_room_code):
+		return false
+	return LowpolyTransport.is_star_connection_allowed(
+		_logical_role,
+		_local_user_id,
+		_logical_host_user_id,
+		remote_user_id,
+		get_room_snapshot()
+	)
+
+
+func _emit_connection_diagnostic(
+	stage: StringName,
+	remote_user_id: String = "",
+	extra: Dictionary = {}
+) -> void:
+	diagnostic_history.append(stage)
+	var data := {
+		"logical_role": _logical_role,
+		"connected_peers": 1 if stage == &"PEER_READY" else 0,
+		"expected_peers": _expected_peer_count(),
+	}
+	if not remote_user_id.is_empty():
+		data["peer_hash"] = remote_user_id.sha256_text().left(8)
+	for key: Variant in extra.keys():
+		data[key] = extra[key]
+	connection_diagnostic.emit(stage, data)
+
+
+func _expected_peer_count() -> int:
+	if not _rooms.has(_room_code):
+		return 0
+	var members: Dictionary = (_rooms[_room_code] as Dictionary).get("members", {})
+	var other_members := maxi(members.size() - 1, 0)
+	return mini(other_members, 1) if _logical_role == "client" else other_members
 
 
 func advance_fake_time(delta: float) -> void:
