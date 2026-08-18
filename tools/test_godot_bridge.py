@@ -618,25 +618,31 @@ class GodotBridgeTests(unittest.TestCase):
                 sentinel.write_text("preserve", encoding="utf-8")
                 sentinels.append(sentinel)
 
-            captured: dict[str, object] = {}
+            captured_commands: list[list[str]] = []
+            captured_environments: list[dict[str, str]] = []
 
             def fake_run(command: list[str], **kwargs: object) -> object:
-                captured["command"] = command
-                captured["env"] = kwargs["env"]
                 environment = kwargs["env"]
                 self.assertIsInstance(environment, dict)
+                captured_commands.append(command)
+                captured_environments.append(environment)
                 Path(environment["APPDATA"], "probe.txt").write_text(
                     "isolated",
                     encoding="utf-8",
                 )
-                _gut_junit_path(command).write_text(
-                    PASSING_GUT_JUNIT,
-                    encoding="utf-8",
-                )
+                if "--import" not in command:
+                    _gut_junit_path(command).write_text(
+                        PASSING_GUT_JUNIT,
+                        encoding="utf-8",
+                    )
                 return subprocess.CompletedProcess(
                     command,
                     0,
-                    stdout="GUT completed\n",
+                    stdout=(
+                        "Import completed\n"
+                        if "--import" in command
+                        else "GUT completed\n"
+                    ),
                     stderr="",
                 )
 
@@ -657,14 +663,29 @@ class GodotBridgeTests(unittest.TestCase):
                 )
 
             self.assertEqual(result, 0)
-            command = captured["command"]
-            self.assertIn(godot_bridge.GUT_RUNNER_RESOURCE_PATH, command)
+            self.assertEqual(len(captured_commands), 2)
+            self.assertEqual(
+                captured_commands[0],
+                [
+                    str(root / "fake-godot.exe"),
+                    "--headless",
+                    "--path",
+                    str(project),
+                    "--import",
+                ],
+            )
+            gut_command = captured_commands[1]
+            self.assertIn(godot_bridge.GUT_RUNNER_RESOURCE_PATH, gut_command)
             self.assertIn(
                 "-gdir=res://tests/unit,res://tests/integration",
-                command,
+                gut_command,
             )
-            self.assertIn("-ginclude_subdirs", command)
-            isolated_env = captured["env"]
+            self.assertIn("-ginclude_subdirs", gut_command)
+            self.assertIs(
+                captured_environments[0],
+                captured_environments[1],
+            )
+            isolated_env = captured_environments[0]
             for key, outer_path in outer_paths.items():
                 self.assertNotEqual(isolated_env[key], str(outer_path))
             for sentinel in sentinels:
@@ -673,6 +694,31 @@ class GodotBridgeTests(unittest.TestCase):
                     "preserve",
                 )
                 self.assertFalse((sentinel.parent / "probe.txt").exists())
+
+    def test_gut_runner_stops_when_import_reports_fatal_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            project = root / "project"
+            _create_gut_project(project)
+
+            with mock.patch.object(
+                godot_bridge.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    ["fake-godot", "--import"],
+                    0,
+                    stdout="ERROR: import failed\n",
+                    stderr="",
+                ),
+            ) as run_process:
+                result = godot_bridge._run_gut(
+                    root / "fake-godot.exe",
+                    project,
+                )
+
+        self.assertEqual(result, 1)
+        run_process.assert_called_once()
+        self.assertIn("--import", run_process.call_args.args[0])
 
     def test_gut_runner_rejects_missing_suite_before_launch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -698,6 +744,13 @@ class GodotBridgeTests(unittest.TestCase):
             _create_gut_project(project)
 
             def fake_run(command: list[str], **_kwargs: object) -> object:
+                if "--import" in command:
+                    return subprocess.CompletedProcess(
+                        command,
+                        0,
+                        stdout="Import completed\n",
+                        stderr="",
+                    )
                 _gut_junit_path(command).write_text(
                     PASSING_GUT_JUNIT,
                     encoding="utf-8",
@@ -742,6 +795,13 @@ class GodotBridgeTests(unittest.TestCase):
                         command: list[str],
                         **_kwargs: object,
                     ) -> object:
+                        if "--import" in command:
+                            return subprocess.CompletedProcess(
+                                command,
+                                0,
+                                stdout="Import completed\n",
+                                stderr="",
+                            )
                         if junit_text is not None:
                             _gut_junit_path(command).write_text(
                                 junit_text,

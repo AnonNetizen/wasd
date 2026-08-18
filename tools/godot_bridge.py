@@ -1022,6 +1022,22 @@ def _run_gut(
         result_dir.mkdir(parents=True, exist_ok=True)
         junit_path = result_dir / "gut.xml"
         isolated_env = _isolated_user_environment(root / "user")
+        import_result = _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--import",
+            ],
+            cwd=project,
+            env=isolated_env,
+            failure_markers=STANDARD_FATAL_MARKERS,
+            print_output=False,
+        )
+        if import_result != 0:
+            return import_result
+        print("[godot-bridge] Godot import gate passed.")
         command = [
             str(godot),
             "--headless",
